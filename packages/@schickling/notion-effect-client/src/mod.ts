@@ -8,8 +8,8 @@ export interface NotionClientConfig {
   readonly version?: string
 }
 
-export class NotionClientService extends Context.Tag('NotionClientService')<
-  NotionClientService,
+export class NotionClient extends Context.Tag('NotionClient')<
+  NotionClient,
   {
     readonly getDatabases: () => Effect.Effect<unknown[], Error>
     readonly getDatabase: (databaseId: string) => Effect.Effect<unknown, Error>
@@ -21,7 +21,7 @@ export class NotionClientService extends Context.Tag('NotionClientService')<
 >() {}
 
 export const NotionClientLive = Layer.effect(
-  NotionClientService,
+  NotionClient,
   Effect.gen(function* () {
     const httpClient = yield* HttpClient.HttpClient
 

@@ -1,6 +1,12 @@
 # effect-notion
 
-Effect schemas and tools for working with the Notion API.
+[Effect](https://effect.website) schemas and tools for working with the Notion API.
+
+## Status
+
+**This repository is currently a placeholder.** I hope to find time to actually implement this soon. 
+
+If you're interested in helping with this project, please ping `@schickling` in the [Effect Discord](https://discord.gg/effect-ts).
 
 ## Packages
 
@@ -9,13 +15,46 @@ Effect schemas and tools for working with the Notion API.
 Effect schemas for Notion API primitives like CheckboxElement, TextElement, SelectElement, etc.
 
 ```ts
-import { CheckboxElement } from '@schickling/notion-effect-schema'
+import { 
+  TitleElement, 
+  CheckboxElement, 
+  SelectElement,
+  StringFromTitleElement,
+  BooleanFromCheckboxElement,
+  StringFromSelectElement
+} from '@schickling/notion-effect-schema'
 import { Schema } from 'effect'
 
-const checkbox = Schema.decodeUnknownSync(CheckboxElement)({
-  type: 'checkbox',
-  checkbox: true
+// Define a task database schema
+const TaskPageSchema = Schema.Struct({
+  id: Schema.String,
+  properties: Schema.Struct({
+    Name: TitleElement,
+    Completed: CheckboxElement,
+    Priority: SelectElement,
+  })
 })
+
+// Transform to a clean data structure
+const CleanTaskSchema = Schema.transform(TaskPageSchema, 
+  Schema.Struct({
+    id: Schema.String,
+    name: Schema.String,
+    completed: Schema.Boolean,
+    priority: Schema.NullOr(Schema.String),
+  }), {
+  decode: (page) => ({
+    id: page.id,
+    name: Schema.decodeUnknownSync(StringFromTitleElement)(page.properties.Name),
+    completed: Schema.decodeUnknownSync(BooleanFromCheckboxElement)(page.properties.Completed),
+    priority: Schema.decodeUnknownSync(StringFromSelectElement)(page.properties.Priority),
+  }),
+  encode: () => { throw new Error('Not implemented') }
+})
+
+// Usage with Notion API response
+const notionApiResponse = await fetch('/api/notion/database')
+const tasks = Schema.decodeUnknownSync(Schema.Array(CleanTaskSchema))(notionApiResponse)
 ```
 
 ### [@schickling/notion-effect-client](./packages/@schickling/notion-effect-client)
@@ -23,11 +62,11 @@ const checkbox = Schema.decodeUnknownSync(CheckboxElement)({
 Effect-native wrapper for the Notion API client with proper error handling and observability.
 
 ```ts
-import { NotionClientService } from '@schickling/notion-effect-client'
+import { NotionClient } from '@schickling/notion-effect-client'
 import { Effect } from 'effect'
 
 const program = Effect.gen(function* () {
-  const client = yield* NotionClientService
+  const client = yield* NotionClient
   const database = yield* client.getDatabase('your-database-id')
   const pages = yield* client.queryDatabase('your-database-id')
   return { database, pages }
@@ -49,12 +88,6 @@ notion-effect-schema-gen <database-id> > generated-schema.ts
 #   priority: SelectElement,
 # })
 ```
-
-## Status
-
-**This repository is currently a placeholder.** I hope to find time to actually implement this soon. 
-
-If you're interested in helping with this project, please ping `@schickling` in the [Effect Discord](https://discord.gg/effect-ts).
 
 ## Development
 
