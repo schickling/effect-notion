@@ -1,0 +1,28 @@
+{
+  "name": "@schickling/notion-effect-schema-gen",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "notion-effect-schema-gen": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/mod.d.ts",
+      "import": "./dist/mod.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "echo \"TODO: Add tests\""
+  },
+  "dependencies": {
+    "@schickling/notion-effect-schema": "workspace:*"
+  },
+  "peerDependencies": {
+    "effect": "^3.10.0"
+  },
+  "devDependencies": {
+    "effect": "^3.10.0"
+  }
+}

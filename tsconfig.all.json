@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "."
+  },
+  "references": [
+    { "path": "./packages/@schickling/notion-effect-schema" },
+    { "path": "./packages/@schickling/notion-effect-schema-gen" },
+    { "path": "./packages/@schickling/notion-effect-client" }
+  ],
+  "files": []
+}

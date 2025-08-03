@@ -1,0 +1,11 @@
+# General
+.DS_Store
+*.log
+tmp
+
+# Node.js
+node_modules
+
+# TypeScript
+*.tsbuildinfo
+dist

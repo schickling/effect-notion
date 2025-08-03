@@ -1,0 +1,27 @@
+{
+  "name": "@schickling/notion-effect-client",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./dist/mod.d.ts",
+      "import": "./dist/mod.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "echo \"TODO: Add tests\""
+  },
+  "dependencies": {
+    "@schickling/notion-effect-schema": "workspace:*"
+  },
+  "peerDependencies": {
+    "effect": "^3.10.0",
+    "@effect/platform": "^0.69.0"
+  },
+  "devDependencies": {
+    "effect": "^3.10.0",
+    "@effect/platform": "^0.69.0"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@schickling/notion-effect-schema",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./dist/mod.d.ts",
+      "import": "./dist/mod.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "echo \"TODO: Add tests\""
+  },
+  "peerDependencies": {
+    "effect": "^3.10.0"
+  },
+  "devDependencies": {
+    "effect": "^3.10.0"
+  }
+}
