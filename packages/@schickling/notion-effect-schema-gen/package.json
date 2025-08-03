@@ -3,13 +3,16 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "bin": {
-    "notion-effect-schema-gen": "./dist/cli.js"
-  },
   "exports": {
-    ".": {
-      "types": "./dist/mod.d.ts",
-      "import": "./dist/mod.js"
+    ".": "./src/mod.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "bin": {
+      "notion-effect-schema-gen": "./dist/cli.js"
+    },
+    "exports": {
+      ".": "./dist/mod.js"
     }
   },
   "scripts": {

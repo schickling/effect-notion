@@ -4,9 +4,12 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": {
-      "types": "./dist/mod.d.ts",
-      "import": "./dist/mod.js"
+    ".": "./src/mod.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js"
     }
   },
   "scripts": {
