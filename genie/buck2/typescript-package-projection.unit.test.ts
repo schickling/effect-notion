@@ -7,6 +7,7 @@ import ciWorkflow from '../../.github/workflows/ci.yml.genie.ts'
 import dependencyBuck from '../../buck2/dependencies/BUCK.genie.ts'
 import contentAddressBuck from '../../packages/@overeng/content-address/BUCK.genie.ts'
 import effectDistributedLockBuck from '../../packages/@overeng/effect-distributed-lock/BUCK.genie.ts'
+import effectPathBuck from '../../packages/@overeng/effect-path/BUCK.genie.ts'
 import type { GenieContext } from '../../packages/@overeng/genie/src/runtime/core.ts'
 import notionCliBuck from '../../packages/@overeng/notion-cli/BUCK.genie.ts'
 import notionCoreBuck from '../../packages/@overeng/notion-core/BUCK.genie.ts'
@@ -33,6 +34,7 @@ const genieContext: GenieContext = { cwd: process.cwd(), location: '' }
 const outputsByAdmission = {
   contentAddress: contentAddressBuck.stringify(genieContext),
   effectDistributedLock: effectDistributedLockBuck.stringify(genieContext),
+  effectPath: effectPathBuck.stringify(genieContext),
   notionCli: notionCliBuck.stringify(genieContext),
   notionCore: notionCoreBuck.stringify(genieContext),
   notionDatasourceSync: notionDatasourceSyncBuck.stringify(genieContext),

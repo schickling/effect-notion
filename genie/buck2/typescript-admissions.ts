@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer'
 
 import { buck2TypeScriptAdmission as contentAddressAdmission } from '../../packages/@overeng/content-address/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as effectDistributedLockAdmission } from '../../packages/@overeng/effect-distributed-lock/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as effectPathAdmission } from '../../packages/@overeng/effect-path/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as notionCliAdmission } from '../../packages/@overeng/notion-cli/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as notionCoreAdmission } from '../../packages/@overeng/notion-core/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as notionDatasourceSyncAdmission } from '../../packages/@overeng/notion-datasource-sync/BUCK.genie.ts'
@@ -40,6 +41,7 @@ export type AuthoritativeBuck2TypeScriptAdmission = Buck2TypeScriptAuthorityMeta
 export const buck2TypeScriptAdmissions = {
   contentAddress: contentAddressAdmission,
   effectDistributedLock: effectDistributedLockAdmission,
+  effectPath: effectPathAdmission,
   notionCli: notionCliAdmission,
   notionCore: notionCoreAdmission,
   notionDatasourceSync: notionDatasourceSyncAdmission,
