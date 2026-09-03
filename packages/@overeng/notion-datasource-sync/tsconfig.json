@@ -46,17 +46,10 @@
     "composite": true,
     "rootDir": ".",
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
-    "types": [
-      "node"
-    ],
-    "jsx": "react-jsx"
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "noEmit": true
   },
-  "include": [
-    "src/**/*"
-  ],
-  "references": [
-    {
-      "path": "../notion-md"
-    }
-  ]
+  "include": ["src/**/*"],
+  "references": []
 }
