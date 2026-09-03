@@ -44,18 +44,13 @@
     "composite": true,
     "rootDir": ".",
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "noEmit": true
   },
   "include": ["src/**/*", "bin/**/*.ts"],
   "references": [
     {
       "path": "../effect-path"
-    },
-    {
-      "path": "../notion-datasource-sync"
-    },
-    {
-      "path": "../notion-md"
     }
   ]
 }

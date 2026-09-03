@@ -52,18 +52,6 @@
       "path": "./packages/@overeng/megarepo"
     },
     {
-      "path": "./packages/@overeng/notion-cli"
-    },
-    {
-      "path": "./packages/@overeng/notion-datasource-sync"
-    },
-    {
-      "path": "./packages/@overeng/notion-md"
-    },
-    {
-      "path": "./packages/@overeng/notion-react"
-    },
-    {
       "path": "./packages/@overeng/npm-release"
     },
     {

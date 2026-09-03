@@ -17,27 +17,27 @@ export const buck2TypeScriptAdmission = {
     {
       packageName: '@overeng/notion-core',
       packagePath: 'packages/@overeng/notion-core',
-      sourceRoots: ['src'],
+      distTarget: '//packages/@overeng/notion-core:dist',
     },
     {
       packageName: '@overeng/notion-effect-client',
       packagePath: 'packages/@overeng/notion-effect-client',
-      sourceRoots: ['src'],
+      distTarget: '//packages/@overeng/notion-effect-client:dist',
     },
     {
       packageName: '@overeng/notion-effect-schema',
       packagePath: 'packages/@overeng/notion-effect-schema',
-      sourceRoots: ['src'],
+      distTarget: '//packages/@overeng/notion-effect-schema:dist',
     },
     {
       packageName: '@overeng/notion-md',
       packagePath: 'packages/@overeng/notion-md',
-      sourceRoots: ['src'],
+      distTarget: '//packages/@overeng/notion-md:dist',
     },
     {
       packageName: '@overeng/notion-property-write',
       packagePath: 'packages/@overeng/notion-property-write',
-      sourceRoots: ['src'],
+      distTarget: '//packages/@overeng/notion-property-write:dist',
     },
     {
       packageName: '@overeng/otel-contract',
@@ -56,6 +56,10 @@ export const buck2TypeScriptAdmission = {
     },
   ],
   editorViewConsumer: false,
+  authority: {
+    declarationEntrypoint: 'src/mod.d.ts',
+    projectFile: 'tsconfig.json',
+  },
 } as const satisfies Buck2TypeScriptAdmission
 
 export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)

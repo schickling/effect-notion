@@ -46,12 +46,9 @@
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "types": ["node"],
     "jsx": "react-jsx",
+    "noEmit": true,
     "jsxImportSource": "react"
   },
   "include": ["src/**/*"],
-  "references": [
-    {
-      "path": "../notion-md"
-    }
-  ]
+  "references": []
 }
