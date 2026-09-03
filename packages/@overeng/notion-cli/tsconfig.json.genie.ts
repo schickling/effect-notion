@@ -10,11 +10,8 @@ export default tsconfigJson({
     ...baseTsconfigCompilerOptions,
     ...packageTsconfigCompilerOptions,
     ...reactJsx,
+    noEmit: true,
   },
   include: ['src/**/*', 'bin/**/*.ts'],
-  references: [
-    { path: '../effect-path' },
-    { path: '../notion-datasource-sync' },
-    { path: '../notion-md' },
-  ],
+  references: [{ path: '../effect-path' }],
 } satisfies TSConfigArgs)
