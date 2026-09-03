@@ -12,6 +12,7 @@ export default tsconfigJson({
     ...packageTsconfigCompilerOptions,
     ...nodeTypes,
     ...reactJsx,
+    noEmit: true,
     lib: ['ES2023'],
   },
   include: ['src/**/*'],
