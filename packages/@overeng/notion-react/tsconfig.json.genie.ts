@@ -17,5 +17,5 @@ export default tsconfigJson({
     lib: [...domLib],
   },
   include: ['src/**/*'],
-  references: [{ path: '../notion-md' }],
+  references: [],
 } satisfies TSConfigArgs)
