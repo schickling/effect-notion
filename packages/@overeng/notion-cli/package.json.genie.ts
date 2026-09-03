@@ -65,8 +65,14 @@ export default packageJson(
       'storybook:build': 'storybook build',
     },
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'node' }),
-      './config': exportEntry('./src/config-def.ts', { environment: 'node' }),
+      '.': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'node' },
+      ),
+      './config': exportEntry(
+        { types: './dist/src/config-def.d.ts', default: './src/config-def.ts' },
+        { environment: 'node' },
+      ),
     },
     publishConfig: {
       access: 'public',
