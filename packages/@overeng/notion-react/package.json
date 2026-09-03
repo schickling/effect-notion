@@ -4,14 +4,35 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/mod.ts",
-    "./markdown": "./src/markdown/mod.ts",
-    "./o11y": "./src/o11y/mod.ts",
-    "./o11y/effect": "./src/o11y/effect-adapter.ts",
-    "./o11y/otel": "./src/o11y/otel-adapter.ts",
-    "./renderer": "./src/renderer/mod.ts",
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
+    "./markdown": {
+      "types": "./dist/src/markdown/mod.d.ts",
+      "default": "./src/markdown/mod.ts"
+    },
+    "./o11y": {
+      "types": "./dist/src/o11y/mod.d.ts",
+      "default": "./src/o11y/mod.ts"
+    },
+    "./o11y/effect": {
+      "types": "./dist/src/o11y/effect-adapter.d.ts",
+      "default": "./src/o11y/effect-adapter.ts"
+    },
+    "./o11y/otel": {
+      "types": "./dist/src/o11y/otel-adapter.d.ts",
+      "default": "./src/o11y/otel-adapter.ts"
+    },
+    "./renderer": {
+      "types": "./dist/src/renderer/mod.d.ts",
+      "default": "./src/renderer/mod.ts"
+    },
     "./test": "./src/test/integration/e2e/helpers.ts",
-    "./web": "./src/web/mod.ts",
+    "./web": {
+      "types": "./dist/src/web/mod.d.ts",
+      "default": "./src/web/mod.ts"
+    },
     "./web/katex.css": "./src/web/katex.css",
     "./web/styles.css": "./src/web/styles.css"
   },

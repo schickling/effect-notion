@@ -4,8 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/mod.ts",
-    "./config": "./src/config-def.ts"
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
+    "./config": {
+      "types": "./dist/src/config-def.d.ts",
+      "default": "./src/config-def.ts"
+    }
   },
   "publishConfig": {
     "access": "public",

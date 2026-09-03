@@ -4,26 +4,86 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/mod.ts",
-    "./body": "./src/body/adapter.ts",
-    "./body/notion-md": "./src/body/notion-md.ts",
-    "./cli/effect-command": "./src/cli/effect-command.ts",
-    "./daemon": "./src/daemon/watch.ts",
-    "./demo": "./src/demo/live-demo.ts",
-    "./gateway": "./src/gateway/gateway.ts",
-    "./gateway/fake": "./src/gateway/fake.ts",
-    "./gateway/notion": "./src/gateway/notion.ts",
-    "./local": "./src/local/workspace.ts",
-    "./observability": "./src/observability/observability.ts",
-    "./replica": "./src/replica/replica.ts",
-    "./store": "./src/store/store.ts",
-    "./store/projections": "./src/store/projections.ts",
-    "./store/schema": "./src/store/schema.ts",
-    "./sync": "./src/sync/sync.ts",
-    "./sync/executor": "./src/sync/executor.ts",
-    "./sync/observation": "./src/sync/observation.ts",
-    "./testing/*": "./src/testing/*.ts",
-    "./webhook": "./src/webhook/mod.ts"
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
+    "./body": {
+      "types": "./dist/src/body/adapter.d.ts",
+      "default": "./src/body/adapter.ts"
+    },
+    "./body/notion-md": {
+      "types": "./dist/src/body/notion-md.d.ts",
+      "default": "./src/body/notion-md.ts"
+    },
+    "./cli/effect-command": {
+      "types": "./dist/src/cli/effect-command.d.ts",
+      "default": "./src/cli/effect-command.ts"
+    },
+    "./daemon": {
+      "types": "./dist/src/daemon/watch.d.ts",
+      "default": "./src/daemon/watch.ts"
+    },
+    "./demo": {
+      "types": "./dist/src/demo/live-demo.d.ts",
+      "default": "./src/demo/live-demo.ts"
+    },
+    "./gateway": {
+      "types": "./dist/src/gateway/gateway.d.ts",
+      "default": "./src/gateway/gateway.ts"
+    },
+    "./gateway/fake": {
+      "types": "./dist/src/gateway/fake.d.ts",
+      "default": "./src/gateway/fake.ts"
+    },
+    "./gateway/notion": {
+      "types": "./dist/src/gateway/notion.d.ts",
+      "default": "./src/gateway/notion.ts"
+    },
+    "./local": {
+      "types": "./dist/src/local/workspace.d.ts",
+      "default": "./src/local/workspace.ts"
+    },
+    "./observability": {
+      "types": "./dist/src/observability/observability.d.ts",
+      "default": "./src/observability/observability.ts"
+    },
+    "./replica": {
+      "types": "./dist/src/replica/replica.d.ts",
+      "default": "./src/replica/replica.ts"
+    },
+    "./store": {
+      "types": "./dist/src/store/store.d.ts",
+      "default": "./src/store/store.ts"
+    },
+    "./store/projections": {
+      "types": "./dist/src/store/projections.d.ts",
+      "default": "./src/store/projections.ts"
+    },
+    "./store/schema": {
+      "types": "./dist/src/store/schema.d.ts",
+      "default": "./src/store/schema.ts"
+    },
+    "./sync": {
+      "types": "./dist/src/sync/sync.d.ts",
+      "default": "./src/sync/sync.ts"
+    },
+    "./sync/executor": {
+      "types": "./dist/src/sync/executor.d.ts",
+      "default": "./src/sync/executor.ts"
+    },
+    "./sync/observation": {
+      "types": "./dist/src/sync/observation.d.ts",
+      "default": "./src/sync/observation.ts"
+    },
+    "./testing/*": {
+      "types": "./dist/src/testing/*.d.ts",
+      "default": "./src/testing/*.ts"
+    },
+    "./webhook": {
+      "types": "./dist/src/webhook/mod.d.ts",
+      "default": "./src/webhook/mod.ts"
+    }
   },
   "publishConfig": {
     "access": "public",

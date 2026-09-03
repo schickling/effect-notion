@@ -4,9 +4,18 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/mod.ts",
-    "./cli": "./src/cli.ts",
-    "./cli-program": "./src/cli-program.ts"
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
+    "./cli": {
+      "types": "./dist/src/cli.d.ts",
+      "default": "./src/cli.ts"
+    },
+    "./cli-program": {
+      "types": "./dist/src/cli-program.d.ts",
+      "default": "./src/cli-program.ts"
+    }
   },
   "publishConfig": {
     "access": "public",
