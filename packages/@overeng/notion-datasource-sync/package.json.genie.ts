@@ -110,7 +110,10 @@ export default packageJson(
         { environment: 'node' },
       ),
       './observability': exportEntry(
-        { types: './dist/src/observability/observability.d.ts', default: './src/observability/observability.ts' },
+        {
+          types: './dist/src/observability/observability.d.ts',
+          default: './src/observability/observability.ts',
+        },
         {
           environment: 'node',
         },
