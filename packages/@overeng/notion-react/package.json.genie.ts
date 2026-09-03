@@ -55,17 +55,38 @@ export default packageJson(
     name: '@overeng/notion-react',
     ...privatePackageDefaults,
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'node' }),
-      './markdown': exportEntry('./src/markdown/mod.ts', { environment: 'node' }),
-      './renderer': exportEntry('./src/renderer/mod.ts', { environment: 'browser' }),
-      './o11y': exportEntry('./src/o11y/mod.ts', { environment: 'browser' }),
-      './o11y/effect': exportEntry('./src/o11y/effect-adapter.ts', { environment: 'browser' }),
-      './o11y/otel': exportEntry('./src/o11y/otel-adapter.ts', { environment: 'browser' }),
+      '.': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'node' },
+      ),
+      './markdown': exportEntry(
+        { types: './dist/src/markdown/mod.d.ts', default: './src/markdown/mod.ts' },
+        { environment: 'node' },
+      ),
+      './renderer': exportEntry(
+        { types: './dist/src/renderer/mod.d.ts', default: './src/renderer/mod.ts' },
+        { environment: 'browser' },
+      ),
+      './o11y': exportEntry(
+        { types: './dist/src/o11y/mod.d.ts', default: './src/o11y/mod.ts' },
+        { environment: 'browser' },
+      ),
+      './o11y/effect': exportEntry(
+        { types: './dist/src/o11y/effect-adapter.d.ts', default: './src/o11y/effect-adapter.ts' },
+        { environment: 'browser' },
+      ),
+      './o11y/otel': exportEntry(
+        { types: './dist/src/o11y/otel-adapter.d.ts', default: './src/o11y/otel-adapter.ts' },
+        { environment: 'browser' },
+      ),
       './test': exportEntry('./src/test/integration/e2e/helpers.ts', {
         environment: 'node',
         published: false,
       }),
-      './web': exportEntry('./src/web/mod.ts', { environment: 'browser' }),
+      './web': exportEntry(
+        { types: './dist/src/web/mod.d.ts', default: './src/web/mod.ts' },
+        { environment: 'browser' },
+      ),
       './web/styles.css': exportEntry('./src/web/styles.css', { environment: 'browser' }),
       './web/katex.css': exportEntry('./src/web/katex.css', { environment: 'browser' }),
     },
