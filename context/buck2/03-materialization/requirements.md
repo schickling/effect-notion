@@ -1,69 +1,75 @@
 # Materialization Requirements
 
-This subsystem owns dependency materialization: how manifest-declared
-dependencies become `node_modules` trees for actions and for the editor
-surface. It refines BUCK-R08 and BUCK-R11. The transitional pnpm/Nix contract
-in `context/dependency-materialization` dissolves against these requirements
-as authority transfers (BUCK-R09).
+This subsystem owns the normalized pnpm store, package views for actions, and
+byte-materialized editor snapshots. It refines BUCK-R08 and BUCK-R11.
 
 ## Assumptions
 
 - **DEPS-A01 Request authority:** Manifests, the lockfile, and declared patches
   are the only hand-authored dependency inputs (BUCK-A04).
-- **DEPS-A02 Package supply:** Registry tarballs fetched by Buck supply package
-  bytes; lockfile integrity hashes pin them through a generated, freshness-gated
-  sha256 sidecar. Fetched bytes are trusted at link time within the
-  single-operator boundary (BUCK-A05). No ambient package store exists.
+- **DEPS-A02 Package supply:** Hash-pinned registry tarballs fetched by Buck
+  supply package bytes. Their extracted artifacts are shared across every
+  platform and consumer; no ambient package store is authoritative.
 
 ## Acceptable Tradeoffs
 
-- **DEPS-T01 Local-only assembly:** Assembled trees are relocatable, but
-  assembly hardlinks from extract artifacts and is therefore `local_only` and
-  cheap to recompute. Fetch and extract actions, and the actions consuming the
-  trees, reuse across machines through the shared cache.
-- **DEPS-T02 Transitional root install:** Until the editor-surface transfer
-  gate passes ([decision 0015](../.decisions/0015-buck-owned-dependency-surface.md)),
-  the root install remains, carried in the deletion ledger.
+- **DEPS-T01 Bounded identity assembly:** An acyclic peer-resolved store entry
+  may materialize its package tree once so realpath preserves visibility of
+  sibling dependency links. The five real dependency SCCs may instead use one
+  sandboxed assembly action per SCC; each member keeps a distinct namespace.
+- **DEPS-T02 Transitional root install:** Until the editor and TypeScript
+  authority gates pass, the root install remains on the deletion ledger. The
+  final authority flip deletes it.
 
 ## Requirements
 
-- **DEPS-R01 Manifest-only inputs:** A materialization action's inputs are
-  exactly the workspace manifests, the lockfile, and declared patches. No
-  source file is an input; no source edit invalidates a dependency tree.
-- **DEPS-R02 Deterministic relocatable output:** Equal lockfile input produces
-  a byte-stable tree by construction: layout is derived from the lockfile, links
-  are relative, and no package-manager metadata or generated shim needs
-  normalization. Absolute symlink targets are forbidden — they poison action
-  keys.
-- **DEPS-R03 Live workspace siblings:** Workspace-internal dependencies resolve
-  as symlinks to live member sources, not injected copies, so a sibling edit
-  needs no rebuild and no language-server restart.
-- **DEPS-R04 CoW economics:** Assembled trees clone from Buck extract
-  artifacts with copy-on-write reflinks where the filesystem supports them,
-  and fall back to plain copies where it does not; assembled files always
-  carry independent inodes. Hardlink sharing into assembled trees is
-  rejected — shared inodes let a write through an assembled tree corrupt the
-  extract artifact (decision
-  [0025](../.decisions/0025-cow-reflink-local-disk-economics.md)). A
-  cross-mount silent copy remains a defect (BUCK-R08); mount identity, not
-  `st_dev`, is the test. Published editor views are read-only.
-- **DEPS-R05 Atomic editor views:** The editor surface flips atomically
-  (snapshot + `rename(2)`) with no window in which `node_modules` is absent;
-  a live language server survives the flip without restart.
-- **DEPS-R06 Loud staleness:** A consistency gate compares the materialized
-  surface's manifest fingerprint against the repository's before use; a stale
-  surface fails loudly (vision criterion 8). Silent drift is the defect class
-  this subsystem exists to eliminate.
-- **DEPS-R07 Bounded fan-out:** Materialization keying bounds invalidation
-  literally: a manifest change in one package must not rebuild every package's
-  TREE — bounded action count and no per-touch rewrite of every tree, not
-  merely no downstream cascade. The mechanism is structural: one fetch and one
-  extract target per package version and one assembly target per importer, so a
-  lockfile change re-runs only the changed packages' extractions and the
-  affected importers' assemblies
+- **DEPS-R01 Manifest-only dependency inputs:** Store construction reads the
+  workspace manifests, lockfile, generated integrity sidecar, and declared
+  patches. Source edits do not invalidate registry package entries.
+- **DEPS-R02 Normalized deterministic store:** Each peer-resolved package
+  identity has one normalized entry, except the nine entries with
+  platform-selected dependency edges, which have one entry artifact per
+  distinct configured variant. Each entry owns one package-tree materialization;
+  dependency edges are metadata symlinks. Layout, links, modes, peer identity,
+  platform-edge variant, and bin shims are lockfile-derived, byte/link-stable,
+  relocatable, and contain no absolute links or package-manager metadata.
+- **DEPS-R03 Shared extracts and narrow platform keys:** Tarball fetch/extract
+  artifacts are platform-invariant and shared. Only the nine direct-dependency
+  entries whose selected optional dependencies differ by platform have distinct
+  configured entry artifacts and own-package materialization per variant;
+  archive targets, all other store entries, and consumer views are invariant.
+- **DEPS-R04 No per-consumer closures:** The normalized store may materialize
+  package bytes once per identity, or once per distinct configured platform-edge
+  variant for the nine selected entries, shared by every consumer.
+  Workspace/dist entries may own their small package boundary where realpath
+  requires it. Importer views are metadata-only; package execution views copy
+  only package-owned sources/workspace dist boundaries and never a dependency
+  closure. This invariant holds on filesystems without CoW (BUCK-R08).
+- **DEPS-R05 Safe SCC namespaces:** Each of the five real SCCs is assembled once
+  in a sandbox from read-only member inputs. Every member occupies its own
+  pnpm-compatible namespace; cycle links resolve within the group without
+  merging colliding paths. Only the group output and scratch are writable.
+- **DEPS-R06 Atomic byte editor snapshots:** An editor snapshot dereferences the
+  selected package view into new byte-owned state, validates its digest, then
+  atomically renames the complete snapshot and current pointer. It remains
+  valid after every backing Buck artifact is deleted and never exposes a
+  partial or absent `node_modules`.
+- **DEPS-R07 Loud staleness:** The editor record binds manifest, store, view,
+  and snapshot digests. Missing, escaping, incomplete, or stale state fails
+  loudly before use; a live language server survives a valid flip.
+- **DEPS-R08 Bounded fan-out:** A changed package snapshot invalidates its
+  normalized entry, its containing SCC when applicable, and only views whose
+  closure contains it. Unrelated entries and views remain unchanged
   ([decision 0022](../.decisions/0022-lockfile-derived-declared-closure.md)).
-- **DEPS-R08 Fail-closed fetch:** Network access exists only in hash-pinned
-  fetch actions; extraction and assembly run offline, and a missing or
-  mismatched package fails the action rather than falling back. Adding a
-  genuinely new version is an explicit developer step that updates the
-  lockfile and regenerates the sidecar.
+- **DEPS-R09 Fail-closed fetch:** Network access exists only in hash-pinned
+  fetch actions. Extraction, entry/SCC assembly, views, snapshots, and consumer
+  actions run offline; a missing or mismatched package never falls back.
+- **DEPS-R10 Dist-only workspace boundary:** Production workspace entries expose
+  manifest-declared built `dist` artifacts and package metadata, never live
+  sibling source. All 17 packages in the #1209 graph must be dist-servable
+  before one atomic final authority flip; staged prerequisite PRs do not create
+  a mixed production boundary.
+- **DEPS-R11 No lifecycle scripts:** Package lifecycle/build scripts do not run
+  during fetch, extraction, entry/SCC assembly, or view construction.
+  `requiresBuild` fails admission until a declared, sandboxed mechanism is
+  specified; it never falls back to package-manager execution.

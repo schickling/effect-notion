@@ -10,10 +10,10 @@ Draft.
 ## Scope
 
 **Defines:** authority, component ownership, dependency direction, composition
-shape, and subsystem responsibilities.
+shape, subsystem responsibilities, and atomic authority-cutover sequencing.
 
 **Does not define:** deployment, activation, rollback, health, CI topology, or
-rollout sequencing ([roadmap.md](./roadmap.md)).
+post-authority rollout sequencing ([roadmap.md](./roadmap.md)).
 
 ## Architecture
 
@@ -31,10 +31,10 @@ configured Buck graph
    |         |          |
    v         v          v
 02 execution  03 materialization  ──> actions (typecheck, build, test, package)
-(toolchains,  (deps for actions          |
- platforms,    and editor surface)       |
- TS + Rust rules)                        v
-                              04 reuse (shared AC/CAS on dev3)
+(toolchains,  (normalized store,        |
+ platforms,    closure-link views,     |
+ sandboxes)    byte editor snapshots)  v
+                              04 reuse (shared AC/CAS on tailnet cache)
                                          |
                                          v
                               native evidence + BuildProduct
@@ -48,18 +48,18 @@ configured Buck graph
 
 ## Authority Matrix
 
-| Concern                                    | Authority             | Boundary                                        |
-| ------------------------------------------ | --------------------- | ----------------------------------------------- |
-| Semantic intent, package and target facts  | Genie-composed models | Projected BUCK files, freshness-gated           |
-| Dependency requests                        | Manifests + lockfile  | Only hand-authored dependency input             |
-| Dependency materialization (build, editor) | Buck actions          | `pnpm deploy` from manifests, atomic view flips |
-| Repository-local deterministic work        | Buck                  | Providers, configured platforms, action keys    |
-| Tools and system inputs                    | Nix                   | Immutable `/nix/store` providers                |
-| Cross-member source dependencies           | Buck cells            | Canonical composition root (megarepo/genie)     |
-| Shared reuse                               | Remote AC/CAS (dev3)  | REAPI cache-only, tailnet trust                 |
-| Portable artifact                          | Buck                  | `buck-build-product/v1` descriptor and payload  |
-| Product validation and store import        | Nix                   | Exact descriptor and payload checks             |
-| Deployment and all live effects            | Consumer              | Outside the Buck contract                       |
+| Concern                                    | Authority             | Boundary                                                      |
+| ------------------------------------------ | --------------------- | ------------------------------------------------------------- |
+| Semantic intent, package and target facts  | Genie-composed models | Projected BUCK files, freshness-gated                         |
+| Dependency requests                        | Manifests + lockfile  | Only hand-authored dependency input                           |
+| Dependency materialization (build, editor) | Buck actions          | Normalized entries, closure-link views, atomic byte snapshots |
+| Repository-local deterministic work        | Buck                  | Providers, configured platforms, action keys                  |
+| Tools and system inputs                    | Nix                   | Immutable `/nix/store` providers                              |
+| Cross-member source dependencies           | Buck cells            | Canonical composition root (megarepo/genie)                   |
+| Shared reuse                               | Remote AC/CAS         | Cache-only service inside tailnet trust                       |
+| Portable artifact                          | Buck                  | `buck-build-product/v1` descriptor and payload                |
+| Product validation and store import        | Nix                   | Exact descriptor and payload checks                           |
+| Deployment and all live effects            | Consumer              | Outside the Buck contract                                     |
 
 ## Composition Shape
 
@@ -77,14 +77,29 @@ own cache namespace. Mechanism and the key-stability discipline:
 ```text
 1. genie freshness gate: projections match authored intent
 2. composition root selects admitted targets and platforms
-3. Buck analyzes and executes; unchanged work resolves from the shared cache
-4. dependency views flip atomically for the editor surface when manifests changed
-5. products cross to Nix through independent import when requested
-6. the caller records native evidence; telemetry links to it without replacing it
+3. normalized entries materialize package identities once; views link closures
+4. sandboxed Buck actions execute; unchanged work resolves from shared cache
+5. dependency snapshots flip atomically for the editor surface when requested
+6. products cross to Nix through independent import when requested
+7. the caller records native evidence; telemetry links to it without replacing it
 ```
 
-Buck's result is determined at step 3. Export, retention, or import failures
+Buck's result is determined at step 4. Export, retention, or import failures
 are separate outcomes and never rewrite it.
+
+## TypeScript Authority Cutover
+
+The normalized store and sandbox mechanics land through staged dependent PRs
+while the existing producer remains authoritative. Before the final authority
+change, every one of the 17 packages in the #1209 graph must be servable from
+its declared `dist` boundary; all five SCCs must build; production actions must
+not fall back to sibling source; and DQ1's CI cache path and DQ4's accepted
+numeric cold-capacity envelope must be closed. One atomic final change proves
+Linux Bubblewrap, Darwin Seatbelt, editor snapshot survival, deterministic
+JS/declaration/map bytes, and cache-only upload/restore, then flips all
+consumers and deletes the old producer. Raising timeout or disk alone does not
+satisfy the capacity gate. True remote execution remains disabled until it has
+separate end-to-end evidence.
 
 ## Forbidden Edges
 

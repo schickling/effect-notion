@@ -1,52 +1,56 @@
 # Reuse Requirements
 
-This subsystem owns the shared cache and the reuse criteria. It refines
-BUCK-R06 and BUCK-R07. Service deployment authority is dotfiles-owned
-(dotfiles#2009); consumer trust sequencing is effect-utils#1054.
+This subsystem owns the shared action cache, cache-only execution boundary, and
+reuse/capacity criteria. It refines BUCK-R06, BUCK-R07, BUCK-R08, and BUCK-R16.
+Service deployment authority remains dotfiles-owned.
 
 ## Assumptions
 
 - **REUSE-A01 Cache facts:** The fleet cache is bazel-remote, cache-only, on
   dev3, open read+write inside the tailnet
   ([decision 0013](../.decisions/0013-shared-cache-foundation.md)).
-- **REUSE-A02 Disposable state:** CAS and action-cache content is rebuildable
-  by definition; wiping or swapping the backend costs a cold period, never
-  data.
+- **REUSE-A02 Disposable state:** CAS and action-cache content is rebuildable;
+  wiping the backend costs a cold period, never authoritative data.
 
 ## Acceptable Tradeoffs
 
-- **REUSE-T01 Local-only exceptions:** Actions whose outputs embed
-  machine-local paths (dependency materialization, executor-local projected
-  tools) are `local_only` and excluded from remote reuse; their consumers are
-  not.
+- **REUSE-T01 Cache-only placement:** Actions execute locally while
+  `remote_cache_enabled` and uploads are enabled. This proves remote reuse, not
+  true remote execution; `remote_enabled` stays false until separately proven.
 
 ## Requirements
 
-- **REUSE-R01 Remote-first admitted actions:** Every admitted action except
-  declared `local_only` exceptions reads and writes the shared action cache
-  (`remote_cache_enabled`, `allow_cache_uploads`, `default_allow_cache_upload`).
-- **REUSE-R02 Zero re-execution:** A second same-platform context at an
-  identical revision re-executes zero actions for unchanged admitted targets.
-  Any local re-execution is a key-stability regression and is triaged as a
-  defect, not accepted as noise.
-- **REUSE-R03 Budgets:** The admitted surface holds the BUCK-R07 budgets: warm
-  no-op ≤ 5 s, fresh context with warm cache to green ≤ 3 min. A regression
-  blocks admission widening.
-- **REUSE-R04 Outage posture:** An unreachable cache is a hard action failure
-  in the pinned Buck2. The consumer contract provides a one-line disable
-  toggle, and the service is monitored and alerted so an outage is an
-  operations event, not a silent slowdown.
-- **REUSE-R05 Digest and transport discipline:** SHA256 digests are pinned
-  explicitly; the client configuration lives in a buckconfig file (CLI
-  overrides do not reach the RE client); batched transfers stay below Buck2's
-  4 MiB gRPC client limit, enforced on the client side — bazel-remote
-  advertises no batch cap in its Capabilities response, so the server cannot
-  enforce this (facebook/buck2#583).
+- **REUSE-R01 Uploading cache-only actions:** Every cacheable archive, SCC,
+  verdict, dist, descriptor, and product action reads and uploads to the shared
+  action cache. Graph-composed entries/views have no separate command output.
+  A declared uncacheable exception names the path-dependent byte that forces it.
+- **REUSE-R02 Zero re-execution:** After population, a second same-platform
+  context at the same revision and a cold local `buck-out` executes zero local
+  actions for unchanged targets. Relocation to a different absolute prefix must
+  preserve the result.
+- **REUSE-R03 Capacity envelope:** The surface holds warm no-op ≤ 5 s and fresh
+  context with warm cache ≤ 3 min. Before an authority flip, the full candidate
+  cache-disabled lane must satisfy an accepted numeric cold wall, peak
+  `buck-out`/output/scratch disk, staging/action p95, and marginal
+  time/disk/action-count envelope. Raising timeout or disk alone is
+  insufficient; regression blocks widening.
+- **REUSE-R04 Outage posture:** In the pinned Buck2, an unreachable configured
+  cache is a hard action failure. The consumer contract provides a one-line
+  disable toggle; monitoring makes an outage an operations event.
+- **REUSE-R05 Digest and transport discipline:** SHA256 is explicit; client
+  configuration lives in a buckconfig file; batched transfers stay below the
+  pinned client's 4 MiB gRPC limit.
 - **REUSE-R06 Shared action cache:** The action cache is shared across
-  repositories; `instance_name` is per-repo attribution, not isolation.
-  Cross-repo hits are correct by construction and expected under
-  megarepo-shared sources. Revocation is a cache wipe (REUSE-A02).
-- **REUSE-R07 Output economics:** Cache-uploaded outputs are slim (verdicts,
-  dists, descriptors), not staged input trees. Buck-owned local state
-  (`buck-out`, isolation dirs) observes BUCK-R08: no per-invocation isolation
-  dirs, stale state reclaimed (`buck2 clean --stale`).
+  repositories. `instance_name` is attribution, not correctness isolation;
+  revocation is a cache wipe.
+- **REUSE-R07 Output and local-disk economics:** Uploads contain shared package
+  artifacts, SCC outputs, slim verdicts, dists, and descriptors, never private
+  staged input trees. Each normalized identity may own one package copy; the
+  nine entries with platform-selected edges own one per configured variant.
+  Archive bytes remain shared, dependency edges/importer/scratch views are
+  metadata-only, and package views materialize only package-owned boundaries.
+  Per-consumer dependency-closure duplication is rejected regardless of CoW.
+- **REUSE-R08 Remote execution disabled:** `remote_enabled` remains false until
+  a real remote worker proves platform identity, exact tool closures, sandbox
+  enforcement, path-independent links, and byte-stable declared outputs. A
+  cache hit is not evidence for this requirement.

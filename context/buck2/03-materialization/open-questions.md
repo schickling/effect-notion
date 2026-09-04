@@ -2,29 +2,33 @@
 
 ## DQ1: How should CI obtain fetch artifacts without a warm buck-out?
 
-- Blocks: CI wall-clock and registry dependence once the declared closure
-  lands (decision 0022).
-- Resolution signal: measured restore time of a cached fetch/extract subtree
-  versus registry download. Scale note (2026-09-01): the ~600 MB estimate
-  anticipates the Phase-4 whole-workspace closure; the admitted two-package
-  surface measured only 71 MiB per run (CI run #5142), so refinement is
-  correctly deferred until Phase 4 makes the cost real.
-- Blocker: deliberately deferred — start with registry downloads per run and
-  refine later (q4, 2026-08-30).
-- Lane (ratified 2026-09-01): a tailnet read-only cache lane — bazel-remote
-  alerting first, then an ephemeral-tailscale spike on a CI runner, then the
-  lane with fail-open fallback. The GH-artifact fetch/extract-subtree cache
-  keyed on the sidecar digest with a single fail-closed publisher is the
-  fallback if the runner spike fails.
+- Blocks: the final authority flip and its cache-only CI lane.
+- Resolution signal: an ephemeral-tailnet namespace runner restores the complete
+  candidate graph from the cache, uploads a deliberate miss, and exercises the
+  documented outage path without weakening correctness.
+- Blocker: the ephemeral-tailnet namespace-runner connectivity/fallback probe
+  has not run. Local cache round trips (163/163 and 416/416 hits) prove action
+  portability and cache transport, not CI runner reachability.
+- Fallback: if the runner probe fails, use a GH-artifact fetch/extract-subtree
+  cache keyed by the integrity-sidecar digest with a single fail-closed
+  publisher.
 
-## DQ2: Can hardlink aliasing inside `buck-out` be made safe?
+## DQ3: Can store and SCC actions use true remote execution?
 
-RESOLVED by [decision 0025](../.decisions/0025-cow-reflink-local-disk-economics.md)
-(2026-09-01): assembly becomes reflink-first — copy-on-write clones carry
-independent inodes with shared blocks, eliminating the write-through
-corruption hazard instead of documenting it. Hardlink sharing into assembled
-trees is rejected (rewritten DEPS-R04). Until the assembler change lands the
-divergence is tracked as
-[DELTA-001](./.delta/DELTA-001-assembler-hardlinks-pending-0025.md); on
-filesystems without reflink support the fallback is a plain copy, and the
-original hazard cannot recur because links are no longer produced.
+- Blocks: enabling `remote_enabled` for normalized-store actions.
+- Resolution signal: a cache-cold run on a real remote executor proves exact
+  tool-closure availability, platform selection, all SCC namespace/link
+  validity, sandbox containment, path independence, and byte-identical outputs.
+- Blocker: no true remote-execution backend is available. Cache-only restore
+  executes locally and is not remote-execution evidence.
+
+## DQ4: What numeric cold-capacity envelope gates the final flip?
+
+- Blocks: accepting the current final authority flip.
+- Resolution signal: the full candidate namespace E2E records cold wall time,
+  peak `buck-out`/output/scratch disk, staging/action p95, and marginal
+  time/disk/action-count slope, and an explicit numeric envelope is accepted
+  before the flip.
+- Blocker: the full candidate namespace E2E has not run. Raising a timeout or
+  runner disk without changing and measuring the marginal curve does not
+  satisfy this question.
