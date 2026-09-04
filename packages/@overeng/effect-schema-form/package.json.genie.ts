@@ -33,7 +33,10 @@ export default packageJson(
     name: '@overeng/effect-schema-form',
     ...privatePackageDefaults,
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'browser' }),
+      '.': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'browser' },
+      ),
     },
     publishConfig: {
       access: 'public',

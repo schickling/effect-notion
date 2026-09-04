@@ -11,6 +11,7 @@ export default tsconfigJson({
     ...packageTsconfigCompilerOptions,
     ...nodeTypes,
     types: ['node', 'bun'],
+    noEmit: true,
   },
   include: ['src/**/*', 'bin/**/*.ts'],
 } satisfies TSConfigArgs)

@@ -14,8 +14,14 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": "./src/mod.ts",
-    "./client": "./src/client.ts"
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
+    "./client": {
+      "types": "./dist/src/client.d.ts",
+      "default": "./src/client.ts"
+    }
   },
   "scripts": {
     "bundle:smoke": "bun ../../../genie/ci-scripts/bundle-smoke.ts"

@@ -12,5 +12,4 @@ export default tsconfigJson({
     ...nodeTypes,
   },
   include: ['src/**/*'],
-  references: [{ path: '../kdl' }],
 } satisfies TSConfigArgs)

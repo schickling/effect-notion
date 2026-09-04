@@ -42,10 +42,19 @@ export default packageJson(
     name: '@overeng/oxc-config',
     ...privatePackageDefaults,
     exports: {
-      './plugin': exportEntry('./src/mod.ts', { environment: 'node' }),
-      './stylex-upstream-plugin': exportEntry('./src/stylex-upstream-plugin.ts', {
-        environment: 'node',
-      }),
+      './plugin': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'node' },
+      ),
+      './stylex-upstream-plugin': exportEntry(
+        {
+          types: './dist/src/stylex-upstream-plugin.d.ts',
+          default: './src/stylex-upstream-plugin.ts',
+        },
+        {
+          environment: 'node',
+        },
+      ),
     },
   } satisfies PackageJsonInputData,
   deps,
