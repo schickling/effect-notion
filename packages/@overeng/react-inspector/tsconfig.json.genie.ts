@@ -19,7 +19,7 @@ export default tsconfigJson({
     noUncheckedIndexedAccess: false,
     verbatimModuleSyntax: false,
     noImplicitReturns: false,
+    noEmit: true,
   },
   include: ['src/**/*'],
-  references: [],
 } satisfies TSConfigArgs)

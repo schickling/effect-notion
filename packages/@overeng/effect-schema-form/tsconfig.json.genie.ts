@@ -12,6 +12,7 @@ export default tsconfigJson({
     ...packageTsconfigCompilerOptions,
     ...reactJsx,
     lib: [...domLib],
+    noEmit: true,
   },
   include: ['src/**/*'],
 } satisfies TSConfigArgs)

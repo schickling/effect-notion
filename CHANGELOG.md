@@ -232,6 +232,17 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Buck2 TypeScript admissions**: transfer typecheck and declaration authority
+  for the remaining independent library packages (effect-path, kdl, oxc-config,
+  npm-release, effect-ai-claude-cli, agent-session-ingest, effect-react,
+  effect-rpc-tanstack, pty-effect, restate-effect, ci-tools,
+  effect-schema-form, react-inspector). Public type conditions consume Buck
+  declarations while runtime defaults remain at source, and package-local
+  project references to now-authoritative siblings are dropped. Root solution
+  membership stays derived and unchanged here; the packages leave both root
+  TypeScript solutions when the authority-derived root filter is restored by
+  the cutover.
+
 - **deps**: update the compatible patch and minor dependency cohort, including
   React 19.2.8, OpenTelemetry SDK 2.11, Vite 8.2.2, current TanStack router
   packages, Tailwind CSS 4.3.3, and supporting type, test, formatting, crypto,

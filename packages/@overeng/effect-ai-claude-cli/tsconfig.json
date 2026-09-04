@@ -50,10 +50,10 @@
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "types": [
       "node"
-    ]
+    ],
+    "noEmit": true
   },
   "include": [
     "src/**/*"
-  ],
-  "references": []
+  ]
 }

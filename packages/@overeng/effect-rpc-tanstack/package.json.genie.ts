@@ -40,10 +40,22 @@ export default packageJson(
     name: '@overeng/effect-rpc-tanstack',
     ...privatePackageDefaults,
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'browser' }),
-      './client': exportEntry('./src/client.ts', { environment: 'browser' }),
-      './server': exportEntry('./src/server.ts', { environment: 'node' }),
-      './router': exportEntry('./src/router.ts', { environment: 'browser' }),
+      '.': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'browser' },
+      ),
+      './client': exportEntry(
+        { types: './dist/src/client.d.ts', default: './src/client.ts' },
+        { environment: 'browser' },
+      ),
+      './server': exportEntry(
+        { types: './dist/src/server.d.ts', default: './src/server.ts' },
+        { environment: 'node' },
+      ),
+      './router': exportEntry(
+        { types: './dist/src/router.d.ts', default: './src/router.ts' },
+        { environment: 'browser' },
+      ),
     },
     publishConfig: {
       access: 'public',

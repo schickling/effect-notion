@@ -38,8 +38,14 @@ export default packageJson(
     name: '@overeng/ci-tools',
     ...privatePackageDefaults,
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'node' }),
-      './cli': exportEntry('./src/cli-command.ts', { environment: 'node' }),
+      '.': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'node' },
+      ),
+      './cli': exportEntry(
+        { types: './dist/src/cli-command.d.ts', default: './src/cli-command.ts' },
+        { environment: 'node' },
+      ),
     },
     publishConfig: {
       access: 'public',

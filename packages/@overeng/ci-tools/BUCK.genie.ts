@@ -27,6 +27,10 @@ export const buck2TypeScriptAdmission = {
     },
   ],
   editorViewConsumer: false,
+  authority: {
+    declarationEntrypoint: 'src/mod.d.ts',
+    projectFile: 'tsconfig.json',
+  },
 } as const satisfies Buck2TypeScriptAdmission
 
 export default withJavaScriptCandidates({

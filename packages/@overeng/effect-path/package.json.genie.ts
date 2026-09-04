@@ -36,7 +36,10 @@ export default packageJson(
     name: '@overeng/effect-path',
     ...privatePackageDefaults,
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'isomorphic-es2024' }),
+      '.': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'isomorphic-es2024' },
+      ),
     },
     publishConfig: {
       access: 'public',
