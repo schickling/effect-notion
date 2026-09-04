@@ -299,6 +299,16 @@ All notable changes to this project will be documented in this file.
   entries disappeared — and
   `buck2/dependencies/pnpm-lock.unit.test.ts` guards both properties against
   the real lock.
+- **Buck2 TypeScript admissions**: transfer typecheck and declaration authority
+  for the remaining independent library packages (effect-path, kdl, oxc-config,
+  npm-release, effect-ai-claude-cli, agent-session-ingest, effect-react,
+  effect-rpc-tanstack, pty-effect, restate-effect, ci-tools,
+  effect-schema-form, react-inspector). Public type conditions consume Buck
+  declarations while runtime defaults remain at source, and package-local
+  project references to now-authoritative siblings are dropped. Root solution
+  membership stays derived and unchanged here; the packages leave both root
+  TypeScript solutions when the authority-derived root filter is restored by
+  the cutover.
 
 - **TypeScript 7**: move the npm compiler/API package from 6.0.3 to 7.0.2 and
   refresh the Effect-TS `tsgo` flake input. The existing nixpkgs

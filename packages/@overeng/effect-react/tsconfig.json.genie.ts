@@ -13,6 +13,7 @@ export default tsconfigJson({
     ...reactJsx,
     jsxImportSource: 'react',
     lib: [...domLib],
+    noEmit: true,
   },
   include: ['src/**/*', 'test/**/*'],
 } satisfies TSConfigArgs)

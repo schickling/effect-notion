@@ -12,8 +12,14 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": "./src/mod.ts",
-    "./cli": "./src/cli.ts"
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
+    "./cli": {
+      "types": "./dist/src/cli.d.ts",
+      "default": "./src/cli.ts"
+    }
   },
   "devDependencies": {
     "@effect/platform-node": "4.0.0-rc.112",

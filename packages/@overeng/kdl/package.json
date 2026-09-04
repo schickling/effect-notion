@@ -12,7 +12,10 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": "./src/mod.ts"
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    }
   },
   "devDependencies": {
     "@effect/vitest": "4.0.0-rc.112",

@@ -16,8 +16,14 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": "./src/mod.ts",
-    "./cli": "./src/cli-command.ts"
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
+    "./cli": {
+      "types": "./dist/src/cli-command.d.ts",
+      "default": "./src/cli-command.ts"
+    }
   },
   "dependencies": {
     "@overeng/otel-contract": "workspace:^",

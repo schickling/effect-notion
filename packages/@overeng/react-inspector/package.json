@@ -12,7 +12,10 @@
   "description": "Browser DevTools-style React inspectors with native Effect 4 Schema support",
   "license": "MIT",
   "exports": {
-    ".": "./src/index.tsx"
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./src/index.tsx"
+    }
   },
   "files": [
     "package.json",

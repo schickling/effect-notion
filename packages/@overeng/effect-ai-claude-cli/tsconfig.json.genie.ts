@@ -13,7 +13,7 @@ export default tsconfigJson({
     ...nodeTypes,
     lib: domLib,
     types: ['node'],
+    noEmit: true,
   },
   include: ['src/**/*'],
-  references: [],
 } satisfies TSConfigArgs)

@@ -79,7 +79,10 @@ export default packageJson(
     license: 'MIT',
     type: 'module',
     exports: {
-      '.': exportEntry('./src/index.tsx', { environment: 'browser' }),
+      '.': exportEntry(
+        { types: './dist/src/index.d.ts', default: './src/index.tsx' },
+        { environment: 'browser' },
+      ),
     },
     /**
      * Pin the packed contents. Without this, the tarball varied by 169 files

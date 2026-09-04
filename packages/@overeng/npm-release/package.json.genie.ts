@@ -32,8 +32,14 @@ export default packageJson(
     name: '@overeng/npm-release',
     ...privatePackageDefaults,
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'isomorphic-es2024' }),
-      './cli': exportEntry('./src/cli.ts', { environment: 'bun' }),
+      '.': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'isomorphic-es2024' },
+      ),
+      './cli': exportEntry(
+        { types: './dist/src/cli.d.ts', default: './src/cli.ts' },
+        { environment: 'bun' },
+      ),
     },
     publishConfig: {
       access: 'public',

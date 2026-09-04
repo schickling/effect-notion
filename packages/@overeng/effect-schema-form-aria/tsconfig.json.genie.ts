@@ -15,5 +15,4 @@ export default tsconfigJson({
     lib: [...domLib],
   },
   include: ['src/**/*'],
-  references: [{ path: '../effect-schema-form' }],
 } satisfies TSConfigArgs)
