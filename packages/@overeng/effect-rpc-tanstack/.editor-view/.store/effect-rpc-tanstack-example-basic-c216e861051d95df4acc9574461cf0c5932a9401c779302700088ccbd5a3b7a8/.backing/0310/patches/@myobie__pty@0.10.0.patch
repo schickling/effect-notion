@@ -1,0 +1,25 @@
+diff --git a/dist/server.js b/dist/server.js
+index c34d098..14c95e7 100644
+--- a/dist/server.js
++++ b/dist/server.js
+@@ -3,7 +3,7 @@ import * as fs from "node:fs";
+ import { execFileSync } from "node:child_process";
+ import * as pty from "node-pty";
+ import xterm from "@xterm/headless";
+-import xtermSerialize from "@xterm/addon-serialize";
++import * as xtermSerialize from "@xterm/addon-serialize";
+ import { MessageType, PacketReader, encodeData, encodeExit, encodeScreen, encodeStatusResponse, decodeSize, } from "./protocol.js";
+ import { getSocketPath, getPidPath, ensureSessionDir, cleanup, cleanupAll, writeMetadata, readMetadata, } from "./sessions.js";
+ import { EventWriter, clearEvents, EventType } from "./events.js";
+diff --git a/dist/testing/session.js b/dist/testing/session.js
+index 4d13112..4aacfee 100644
+--- a/dist/testing/session.js
++++ b/dist/testing/session.js
+@@ -1,6 +1,6 @@
+ import * as net from "node:net";
+ import xterm from "@xterm/headless";
+-import xtermSerialize from "@xterm/addon-serialize";
++import * as xtermSerialize from "@xterm/addon-serialize";
+ import * as pty from "node-pty";
+ import { PtyServer } from "../server.js";
+ import { MessageType, PacketReader, encodeAttach, encodeData, encodeResize, } from "../protocol.js";

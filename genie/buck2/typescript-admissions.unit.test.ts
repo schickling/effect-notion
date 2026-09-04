@@ -49,9 +49,11 @@ describe('Buck2 TypeScript authority derivation', () => {
     expect(projectedManifest.distOverlays).toEqual(buck2TypeScriptDistOverlays)
 
     expect(
-      rootWorkspaceTsconfigProjects.flatMap(({ buck2Authority, path }) =>
-        buck2Authority === undefined ? [] : [{ buck2Authority, path }],
-      ),
+      rootWorkspaceTsconfigProjects
+        .flatMap(({ buck2Authority, path }) =>
+          buck2Authority === undefined ? [] : [{ buck2Authority, path }],
+        )
+        .toSorted((left, right) => Buffer.from(left.path).compare(Buffer.from(right.path))),
     ).toEqual(
       authoritativeBuck2TypeScriptAdmissions
         .filter(({ packagePath }) =>
@@ -64,7 +66,8 @@ describe('Buck2 TypeScript authority derivation', () => {
             typecheckTarget,
           },
           path: packagePath,
-        })),
+        }))
+        .toSorted((left, right) => Buffer.from(left.path).compare(Buffer.from(right.path))),
     )
   })
 })

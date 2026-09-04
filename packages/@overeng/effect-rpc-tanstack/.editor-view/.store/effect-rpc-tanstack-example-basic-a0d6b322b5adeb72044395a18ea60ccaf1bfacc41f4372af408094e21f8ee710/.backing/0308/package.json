@@ -1,0 +1,45 @@
+{
+  "name": "@overeng/otel-contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
+    "./registry": {
+      "types": "./dist/src/registry.d.ts",
+      "default": "./src/registry.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js",
+      "./registry": "./dist/registry.js"
+    }
+  },
+  "dependencies": {
+    "@overeng/content-address": "workspace:^"
+  },
+  "devDependencies": {
+    "@overeng/utils-dev": "workspace:^",
+    "@types/node": "26.0.0",
+    "effect": "4.0.0-rc.111",
+    "typescript": "6.0.3",
+    "vitest": "4.1.9"
+  },
+  "peerDependencies": {
+    "effect": "^4.0.0-rc.111"
+  },
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/utils-dev"
+    ]
+  }
+}

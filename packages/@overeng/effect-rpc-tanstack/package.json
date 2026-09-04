@@ -17,10 +17,22 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": "./src/mod.ts",
-    "./client": "./src/client.ts",
-    "./router": "./src/router.ts",
-    "./server": "./src/server.ts"
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
+    "./client": {
+      "types": "./dist/src/client.d.ts",
+      "default": "./src/client.ts"
+    },
+    "./router": {
+      "types": "./dist/src/router.d.ts",
+      "default": "./src/router.ts"
+    },
+    "./server": {
+      "types": "./dist/src/server.d.ts",
+      "default": "./src/server.ts"
+    }
   },
   "devDependencies": {
     "@effect/platform-node": "4.0.0-rc.111",

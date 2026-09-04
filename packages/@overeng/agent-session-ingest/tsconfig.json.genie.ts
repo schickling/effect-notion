@@ -11,6 +11,7 @@ export default tsconfigJson({
     ...packageTsconfigCompilerOptions,
     ...nodeTypes,
     lib: ['ES2023'],
+    noEmit: true,
   },
   include: ['src/**/*'],
 } satisfies TSConfigArgs)

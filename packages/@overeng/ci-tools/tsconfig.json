@@ -3,9 +3,7 @@
 {
   "compilerOptions": {
     "target": "ES2024",
-    "lib": [
-      "ES2024"
-    ],
+    "lib": ["ES2024"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "allowImportingTsExtensions": true,
@@ -46,13 +44,8 @@
     "composite": true,
     "rootDir": ".",
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
-    "types": [
-      "node",
-      "bun"
-    ]
+    "types": ["node", "bun"],
+    "noEmit": true
   },
-  "include": [
-    "src/**/*",
-    "bin/**/*.ts"
-  ]
+  "include": ["src/**/*", "bin/**/*.ts"]
 }

@@ -19,12 +19,44 @@
   ],
   "distOverlays": [
     {
+      "target": "//packages/@overeng/agent-session-ingest:dist",
+      "destination": "packages/@overeng/agent-session-ingest/dist"
+    },
+    {
+      "target": "//packages/@overeng/ci-tools:dist",
+      "destination": "packages/@overeng/ci-tools/dist"
+    },
+    {
       "target": "//packages/@overeng/content-address:dist",
       "destination": "packages/@overeng/content-address/dist"
     },
     {
+      "target": "//packages/@overeng/effect-ai-claude-cli:dist",
+      "destination": "packages/@overeng/effect-ai-claude-cli/dist"
+    },
+    {
       "target": "//packages/@overeng/effect-distributed-lock:dist",
       "destination": "packages/@overeng/effect-distributed-lock/dist"
+    },
+    {
+      "target": "//packages/@overeng/effect-path:dist",
+      "destination": "packages/@overeng/effect-path/dist"
+    },
+    {
+      "target": "//packages/@overeng/effect-react:dist",
+      "destination": "packages/@overeng/effect-react/dist"
+    },
+    {
+      "target": "//packages/@overeng/effect-rpc-tanstack:dist",
+      "destination": "packages/@overeng/effect-rpc-tanstack/dist"
+    },
+    {
+      "target": "//packages/@overeng/effect-schema-form:dist",
+      "destination": "packages/@overeng/effect-schema-form/dist"
+    },
+    {
+      "target": "//packages/@overeng/kdl:dist",
+      "destination": "packages/@overeng/kdl/dist"
     },
     {
       "target": "//packages/@overeng/notion-cli:dist",
@@ -59,8 +91,28 @@
       "destination": "packages/@overeng/notion-react/dist"
     },
     {
+      "target": "//packages/@overeng/npm-release:dist",
+      "destination": "packages/@overeng/npm-release/dist"
+    },
+    {
       "target": "//packages/@overeng/otel-contract:dist",
       "destination": "packages/@overeng/otel-contract/dist"
+    },
+    {
+      "target": "//packages/@overeng/oxc-config:dist",
+      "destination": "packages/@overeng/oxc-config/dist"
+    },
+    {
+      "target": "//packages/@overeng/pty-effect:dist",
+      "destination": "packages/@overeng/pty-effect/dist"
+    },
+    {
+      "target": "//packages/@overeng/react-inspector:dist",
+      "destination": "packages/@overeng/react-inspector/dist"
+    },
+    {
+      "target": "//packages/@overeng/restate-effect:dist",
+      "destination": "packages/@overeng/restate-effect/dist"
     },
     {
       "target": "//packages/@overeng/stylex-tokens:dist",

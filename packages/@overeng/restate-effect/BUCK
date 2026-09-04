@@ -1,0 +1,203 @@
+# Generated file - DO NOT EDIT
+# Source: BUCK.genie.ts
+
+# Projection source: packages/@overeng/restate-effect/BUCK.genie.ts
+# Projection schema version: 1
+# Projection generator: effect-utils/genie/buck2-typescript-package-projection
+# Semantic fingerprint: sha256:42e28345bb6b7f06fc6ec934b88b689f44cd08c9d99e0b66a6c97bcbcc920a18
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/package.json.genie.ts, packages/@overeng/restate-effect/src/**/*.cts, packages/@overeng/restate-effect/src/**/*.js, packages/@overeng/restate-effect/src/**/*.mts, packages/@overeng/restate-effect/src/**/*.ts, packages/@overeng/restate-effect/src/**/*.tsx, packages/@overeng/restate-effect/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Regenerate: devenv tasks run genie:run
+
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
+
+export_file(
+    name = "package.json",
+    src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_materialization_inputs([
+    "src/admin/AdminApi.ts",
+    "src/admin/admin.integration.test.ts",
+    "src/admin/admin.test.ts",
+    "src/admin/admin.ts",
+    "src/authoring/RestateContext.ts",
+    "src/authoring/Service.ts",
+    "src/authoring/awakeable.integration.test.ts",
+    "src/authoring/capability-inference.types.ts",
+    "src/authoring/concurrency.integration.test.ts",
+    "src/authoring/object.integration.test.ts",
+    "src/authoring/peek.integration.test.ts",
+    "src/authoring/workflow.integration.test.ts",
+    "src/clients/Client.ts",
+    "src/clients/InvocationPolicy.ts",
+    "src/clients/client-ingress.test.ts",
+    "src/clients/contract-policy.integration.test.ts",
+    "src/clients/in-handler-call.integration.test.ts",
+    "src/endpoint/Endpoint.ts",
+    "src/endpoint/examples.integration.test.ts",
+    "src/endpoint/identity.test.ts",
+    "src/endpoint/multi-deployment.integration.test.ts",
+    "src/endpoint/options-surfacing.test.ts",
+    "src/endpoint/restate-effect.integration.test.ts",
+    "src/error/Boundary.ts",
+    "src/error/error-transport.test.ts",
+    "src/error/http-error-classification.integration.test.ts",
+    "src/error/retry-policy.integration.test.ts",
+    "src/error/saga.integration.test.ts",
+    "src/error/suspension.integration.test.ts",
+    "src/mod.ts",
+    "src/observability/Metrics.ts",
+    "src/observability/contract.ts",
+    "src/observability/effect.ts",
+    "src/observability/observability.test.ts",
+    "src/observability/otel-replay.integration.test.ts",
+    "src/observability/otel.test.ts",
+    "src/observability/otel.ts",
+    "src/observability/restate.contract.ts",
+    "src/runtime/Runtime.test.ts",
+    "src/runtime/Runtime.ts",
+    "src/runtime/cancellation.integration.test.ts",
+    "src/scheduling/Reschedule.ts",
+    "src/scheduling/Scheduled.ts",
+    "src/scheduling/scheduled-compose.integration.test.ts",
+    "src/scheduling/scheduled-durability.integration.test.ts",
+    "src/scheduling/scheduled.integration.test.ts",
+    "src/schema/Annotations.test.ts",
+    "src/schema/Annotations.ts",
+    "src/schema/Redaction.test.ts",
+    "src/schema/Redaction.ts",
+    "src/schema/RestateError.ts",
+    "src/schema/Serde.test.ts",
+    "src/schema/Serde.ts",
+    "src/schema/redaction.integration.test.ts",
+    "src/testing/TestContext.test.ts",
+    "src/testing/TestContext.ts",
+    "src/testing/TestEnv.ts",
+    "src/testing/harness.integration.test.ts",
+    "src/testing/test-env.integration.test.ts",
+    "src/testing/testing.ts",
+])
+
+alias(
+    name = "node_modules",
+    actual = "//buck2/dependencies:importer_packages_overeng_restate_effect_1d9088e92885",
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "editor_inputs",
+    actual = ":node_modules",
+    visibility = ["PUBLIC"],
+)
+
+package_tree(
+    name = "package_tree",
+    node_modules = ":node_modules",
+    files = {
+        "package.json": "package.json",
+        "src/admin/AdminApi.ts": "src/admin/AdminApi.ts",
+        "src/admin/admin.integration.test.ts": "src/admin/admin.integration.test.ts",
+        "src/admin/admin.test.ts": "src/admin/admin.test.ts",
+        "src/admin/admin.ts": "src/admin/admin.ts",
+        "src/authoring/RestateContext.ts": "src/authoring/RestateContext.ts",
+        "src/authoring/Service.ts": "src/authoring/Service.ts",
+        "src/authoring/awakeable.integration.test.ts": "src/authoring/awakeable.integration.test.ts",
+        "src/authoring/capability-inference.types.ts": "src/authoring/capability-inference.types.ts",
+        "src/authoring/concurrency.integration.test.ts": "src/authoring/concurrency.integration.test.ts",
+        "src/authoring/object.integration.test.ts": "src/authoring/object.integration.test.ts",
+        "src/authoring/peek.integration.test.ts": "src/authoring/peek.integration.test.ts",
+        "src/authoring/workflow.integration.test.ts": "src/authoring/workflow.integration.test.ts",
+        "src/clients/Client.ts": "src/clients/Client.ts",
+        "src/clients/InvocationPolicy.ts": "src/clients/InvocationPolicy.ts",
+        "src/clients/client-ingress.test.ts": "src/clients/client-ingress.test.ts",
+        "src/clients/contract-policy.integration.test.ts": "src/clients/contract-policy.integration.test.ts",
+        "src/clients/in-handler-call.integration.test.ts": "src/clients/in-handler-call.integration.test.ts",
+        "src/endpoint/Endpoint.ts": "src/endpoint/Endpoint.ts",
+        "src/endpoint/examples.integration.test.ts": "src/endpoint/examples.integration.test.ts",
+        "src/endpoint/identity.test.ts": "src/endpoint/identity.test.ts",
+        "src/endpoint/multi-deployment.integration.test.ts": "src/endpoint/multi-deployment.integration.test.ts",
+        "src/endpoint/options-surfacing.test.ts": "src/endpoint/options-surfacing.test.ts",
+        "src/endpoint/restate-effect.integration.test.ts": "src/endpoint/restate-effect.integration.test.ts",
+        "src/error/Boundary.ts": "src/error/Boundary.ts",
+        "src/error/error-transport.test.ts": "src/error/error-transport.test.ts",
+        "src/error/http-error-classification.integration.test.ts": "src/error/http-error-classification.integration.test.ts",
+        "src/error/retry-policy.integration.test.ts": "src/error/retry-policy.integration.test.ts",
+        "src/error/saga.integration.test.ts": "src/error/saga.integration.test.ts",
+        "src/error/suspension.integration.test.ts": "src/error/suspension.integration.test.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/observability/Metrics.ts": "src/observability/Metrics.ts",
+        "src/observability/contract.ts": "src/observability/contract.ts",
+        "src/observability/effect.ts": "src/observability/effect.ts",
+        "src/observability/observability.test.ts": "src/observability/observability.test.ts",
+        "src/observability/otel-replay.integration.test.ts": "src/observability/otel-replay.integration.test.ts",
+        "src/observability/otel.test.ts": "src/observability/otel.test.ts",
+        "src/observability/otel.ts": "src/observability/otel.ts",
+        "src/observability/restate.contract.ts": "src/observability/restate.contract.ts",
+        "src/runtime/Runtime.test.ts": "src/runtime/Runtime.test.ts",
+        "src/runtime/Runtime.ts": "src/runtime/Runtime.ts",
+        "src/runtime/cancellation.integration.test.ts": "src/runtime/cancellation.integration.test.ts",
+        "src/scheduling/Reschedule.ts": "src/scheduling/Reschedule.ts",
+        "src/scheduling/Scheduled.ts": "src/scheduling/Scheduled.ts",
+        "src/scheduling/scheduled-compose.integration.test.ts": "src/scheduling/scheduled-compose.integration.test.ts",
+        "src/scheduling/scheduled-durability.integration.test.ts": "src/scheduling/scheduled-durability.integration.test.ts",
+        "src/scheduling/scheduled.integration.test.ts": "src/scheduling/scheduled.integration.test.ts",
+        "src/schema/Annotations.test.ts": "src/schema/Annotations.test.ts",
+        "src/schema/Annotations.ts": "src/schema/Annotations.ts",
+        "src/schema/Redaction.test.ts": "src/schema/Redaction.test.ts",
+        "src/schema/Redaction.ts": "src/schema/Redaction.ts",
+        "src/schema/RestateError.ts": "src/schema/RestateError.ts",
+        "src/schema/Serde.test.ts": "src/schema/Serde.test.ts",
+        "src/schema/Serde.ts": "src/schema/Serde.ts",
+        "src/schema/redaction.integration.test.ts": "src/schema/redaction.integration.test.ts",
+        "src/testing/TestContext.test.ts": "src/testing/TestContext.test.ts",
+        "src/testing/TestContext.ts": "src/testing/TestContext.ts",
+        "src/testing/TestEnv.ts": "src/testing/TestEnv.ts",
+        "src/testing/harness.integration.test.ts": "src/testing/harness.integration.test.ts",
+        "src/testing/test-env.integration.test.ts": "src/testing/test-env.integration.test.ts",
+        "src/testing/testing.ts": "src/testing/testing.ts",
+        "tsconfig.json": "tsconfig.json",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    workspace_siblings = {
+        "@overeng/otel-contract": {
+            "files": {
+                "dist": "//packages/@overeng/otel-contract:dist",
+                "package.json": "//packages/@overeng/otel-contract:package.json",
+            },
+            "links": ["@overeng/otel-contract"],
+        },
+        "@overeng/utils": {
+            "files": {
+                "dist": "//packages/@overeng/utils:dist",
+                "package.json": "//packages/@overeng/utils:package.json",
+            },
+            "links": ["@overeng/utils"],
+        },
+        "@overeng/utils-dev": {
+            "files": {
+                "dist": "//packages/@overeng/utils-dev:dist",
+                "package.json": "//packages/@overeng/utils-dev:package.json",
+            },
+            "links": ["@overeng/utils-dev"],
+        },
+    },
+    visibility = ["PUBLIC"],
+)
+
+tsgo_typecheck(
+    name = "typecheck",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+tsgo_emit(
+    name = "dist",
+    package_tree = ":package_tree",
+    declaration_sources = {
+    },
+    declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)

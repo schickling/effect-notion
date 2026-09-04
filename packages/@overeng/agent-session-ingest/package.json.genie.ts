@@ -44,11 +44,26 @@ export default packageJson(
     name: '@overeng/agent-session-ingest',
     ...privatePackageDefaults,
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'node' }),
-      './codex': exportEntry('./src/adapters/codex.ts', { environment: 'node' }),
-      './claude': exportEntry('./src/adapters/claude.ts', { environment: 'node' }),
-      './opencode': exportEntry('./src/adapters/opencode.ts', { environment: 'node' }),
-      './jsonl': exportEntry('./src/adapters/jsonl.ts', { environment: 'node' }),
+      '.': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'node' },
+      ),
+      './codex': exportEntry(
+        { types: './dist/src/adapters/codex.d.ts', default: './src/adapters/codex.ts' },
+        { environment: 'node' },
+      ),
+      './claude': exportEntry(
+        { types: './dist/src/adapters/claude.d.ts', default: './src/adapters/claude.ts' },
+        { environment: 'node' },
+      ),
+      './opencode': exportEntry(
+        { types: './dist/src/adapters/opencode.d.ts', default: './src/adapters/opencode.ts' },
+        { environment: 'node' },
+      ),
+      './jsonl': exportEntry(
+        { types: './dist/src/adapters/jsonl.d.ts', default: './src/adapters/jsonl.ts' },
+        { environment: 'node' },
+      ),
     },
     publishConfig: {
       access: 'public',
