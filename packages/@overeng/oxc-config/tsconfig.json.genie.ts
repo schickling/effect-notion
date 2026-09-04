@@ -8,6 +8,7 @@ export default tsconfigJson({
   compilerOptions: {
     ...baseTsconfigCompilerOptions,
     ...packageTsconfigCompilerOptions,
+    noEmit: true,
   },
   include: ['src/**/*.ts'],
 } satisfies TSConfigArgs)

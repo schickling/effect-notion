@@ -11,7 +11,10 @@
   ],
   "type": "module",
   "exports": {
-    ".": "./src/index.tsx"
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./src/index.tsx"
+    }
   },
   "publishConfig": {
     "access": "public",

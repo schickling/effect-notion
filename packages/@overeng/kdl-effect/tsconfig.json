@@ -46,10 +46,5 @@
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "types": ["node"]
   },
-  "include": ["src/**/*"],
-  "references": [
-    {
-      "path": "../kdl"
-    }
-  ]
+  "include": ["src/**/*"]
 }

@@ -4,10 +4,22 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/mod.ts",
-    "./admin": "./src/admin/admin.ts",
-    "./otel": "./src/observability/otel.ts",
-    "./testing": "./src/testing/testing.ts"
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
+    "./admin": {
+      "types": "./dist/src/admin/admin.d.ts",
+      "default": "./src/admin/admin.ts"
+    },
+    "./otel": {
+      "types": "./dist/src/observability/otel.d.ts",
+      "default": "./src/observability/otel.ts"
+    },
+    "./testing": {
+      "types": "./dist/src/testing/testing.d.ts",
+      "default": "./src/testing/testing.ts"
+    }
   },
   "publishConfig": {
     "access": "public",

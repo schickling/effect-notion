@@ -68,10 +68,22 @@ export default packageJson(
     name: '@overeng/restate-effect',
     ...privatePackageDefaults,
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'node' }),
-      './admin': exportEntry('./src/admin/admin.ts', { environment: 'node' }),
-      './otel': exportEntry('./src/observability/otel.ts', { environment: 'node' }),
-      './testing': exportEntry('./src/testing/testing.ts', { environment: 'node' }),
+      '.': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'node' },
+      ),
+      './admin': exportEntry(
+        { types: './dist/src/admin/admin.d.ts', default: './src/admin/admin.ts' },
+        { environment: 'node' },
+      ),
+      './otel': exportEntry(
+        { types: './dist/src/observability/otel.d.ts', default: './src/observability/otel.ts' },
+        { environment: 'node' },
+      ),
+      './testing': exportEntry(
+        { types: './dist/src/testing/testing.d.ts', default: './src/testing/testing.ts' },
+        { environment: 'node' },
+      ),
     },
     publishConfig: {
       access: 'public',

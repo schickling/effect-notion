@@ -1,0 +1,135 @@
+# Generated file - DO NOT EDIT
+# Source: BUCK.genie.ts
+
+# Projection source: packages/@overeng/react-inspector/BUCK.genie.ts
+# Projection schema version: 1
+# Projection generator: effect-utils/genie/buck2-typescript-package-projection
+# Semantic fingerprint: sha256:609364c39a2edcb56a7b1fac4dabf2a0c4f43980ee4da0728ad68af11f89dda0
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/react-inspector/BUCK.genie.ts, packages/@overeng/react-inspector/BUCK.genie.ts, packages/@overeng/react-inspector/package.json.genie.ts, packages/@overeng/react-inspector/src/**/*.cts, packages/@overeng/react-inspector/src/**/*.js, packages/@overeng/react-inspector/src/**/*.mts, packages/@overeng/react-inspector/src/**/*.ts, packages/@overeng/react-inspector/src/**/*.tsx, packages/@overeng/react-inspector/tsconfig.json.genie.ts
+# Regenerate: devenv tasks run genie:run
+
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
+
+export_file(
+    name = "package.json",
+    src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_materialization_inputs([
+    "src/dom-inspector/DOMInspector.tsx",
+    "src/dom-inspector/DOMNodePreview.tsx",
+    "src/dom-inspector/shouldInline.tsx",
+    "src/index.tsx",
+    "src/object-inspector/ObjectInspector.tsx",
+    "src/object-inspector/ObjectLabel.tsx",
+    "src/object-inspector/ObjectPreview.tsx",
+    "src/object-inspector/ObjectRootLabel.tsx",
+    "src/object/ObjectName.tsx",
+    "src/object/ObjectValue.tsx",
+    "src/schema/SchemaAwareNodeRenderer.tsx",
+    "src/schema/SchemaAwareObjectPreview.tsx",
+    "src/schema/SchemaAwareObjectValue.tsx",
+    "src/schema/SchemaContext.tsx",
+    "src/schema/SchemaTooltip.tsx",
+    "src/schema/effect4.unit.test.tsx",
+    "src/schema/effectSchema.tsx",
+    "src/schema/lineage.ts",
+    "src/schema/mod.tsx",
+    "src/styles/base.tsx",
+    "src/styles/index.tsx",
+    "src/styles/styles.tsx",
+    "src/styles/themes/chromeDark.tsx",
+    "src/styles/themes/chromeLight.tsx",
+    "src/styles/themes/index.tsx",
+    "src/styles/unselectable.tsx",
+    "src/table-inspector/DataContainer.tsx",
+    "src/table-inspector/HeaderContainer.tsx",
+    "src/table-inspector/TH.tsx",
+    "src/table-inspector/TableInspector.tsx",
+    "src/table-inspector/getHeaders.ts",
+    "src/tree-view/ExpandedPathsContext.tsx",
+    "src/tree-view/TreeNode.tsx",
+    "src/tree-view/TreeView.tsx",
+    "src/tree-view/pathUtils.ts",
+    "src/utils/objectPrototype.tsx",
+    "src/utils/propertyUtils.tsx",
+])
+
+alias(
+    name = "node_modules",
+    actual = "//buck2/dependencies:importer_packages_overeng_react_inspector_57d1a5b765ed",
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "editor_inputs",
+    actual = ":node_modules",
+    visibility = ["PUBLIC"],
+)
+
+package_tree(
+    name = "package_tree",
+    node_modules = ":node_modules",
+    files = {
+        "package.json": "package.json",
+        "src/dom-inspector/DOMInspector.tsx": "src/dom-inspector/DOMInspector.tsx",
+        "src/dom-inspector/DOMNodePreview.tsx": "src/dom-inspector/DOMNodePreview.tsx",
+        "src/dom-inspector/shouldInline.tsx": "src/dom-inspector/shouldInline.tsx",
+        "src/index.tsx": "src/index.tsx",
+        "src/object-inspector/ObjectInspector.tsx": "src/object-inspector/ObjectInspector.tsx",
+        "src/object-inspector/ObjectLabel.tsx": "src/object-inspector/ObjectLabel.tsx",
+        "src/object-inspector/ObjectPreview.tsx": "src/object-inspector/ObjectPreview.tsx",
+        "src/object-inspector/ObjectRootLabel.tsx": "src/object-inspector/ObjectRootLabel.tsx",
+        "src/object/ObjectName.tsx": "src/object/ObjectName.tsx",
+        "src/object/ObjectValue.tsx": "src/object/ObjectValue.tsx",
+        "src/schema/SchemaAwareNodeRenderer.tsx": "src/schema/SchemaAwareNodeRenderer.tsx",
+        "src/schema/SchemaAwareObjectPreview.tsx": "src/schema/SchemaAwareObjectPreview.tsx",
+        "src/schema/SchemaAwareObjectValue.tsx": "src/schema/SchemaAwareObjectValue.tsx",
+        "src/schema/SchemaContext.tsx": "src/schema/SchemaContext.tsx",
+        "src/schema/SchemaTooltip.tsx": "src/schema/SchemaTooltip.tsx",
+        "src/schema/effect4.unit.test.tsx": "src/schema/effect4.unit.test.tsx",
+        "src/schema/effectSchema.tsx": "src/schema/effectSchema.tsx",
+        "src/schema/lineage.ts": "src/schema/lineage.ts",
+        "src/schema/mod.tsx": "src/schema/mod.tsx",
+        "src/styles/base.tsx": "src/styles/base.tsx",
+        "src/styles/index.tsx": "src/styles/index.tsx",
+        "src/styles/styles.tsx": "src/styles/styles.tsx",
+        "src/styles/themes/chromeDark.tsx": "src/styles/themes/chromeDark.tsx",
+        "src/styles/themes/chromeLight.tsx": "src/styles/themes/chromeLight.tsx",
+        "src/styles/themes/index.tsx": "src/styles/themes/index.tsx",
+        "src/styles/unselectable.tsx": "src/styles/unselectable.tsx",
+        "src/table-inspector/DataContainer.tsx": "src/table-inspector/DataContainer.tsx",
+        "src/table-inspector/HeaderContainer.tsx": "src/table-inspector/HeaderContainer.tsx",
+        "src/table-inspector/TH.tsx": "src/table-inspector/TH.tsx",
+        "src/table-inspector/TableInspector.tsx": "src/table-inspector/TableInspector.tsx",
+        "src/table-inspector/getHeaders.ts": "src/table-inspector/getHeaders.ts",
+        "src/tree-view/ExpandedPathsContext.tsx": "src/tree-view/ExpandedPathsContext.tsx",
+        "src/tree-view/TreeNode.tsx": "src/tree-view/TreeNode.tsx",
+        "src/tree-view/TreeView.tsx": "src/tree-view/TreeView.tsx",
+        "src/tree-view/pathUtils.ts": "src/tree-view/pathUtils.ts",
+        "src/utils/objectPrototype.tsx": "src/utils/objectPrototype.tsx",
+        "src/utils/propertyUtils.tsx": "src/utils/propertyUtils.tsx",
+        "tsconfig.json": "tsconfig.json",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    workspace_siblings = {},
+    visibility = ["PUBLIC"],
+)
+
+tsgo_typecheck(
+    name = "typecheck",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+tsgo_emit(
+    name = "dist",
+    package_tree = ":package_tree",
+    declaration_sources = {
+    },
+    declaration_entrypoint = "src/index.d.ts",
+    visibility = ["PUBLIC"],
+)

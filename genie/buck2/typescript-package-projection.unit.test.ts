@@ -2,13 +2,20 @@ import { readFileSync } from 'node:fs'
 import process from 'node:process'
 
 import { describe, expect, it } from 'vitest'
+import type { GenieContext } from '../../packages/@overeng/genie/src/runtime/core.ts'
 
 import ciWorkflow from '../../.github/workflows/ci.yml.genie.ts'
 import dependencyBuck from '../../buck2/dependencies/BUCK.genie.ts'
+import agentSessionIngestBuck from '../../packages/@overeng/agent-session-ingest/BUCK.genie.ts'
+import ciToolsBuck from '../../packages/@overeng/ci-tools/BUCK.genie.ts'
 import contentAddressBuck from '../../packages/@overeng/content-address/BUCK.genie.ts'
+import effectAiClaudeCliBuck from '../../packages/@overeng/effect-ai-claude-cli/BUCK.genie.ts'
 import effectDistributedLockBuck from '../../packages/@overeng/effect-distributed-lock/BUCK.genie.ts'
 import effectPathBuck from '../../packages/@overeng/effect-path/BUCK.genie.ts'
-import type { GenieContext } from '../../packages/@overeng/genie/src/runtime/core.ts'
+import effectReactBuck from '../../packages/@overeng/effect-react/BUCK.genie.ts'
+import effectRpcTanstackBuck from '../../packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts'
+import effectSchemaFormBuck from '../../packages/@overeng/effect-schema-form/BUCK.genie.ts'
+import kdlBuck from '../../packages/@overeng/kdl/BUCK.genie.ts'
 import notionCliBuck from '../../packages/@overeng/notion-cli/BUCK.genie.ts'
 import notionCoreBuck from '../../packages/@overeng/notion-core/BUCK.genie.ts'
 import notionDatasourceSyncBuck from '../../packages/@overeng/notion-datasource-sync/BUCK.genie.ts'
@@ -17,7 +24,12 @@ import notionEffectSchemaBuck from '../../packages/@overeng/notion-effect-schema
 import notionMdBuck from '../../packages/@overeng/notion-md/BUCK.genie.ts'
 import notionPropertyWriteBuck from '../../packages/@overeng/notion-property-write/BUCK.genie.ts'
 import notionReactBuck from '../../packages/@overeng/notion-react/BUCK.genie.ts'
+import npmReleaseBuck from '../../packages/@overeng/npm-release/BUCK.genie.ts'
 import otelContractBuck from '../../packages/@overeng/otel-contract/BUCK.genie.ts'
+import oxcConfigBuck from '../../packages/@overeng/oxc-config/BUCK.genie.ts'
+import ptyEffectBuck from '../../packages/@overeng/pty-effect/BUCK.genie.ts'
+import reactInspectorBuck from '../../packages/@overeng/react-inspector/BUCK.genie.ts'
+import restateEffectBuck from '../../packages/@overeng/restate-effect/BUCK.genie.ts'
 import stylexTokensBuck from '../../packages/@overeng/stylex-tokens/BUCK.genie.ts'
 import tuiCoreBuck from '../../packages/@overeng/tui-core/BUCK.genie.ts'
 import tuiReactBuck from '../../packages/@overeng/tui-react/BUCK.genie.ts'
@@ -32,9 +44,16 @@ import { buck2TypeScriptPackageProjection } from './typescript-package-projectio
 const genieContext: GenieContext = { cwd: process.cwd(), location: '' }
 
 const outputsByAdmission = {
+  agentSessionIngest: agentSessionIngestBuck.stringify(genieContext),
+  ciTools: ciToolsBuck.stringify(genieContext),
   contentAddress: contentAddressBuck.stringify(genieContext),
+  effectAiClaudeCli: effectAiClaudeCliBuck.stringify(genieContext),
   effectDistributedLock: effectDistributedLockBuck.stringify(genieContext),
   effectPath: effectPathBuck.stringify(genieContext),
+  effectReact: effectReactBuck.stringify(genieContext),
+  effectRpcTanstack: effectRpcTanstackBuck.stringify(genieContext),
+  effectSchemaForm: effectSchemaFormBuck.stringify(genieContext),
+  kdl: kdlBuck.stringify(genieContext),
   notionCli: notionCliBuck.stringify(genieContext),
   notionCore: notionCoreBuck.stringify(genieContext),
   notionDatasourceSync: notionDatasourceSyncBuck.stringify(genieContext),
@@ -43,7 +62,12 @@ const outputsByAdmission = {
   notionMd: notionMdBuck.stringify(genieContext),
   notionPropertyWrite: notionPropertyWriteBuck.stringify(genieContext),
   notionReact: notionReactBuck.stringify(genieContext),
+  npmRelease: npmReleaseBuck.stringify(genieContext),
   otelContract: otelContractBuck.stringify(genieContext),
+  oxcConfig: oxcConfigBuck.stringify(genieContext),
+  ptyEffect: ptyEffectBuck.stringify(genieContext),
+  reactInspector: reactInspectorBuck.stringify(genieContext),
+  restateEffect: restateEffectBuck.stringify(genieContext),
   stylexTokens: stylexTokensBuck.stringify(genieContext),
   tuiCore: tuiCoreBuck.stringify(genieContext),
   tuiReact: tuiReactBuck.stringify(genieContext),

@@ -46,8 +46,8 @@
     "checkJs": false,
     "composite": true,
     "noImplicitAny": false,
-    "strictNullChecks": false
+    "strictNullChecks": false,
+    "noEmit": true
   },
-  "include": ["src/**/*"],
-  "references": []
+  "include": ["src/**/*"]
 }

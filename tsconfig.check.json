@@ -10,31 +10,10 @@
       "path": "./context/opentui"
     },
     {
-      "path": "./packages/@overeng/agent-session-ingest"
-    },
-    {
       "path": "./packages/@overeng/buck2-tools"
     },
     {
-      "path": "./packages/@overeng/ci-tools"
-    },
-    {
-      "path": "./packages/@overeng/effect-ai-claude-cli"
-    },
-    {
-      "path": "./packages/@overeng/effect-path"
-    },
-    {
-      "path": "./packages/@overeng/effect-react"
-    },
-    {
-      "path": "./packages/@overeng/effect-rpc-tanstack"
-    },
-    {
       "path": "./packages/@overeng/effect-rpc-tanstack/examples/basic"
-    },
-    {
-      "path": "./packages/@overeng/effect-schema-form"
     },
     {
       "path": "./packages/@overeng/effect-schema-form-aria"
@@ -43,31 +22,13 @@
       "path": "./packages/@overeng/genie"
     },
     {
-      "path": "./packages/@overeng/kdl"
-    },
-    {
       "path": "./packages/@overeng/kdl-effect"
     },
     {
       "path": "./packages/@overeng/megarepo"
     },
     {
-      "path": "./packages/@overeng/npm-release"
-    },
-    {
-      "path": "./packages/@overeng/oxc-config"
-    },
-    {
-      "path": "./packages/@overeng/pty-effect"
-    },
-    {
-      "path": "./packages/@overeng/react-inspector"
-    },
-    {
       "path": "./packages/@overeng/react-inspector/tsconfig.strict-consumer.json"
-    },
-    {
-      "path": "./packages/@overeng/restate-effect"
     },
     {
       "path": "./packages/@overeng/tui-stories"

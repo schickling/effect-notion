@@ -4,8 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/mod.ts",
-    "./react-aria": "./src/react-aria/mod.ts"
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
+    "./react-aria": {
+      "types": "./dist/src/react-aria/mod.d.ts",
+      "default": "./src/react-aria/mod.ts"
+    }
   },
   "publishConfig": {
     "access": "public",

@@ -46,10 +46,5 @@
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "jsx": "react-jsx"
   },
-  "include": ["src/**/*"],
-  "references": [
-    {
-      "path": "../effect-schema-form"
-    }
-  ]
+  "include": ["src/**/*"]
 }

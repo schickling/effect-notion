@@ -4,11 +4,26 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/mod.ts",
-    "./claude": "./src/adapters/claude.ts",
-    "./codex": "./src/adapters/codex.ts",
-    "./jsonl": "./src/adapters/jsonl.ts",
-    "./opencode": "./src/adapters/opencode.ts"
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
+    "./claude": {
+      "types": "./dist/src/adapters/claude.d.ts",
+      "default": "./src/adapters/claude.ts"
+    },
+    "./codex": {
+      "types": "./dist/src/adapters/codex.d.ts",
+      "default": "./src/adapters/codex.ts"
+    },
+    "./jsonl": {
+      "types": "./dist/src/adapters/jsonl.d.ts",
+      "default": "./src/adapters/jsonl.ts"
+    },
+    "./opencode": {
+      "types": "./dist/src/adapters/opencode.d.ts",
+      "default": "./src/adapters/opencode.ts"
+    }
   },
   "publishConfig": {
     "access": "public",

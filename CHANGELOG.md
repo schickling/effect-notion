@@ -203,6 +203,14 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Buck2 TypeScript admissions**: transfer typecheck and declaration authority
+  for the remaining independent library packages (effect-path, kdl, oxc-config,
+  npm-release, effect-ai-claude-cli, agent-session-ingest, effect-react,
+  effect-rpc-tanstack, pty-effect, restate-effect, ci-tools,
+  effect-schema-form, react-inspector). Each package leaves both root
+  TypeScript solutions; public type conditions consume Buck declarations while
+  runtime defaults remain at source.
+
 - **CI**: the paired `devenv-perf` wall-clock lane no longer runs on every pull
   request. It now runs on a nightly `schedule` against `main`, on operator
   `workflow_dispatch`, and on a pull request carrying the new `ci:perf` label.
