@@ -1,8 +1,7 @@
 # Execution Requirements
 
-This subsystem owns platforms, toolchains, and admitted action semantics for
-every language. It refines BUCK-R02 and BUCK-R04, merging the former
-execution-platforms and target-execution subsystems.
+This subsystem owns platforms, toolchains, sandboxing, and admitted action
+semantics for every language. It refines BUCK-R02 and BUCK-R04.
 
 ## Assumptions
 
@@ -31,40 +30,51 @@ execution-platforms and target-execution subsystems.
   target platform and execution platform. Platform labels are canonical and
   shared across composition shapes: the label, not its content, enters the
   configuration hash ([05-composition](../05-composition/requirements.md)).
-- **EXEC-R02 Exact tools from the store:** Every executable provider binds tool
-  bytes, protocol, runtime requirements, and execution-platform compatibility,
-  and resolves through `/nix/store` paths. Per-worktree tool paths are
-  forbidden: they enter action command lines and split cache keys.
-- **EXEC-R03 No ambient discovery:** An action must not discover an
-  authoritative executable through `PATH`, shell startup, or mutable host
-  state; missing or incompatible providers fail closed without selecting a
-  legacy producer.
-- **EXEC-R04 Narrow invalidation:** A tool or platform change invalidates
-  exactly the actions consuming the changed identity.
-- **EXEC-R05 Nix-owned Darwin capability:** Darwin compilation, linking,
-  signing, and inspection use exact Nix-provided Rust, LLVM, cctools, Apple
-  SDK, and sigtool identities; actions must not discover Xcode, `xcrun`, or
-  `/usr/bin` tools.
+- **EXEC-R02 Exact tool closures:** Every executable provider binds the exact
+  executable and its complete immutable runtime closure, protocol, and
+  execution-platform compatibility through normalized `/nix/store` paths.
+  Per-worktree paths and ambient `PATH` discovery are forbidden.
+- **EXEC-R03 No ambient discovery:** Missing or incompatible providers fail
+  closed without selecting an undeclared host tool or legacy producer.
+- **EXEC-R04 Narrow invalidation:** A tool, closure, or platform change
+  invalidates exactly the actions consuming the changed identity.
+- **EXEC-R05 Darwin capability split:** Darwin compilation, linking, signing,
+  and inspection use exact Nix-provided tool closures. Seatbelt is a declared
+  execution-platform/OS capability invoked at its fixed system path and bound
+  to the admitted macOS version; no other Xcode, `xcrun`, or ambient system
+  tool discovery is allowed.
 
-### Actions
+### Actions and containment
 
-- **EXEC-R06 Declared closure:** An action receives only declared sources,
-  dependency closure, configuration, tools, platforms, and policy.
-- **EXEC-R07 Deterministic contract:** Equal configured input produces equal
-  declared output where an artifact is promised, and an equal semantic verdict
-  for checks and tests.
-- **EXEC-R08 No live effects:** An action must not install against live state,
+- **EXEC-R06 Declared capability boundary:** An action sees only declared
+  sources, dependency views, exact tool closures, configuration, platforms,
+  and policy. Inputs and tools are read-only; only declared outputs and
+  `BUCK_SCRATCH_PATH` are writable; undeclared filesystem paths and network
+  are unavailable; the environment is an explicit allowlist.
+- **EXEC-R07 Required native sandboxes:** TypeScript actions use Bubblewrap on
+  Linux and a parameterized Seatbelt profile on Darwin. Both implementations
+  must pass their platform smoke gate before the authority cutover. Seatbelt's
+  public interface is deprecated, so every supported macOS upgrade re-runs the
+  Darwin gate before that OS is admitted.
+- **EXEC-R08 Deterministic contract:** Equal configured input produces
+  byte-identical JavaScript, declaration, and source-map outputs and an equal
+  semantic verdict. TypeScript build-info is disabled or redirected to scratch;
+  `.tsbuildinfo` is not a declared or published output.
+- **EXEC-R09 No live effects:** An action must not install against live state,
   publish, deploy, activate, or mutate anything outside its declared output
-  boundary.
-- **EXEC-R09 Typed results:** Results expose typed providers; stdout and
-  stderr remain diagnostic streams, never the verdict protocol. Tool failure,
-  malformed output, missing declared output, and platform incompatibility stay
-  distinguishable.
+  and scratch boundaries.
+- **EXEC-R10 Typed results:** Results expose typed providers; stdout and stderr
+  remain diagnostic streams, never the verdict protocol. Tool failure,
+  malformed output, missing output, and platform incompatibility remain
+  distinguishable. A denied undeclared read is containment evidence; it is not
+  required to make a tool exit nonzero unless that read is needed for the
+  declared operation or an explicit negative probe asserts it.
 
 ### Transfer
 
-- **EXEC-R10 Parity at transfer:** Authority transfer for an operation tuple
-  proves semantic parity against the existing producer, a representative
-  failure, an undeclared-access failure, and relevant/irrelevant mutation
-  controls (BUCK-R12); after transfer, normal developer and CI surfaces
-  delegate to Buck and the prior producer is deleted (BUCK-R09).
+- **EXEC-R11 Parity at transfer:** Authority transfer for an operation tuple
+  proves semantic parity, a representative failure, positive declared access,
+  negative undeclared filesystem and network access, environment filtering,
+  relevant/irrelevant mutation controls, and byte-stable outputs on Linux and
+  Darwin (BUCK-R12). After transfer, normal developer and CI surfaces delegate
+  to Buck and the prior producer is deleted (BUCK-R09).

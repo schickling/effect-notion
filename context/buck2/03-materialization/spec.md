@@ -1,8 +1,8 @@
 # Materialization Spec
 
-This document specifies the materialization action and the editor surface. It
-builds on [requirements.md](./requirements.md). Mechanisms are
-prototype-validated; see [.experiments/](./.experiments/).
+This document specifies the normalized store, closure-link importer views,
+bounded package execution views, cyclic assembly, and editor snapshots. It
+builds on [requirements.md](./requirements.md).
 
 ## Status
 
@@ -10,156 +10,154 @@ Draft.
 
 ## Scope
 
-**Defines:** the per-package materialization action, normalization, the editor
-view, and the staleness gate.
+**Defines:** package archive and entry providers, platform selection, SCC
+assembly, package views, workspace dist entries, and editor publication.
 
-**Does not define:** semantic dependency declaration (01), tool provisioning
-(02), or cache transport (04).
+**Does not define:** dependency intent (01), execution sandboxes and tools (02),
+or cache transport (04).
 
 ## Materialization Action
 
 ```text
-translate (genie, freshness-gated)
-  pnpm-lock.yaml (+ pnpm-workspace.yaml, patches)
-  -> per package version: fetch target (url, sha256 from generated sidecar)
-                          extract target (tarball -> package tree artifact)
-  -> per importer:        node_modules assembly target
-  -> platform constraints on optional/platform packages (select())
-
-fetch     download_file, remote-cacheable, network only here (DEPS-R08)
-extract   tar -> package tree, remote-cacheable
-assemble  importer virtual store: .pnpm/<name>@<ver>[_peer-suffix]/node_modules/<name>
-          hardlinks from extract artifacts, relative symlinks for edges,
-          workspace: edges as relative links, .bin entries as symlinks
-          local_only (DEPS-T01); public node_modules output
+pnpm-lock.yaml + integrity sidecar + patches
+  -> npm_archive(package snapshot)       fetch + extract once, all platforms
+  -> pnpm_store_entry(snapshot)          copy own package per entry variant
+       |-- symlink dependency edges: invariant entries
+       `-- distinct configured artifacts: nine platform-selected entries
+  -> pnpm_store_scc(members)             one sandboxed action per real SCC
+  -> pnpm_store_view(importer closure)   metadata-only dependency links
+  -> package_view(package + view + dist workspace entries), bounded owned bytes
 ```
 
-No package manager executes inside Buck actions. pnpm is the developer-time
-resolver that writes `pnpm-lock.yaml`; the generated sha256 sidecar is derived
-from the lockfile's sha512 integrity values and verified against them at
-generation, so it cannot disagree with the lockfile except by staleness, which
-the freshness gate rejects. The lockfile's peer-suffixed snapshot keys map
-directly to virtual-store entries; peer resolution is not re-derived.
+`npm_archive` verifies the lockfile-derived digest, applies declared patches,
+normalizes modes and links, and publishes one extracted package artifact. It is
+unconditional: a platform selection never causes the same tarball to be
+fetched or extracted again.
 
-Invalidation is structural (DEPS-R07): a changed package version re-runs its
-fetch and extract and the assemblies of importers whose closure contains it;
-unrelated importers are untouched. A change that leaves an importer's closure
-byte-identical re-runs nothing for it.
+Package lifecycle scripts do not execute. An admitted snapshot marked
+`requiresBuild` fails until it has an explicit sandboxed build mechanism;
+package-manager execution is never an implicit fallback.
 
-Lifecycle scripts are not executed (ratified policy: builds disallowed;
-`requiresBuild` is empty in the lockfile). A package that would require a
-build fails admission until a declared mechanism exists. `patchedDependencies`
-apply during extraction as declared inputs. Optional platform packages are
-filtered by cpu/os constraints so foreign-platform entries are neither fetched
-nor linked.
+A store-entry provider records the lockfile snapshot identity, package name and
+version, peer identity, selected platform-edge variant, package artifact,
+dependency-entry providers, bin metadata, and optional platform condition. For
+an acyclic entry, `assembled_dir.copy` materializes its package tree under
+`node_modules/<name>`; dependency edges use `assembled_dir.symlink`. There is
+one entry artifact per peer identity except for the nine platform-selected
+entries, which own one per distinct configured edge variant. The own-package
+copy is required so realpath keeps sibling dependency links visible. An
+importer view records direct links, complete closure, and bin precedence
+without copying dependency bytes.
 
-The assembled tree is relocatable (no absolute paths) but hardlinks share inodes
-with extract artifacts; Buck resets output modes, so read-only protection is
-applied on the published editor view, not inside `buck-out`. The retired
-deploy-based two-stage action and its normalizer are recorded in
-[the retained experiment](./.experiments/2026-08-26-two-stage-prune-install.md)
-and superseded by
-[the closure prototype](./.experiments/2026-08-30-declared-closure-prototype.md).
+Exactly these nine direct-dependency entries select different dependency edges
+by configured platform. Each selected variant has its own configured entry and
+own-package materialization; the shared archive/extract bytes are unchanged:
 
-The package-tree API projects declared workspace files into the output for
-cacheable consumers; the editor-surface realization provides DEPS-R03
-live-source links outside the cacheable package tree without weakening
-DEPS-R02.
+- `playwright@1.61.0`
+- `vite@8.0.16`
+- `esbuild@0.28.2`
+- `rolldown@1.0.3`
+- `lightningcss@1.33.0`
+- `msgpackr-extract@3.0.4`
+- `oxc-resolver@11.21.2`
+- `oxc-parser@0.127.0`
+- `@opentui/core@0.4.1`
 
-## Editor Surface
+The platform `select()` belongs only on those entries' dependency-provider
+attributes. Archive providers, all other store entries, and consumer views
+remain platform-invariant. Foreign optional packages are absent from the
+selected entry rather than filtered by every importer.
+
+## Dependency Cycles
+
+Lockfile translation computes strongly connected components. Singleton acyclic
+components use the normalized copy-own-package/link-dependencies entry shape.
+The five real multi-member SCCs each produce one cacheable group artifact in
+the execution sandbox. Read-only member artifacts and exact assembly tools are
+inputs; the group output and scratch are the only writable roots; network is
+denied.
+
+Within a group, each member retains a distinct pnpm virtual-store namespace:
+`.pnpm/<snapshot-identity>/node_modules/<package>`. Back-edges are relative
+links between these namespaces. The assembler rejects duplicate namespaces,
+escaping or absolute links, and an edge to a member outside the declared SCC.
+Consumers address individual member providers backed by the group; they do not
+receive a merged directory or another byte copy.
+
+## Workspace and Package Views
+
+A production workspace entry owns its small package metadata and declared Buck
+`dist` boundary where realpath requires it. Manifest export conditions select
+that provider; there is no production source-backed alternative. A package
+execution view copies only package-owned sources and workspace dist boundaries,
+then links one metadata-only importer dependency view. TypeScript projects that
+view into its metadata-only scratch overlay inside the sandbox (02).
+
+The migration lands store primitives, SCCs, package manifests, and dependent
+consumer changes in staged PRs while the old producer remains authoritative.
+The final authority PR is atomic: all 17 packages from #1209 must expose and
+consume valid dist boundaries; all five repo-wide SCCs must build; DQ1's CI
+cache path and DQ4's accepted numeric cold-capacity envelope must close; and
+both platform sandboxes must pass. It then flips every production consumer and
+deletes the old producer, root install, and source fallback together.
+
+## Editor Snapshot
+
+The editor must outlive Buck's backing artifacts, so its publication boundary
+is intentionally byte-materialized rather than metadata-only:
 
 ```text
-packages/@overeng/tui-core/node_modules
-  -> ../../.editor-view/tui-core/node_modules       (stable first hop)
-packages/.editor-view/tui-core
-  -> .store/tui-core-<editor-inputs-fingerprint>   (atomic current pointer)
-packages/.editor-view/.store/tui-core-<fingerprint>/
+packages/@overeng/<package>/node_modules
+  -> ../../.editor-view/<package>/node_modules       stable package first hop
+packages/.editor-view/<package>
+  -> .store/<package>-<view-fingerprint>             atomic current pointer
+packages/.editor-view/.store/<package>-<view-fingerprint>/
   editor-view.json
-  node_modules/                                    (hardlink snapshot)
+  node_modules/                                      byte-owned snapshot
 ```
 
-The literal two-level first hop is part of the scoped contract. From
-`packages/@overeng/tui-core` it resolves to `packages/.editor-view`, not the
-repository-root `.editor-view`; `packages/.editor-view` is therefore the owning
-state root for scoped `packages/@overeng/*` editor views.
+The publisher installs the package-level first hop once. If a legacy install
+left a directory or other entry there, a same-filesystem atomic exchange adopts
+the symlink without an absent-path window and retains the old entry under
+`.legacy/`. An already-correct first hop is validated and not rewritten.
 
-`//packages/@overeng/tui-core:editor_inputs` exposes the canonical Stage-1
-descriptor tree carried by `PnpmNodeModulesInfo.editor_inputs`. The existing
-`:node_modules` default output and provider identity remain valid. The
-publisher fingerprints the built `:editor_inputs` artifact rather than
-reimplementing manifest discovery.
+Publication atomically creates the exclusive state-root lock; contention rejects
+immediately. There is no wait, age heuristic, timeout, or automatic lock theft.
+The rejection prints the owner identity and recovery token. Explicit recovery
+requires that exact token and fail-closed proof that the recorded owner is no
+longer live; ambiguity rejects recovery. Under the held lock the publisher:
 
-Every published snapshot contains this repository-local record:
+1. builds the selected metadata view and fingerprints its complete graph;
+2. creates a same-filesystem candidate under the state root;
+3. dereferences the view into the candidate, copying each regular file once;
+4. rejects symlinks, special files, escaping paths, or mutation during copy;
+5. validates the byte-tree digest and writes `editor-view.json`;
+6. atomically renames the candidate to its deterministic snapshot name;
+7. atomically renames a candidate symlink over the current pointer.
 
-```json
-{
-  "schema": "effect-utils/editor-view/v1",
-  "package": "packages/@overeng/tui-core",
-  "cell": "tui-core",
-  "target": "//packages/@overeng/tui-core:editor_inputs",
-  "editorInputsFingerprint": "<lowercase SHA-256 tree digest>",
-  "snapshot": ".store/tui-core-<editorInputsFingerprint>",
-  "nodeModulesTreeDigest": "<lowercase SHA-256 tree digest>"
-}
-```
-
-The tree digest begins with the `effect-utils/tree-digest/v1` domain separator.
-Entries are traversed by unsigned UTF-8 byte order. Each entry frames its kind
-and repository-relative path with an unsigned 64-bit big-endian byte length;
-regular files additionally frame size then bytes, symlinks frame their target,
-and directories frame their own entry. Unsupported special files and entries that mutate while hashing fail closed.
-
-Publication holds the exclusive `packages/.editor-view/.publish.lock`, created
-atomically. Any existing lock rejects publication immediately and prints the
-explicit token-gated `recover-lock` operation; there is no age heuristic,
-sleep, timeout, or automatic stale-lock theft. Under the lock the publisher:
-
-1. hashes the admitted `editor_inputs` and `node_modules` outputs;
-2. creates same-filesystem `.store/.candidate-*` state;
-3. invokes the immutable Nix GNU `cp -al` without a byte-copy fallback;
-4. verifies every regular file shares device and inode with the admitted tree,
-   verifies the complete candidate digest, and writes `editor-view.json`;
-5. renames the candidate to deterministic
-   `.store/tui-core-<editorInputsFingerprint>`;
-6. creates a same-directory candidate symlink and renames it over `tui-core`;
-7. installs the package first hop once. If root pnpm left a directory or other
-   entry there, immutable Nix GNU `mv --exchange --no-copy` swaps it with the
-   candidate link without an absent-path window, and the exchanged entry is
-   retained under `.legacy/`.
-
-An already-correct first hop is validated and never mutated during later
-refreshes. Published snapshots are immutable and are never deleted by publish,
-check, or lock recovery; snapshot garbage collection is outside this spec. A
-failure before the current-pointer rename leaves the old current view intact.
-
-The flip target is a `cp -al` snapshot of the action output, not `buck-out`
-itself: Buck deletes an action's output directory before re-running it, which
-would leave the stable link dangling for the whole action (measured 3.06 s
-window). Hardlink snapshot publication closes that window without duplicating
-file bytes.
+A failure before either rename leaves the previous pointer intact. A completed
+snapshot contains no links to store entries, SCC outputs, views, or `buck-out`;
+deleting every backing artifact therefore cannot break the editor. Published
+snapshots are read-only. Garbage collection never removes the current snapshot
+and is outside publication.
 
 ## Staleness Gate
 
-The scoped `buck2:tui-core:publish-editor` and
-`buck2:tui-core:check-editor` tasks each build the current `:editor_inputs` and
-`:node_modules` outputs with a task-private Buck daemon into ignored scratch,
-then stop the daemon and remove both scratch and its private Buck output. They
-call the pinned Bun publisher or checker respectively. The checker validates
-record schema and identity, both symlink hops, store containment, pointer
-liveness, snapshot completeness, and admitted versus recorded versus snapshot
-node_modules digests. It does not call tsgo as an oracle.
+The record binds schema, package/cell/target identity, manifest fingerprint,
+normalized-store digest, selected-view digest, and byte snapshot digest. The
+checker independently rebuilds current identities and validates both symlink
+hops, state-root containment, pointer liveness, record completeness, and the
+snapshot byte digest. It does not use the language server or tsgo as an oracle.
+Missing, malformed, escaping, dangling, incomplete, or stale state reports the
+recorded and current fingerprints and fails closed.
 
-Missing, malformed, escaping, dangling, incomplete, or stale state fails with
-both the recorded and current editor-input fingerprints named. The scoped
-publish/check tasks are intentionally not dependencies of global check, test,
-or TypeScript tasks during this cutover.
-`buck2:tui-core:recover-editor-lock` is the only recovery surface; it requires
-the exact printed owner token through `EDITOR_VIEW_LOCK_TOKEN` and neither
-builds nor mutates snapshots (DEPS-R06).
+## Cache Boundary
 
-## Relationship to Exact Closure Materialization
-
-The declared closure above is the per-package fetch-and-verify tier that the
-retired package-evidence regime anticipated. It is introduced with live
-consumers (the admitted packages) under the Buck admission contract; no
-evidence infrastructure from the retired regime is revived.
+Archive, SCC, TypeScript verdict, and dist actions may upload to the shared
+action cache. Graph-composed normalized entries and importer/package views add
+no separate command output to upload, even where their artifact projections
+materialize bounded owned bytes. Cache-only execution keeps actions local while
+allowing reads and uploads; local round trips prove this transport boundary but
+do not settle CI runner connectivity. True remote execution is a separate
+contract and remains disabled until a real remote executor proves sandbox,
+tool-closure, path, and output semantics.

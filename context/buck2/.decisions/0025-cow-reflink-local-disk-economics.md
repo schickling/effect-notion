@@ -72,9 +72,8 @@ overlay behavior).
 - Darwin/APFS receives full CoW economics as soon as the assembler change
   lands; ext4 hosts keep copy semantics until the fleet requirement is
   satisfied at a storage refresh.
-- Until the assembler change lands, the implementation still hardlinks —
-  recorded as a staged divergence in
-  [.delta/DELTA-001](../03-materialization/.delta/DELTA-001-assembler-hardlinks-pending-0025.md).
+- Until Amendment 1, the implementation still hardlinked; the now-retired
+  assembler-hardlinks delta recorded that staged divergence.
 - A hygiene pass is owed regardless of filesystem: GC of stale `buck-out`
   trees and stale composition roots, purge of contaminated immutable store
   commits plus a store-contamination guard, GC of orphaned editor snapshots,
@@ -82,3 +81,35 @@ overlay behavior).
   the root install.
 - The remote cache remains the sole cross-machine amortization mechanism;
   local CoW is cross-root amortization on one machine.
+
+## Amendment 1: Normalized Store Consumer Views
+
+Date: 2026-09-04. Status: accepted; the importer/package-assembly mechanism in
+this decision is superseded by
+[decision 0030](./0030-normalized-store-scc-and-atomic-cutover.md).
+
+Issue #1212 proved that reflink-first assembly optimizes an avoidable copy but
+still permits one closure-sized tree per consumer and degrades to full copies
+on filesystems without CoW. The stronger invariant is independent of storage
+primitives: each normalized entry owns one package-tree copy shared by every
+consumer; the nine entries with platform-selected edges own one such copy per
+distinct configured variant, while archive/extract bytes remain shared.
+Dependency edges and importer views are metadata-only. Workspace/dist entries
+and package execution views copy only their small owned boundary, never a
+dependency closure. Consequently, the
+reflink-first importer/package closure assembly, independent-inode fallback,
+filesystem-refresh obligation, and pre-flip reflink spike in the original
+Decision are no longer the target mechanism.
+
+At supersession, the live importer assembler still used `link()` with a copy
+fallback; package-tree used `COPYFILE_FICLONE` (a full closure copy on ext4),
+and editor publication used `cp -al`. The former assembler delta and resolution
+signal — no `nlink > 1` plus a successful reflink build spike — are retired.
+The open normalized-store cutover delta now tracks the real implementation
+divergence.
+
+The safety finding remains valid: mutable consumers must never share writable
+hardlink inodes with immutable inputs. The editor is also an explicit
+availability boundary and therefore retains a byte-materialized atomic
+snapshot. That snapshot owns its bytes, survives deletion of all backing Buck
+artifacts, and does not restore dependency-closure staging for actions.

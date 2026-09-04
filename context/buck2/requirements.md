@@ -77,14 +77,19 @@ invariants named in its own document:
   action cache. A second same-platform context at an identical revision
   re-executes zero actions for unchanged admitted targets; a violation is a
   key-stability regression ([04-reuse](./04-reuse/requirements.md)).
-- **BUCK-R07 Wall-clock budgets:** The admitted surface holds a warm no-op
-  check at ≤ 5 s and a fresh-context green with warm shared cache at ≤ 3 min.
-  Admission widening that breaks a budget is a regression to fix before
-  widening further.
-- **BUCK-R08 Disk anti-duplication:** Dependency and output materialization
-  must not duplicate bytes per worktree where a shared content-addressed store
-  or hardlink mechanism exists. Buck-owned state (`buck-out`, isolation dirs)
-  carries the same anti-duplication obligation as the pnpm store contract.
+- **BUCK-R07 Capacity budgets:** The admitted surface holds a warm no-op check
+  at ≤ 5 s and a fresh-context green with warm shared cache at ≤ 3 min. Before
+  an authority flip, its cache-disabled cold lane must also satisfy an accepted
+  numeric wall-clock, peak disk/scratch, staging/action p95, and marginal
+  admission-slope envelope measured on the full candidate runner profile.
+  Raising timeout or disk without changing and measuring that curve does not
+  satisfy the gate; regression blocks further widening.
+- **BUCK-R08 Disk anti-duplication:** Each normalized store identity may
+  materialize its own package bytes once, shared by every consumer; only the
+  nine entries with platform-selected edges own one such entry artifact per
+  distinct configured variant. Archive/extract bytes remain shared. Importer
+  and scratch overlays must not materialize dependency closure bytes per
+  consumer, independent of filesystem CoW support.
 
 ### Must dissolve superseded systems
 
@@ -130,8 +135,9 @@ invariants named in its own document:
   repositories. A phase that increases the net ledger without a recorded
   rationale is a regression, not progress.
 - **BUCK-R16 Benchmark evidence:** Efficiency claims are measured, never
-  asserted. Each admission records warm no-op time, fresh-context time with a
-  warm shared cache, cache hit rate for unchanged targets, and CI wall-clock
-  delta against the pre-admission baseline. A regression against the BUCK-R07
-  budgets or the recorded baseline blocks further widening until it is fixed or
-  explicitly accepted in a decision record.
+  asserted. Each admission records warm no-op time; fresh-context time with a
+  warm shared cache; cache-disabled cold-lane wall time; cache hits and local
+  executions; peak `buck-out`, output, and scratch disk; staging/action p95;
+  CI wall-clock delta; and the marginal time, disk, and action-count slope per
+  admitted package. A regression against BUCK-R07 or the recorded baseline
+  blocks further widening until fixed or explicitly accepted in a decision.
