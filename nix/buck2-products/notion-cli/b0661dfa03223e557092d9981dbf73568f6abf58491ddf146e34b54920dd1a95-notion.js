@@ -90965,7 +90965,7 @@ function generateApiCode(opts) {
     lines2.push(`/**`);
     lines2.push(` * Create a new page in the ${dbInfo.name} database.`);
     lines2.push(` */`);
-    lines2.push(`export const create = (properties: typeof ${pascalName}PageWrite.Type) =>`);
+    lines2.push(`export const create = (properties: ${pascalName}PageWrite) =>`);
     lines2.push(`  NotionPages.create({`);
     lines2.push(`    parent: { type: 'database_id', database_id: DATABASE_ID },`);
     lines2.push(`    properties: encode${pascalName}Write(properties),`);
@@ -90980,11 +90980,11 @@ function generateApiCode(opts) {
     lines2.push(` */`);
     lines2.push(`export const update = (`);
     lines2.push(`  pageId: string,`);
-    lines2.push(`  properties: Partial<typeof ${pascalName}PageWrite.Type>,`);
+    lines2.push(`  properties: Partial<${pascalName}PageWrite>,`);
     lines2.push(`) =>`);
     lines2.push(`  NotionPages.update({`);
     lines2.push(`    pageId,`);
-    lines2.push(`    properties: encode${pascalName}Write(properties as typeof ${pascalName}PageWrite.Type),`);
+    lines2.push(`    properties: encode${pascalName}Write(properties as ${pascalName}PageWrite),`);
     lines2.push(`  })`);
   }
   lines2.push(``);
@@ -91042,7 +91042,7 @@ var PROPERTY_TRANSFORMS, DEFAULT_TRANSFORMS, NOTION_SCHEMA_TRANSFORM_KEYS, ROLLU
 }, toSingleQuotedStringLiteral = (value5) => {
   const json4 = JSON.stringify(value5);
   const inner = json4.slice(1, -1);
-  return `'${inner.replace(/'/g, "\\'")}'`;
+  return `'${inner.replaceAll("\\\"", '"').replaceAll("'", "\\'")}'`;
 }, sanitizeLineComment = (comment) => comment.replaceAll(`\r
 `, " ").replaceAll(`
 `, " ").replaceAll("\r", " "), toIdentifier = (name) => {

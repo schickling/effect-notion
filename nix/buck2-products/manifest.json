@@ -25,10 +25,10 @@
       "moduleSha256": "c4c19ae14f55c2ae474e3b66834f35bc6e95a0488404f1a0d6bdaa8aa6c22a84"
     },
     "notion-cli": {
-      "artifact": "notion-cli/381f059f05f8fd87011834ec047b149b46fb3a9ca821f50a1e85460bcb4489b3-notion.js",
-      "descriptorSha256": "0305a887cc5219ae2974c7139e3ae723e28bd6c16963fa78415925d56d5f0005",
+      "artifact": "notion-cli/b0661dfa03223e557092d9981dbf73568f6abf58491ddf146e34b54920dd1a95-notion.js",
+      "descriptorSha256": "9c77c8974601f173d8e825998d965884725d606420ff233e09a61605bfb8f606",
       "label": "//packages/@overeng/notion-cli:notion-cli-candidate",
-      "moduleSha256": "381f059f05f8fd87011834ec047b149b46fb3a9ca821f50a1e85460bcb4489b3"
+      "moduleSha256": "b0661dfa03223e557092d9981dbf73568f6abf58491ddf146e34b54920dd1a95"
     },
     "notion-db-runtime": {
       "artifact": "notion-db-runtime/1390b00d68db675d056d970995188a43f19bda6f89f40b9678c5000bcf45fb89-notion-db.js",

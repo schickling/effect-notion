@@ -11,8 +11,8 @@
     "os": "any"
   },
   "modulePath": "notion.js",
-  "integrity": "sha256-OB8FnwX4/YcBGDTsBHsUm0b7OpyoIfUKHoVGC8tEibM=",
-  "sizeBytes": 3740982,
+  "integrity": "sha256-sGYd+gMiPlVwktmYHb9zVo9qv1hJHd8UbjS1SSDdGpU=",
+  "sizeBytes": 3740972,
   "target": "effect_utils//packages/@overeng/notion-cli:notion-cli-candidate",
   "externalCapabilities": [],
   "externalModules": [],
