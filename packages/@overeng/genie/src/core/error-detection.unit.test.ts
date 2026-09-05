@@ -103,11 +103,29 @@ describe('errorOriginatesInFile', () => {
   })
 })
 
+/**
+ * `checkAll` registers genie's Bun import-map resolver, so the suite needs a
+ * `Bun.plugin`. Under the Bun runtime the real one is already present and must
+ * not be reassigned — `globalThis.Bun` is a non-writable global there — so the
+ * suite installs a no-op stub only on runtimes that have no `Bun` at all.
+ */
+const installBunPluginHost = (): (() => void) => {
+  const globalWithBun = globalThis as { Bun?: unknown }
+  if (globalWithBun.Bun !== undefined) return () => undefined
+  Object.defineProperty(globalThis, 'Bun', {
+    value: { plugin: () => undefined },
+    configurable: true,
+    writable: true,
+  })
+  return () => {
+    delete globalWithBun.Bun
+  }
+}
+
 describe('checkAll', () => {
   it('fails fast on fatal import errors and marks interrupted siblings as non-active', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genie-check-fail-fast-'))
-    const globalWithBun = globalThis as { Bun?: unknown }
-    const previousBun = globalWithBun.Bun
+    const restoreBunPluginHost = installBunPluginHost()
 
     const writeFile = async ({
       relativePath,
@@ -122,8 +140,6 @@ describe('checkAll', () => {
     }
 
     try {
-      globalWithBun.Bun = { plugin: () => undefined }
-
       await writeFile({
         relativePath: 'package.json',
         content: JSON.stringify({ name: 'genie-check-test', private: true, type: 'module' }),
@@ -188,11 +204,7 @@ export default {
       expect(canceledSibling).toBeDefined()
       expect(canceledSibling?.status).toBe('error')
     } finally {
-      if (previousBun === undefined) {
-        delete globalWithBun.Bun
-      } else {
-        globalWithBun.Bun = previousBun
-      }
+      restoreBunPluginHost()
       await fs.rm(root, { recursive: true, force: true })
     }
   })

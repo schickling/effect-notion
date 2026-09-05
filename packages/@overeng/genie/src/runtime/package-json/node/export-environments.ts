@@ -50,6 +50,13 @@ export type ExportTypeProofCompiler = {
 /** Node-runtime knobs for package.json export validation (e.g. overriding the type-proof compiler). */
 export type NodePackageJsonValidationRuntimeOptions = {
   typeProofCompiler?: ExportTypeProofCompiler
+  /**
+   * Where proof results and staged proof tsconfigs are written. Defaults to the
+   * validated repository's own `.devenv/task-cache`, which requires a writable
+   * checkout; a caller validating a read-only tree (a build-system input view)
+   * names a writable directory instead.
+   */
+  proofCacheDir?: string
 }
 
 const validatorVersion = 'package-json-export-environments-v2'
@@ -415,7 +422,7 @@ const resolveTargetEntries = ({
   return walkFiles(baseDir).filter((file) => targetPattern.test(file))
 }
 
-const cacheRoot = (cwd: string): string =>
+const defaultProofCacheRoot = (cwd: string): string =>
   path.join(cwd, '.devenv/task-cache/genie-package-json-export-environments')
 
 const sha256 = (content: string): string => createHash('sha256').update(content).digest('hex')
@@ -516,13 +523,12 @@ const proofCacheKey = ({
   return hash.digest('hex')
 }
 
-const hasCachedProof = ({ cwd, key }: { cwd: string; key: string }): boolean =>
-  existsSync(path.join(cacheRoot(cwd), `${key}.ok`))
+const hasCachedProof = ({ cacheRoot, key }: { cacheRoot: string; key: string }): boolean =>
+  existsSync(path.join(cacheRoot, `${key}.ok`))
 
-const writeCachedProof = ({ cwd, key }: { cwd: string; key: string }): void => {
-  const root = cacheRoot(cwd)
-  mkdirSync(root, { recursive: true })
-  writeFileSync(path.join(root, `${key}.ok`), 'ok\n')
+const writeCachedProof = ({ cacheRoot, key }: { cacheRoot: string; key: string }): void => {
+  mkdirSync(cacheRoot, { recursive: true })
+  writeFileSync(path.join(cacheRoot, `${key}.ok`), 'ok\n')
 }
 
 const tsconfigLibName = (lib: string): string =>
@@ -532,16 +538,16 @@ const tsconfigLibName = (lib: string): string =>
     .replace(/\b[a-z]/g, (char) => char.toUpperCase())
 
 const writeProofTsconfig = ({
-  cwd,
+  cacheRoot,
   entry,
   profile,
 }: {
-  cwd: string
+  cacheRoot: string
   entry: string
   profile: EnvironmentProfile
 }): { dir: string; path: string } => {
-  mkdirSync(cacheRoot(cwd), { recursive: true })
-  const dir = mkdtempSync(path.join(cacheRoot(cwd), 'proof-'))
+  mkdirSync(cacheRoot, { recursive: true })
+  const dir = mkdtempSync(path.join(cacheRoot, 'proof-'))
   const configPath = path.join(dir, 'tsconfig.json')
   writeFileSync(
     configPath,
@@ -596,6 +602,7 @@ const runTypeProofCompiler = ({
 
 const typecheck = ({
   cwd,
+  cacheRoot,
   entry,
   files,
   cacheInputs,
@@ -606,6 +613,7 @@ const typecheck = ({
   exportPath,
 }: {
   cwd: string
+  cacheRoot: string
   entry: string
   files: readonly string[]
   cacheInputs: readonly string[]
@@ -645,13 +653,14 @@ const typecheck = ({
   }
 
   const key = proofCacheKey({ files, cacheInputs, contract, profile, compiler })
-  if (hasCachedProof({ cwd, key }) === true) return { issues: [], cache: { hits: 1, misses: 0 } }
+  if (hasCachedProof({ cacheRoot, key }) === true)
+    return { issues: [], cache: { hits: 1, misses: 0 } }
 
-  const proofConfig = writeProofTsconfig({ cwd, entry, profile })
+  const proofConfig = writeProofTsconfig({ cacheRoot, entry, profile })
   try {
     const result = runTypeProofCompiler({ compiler, configPath: proofConfig.path, cwd })
     if (result.ok === true) {
-      writeCachedProof({ cwd, key })
+      writeCachedProof({ cacheRoot, key })
       return { issues: [], cache: { hits: 0, misses: 1 } }
     }
 
@@ -674,6 +683,7 @@ const typecheck = ({
 /** Package-json-owned node validation runtime injected during Genie validation. */
 export const createNodePackageJsonValidationRuntime = ({
   typeProofCompiler: configuredTypeProofCompiler,
+  proofCacheDir,
 }: NodePackageJsonValidationRuntimeOptions = {}): PackageJsonValidationRuntime => ({
   validateExportEnvironments: (args) => {
     const start = performance.now()
@@ -681,6 +691,7 @@ export const createNodePackageJsonValidationRuntime = ({
     let hits = 0
     let misses = 0
     const typeProofCompiler = resolveTypeProofCompiler(configuredTypeProofCompiler)
+    const proofCacheRoot = proofCacheDir ?? defaultProofCacheRoot(args.cwd)
 
     for (const [exportPath, contracts] of Object.entries(args.contracts)) {
       for (const contract of contracts) {
@@ -741,6 +752,7 @@ export const createNodePackageJsonValidationRuntime = ({
 
           const typecheckResult = typecheck({
             cwd: args.cwd,
+            cacheRoot: proofCacheRoot,
             entry,
             files: graph.files,
             cacheInputs: [

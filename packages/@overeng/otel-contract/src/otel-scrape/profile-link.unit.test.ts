@@ -1,10 +1,8 @@
 import { execFile, spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { promisify } from 'node:util'
 
 import { Effect, Schema } from 'effect'
@@ -30,12 +28,12 @@ import {
 
 const execFileAsync = promisify(execFile)
 
-const binaryFromEnv = (envName: string, fallback: string) => process.env[envName] ?? fallback
-
-const localOtelScrapeBinary = () => {
-  const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
-  const path = join(packageRoot, '..', 'otel-scrape', 'target', 'debug', 'otel-scrape')
-  return existsSync(path) === true ? path : 'otel-scrape'
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
 }
 
 const startOteliteCapture = async ({
@@ -188,8 +186,8 @@ describe('otel-scrape profile links', () => {
     const privateArg = 'PRIVATE_E2E_ARG_MARKER'
 
     try {
-      const otelite = binaryFromEnv('OTELITE_BIN', 'otelite')
-      const otelScrape = binaryFromEnv('OTEL_SCRAPE_BIN', localOtelScrapeBinary())
+      const otelite = requireTool('OTELITE_BIN')
+      const otelScrape = requireTool('OTEL_SCRAPE_BIN')
       const capture = await startOteliteCapture({ otelite, out: captureRoot })
       const run = await execFileAsync(
         otelScrape,
@@ -207,7 +205,7 @@ describe('otel-scrape profile links', () => {
           '--cas-pin',
           'runs/contract-e2e',
           '--',
-          'node',
+          requireTool('NODE_BIN'),
           '-e',
           'for (let i = 0; i < 100000; i++) Math.sqrt(i); console.log(process.argv[1])',
           privateArg,

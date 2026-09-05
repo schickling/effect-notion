@@ -19,7 +19,10 @@ import { expect } from 'vitest'
 
 import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
 
+import { requireTool } from '../test-utils/require-tool.ts'
 import { assessLossless, hasStash, unpushedCommitCount } from './store-lossless.ts'
+
+const gitBin = requireTool('GIT_BIN')
 
 const GIT_USER = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test User'] as const
 
@@ -27,7 +30,7 @@ const GIT_USER = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test Use
 const git = (cwd: string, ...args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const result = yield* ChildProcessSpawner.use((spawner) =>
-      spawner.string(Command.make('git', [...GIT_USER, ...args], { cwd })),
+      spawner.string(Command.make(gitBin, [...GIT_USER, ...args], { cwd })),
     )
     return result.trim()
   })
@@ -223,7 +226,7 @@ describe('store-lossless', () => {
         // it to produce a genuine `refs/stash` (fixture concern, not product).
         yield* ChildProcessSpawner.use((spawner) =>
           spawner.string(
-            Command.make('git', [...GIT_USER, 'stash'], {
+            Command.make(gitBin, [...GIT_USER, 'stash'], {
               cwd: wt,
               env: { AGENT_POLICY_BYPASS: '1' },
             }),
@@ -256,7 +259,7 @@ describe('store-lossless', () => {
         // it to produce a genuine `refs/stash` (fixture concern, not product).
         yield* ChildProcessSpawner.use((spawner) =>
           spawner.string(
-            Command.make('git', [...GIT_USER, 'stash'], {
+            Command.make(gitBin, [...GIT_USER, 'stash'], {
               cwd: wt,
               env: { AGENT_POLICY_BYPASS: '1' },
             }),

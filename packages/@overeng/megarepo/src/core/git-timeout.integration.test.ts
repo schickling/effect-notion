@@ -24,8 +24,11 @@ import { expect } from 'vitest'
 
 import { EffectPath } from '@overeng/effect-path'
 
+import { requireTool } from '../test-utils/require-tool.ts'
 import * as Git from './git.ts'
 import { GitCommandTimeoutError } from './git.ts'
+
+const gitBin = requireTool('GIT_BIN')
 
 const GIT_USER = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test User'] as const
 
@@ -33,7 +36,7 @@ const GIT_USER = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test Use
 const git = (cwd: string, ...args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     return (yield* ChildProcessSpawner.use((spawner) =>
-      spawner.string(Command.make('git', [...GIT_USER, ...args], { cwd })),
+      spawner.string(Command.make(gitBin, [...GIT_USER, ...args], { cwd })),
     )).trim()
   })
 

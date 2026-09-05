@@ -25,9 +25,16 @@ const execFileAsync = promisify(execFile)
 
 const FIXTURE = path.resolve(__dirname, 'fixtures', 'runResult-cli.tsx')
 
-// `bun run` executes .tsx directly. We rely on bun being on PATH in the
-// devenv shell; vitest's integration suite already runs in that shell.
-const BUN = 'bun'
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+// `bun run` executes .tsx directly.
+const BUN = requireTool('BUN_BIN')
 
 const ENV_WITHOUT_AGENT = (): NodeJS.ProcessEnv => {
   const clean = { ...process.env }
@@ -56,6 +63,26 @@ describe('runResult subprocess stdout contract', () => {
     expect(stdout).toBe('secret-payload-abc\n')
     // Payload must never bleed into stderr (view text only).
     expect(stderr).not.toContain('secret-payload-abc')
+  })
+
+  test('failure: exits 1 with the formatted cause on stderr, stdout untouched', async () => {
+    // The exit code is derived from the fiber Exit, so a failing program must land
+    // on 1 in a real process — and the result channel (stdout) stays empty rather
+    // than emitting a partial payload.
+    const env = ENV_WITHOUT_AGENT()
+    env.TEST_PAYLOAD = 'never-emitted-payload'
+    env.TEST_FAIL = '1'
+
+    const failure = await execFileAsync(BUN, ['run', FIXTURE], { env }).then(
+      () => {
+        throw new Error('fixture exited 0 but was expected to fail')
+      },
+      (error: NodeJS.ErrnoException & { code?: number; stdout: string; stderr: string }) => error,
+    )
+
+    expect(failure.code).toBe(1)
+    expect(failure.stderr).toContain('boom: fixture failure')
+    expect(failure.stdout).toBe('')
   })
 
   test('> file redirect: file contains only the raw result', async () => {

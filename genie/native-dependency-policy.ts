@@ -68,3 +68,21 @@ export const nativeDependencyPolicy = {
   '@tailwindcss/oxide': { _tag: 'pure-package-artifact' },
   '@oxlint-tsgolint': { _tag: 'pure-package-artifact' },
 } as const satisfies Record<string, NativeDependencyPolicyEntry>
+
+/**
+ * Package names whose npm bytes are replaced wholesale by a Nix-built tree.
+ *
+ * `graft: 'link'` families ship no usable prebuilt binary, so the registry
+ * archive alone cannot be loaded at runtime. The normalized pnpm store entry
+ * for such a package takes its bytes from an immutable declared directory
+ * instead; each name doubles as the `[test_capabilities]` key that names it.
+ * `graft: 'fetch-only'` families are excluded: their prebuilt platform
+ * tarballs are ordinary locked packages that need no grafted store entry.
+ */
+export const nixGraftedStoreOverridePackages: Readonly<Record<string, true>> =
+  Object.fromEntries(
+    Object.entries(nativeDependencyPolicy as Record<string, NativeDependencyPolicyEntry>).flatMap(
+      ([name, entry]) =>
+        entry._tag === 'nix-grafted' && entry.graft === 'link' ? [[name, true] as const] : [],
+    ),
+  )

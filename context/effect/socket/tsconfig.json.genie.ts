@@ -10,7 +10,9 @@ export default tsconfigJson({
     composite: true,
     rootDir: '.',
     noEmit: true,
-    tsBuildInfoFile: './tsconfig.tsbuildinfo',
+    // Buck's emit action leaves only the `dist` output writable, so the
+    // build-info file has to live inside it (as in context/opentui).
+    tsBuildInfoFile: './dist/tsconfig.tsbuildinfo',
     lib: [...domLib],
     types: ['node'],
   },

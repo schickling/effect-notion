@@ -12,10 +12,28 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { delimiter, dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
+
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+/**
+ * This suite executes the CI scripts and workflow fragments it asserts over, so the shell,
+ * `git`, and the `wc` the fake `nix` fixtures count attempts with are declared tools of the
+ * root Buck test target, never bare command names resolved from the caller's environment.
+ */
+const bashBin = requireTool('BASH_BIN')
+const gitBin = requireTool('GIT_BIN')
+const wcBin = requireTool('WC_BIN')
+const devenvModuleToolsBin = requireTool('DEVENV_MODULE_TOOLS_BIN')
 
 const ciWorkflowSource = [
   'ci-workflow.ts',
@@ -52,6 +70,42 @@ const generatedRepoSettings = JSON.parse(
     }
   }>
 }
+/**
+ * The tracked-Buck-product spec is generated from the same product manifest the CI
+ * candidate graph is derived from, and it is a committed generated artifact. Reading it as
+ * data keeps this package from importing across its own `rootDir`.
+ */
+const trackedBuckProducts = JSON.parse(
+  readFileSync(
+    new URL(['../../../../../../nix/buck2-products', 'products.json'].join('/'), import.meta.url),
+    'utf8',
+  ),
+) as { products: Array<{ label: string }> }
+/**
+ * TypeScript authority registry: the authority for the typecheck, dist, and editor-view
+ * classes of the candidate graph. Read as data for the same rootDir reason.
+ */
+const typescriptAuthorityManifest = JSON.parse(
+  readFileSync(
+    new URL(
+      ['../../../../../../genie/buck2', 'typescript-authority-manifest.json'].join('/'),
+      import.meta.url,
+    ),
+    'utf8',
+  ),
+) as {
+  authorityProjects: Array<{ typecheckTarget: string }>
+  authoritativeAdmissions: Array<{ distTarget: string }>
+  editorViewConsumerPackagePaths: string[]
+}
+/** The generated candidate-graph artifact the CI lane actually builds. */
+const candidateGraphArtifact = readFileSync(
+  new URL(
+    ['../../../../../../genie/ci-scripts', 'buck2-candidate-graph.txt'].join('/'),
+    import.meta.url,
+  ),
+  'utf8',
+)
 const vercelDeploySource = readFileSync(
   new URL(['../../../../../../genie/deploy-preview', 'vercel.ts'].join('/'), import.meta.url),
   'utf8',
@@ -113,6 +167,22 @@ const buckToolchainsSource = readFileSync(
   new URL(['../../../../../../buck2/toolchains', 'BUCK'].join('/'), import.meta.url),
   'utf8',
 )
+/**
+ * The two buckconfig-emitting cache config paths the lane depends on: the developer shell
+ * hook and the composition overlay. Read as text so this package asserts over the real
+ * generators without importing across its own `rootDir`.
+ */
+const devenvSource = readFileSync(
+  new URL(['../../../../../..', 'devenv.nix'].join('/'), import.meta.url),
+  'utf8',
+)
+const compositionCommandSource = readFileSync(
+  new URL(
+    ['../../../../../../packages/@overeng/megarepo/src/cli/commands', 'composition.ts'].join('/'),
+    import.meta.url,
+  ),
+  'utf8',
+)
 
 const generatedCiJobKeys = Array.from(
   (generatedCiWorkflowYamlSource.split('\njobs:\n')[1] ?? '').matchAll(/^  ([a-zA-Z0-9_-]+):$/gm),
@@ -123,8 +193,14 @@ const advisoryCheckContexts = new Set(['ci/measurements-report', 'notify-alignme
 // Opt-in lanes (see OPT_IN_CI_JOB_NAMES in genie/ci.ts) are non-advisory but do not run on
 // every pull request, so branch protection cannot require them: a skipped lane reports no
 // check run at all and a required-but-absent context would wait forever.
-const optInCheckContexts = new Set(['devenv-perf'])
-const matrixCheckJobs = new Set(['test', 'nix-check', 'nix-fod-check'])
+const optInCheckContexts = new Set([
+  'devenv-perf',
+  'buck2-cache-publish',
+  'buck2-cache-restore',
+  'buck2-cache-outage',
+  'buck2-capacity',
+])
+const matrixCheckJobs = new Set(['test'])
 const matrixRunners = ['namespace-profile-linux-x86-64', 'namespace-profile-macos-arm64'] as const
 
 const generatedNonAdvisoryCheckContexts = generatedCiJobKeys
@@ -514,12 +590,12 @@ describe('ci workflow pnpm cache defaults', () => {
     symlinkSync(existingOutput, existingRoot)
     writeFileSync(
       join(bin, 'nix'),
-      `#!/usr/bin/env bash\nprintf 'attempt\\n' >> "$NIX_ATTEMPTS"\necho 'ordinary failure' >&2\nexit 23\n`,
+      `#!${bashBin}\nprintf 'attempt\\n' >> "$NIX_ATTEMPTS"\necho 'ordinary failure' >&2\nexit 23\n`,
     )
     chmodSync(join(bin, 'nix'), 0o755)
     try {
       const result = spawnSync(
-        'bash',
+        bashBin,
         ['-c', '. "$RESOLVE_DEVENV_SCRIPT"; DEVENV_REV=fixture; resolve_devenv'],
         {
           encoding: 'utf8',
@@ -555,10 +631,10 @@ describe('ci workflow pnpm cache defaults', () => {
     mkdirSync(output)
     writeFileSync(
       join(bin, 'nix'),
-      `#!/usr/bin/env bash
+      `#!${bashBin}
 set -euo pipefail
 attempt=1
-if [ -f "$NIX_ATTEMPTS" ]; then attempt=$(( $(wc -l < "$NIX_ATTEMPTS") + 1 )); fi
+if [ -f "$NIX_ATTEMPTS" ]; then attempt=$(( $(${wcBin} -l < "$NIX_ATTEMPTS") + 1 )); fi
 printf 'attempt\\n' >> "$NIX_ATTEMPTS"
 out_link=''
 while [ "$#" -gt 0 ]; do
@@ -575,13 +651,13 @@ printf '%s\\n' "$NIX_OUTPUT"
     )
     writeFileSync(
       join(bin, 'nix-store'),
-      `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "$NIX_REPAIRS"\nexit 0\n`,
+      `#!${bashBin}\nprintf '%s\\n' "$*" >> "$NIX_REPAIRS"\nexit 0\n`,
     )
     chmodSync(join(bin, 'nix'), 0o755)
     chmodSync(join(bin, 'nix-store'), 0o755)
     try {
       const result = spawnSync(
-        'bash',
+        bashBin,
         ['-c', '. "$RESOLVE_DEVENV_SCRIPT"; DEVENV_REV=fixture; resolve_devenv'],
         {
           encoding: 'utf8',
@@ -862,10 +938,18 @@ describe('ci workflow shared auth helpers', () => {
     expect(vercelTaskModuleSource).toContain('/nix/provider-clis/vercel-cli')
     expect(vercelTaskModuleSource).toContain('vercelCliPkg ? null')
     expect(vercelTaskModuleSource).not.toContain('bunx vercel')
-    expect(generatedWorkflowSource).toContain('.#netlify-cli')
-    expect(generatedWorkflowSource).toContain('.#vercel-cli')
+    // Provider-CLI authority is the devenv task module, which defaults to the
+    // first-party `nix/provider-clis/*` package (asserted above). The workflow
+    // therefore builds no provider CLI of its own — it invokes the task, and
+    // the contract it must keep is that no step reaches for a registry or
+    // nixpkgs CLI at run time.
+    expect(generatedCiWorkflowYamlSource).toContain('devenv tasks run netlify:deploy')
     expect(generatedWorkflowSource).not.toContain('nixpkgs#netlify-cli')
+    expect(generatedWorkflowSource).not.toContain('nixpkgs#vercel-cli')
+    expect(generatedWorkflowSource).not.toContain('bunx netlify')
     expect(generatedWorkflowSource).not.toContain('bunx vercel')
+    expect(generatedWorkflowSource).not.toContain('npx netlify')
+    expect(generatedWorkflowSource).not.toContain('npx vercel')
   })
 
   it('lets Vercel deploy jobs decorate the deploy run step', () => {
@@ -1056,8 +1140,11 @@ describe('ci workflow devenv perf helpers', () => {
     expect(ciWorkflowSource).toContain('export const ciJobConcurrency = ({ jobId, ...opts }:')
     expect(ciWorkflowSource).toContain("opts?.matrix === true ? '-${{ strategy.job-index }}' : ''")
     expect(ciWorkflowSource).toContain('const isMatrixJob = (job: GitHubWorkflowArgs')
+    // `test` is the repository's remaining matrix job: the strict `nix-check`
+    // matrix went away with the source/FOD CLI producers it guarded, so the
+    // per-index concurrency contract is asserted on the job that still exists.
     expect(generatedCiWorkflowYamlSource).toContain('}}-test-${{ strategy.job-index }}')
-    expect(generatedCiWorkflowYamlSource).toContain('}}-nix-check-${{ strategy.job-index }}')
+    expect(generatedCiWorkflowYamlSource).not.toContain('nix-check')
     expect(generatedCiWorkflowYamlSource).toContain("format('measurement-baseline-{0}'")
     expect(generatedCiWorkflowYamlSource).not.toContain("format('measurement-pr-{0}-run-{1}'")
     expect(generatedCiWorkflowYamlSource).not.toContain('inputs.measurement_pr_number')
@@ -1114,7 +1201,7 @@ describe('ci workflow devenv perf helpers', () => {
 
 describe('effect-utils CI composition workspace', () => {
   const git = (cwd: string, ...args: string[]) => {
-    const result = spawnSync('git', args, { cwd, encoding: 'utf8' })
+    const result = spawnSync(gitBin, args, { cwd, encoding: 'utf8' })
     if (result.status !== 0) {
       throw new Error(`git ${args.join(' ')} failed: ${result.stderr}`)
     }
@@ -1137,7 +1224,7 @@ describe('effect-utils CI composition workspace', () => {
     writeFileSync(envFile, '')
     git(checkout, 'init', '--initial-branch=main')
     const configuredIdentity = (field: 'user.email' | 'user.name', fallback: string) =>
-      spawnSync('git', ['config', field], {
+      spawnSync(gitBin, ['config', field], {
         cwd: checkout,
         encoding: 'utf8',
       }).stdout.trim() || fallback
@@ -1173,7 +1260,7 @@ describe('effect-utils CI composition workspace', () => {
     writeFileSync(
       join(fakeBin, 'nix'),
       [
-        '#!/usr/bin/env bash',
+        `#!${bashBin}`,
         'set -euo pipefail',
         'printf \'%s|%s\\n\' "$PWD" "$*" >> "$FAKE_NIX_LOG"',
         'if [ "$*" != "build --no-link --print-out-paths .#megarepo" ]; then exit 64; fi',
@@ -1183,7 +1270,7 @@ describe('effect-utils CI composition workspace', () => {
     writeFileSync(
       join(mrOut, 'bin', 'mr'),
       [
-        '#!/usr/bin/env bash',
+        `#!${bashBin}`,
         'set -euo pipefail',
         'export AGENT_POLICY_BYPASS=1',
         'fake_root="$(cd "$(dirname "$0")/.." && pwd)"',
@@ -1194,19 +1281,24 @@ describe('effect-utils CI composition workspace', () => {
         '  if [ "$1" = --cwd ]; then workspace="$2"; shift 2; else shift; fi',
         'done',
         'test -n "$workspace"',
-        'if git -C "$workspace/repos/effect-utils" rev-parse --is-inside-work-tree >/dev/null 2>&1; then exit 0; fi',
+        `if ${gitBin} -C "$workspace/repos/effect-utils" rev-parse --is-inside-work-tree >/dev/null 2>&1; then exit 0; fi`,
         'bare="$MEGAREPO_STORE/github.com/overengineeringstudio/effect-utils/.bare"',
         'staged="$workspace.owned"',
-        'git --git-dir="$bare" worktree move "$workspace" "$staged"',
+        `${gitBin} --git-dir="$bare" worktree move "$workspace" "$staged"`,
         'mkdir -p "$workspace/repos" "$workspace/.megarepo/bin"',
-        'git --git-dir="$bare" worktree move "$staged" "$workspace/repos/effect-utils"',
+        `${gitBin} --git-dir="$bare" worktree move "$staged" "$workspace/repos/effect-utils"`,
         'printf \'{}\\n\' > "$workspace/.megarepo-owned-worktree.json"',
         'printf \'{}\\n\' > "$workspace/.megarepo/composition-generation.json"',
         'printf \'[cells]\\n\' > "$workspace/.buckconfig"',
-        'printf \'#!/usr/bin/env bash\\nexit 0\\n\' > "$workspace/.megarepo/bin/buck2"',
+        `printf '#!${bashBin}\\nexit 0\\n' > "$workspace/.megarepo/bin/buck2"`,
         'chmod +x "$workspace/.megarepo/bin/buck2"',
         'mkdir -p "$MEGAREPO_STORE/reference-effect"',
         'ln -s "$MEGAREPO_STORE/reference-effect" "$workspace/repos/effect"',
+        // Marker-file driven, not env driven: the composition step runs `mr` under
+        // `env -i` with a fixed allowlist, so a fixture env var never reaches it.
+        'if [ -f "$fake_root/dirty-member" ]; then',
+        '  printf \'x\\n\' > "$workspace/repos/effect-utils/untracked-fixture.txt"',
+        'fi',
       ].join('\n'),
     )
     chmodSync(join(fakeBin, 'nix'), 0o755)
@@ -1241,7 +1333,7 @@ describe('effect-utils CI composition workspace', () => {
       // oxlint-disable-next-line import/no-dynamic-require
       new URL('../../../../../../genie/ci-workflow/setup.ts', import.meta.url).href
     )
-    return spawnSync('bash', ['-c', prepareEffectUtilsCompositionStep.run], {
+    return spawnSync(bashBin, ['-c', prepareEffectUtilsCompositionStep.run], {
       cwd: fixture.root,
       encoding: 'utf8',
       env: { ...fixture.env, ...overrides },
@@ -1256,7 +1348,7 @@ describe('effect-utils CI composition workspace', () => {
       // oxlint-disable-next-line import/no-dynamic-require
       new URL('../../../../../../genie/ci-workflow/setup.ts', import.meta.url).href
     )
-    return spawnSync('bash', ['-c', cleanupEffectUtilsCompositionStep.run], {
+    return spawnSync(bashBin, ['-c', cleanupEffectUtilsCompositionStep.run], {
       cwd: fixture.root,
       encoding: 'utf8',
       env: { ...fixture.env, ...overrides },
@@ -1283,7 +1375,7 @@ describe('effect-utils CI composition workspace', () => {
         expect(git(member, 'symbolic-ref', 'HEAD')).toBe(`refs/heads/${branch}`)
         expect(git(member, 'merge-base', 'refs/remotes/origin/main', 'HEAD')).toBe(fixture.sha)
         expect(
-          spawnSync('git', ['-C', workspace, 'rev-parse', '--is-inside-work-tree']).status,
+          spawnSync(gitBin, ['-C', workspace, 'rev-parse', '--is-inside-work-tree']).status,
         ).not.toBe(0)
         expect(readFileSync(fixture.nixLog, 'utf8')).toBe(
           `${fixture.checkout}|build --no-link --print-out-paths .#megarepo\n`,
@@ -1379,6 +1471,82 @@ describe('effect-utils CI composition workspace', () => {
     }
   }, 20_000)
 
+  /** Commit one member-visible symlink into the fixture checkout before composing. */
+  const commitCheckoutSymlink = (checkout: string, name: string, target: string) => {
+    symlinkSync(target, join(checkout, name))
+    git(checkout, 'add', name)
+    git(checkout, 'commit', '-m', `fixture symlink ${name}`)
+  }
+
+  const composedMemberPath =
+    'megarepo-store/100/2/unit_job/github.com/overengineeringstudio/effect-utils/refs/heads/ci-100-2-unit_job/repos/effect-utils'
+
+  it('accepts a relative in-tree member symlink next to the absolute locked-member link', async () => {
+    const fixture = makeFixture('Linux')
+    try {
+      commitCheckoutSymlink(fixture.checkout, 'CLAUDE.md', 'README')
+      const result = await runComposition(fixture)
+      expect(result.status, result.stderr).toBe(0)
+      const member = join(fixture.runnerTemp, composedMemberPath)
+      expect(readlinkSync(join(member, 'CLAUDE.md'))).toBe('README')
+      // The locked member is mounted through an ABSOLUTE symlink by design, and Buck
+      // ignores it, so the guard must not refuse the composition over it.
+      expect(readlinkSync(join(member, '../effect')).startsWith('/')).toBe(true)
+      await cleanupComposition(fixture)
+    } finally {
+      rmSync(fixture.root, { force: true, recursive: true, maxRetries: 10, retryDelay: 20 })
+    }
+  }, 20_000)
+
+  it('refuses an absolute tracked member symlink before any Buck upload', async () => {
+    const fixture = makeFixture('Linux')
+    try {
+      commitCheckoutSymlink(fixture.checkout, 'absolute-link', join(fixture.root, 'mr-out'))
+      const result = await runComposition(fixture)
+      expect(result.status).not.toBe(0)
+      expect(result.stderr).toContain('tracked member symlink is absolute')
+      expect(readFileSync(fixture.envFile, 'utf8')).not.toContain('EFFECT_UTILS_MEMBER_ROOT')
+      await cleanupComposition(fixture)
+    } finally {
+      rmSync(fixture.root, { force: true, recursive: true, maxRetries: 10, retryDelay: 20 })
+    }
+  }, 20_000)
+
+  it('refuses a relative tracked member symlink that escapes the composed workspace', async () => {
+    const fixture = makeFixture('Linux')
+    try {
+      const outsideTarget = join(fixture.runnerTemp, 'outside-member-target')
+      mkdirSync(outsideTarget)
+      commitCheckoutSymlink(
+        fixture.checkout,
+        'escaping-link',
+        relative(join(fixture.runnerTemp, composedMemberPath), outsideTarget),
+      )
+      const result = await runComposition(fixture)
+      expect(result.status).not.toBe(0)
+      expect(result.stderr).toContain('tracked member symlink escapes the composed workspace')
+      expect(readFileSync(fixture.envFile, 'utf8')).not.toContain('EFFECT_UTILS_MEMBER_ROOT')
+      await cleanupComposition(fixture)
+    } finally {
+      rmSync(fixture.root, { force: true, recursive: true, maxRetries: 10, retryDelay: 20 })
+    }
+  }, 20_000)
+
+  it('refuses a composed member that is not clean, since tracked scope assumes it', async () => {
+    const fixture = makeFixture('Linux')
+    try {
+      writeFileSync(join(fixture.mrOut, 'dirty-member'), '')
+      const result = await runComposition(fixture)
+      expect(result.status).not.toBe(0)
+      expect(result.stderr).toContain('composed member is not clean')
+      expect(result.stderr).toContain('untracked-fixture.txt')
+      expect(readFileSync(fixture.envFile, 'utf8')).not.toContain('EFFECT_UTILS_MEMBER_ROOT')
+      await cleanupComposition(fixture)
+    } finally {
+      rmSync(fixture.root, { force: true, recursive: true, maxRetries: 10, retryDelay: 20 })
+    }
+  }, 20_000)
+
   it('orders every migrated job after composition and keeps the checkout exemptions explicit', () => {
     const jobsYaml = generatedCiWorkflowYamlSource.split('\njobs:\n')[1] ?? ''
     const blocks = new Map(
@@ -1389,7 +1557,6 @@ describe('effect-utils CI composition workspace', () => {
     )
     const exemptions = new Set([
       'default-ref-policy',
-      'nix-fod-check',
       'source-shape',
       'ci-measurements-report',
       'notify-alignment',
@@ -1441,16 +1608,845 @@ describe('effect-utils CI composition workspace', () => {
     expect(trustedRef('pull_request', 'refs/heads/main')).toBe(false)
   })
 
-  it('keeps the Nix cache stable without projecting an ambient pnpm store', () => {
+  it('keeps job-local state free of an ambient pnpm store or per-run composition root', () => {
     expect(generatedCiWorkflowYamlSource).not.toContain(
       '${{ runner.temp }}/composition-state/pnpm-store-pure-v1',
-    )
-    expect(generatedCiWorkflowYamlSource).toContain(
-      '${{ runner.temp }}/composition-state/nix-cache',
     )
     expect(generatedCiWorkflowYamlSource).not.toContain(
       '${{ runner.temp }}/composition-state/${{ github.run_id }}',
     )
     expect(buckToolchainsSource).not.toContain('store_dir =')
+  })
+
+  it('runs live provider deploys as declared Buck targets, not workflow-local installs', () => {
+    // The repository-local source/FOD CLI producers are gone: capabilities are
+    // realized through composition, and every live provider lane is a declared
+    // Buck test target. A workflow-local `nix build .#<provider>-cli` or a root
+    // pnpm install would reintroduce exactly the ambient authority the cutover
+    // removed.
+    for (const target of [
+      'effect_utils//packages/@overeng/ci-tools:test_netlify_live',
+      'effect_utils//packages/@overeng/ci-tools:test_vercel_live',
+    ]) {
+      expect(generatedCiWorkflowYamlSource).toContain(`"$buck2" test ${target}`)
+    }
+    expect(generatedCiWorkflowYamlSource).not.toContain('nix build .#netlify-cli')
+    expect(generatedCiWorkflowYamlSource).not.toContain('nix build .#vercel-cli')
+    expect(generatedCiWorkflowYamlSource).not.toContain('tasks run pnpm:install')
+  })
+
+  it('owns build-product freshness through the Buck check task', () => {
+    // `buck2:products:check` reconciles the tracked products and is a
+    // prerequisite of the aggregate check, so CI asserts freshness by running
+    // `buck2:check` rather than by a strict Nix lane over source CLI producers.
+    expect(generatedCiWorkflowYamlSource).toContain('devenv tasks run buck2:check')
+    expect(generatedCiWorkflowYamlSource).not.toContain('nix-fod-check')
+  })
+})
+
+describe('effect-utils shared Buck cache lane (03-materialization DQ1)', () => {
+  const cachePreflightScriptSource = readFileSync(
+    new URL(
+      ['../../../../../../genie/ci-scripts', 'buck2-cache-preflight.sh'].join('/'),
+      import.meta.url,
+    ),
+    'utf8',
+  )
+  const cacheLaneScriptUrl = new URL(
+    ['../../../../../../genie/ci-scripts', 'buck2-cache-lane.sh'].join('/'),
+    import.meta.url,
+  )
+  const cacheLaneScriptPath = fileURLToPath(cacheLaneScriptUrl)
+  const cacheLaneScriptSource = readFileSync(cacheLaneScriptUrl, 'utf8')
+  const jobBlock = (job: string) =>
+    generatedCiWorkflowYamlSource.split(`  ${job}:\n`)[1]?.split(/^  [a-z]/m)[0] ?? ''
+  const publish = jobBlock('buck2-cache-publish')
+  const restore = jobBlock('buck2-cache-restore')
+  const outage = jobBlock('buck2-cache-outage')
+  const capacity = jobBlock('buck2-capacity')
+  /** The JOB-level `if:` (4-space indent), not a step `if:` and not the concurrency group. */
+  const jobIf = (block: string) => block.match(/^ {4}if: (.*)$/mu)?.[1] ?? ''
+
+  it('keeps the lane dispatch-only, fork-unreachable, and out of branch protection', () => {
+    for (const [name, block] of [
+      ['buck2-cache-publish', publish],
+      ['buck2-cache-restore', restore],
+      ['buck2-cache-outage', outage],
+    ] as const) {
+      // `workflow_dispatch` IS the authorization boundary: it needs write access and a ref
+      // in this repository, so no fork-controlled code can ever mint a tailnet-capable
+      // OIDC token. The lane is therefore dispatchable on any same-repo branch, which
+      // breaks the proof-before-merge circularity, while still never running on a PR.
+      expect(jobIf(block), name).toContain("github.event_name == 'workflow_dispatch'")
+      expect(jobIf(block), name).toContain('inputs.run_buck2_cache_probe')
+      expect(jobIf(block), name).not.toContain('pull_request')
+      expect(jobIf(block), name).not.toContain("'push'")
+      expect(jobIf(block), name).not.toContain("'schedule'")
+      // No ref restriction: a main-only guard would make the lane unrunnable before the
+      // change that carries it can merge, which is the circularity DQ1 must not have.
+      expect(jobIf(block), name).not.toContain('github.ref')
+      expect(generatedRequiredCheckContexts, name).not.toContain(name)
+    }
+    expect(generatedCiWorkflowYamlSource).toContain('run_buck2_cache_probe:')
+  })
+
+  it('keeps the endpoint external and commits no host, port, or key material', () => {
+    expect(publish).toContain('BUCK2_CACHE_ENDPOINT: ${{ vars.BUCK2_CACHE_ENDPOINT }}')
+    expect(restore).toContain('BUCK2_CACHE_ENDPOINT: ${{ vars.BUCK2_CACHE_ENDPOINT }}')
+    // The endpoint is the only address the lane may resolve, so no literal grpc:// target
+    // may appear in the jobs that talk to the real cache.
+    expect(publish).not.toContain('grpc://')
+    expect(restore).not.toContain('grpc://')
+    expect(publish).toContain('oauth-client-id: ${{ vars.TS_FEDERATED_CLIENT_ID }}')
+    expect(publish).toContain('audience: ${{ vars.TS_FEDERATED_AUDIENCE }}')
+    expect(publish).toContain("tags: 'tag:ci-buck2-cache'")
+    expect(cachePreflightScriptSource).not.toMatch(/grpc:\/\/[a-z0-9]/u)
+    expect(cacheLaneScriptSource).not.toMatch(/grpc:\/\//u)
+  })
+
+  it('authenticates the tailnet join with workload identity, never a stored secret', () => {
+    // Federation replaces the OAuth client secret entirely: the only credential is the
+    // per-job GitHub OIDC token, so there is nothing at rest to leak or rotate.
+    for (const [name, block] of [
+      ['buck2-cache-publish', publish],
+      ['buck2-cache-restore', restore],
+    ] as const) {
+      expect(block, name).toContain('uses: tailscale/github-action@v3')
+      expect(block, name).toContain('oauth-client-id: ${{ vars.TS_FEDERATED_CLIENT_ID }}')
+      expect(block, name).toContain('audience: ${{ vars.TS_FEDERATED_AUDIENCE }}')
+      // The token has to be mintable in the job that spends it, and nowhere else.
+      expect(block, name).toContain('id-token: write')
+    }
+    // The client id and audience are non-secret configuration; no Tailscale secret exists.
+    expect(generatedCiWorkflowYamlSource).not.toContain('TS_OAUTH')
+    expect(generatedCiWorkflowYamlSource).not.toContain('oauth-secret')
+    expect(generatedCiWorkflowYamlSource).not.toContain('secrets.TS_')
+    // Least privilege: the outage leg never joins the tailnet, so it never gets the token,
+    // and the workflow default stays read-only rather than granting id-token globally.
+    expect(outage).not.toContain('id-token')
+    expect(generatedCiWorkflowYamlSource).toContain('permissions:\n  contents: read\n')
+    expect(generatedCiWorkflowYamlSource.split('id-token: write').length - 1).toBe(2)
+  })
+
+  it('names an explicit candidate instance that cannot default to production', () => {
+    for (const block of [publish, restore, outage]) {
+      expect(block).toContain('BUCK2_CACHE_INSTANCE_NAME: effect-utils-dq1-candidate')
+    }
+    // A bare `instance_name: effect-utils` is the production namespace; the lane must never
+    // resolve to it, and the instance name is a generator constant rather than an input.
+    expect(generatedCiWorkflowYamlSource).not.toContain('BUCK2_CACHE_INSTANCE_NAME: effect-utils\n')
+    expect(generatedCiWorkflowYamlSource).not.toContain('inputs.buck2_cache_instance')
+  })
+
+  it('routes cache config through buckconfig files, never through a Buck -c override', () => {
+    expect(prepareEffectUtilsCompositionScriptSource).toContain(
+      'BUCK2_CACHE_ENDPOINT="${BUCK2_CACHE_ENDPOINT:-}"',
+    )
+    expect(prepareEffectUtilsCompositionScriptSource).toContain(
+      'BUCK2_CACHE_INSTANCE_NAME="${BUCK2_CACHE_INSTANCE_NAME:-}"',
+    )
+    // `-c buck2_re_client.*` never reaches the RE client, so no generated command line may
+    // pretend to configure the cache that way.
+    expect(generatedCiWorkflowYamlSource).not.toContain('buck2_re_client')
+    expect(cacheLaneScriptSource).not.toMatch(/-c\s+buck2_re_client/u)
+    // The lane writes exactly one buckconfig FILE, and only for the outage assertion.
+    expect(cacheLaneScriptSource.split('[buck2_re_client]').length - 1).toBe(1)
+    expect(cacheLaneScriptSource).toContain('override="$workspace/.buckconfig.local"')
+    // Publisher and restore compose at different absolute prefixes for free, because the
+    // synthesized store root is keyed on the job id (REUSE-R02 relocation clause).
+    expect(prepareEffectUtilsCompositionScriptSource).toContain('${GITHUB_JOB:-job}')
+  })
+
+  it('covers the COMPLETE candidate graph, per class, with no drift', () => {
+    // Expected classes, each from the registry that actually owns it.
+    const typecheck = new Set(
+      typescriptAuthorityManifest.authorityProjects.map(({ typecheckTarget }) => typecheckTarget),
+    )
+    const dist = new Set(
+      typescriptAuthorityManifest.authoritativeAdmissions.map(({ distTarget }) => distTarget),
+    )
+    const editorViewInputs = new Set(
+      typescriptAuthorityManifest.editorViewConsumerPackagePaths.map(
+        (path) => `//${path}:editor_view_inputs`,
+      ),
+    )
+    const products = new Set(trackedBuckProducts.products.map(({ label }) => label))
+    const supportTools = new Set([
+      '//buck2/toolchains:archive_tool',
+      '//buck2/toolchains:product_tool',
+    ])
+
+    // Class sizes are pinned so a silent registry shrink cannot quietly narrow the proof.
+    expect({
+      typecheck: typecheck.size,
+      dist: dist.size,
+      editorViewInputs: editorViewInputs.size,
+      products: products.size,
+      supportTools: supportTools.size,
+    }).toEqual({
+      typecheck: 39,
+      dist: 38,
+      editorViewInputs: 38,
+      products: 10,
+      supportTools: 2,
+    })
+    for (const tool of supportTools) {
+      expect(buckToolchainsSource).toContain(`name = "${tool.split(':')[1]}"`)
+    }
+
+    const expected = [
+      ...new Set(
+        [...typecheck, ...dist, ...editorViewInputs, ...products, ...supportTools].map(
+          (label) => `effect_utils${label}`,
+        ),
+      ),
+    ].toSorted((left, right) => Buffer.from(left).compare(Buffer.from(right)))
+    expect(expected.length).toBe(127)
+
+    const graphLabels = candidateGraphArtifact
+      .split('\n')
+      .filter((line) => /^[A-Za-z_][A-Za-z0-9_]*\/\/\S+$/u.test(line) === true)
+    // Exact set equality in canonical order: no missing label, no extra label, no dupes.
+    expect(graphLabels).toEqual(expected)
+
+    // The lane consumes the generated artifact rather than an inlined list, so the YAML
+    // stays small and the artifact above is the single thing coverage is asserted against.
+    for (const block of [publish, restore]) {
+      expect(block).toContain("'genie/ci-scripts/buck2-candidate-graph.txt'")
+    }
+    expect(publish).toContain('buck2-cache-lane.sh" publish')
+    expect(restore).toContain('buck2-cache-lane.sh" restore')
+    expect(cacheLaneScriptSource).toContain('read_graph_labels')
+    expect(cacheLaneScriptSource).toContain('candidate graph file declares no labels')
+    // A graph that is already fully cached is a valid publish state. Asserting fresh local
+    // work or a nonzero upload over the GRAPH would make the lane fail on its second
+    // dispatch, so the publish claim rests on the dispatch-unique probe instead.
+    expect(cacheLaneScriptSource).not.toContain('population executed no local command')
+    expect(cacheLaneScriptSource).not.toContain('the candidate instance was not populated')
+    expect(cacheLaneScriptSource).toContain(
+      'Deliberately NO local-execution or upload assertion over the graph',
+    )
+  })
+
+  it('proves cross-job transfer with ONE dispatch-stable probe nonce', () => {
+    expect(restore).toContain('needs: [buck2-cache-publish]')
+    // Same nonce expression in both jobs: stable so the two runners derive the same action
+    // key, unique per dispatch so publish always has exactly one new action to upload.
+    const probeNonce = "BUCK2_CACHE_NONCE: '${{ github.run_id }}-${{ github.run_attempt }}'"
+    expect(publish).toContain(probeNonce)
+    expect(restore).toContain(probeNonce)
+    expect(generatedWorkflowSource).toContain(
+      "const buck2CacheProbeNonce = '${{ github.run_id }}-${{ github.run_attempt }}'",
+    )
+    // Both legs drive the same carrier and the same single label, or they would not be
+    // reproducing one action.
+    for (const block of [publish, restore]) {
+      expect(block).toContain("'packages/@overeng/oxc-config/src/mod.ts'")
+      expect(block).toContain("'effect_utils//packages/@overeng/oxc-config:oxc-config-candidate'")
+    }
+    // Publish requires the probe to be genuinely new work that lands in the cache.
+    expect(cacheLaneScriptSource).toContain(
+      'the dispatch-unique probe executed no local command, so this dispatch published no action of its own',
+    )
+    expect(cacheLaneScriptSource).toContain(
+      'the dispatch-unique probe uploaded zero digests, so CI cannot write to the shared cache',
+    )
+    // Restore requires that exact action to arrive over the cache, with zero local work.
+    expect(cacheLaneScriptSource).toContain(
+      'the dispatch-unique probe published by the publish job produced zero cache hits here, so no action crossed the job boundary',
+    )
+    expect(cacheLaneScriptSource).toContain(
+      'a complete candidate graph must be a pure cache restore',
+    )
+    // The nonce never survives the step: a dirty member would poison later evidence.
+    expect(cacheLaneScriptSource).toContain('trap revert_nonce_carrier EXIT')
+    expect(cacheLaneScriptSource).toContain('git -C "$member" checkout -- "$NONCE_CARRIER"')
+  })
+
+  it('gives the independent miss leg a distinct nonce and demands local work', () => {
+    expect(restore).toContain('buck2-cache-lane.sh" miss')
+    expect(restore).toContain(
+      "BUCK2_CACHE_MISS_NONCE: 'miss-${{ github.run_id }}-${{ github.run_attempt }}'",
+    )
+    expect(generatedWorkflowSource).toContain(
+      "const buck2CacheMissNonce = 'miss-${{ github.run_id }}-${{ github.run_attempt }}'",
+    )
+    // Structural, not just conventional: the script refuses the two nonces being equal.
+    expect(cacheLaneScriptSource).toContain(
+      'BUCK2_CACHE_MISS_NONCE must differ from BUCK2_CACHE_NONCE',
+    )
+    expect(cacheLaneScriptSource).toContain(
+      'the nonce did not force any local execution, so it is not a deliberate miss',
+    )
+    expect(cacheLaneScriptSource).toContain(
+      'the deliberate miss uploaded zero digests, so CI cannot write to the cache',
+    )
+    // The wipe touches only this composition's isolation dir.
+    expect(cacheLaneScriptSource).toContain('rm -rf "$workspace/buck-out/megarepo"')
+    expect(cacheLaneScriptSource).not.toMatch(/rm -rf "\$workspace"\s/u)
+  })
+
+  it('retains the full uploaded-digest list as a bounded artifact, not just a count', () => {
+    // The count in the summary cannot answer "which digests did this dispatch write", so
+    // the record list is saved before it is counted and shipped as an artifact.
+    expect(cacheLaneScriptSource).toContain('save_uploaded_digests')
+    expect(cacheLaneScriptSource).toMatch(/\| jq -s '\.' > "\$destination"/u)
+    expect(cacheLaneScriptSource).toContain(
+      'BUCK2_CACHE_PROVENANCE_DIR:-${RUNNER_TEMP:-/tmp}/buck2-cache-provenance',
+    )
+    // Summaries reference the retained file and the artifact that carries it.
+    expect(cacheLaneScriptSource).toContain('Uploaded-digest provenance:')
+    expect(cacheLaneScriptSource).toContain(
+      'provenance_artifact="buck2-cache-provenance-${GITHUB_JOB:-job}-run-${GITHUB_RUN_ID:-local}-attempt-${GITHUB_RUN_ATTEMPT:-0}"',
+    )
+    // Both cache-writing legs upload it with bounded retention. The directory is NOT set
+    // as job-level env: `env:` at job level cannot read the `runner` context, so
+    // `${{ runner.temp }}` would travel to the script unexpanded. The script defaults to
+    // `$RUNNER_TEMP/...` instead, and only the upload step (where the context is legal)
+    // names the same directory through the generator constant.
+    for (const [name, block] of [
+      ['buck2-cache-publish', publish],
+      ['buck2-cache-restore', restore],
+    ] as const) {
+      expect(block, name).not.toContain('BUCK2_CACHE_PROVENANCE_DIR')
+      const jobEnv = block.split('    steps:')[0] ?? ''
+      expect(jobEnv, name).not.toContain('runner.temp')
+      expect(block, name).toContain('name: Upload uploaded-digest provenance')
+      expect(block, name).toContain("path: '${{ runner.temp }}/buck2-cache-provenance'")
+      expect(block, name).toContain('retention-days: 14')
+      expect(block, name).toContain(
+        "name: 'buck2-cache-provenance-${{ github.job }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}'",
+      )
+    }
+    expect(ciWorkflowSource).toContain(
+      "export const buck2SharedCacheProvenanceDir = '${{ runner.temp }}/buck2-cache-provenance'",
+    )
+    // The script default and the artifact path have to be the same directory, or the
+    // artifact would be empty while the evidence sat somewhere else.
+    expect(ciWorkflowSource).toContain('path: buck2SharedCacheProvenanceDir')
+    expect(generatedWorkflowSource).not.toContain('BUCK2_CACHE_PROVENANCE_DIR')
+  })
+
+  it('refuses composed symlinks that break upload provenance, before any upload', () => {
+    const script = prepareEffectUtilsCompositionScriptSource
+    // Prefix leg: a path component that hops to a foreign absolute location would publish
+    // digests whose provenance is not the tree under proof.
+    expect(script).toContain('assert_no_absolute_symlink_traversal() {')
+    expect(script).toContain('composed path traverses an absolute symlink')
+    // Fail-closed: an unreadable symlink is a refusal, not a skip.
+    expect(script).toContain('cannot read a symlink on the composed path')
+    // The prefix leg must not claim relative links cannot escape; `../../outside` does.
+    expect(script).not.toContain('they cannot leave the composed prefix')
+    expect(script).toContain('(`../../outside` escapes)')
+    // Content leg: every TRACKED member symlink must be relative AND resolve inside the
+    // composed workspace. Absolute, escaping, and dangling links are all refusals.
+    expect(script).toContain('assert_member_symlinks_stay_inside_workspace() {')
+    expect(script).toContain('git -C "$member" ls-files -s -z')
+    expect(script).toContain('[ "$mode" = 120000 ] || continue')
+    expect(script).toContain('tracked member symlink is absolute')
+    expect(script).toContain('tracked member symlink escapes the composed workspace')
+    expect(script).toContain('tracked member symlink does not resolve')
+    expect(script).toContain('realpath -e "$member/$link"')
+    // Tracked-only scope is sound only if the member carries nothing else, so that premise
+    // is asserted rather than assumed.
+    expect(script).toContain(
+      'composed member is not clean, so tracked content is not the whole member tree',
+    )
+    // Ordering: prefix check before the overlay (the first upload-enabled Buck
+    // invocation), then cleanliness, then the tracked-symlink check on the composed member.
+    const beforeOverlay = script.indexOf('assert_no_absolute_symlink_traversal "$workspace_root"')
+    const overlay = script.indexOf('apply --worktree-mode')
+    const memberPrefix = script.indexOf('assert_no_absolute_symlink_traversal "$member_root"')
+    const clean = script.indexOf('git -C "$member_root" status --porcelain=v1')
+    const memberLinks = script.indexOf(
+      'assert_member_symlinks_stay_inside_workspace "$member_root" "$workspace_root"',
+    )
+    expect(beforeOverlay).toBeGreaterThan(0)
+    expect(beforeOverlay).toBeLessThan(overlay)
+    expect(memberPrefix).toBeGreaterThan(overlay)
+    expect(clean).toBeGreaterThan(memberPrefix)
+    expect(memberLinks).toBeGreaterThan(clean)
+  })
+
+  it('bounds the upload batch size in every buckconfig the cache lane can produce', () => {
+    // 4 MiB, stated rather than inherited, in the composition path, the developer shell
+    // path, and the outage override the lane writes.
+    expect(compositionCommandSource).toContain("{ key: 'max_total_batch_size', value: '4194304' }")
+    expect(devenvSource).toContain('max_total_batch_size = 4194304')
+    expect(cacheLaneScriptSource).toContain("printf 'max_total_batch_size = 4194304\\n'")
+    for (const source of [compositionCommandSource, devenvSource, cacheLaneScriptSource]) {
+      let stated = 0
+      for (const [, digits] of source.matchAll(/max_total_batch_size\D*(\d+)/gu)) {
+        stated += 1
+        expect(Number(digits)).toBeLessThanOrEqual(4 * 1024 * 1024)
+      }
+      expect(stated).toBeGreaterThan(0)
+    }
+  })
+
+  it('reads its evidence from Buck native logs rather than wall time or exit code', () => {
+    expect(cacheLaneScriptSource).toContain('log what-ran --format json')
+    expect(cacheLaneScriptSource).toContain('log what-uploaded --format json')
+    expect(cacheLaneScriptSource).toContain('log summary')
+    expect(cacheLaneScriptSource).toContain('.reproducer.executor == $executor')
+    // remote_enabled stays false: any remotely executed command fails the lane.
+    expect(cacheLaneScriptSource).toContain('require_no_remote_execution')
+  })
+
+  it('fails closed on outage at its own assertion, never in the composition', () => {
+    // The outage leg deliberately points at an unroutable RFC 2606 name and must observe
+    // Buck itself refusing, so it carries neither the tailnet join nor the preflight.
+    expect(outage).not.toContain('tailscale/github-action')
+    expect(outage).not.toContain('Preflight shared Buck cache')
+    expect(outage).toContain('buck2-cache-lane.sh" outage')
+    // The COMPOSITION runs with the cache disabled: the overlay's own Buck work must not
+    // be the thing that dies against the unreachable endpoint, or the leg would "pass"
+    // without ever reaching the assertion it exists to make.
+    const outageJobEnv = outage.split('    steps:')[0] ?? ''
+    expect(outageJobEnv).toContain("BUCK2_NO_REMOTE_CACHE: '1'")
+    expect(outageJobEnv).not.toContain('BUCK2_CACHE_ENDPOINT')
+    expect(generatedWorkflowSource).toContain('const buck2CacheOutageJobEnv = {')
+    // The endpoint is enabled by the assertion step alone, and it is the only step there.
+    const assertionStep =
+      outage.split('      - name: Assert a hard failure against an unreachable cache\n')[1] ?? ''
+    expect(assertionStep).toContain("BUCK2_NO_REMOTE_CACHE: ''")
+    expect(assertionStep).toContain("BUCK2_CACHE_ENDPOINT: 'grpc://buck2-cache-outage.invalid:1'")
+    expect(outage.indexOf('grpc://buck2-cache-outage.invalid:1')).toBeGreaterThan(
+      outage.indexOf('Prepare effect-utils composition'),
+    )
+    // The override is a buckconfig file the lane writes for that step and then removes,
+    // and it refuses to clobber an existing one.
+    expect(cacheLaneScriptSource).toContain('refusing to clobber an existing root cache override')
+    expect(cacheLaneScriptSource).toContain('drop_override() { rm -f "$override"; }')
+    expect(cacheLaneScriptSource).toContain('trap drop_override EXIT')
+    expect(cacheLaneScriptSource).toContain(
+      'a cache outage must never degrade into a silent local build',
+    )
+    // Recovery is printed for an operator, never applied by the lane itself.
+    expect(cacheLaneScriptSource).toContain('deliberately NOT run here')
+    expect(cacheLaneScriptSource).not.toMatch(/^\s*export BUCK2_NO_REMOTE_CACHE=/mu)
+    expect(cachePreflightScriptSource).not.toMatch(/^\s*export BUCK2_NO_REMOTE_CACHE=/mu)
+    // Every other lane keeps the repo-wide disable; only the two cache-writing jobs and
+    // the outage assertion step clear it.
+    expect(generatedCiWorkflowYamlSource).toContain("BUCK2_NO_REMOTE_CACHE: '1'")
+    expect(generatedCiWorkflowYamlSource.split("BUCK2_NO_REMOTE_CACHE: ''").length - 1).toBe(3)
+  })
+
+  it('keeps the generated workflow derived from its Genie source', () => {
+    // Every lane invocation in the YAML must be reachable from a generator constant, so a
+    // hand-edited ci.yml cannot drift into a different proof than the source describes.
+    for (const literal of [
+      "const buck2CandidateGraphFile = 'genie/ci-scripts/buck2-candidate-graph.txt'",
+      "const buck2CacheNonceCarrier = 'packages/@overeng/oxc-config/src/mod.ts'",
+      "const buck2CacheNonceLabel = 'effect_utils//packages/@overeng/oxc-config:oxc-config-candidate'",
+      "const buck2CacheOutageEndpoint = 'grpc://buck2-cache-outage.invalid:1'",
+      "const buck2CacheCandidateInstance = 'effect-utils-dq1-candidate'",
+    ]) {
+      expect(generatedWorkflowSource).toContain(literal)
+    }
+    // The generator drives all three legs through one helper and one step atom.
+    expect(generatedWorkflowSource.split('buck2CacheLaneJob({').length - 1).toBe(4)
+    expect(generatedWorkflowSource).toContain('buck2SharedCacheProvenanceArtifactStep')
+    expect(generatedWorkflowSource).not.toContain('actions/upload-artifact')
+    // Modes reach the script only through the typed step atom's union.
+    expect(ciWorkflowSource).toContain(
+      "readonly mode: 'publish' | 'restore' | 'miss' | 'outage' | 'capacity'",
+    )
+    for (const [mode, block] of [
+      ['publish', publish],
+      ['restore', restore],
+      ['miss', restore],
+      ['outage', outage],
+      ['capacity', capacity],
+    ] as const) {
+      expect(block, mode).toContain(`buck2-cache-lane.sh" ${mode} `)
+    }
+    // And the lane script implements exactly those five modes, no more.
+    for (const mode of ['publish', 'restore', 'miss', 'outage', 'capacity']) {
+      expect(cacheLaneScriptSource).toMatch(new RegExp(`^  ${mode}\\)$`, 'mu'))
+    }
+    expect(cacheLaneScriptSource).toContain('fail "unknown mode: $mode"')
+  })
+
+  it('wires an independent manual Namespace Linux x86_64 capacity job', () => {
+    expect(generatedCiWorkflowYamlSource).toContain('run_buck2_capacity_probe:')
+    expect(jobIf(capacity)).toContain("github.event_name == 'workflow_dispatch'")
+    expect(jobIf(capacity)).toContain('inputs.run_buck2_capacity_probe')
+    expect(jobIf(capacity)).not.toContain('inputs.run_buck2_cache_probe')
+    expect(capacity).toContain('namespace-profile-linux-x86-64')
+    expect(capacity).toContain("BUCK2_NO_REMOTE_CACHE: '1'")
+    expect(capacity).not.toContain('BUCK2_CACHE_ENDPOINT')
+    expect(capacity).not.toContain('tailscale/github-action')
+    // Publication is a direct Buck invocation, so this lane needs no Devenv at all.
+    expect(capacity).not.toContain('name: Resolve devenv')
+    expect(capacity).not.toContain('DEVENV_BIN')
+    expect(capacity).toContain('BUCK2_CAPACITY_RUNNER_PROFILE: namespace-profile-linux-x86-64')
+    expect(capacity).toContain("BUCK2_CAPACITY_TIMEOUT_MINUTES: '240'")
+    expect(capacity).toContain("BUCK2_CAPACITY_JOB_CONCURRENCY: '1'")
+    expect(capacity).toContain(
+      `buck2-cache-lane.sh" capacity 'genie/ci-scripts/buck2-candidate-graph.txt'`,
+    )
+    expect(generatedRequiredCheckContexts).not.toContain('buck2-capacity')
+  })
+
+  it('sequences prerequisites, cold graph, publication, cold curve, then warm rebuild', () => {
+    const capacityMode = cacheLaneScriptSource.slice(
+      cacheLaneScriptSource.indexOf('  capacity)'),
+      cacheLaneScriptSource.indexOf('  outage)'),
+    )
+    const prerequisites = capacityMode.indexOf('prepare_editor_publication')
+    const cold = capacityMode.indexOf('run_capacity_build cold-full')
+    const publication = capacityMode.indexOf('run_editor_publication')
+    const curve = capacityMode.indexOf(
+      'for class in supportTools editorViewInputs typecheck dist products',
+    )
+    const warm = capacityMode.indexOf('run_capacity_build warm-full')
+    expect(prerequisites).toBeGreaterThan(0)
+    expect(cold).toBeGreaterThan(prerequisites)
+    expect(publication).toBeGreaterThan(cold)
+    expect(curve).toBeGreaterThan(publication)
+    expect(warm).toBeGreaterThan(curve)
+    // Publication is the direct, fully argument-stated buck-watch invocation: no Devenv
+    // task graph runs after the cold observation, and sources are proven unmutated.
+    expect(cacheLaneScriptSource).toContain(
+      '"$buck2" run effect_utils//scripts:buck-watch -- publish',
+    )
+    expect(cacheLaneScriptSource).toContain('--snapshot-retention "$capacity_snapshot_retention"')
+    expect(cacheLaneScriptSource).toContain(
+      "fail 'editor publication mutated tracked member sources'",
+    )
+    expect(cacheLaneScriptSource).not.toContain('tasks run buck2:typescript:publish-editor-views')
+    expect(cacheLaneScriptSource).not.toContain('DEVENV_BIN')
+    // Authority is a prerequisite, so it is paid before the first cold observation and its
+    // Buck work is discarded by the wipe that follows.
+    expect(cacheLaneScriptSource).toContain(
+      '"$buck2" run effect_utils//scripts:editor-view-authority --',
+    )
+    expect(capacityMode.indexOf('wipe_owned_buck_state')).toBeGreaterThan(prerequisites)
+    // Each curve point is an independent COLD cumulative build.
+    expect(cacheLaneScriptSource).toContain(
+      '      wipe_owned_buck_state\n      run_capacity_build "curve-$class"',
+    )
+    expect(cacheLaneScriptSource).toContain('coldCumulative: true')
+    expect(cacheLaneScriptSource).toContain('previousRawCumulative: {')
+    expect(cacheLaneScriptSource).toContain(
+      '(($measurement.wallTimeMs - $previous_wall) / $class_label_count)',
+    )
+    // Exact sorted set equality against the generated list, not just a count.
+    expect(cacheLaneScriptSource).toContain(
+      '[ "$(printf \'%s\\n\' "${capacity_cumulative[@]}" | sort)" = "$(printf \'%s\\n\' "${GRAPH_LABELS[@]}" | sort)" ]',
+    )
+    expect(cacheLaneScriptSource).toContain('--local-only --no-remote-cache')
+    expect(cacheLaneScriptSource).toContain(
+      "fail 'capacity requires composition-owned BUCK2_NO_REMOTE_CACHE=1'",
+    )
+    expect(cacheLaneScriptSource).toContain("fail 'editor publication uploaded remote evidence'")
+    // Product labels are classified explicitly and an unmatched label is a refusal.
+    expect(cacheLaneScriptSource).toContain('*:*-candidate) capacity_products+=("$label") ;;')
+    expect(cacheLaneScriptSource).toContain(
+      'fail "candidate graph label belongs to no capacity class: $label"',
+    )
+  })
+
+  it('emits every DQ4 dimension without inventing a threshold', () => {
+    for (const field of [
+      'coldFullCandidateGraph',
+      'editorPublication',
+      'combinedCold',
+      'physicalConsumedPeakBytes',
+      'physicalConsumedDeltaBytes',
+      'minAvailableBytes',
+      'peakHostUsedBytes',
+      'retainedLogicalBytes',
+      'repositoryTotalBytes',
+      'retainedGenerationCount',
+      'actionDurationP95Ms',
+      'stagingActionDurationP95Ms',
+      'marginalCurve',
+      'warmFullCandidateGraph',
+      'remoteEvidence',
+      'runnerProfile',
+      'jobTimeoutMinutes',
+      'jobConcurrency',
+      'marginalSlope',
+      'wallTimeMsPerAddedLabel',
+      'retainedBuckOutBytesPerAddedLabel',
+      'retainedOutputBytesPerAddedLabel',
+      'localActionCountPerAddedLabel',
+      'requestedSampleIntervalMs',
+      'observedIntervalMsMin',
+      'observedIntervalMsMax',
+      'observedIntervalMsMean',
+      'timeoutHeadroomMs',
+      'reflink',
+      'actionDurationField',
+      'classLabelCounts',
+    ]) {
+      expect(cacheLaneScriptSource, field).toContain(field)
+    }
+    expect(cacheLaneScriptSource).toContain('thresholds: null')
+    expect(cacheLaneScriptSource).toContain(
+      "fail 'candidate graph has no admitted editor packages'",
+    )
+    expect(cacheLaneScriptSource).toContain(
+      'fail "editor package published no retained snapshot generation: $package"',
+    )
+    // Sampling is O(1) in-phase; `du` is a phase-boundary logical measurement only.
+    expect(cacheLaneScriptSource).toContain('df -B1 --output=avail "$workspace"')
+    expect(cacheLaneScriptSource).toContain("sed -n 's/^MemAvailable:")
+    expect(cacheLaneScriptSource).toContain(
+      'phaseBoundaryDisk: "GNU du -s -B1 at phase boundaries only',
+    )
+    expect(cacheLaneScriptSource).not.toContain('capacity_disk_bytes')
+    expect(cacheLaneScriptSource).toContain('cp --reflink=always')
+    expect(cacheLaneScriptSource).toContain('buck2 log what-ran --format json')
+    expect(cacheLaneScriptSource).toContain('| .duration | duration_ms')
+  })
+
+  it('uploads only the bounded JSON and leaves teardown to owned idempotent cleanup', () => {
+    expect(capacity).toContain('name: Upload Buck2 capacity evidence')
+    expect(capacity).toContain("path: '${{ runner.temp }}/buck2-capacity-evidence/capacity.json'")
+    expect(capacity).toContain('if-no-files-found: error')
+    expect(capacity).toContain('retention-days: 14')
+    expect(capacity).toContain('name: Cleanup effect-utils composition')
+    expect(capacity.indexOf('name: Cleanup effect-utils composition')).toBeGreaterThan(
+      capacity.indexOf('name: Upload Buck2 capacity evidence'),
+    )
+    expect(cacheLaneScriptSource).toContain('trap capacity_cleanup EXIT')
+    expect(cacheLaneScriptSource).toContain('wipe_owned_buck_state')
+    expect(cacheLaneScriptSource).not.toContain('rm -rf "$member"')
+  })
+
+  it('proves the outage control-then-treatment with a connection signature', () => {
+    const outageMode = cacheLaneScriptSource.slice(cacheLaneScriptSource.indexOf('  outage)'))
+    const control = outageMode.indexOf('control: building the label with the remote cache disabled')
+    const wipe = outageMode.indexOf('wipe_owned_buck_state')
+    const override = outageMode.indexOf('} > "$override"')
+    const treatment = outageMode.indexOf('the build SUCCEEDED against an unreachable cache')
+    expect(control).toBeGreaterThan(0)
+    expect(wipe).toBeGreaterThan(control)
+    expect(override).toBeGreaterThan(wipe)
+    expect(treatment).toBeGreaterThan(override)
+    // The control build must succeed with the cache disabled, or the treatment failure
+    // could be a broken target rather than an outage.
+    expect(cacheLaneScriptSource).toContain(
+      "fail 'the control build failed with the cache disabled, so this runner cannot prove anything about an outage'",
+    )
+    // A bare nonzero exit is explicitly insufficient: the captured output must name the
+    // remote-cache / RE connection.
+    expect(cacheLaneScriptSource).toContain('outage_signature=')
+    expect(cacheLaneScriptSource).toContain('grep -Eiq -- "$outage_signature" "$outage_log"')
+    expect(cacheLaneScriptSource).toContain(
+      "fail 'the build failed WITHOUT a remote-cache/RE connection signature, so this is an unrelated failure rather than the cache outage under proof'",
+    )
+    for (const signature of ['re_client', 'action_cache', 'grpc', 'Connection refused']) {
+      expect(cacheLaneScriptSource, signature).toContain(signature)
+    }
+  })
+
+  it('invokes the committed lane scripts through bash for composition portability', () => {
+    for (const script of ['buck2-cache-preflight.sh', 'buck2-cache-lane.sh']) {
+      expect(ciWorkflowSource, script).toContain(
+        `bash "$GITHUB_WORKSPACE/genie/ci-scripts/${script}"`,
+      )
+    }
+    for (const block of [publish, restore, outage, capacity]) {
+      expect(block).toContain('bash "$GITHUB_WORKSPACE/genie/ci-scripts/buck2-cache-lane.sh"')
+    }
+    // Every lane invocation goes through `bash`, so none is left as a bare exec of the
+    // committed script file.
+    expect(generatedCiWorkflowYamlSource).not.toMatch(
+      /^\s*"\$GITHUB_WORKSPACE\/genie\/ci-scripts\/buck2-cache-(lane|preflight)\.sh"/mu,
+    )
+  })
+
+  it('executes capacity cache-disabled beside an ordinary buckconfig and cleans owned state', () => {
+    const root = mkdtempSync(join(tmpdir(), 'buck2-capacity-lane-'))
+    const workspace = join(root, 'workspace')
+    const member = join(workspace, 'repos', 'effect-utils')
+    const runnerTemp = join(root, 'runner-temp')
+    const resultDir = join(runnerTemp, 'buck2-capacity-evidence')
+    const buck2 = join(workspace, '.megarepo', 'bin', 'buck2')
+    const systemTools = join(root, 'system-tools')
+    const graph = join(member, 'graph.txt')
+    try {
+      mkdirSync(dirname(buck2), { recursive: true })
+      mkdirSync(join(member, 'packages', 'app'), { recursive: true })
+      mkdirSync(runnerTemp, { recursive: true })
+      mkdirSync(systemTools)
+      writeFileSync(
+        join(systemTools, 'lscpu'),
+        `#!${bashBin}\nprintf 'Model name: Fixture CPU\\n'\n`,
+      )
+      writeFileSync(join(systemTools, 'nproc'), `#!${bashBin}\nprintf '8\\n'\n`)
+      chmodSync(join(systemTools, 'lscpu'), 0o755)
+      chmodSync(join(systemTools, 'nproc'), 0o755)
+      writeFileSync(
+        join(workspace, '.buckconfig.local'),
+        '[buck2_re_client]\naction_cache_address = grpc://ordinary-developer-cache.invalid:1\n',
+      )
+      writeFileSync(
+        graph,
+        [
+          'effect_utils//buck2/toolchains:archive_tool',
+          'effect_utils//packages/app:editor_view_inputs',
+          'effect_utils//packages/app:typecheck',
+          'effect_utils//packages/app:dist',
+          'effect_utils//packages/app:app-candidate',
+          '',
+        ].join('\n'),
+      )
+      writeFileSync(
+        buck2,
+        `#!${bashBin}
+set -euo pipefail
+workspace=${JSON.stringify(workspace)}
+ops=${JSON.stringify(join(root, 'ops.log'))}
+case "\${1:-}" in
+  build)
+    shift
+    printf 'build %s\\n' "$*" >> "$ops"
+    mkdir -p "$workspace/buck-out/megarepo/art" "$workspace/buck-out/megarepo/tmp"
+    printf output > "$workspace/buck-out/megarepo/art/output"
+    ;;
+  run)
+    shift
+    printf 'run %s\\n' "$*" >> "$ops"
+    target="\${1:-}"
+    case "$target" in
+      effect_utils//scripts:editor-view-authority)
+        output=''
+        while [ "$#" -gt 0 ]; do
+          if [ "$1" = '--output' ]; then output="\${2:-}"; fi
+          shift
+        done
+        [ -n "$output" ] || exit 3
+        mkdir -p "$(dirname "$output")"
+        printf '%s\\n' '{"schema":"effect-utils/workspace-dependency-authority/v1"}' > "$output"
+        ;;
+      effect_utils//scripts:buck-watch)
+        store=${JSON.stringify(join(member, 'packages', '.editor-view', '.store', `app-${'a'.repeat(64)}`))}
+        mkdir -p "$store/node_modules"
+        printf snapshot > "$store/node_modules/value"
+        printf '%s\\n' '{"schema":"effect-utils/editor-view/v2","package":"packages/app"}' > "$store/editor-view.json"
+        ;;
+      *) exit 2 ;;
+    esac
+    ;;
+  log)
+    case "\${2:-}" in
+      what-ran)
+        printf '%s\\n' '{"reason":"build","identity":"package_view fixture","reproducer":{"executor":"Local","details":{"env":{"BUCK_SCRATCH_PATH":"buck-out/megarepo/tmp"}}},"duration":"1.5ms"}'
+        ;;
+      what-uploaded) ;;
+      *) exit 2 ;;
+    esac
+    ;;
+  kill) ;;
+  *) exit 2 ;;
+esac
+`,
+      )
+      chmodSync(buck2, 0o755)
+      expect(spawnSync(gitBin, ['init', '-q'], { cwd: member }).status).toBe(0)
+      const authorEmail = '261620128+schickling-assistant@users.noreply.github.com'
+      const authorName = 'schickling-assistant'
+      expect(spawnSync(gitBin, ['config', 'user.email', authorEmail], { cwd: member }).status).toBe(
+        0,
+      )
+      expect(spawnSync(gitBin, ['config', 'user.name', authorName], { cwd: member }).status).toBe(0)
+      expect(spawnSync(gitBin, ['add', '.'], { cwd: member }).status).toBe(0)
+      const commitResult = spawnSync(
+        gitBin,
+        ['-c', 'commit.gpgsign=false', 'commit', '-qm', 'fixture'],
+        { cwd: member, encoding: 'utf8' },
+      )
+      expect(commitResult.status, commitResult.stderr).toBe(0)
+
+      const result = spawnSync(bashBin, [cacheLaneScriptPath, 'capacity', 'graph.txt'], {
+        cwd: member,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          BUCK2_CAPACITY_RESULT_DIR: resultDir,
+          BUCK2_CAPACITY_RUNNER_PROFILE: 'namespace-profile-linux-x86-64',
+          BUCK2_CAPACITY_TIMEOUT_MINUTES: '240',
+          BUCK2_CAPACITY_JOB_CONCURRENCY: '1',
+          BUCK2_CAPACITY_SAMPLE_MS: '10',
+          BUCK2_NO_REMOTE_CACHE: '1',
+          PATH: [systemTools, dirname(devenvModuleToolsBin), process.env.PATH]
+            .filter(Boolean)
+            .join(delimiter),
+          BUCK2_CAPACITY_SNAPSHOT_RETENTION: '3',
+          GITHUB_STEP_SUMMARY: join(root, 'summary.md'),
+          EFFECT_UTILS_MEMBER_ROOT: member,
+          EFFECT_UTILS_WORKSPACE_ROOT: workspace,
+          RUNNER_TEMP: runnerTemp,
+        },
+      })
+      expect(result.status, result.stderr).toBe(0)
+      const evidence = JSON.parse(readFileSync(join(resultDir, 'capacity.json'), 'utf8'))
+      expect(evidence.graph.labelCount).toBe(5)
+      expect(evidence.editorSnapshots.packages).toEqual([
+        expect.objectContaining({ package: 'packages/app', retainedGenerationCount: 1 }),
+      ])
+      expect(evidence.marginalCurve).toHaveLength(5)
+      expect(evidence.warmFullCandidateGraph.actions.remoteExecutionActionCount).toBe(0)
+      expect(evidence.remoteEvidence).toEqual({
+        importedActionCount: 0,
+        remoteExecutionActionCount: 0,
+        uploadedDigestCount: 0,
+      })
+      expect(evidence.runner).toMatchObject({
+        runnerProfile: 'namespace-profile-linux-x86-64',
+        jobTimeoutMinutes: 240,
+        jobConcurrency: 1,
+      })
+      expect(evidence.marginalCurve[0]).toMatchObject({ coldCumulative: true })
+      expect(evidence.marginalCurve[0].previousRawCumulative).toEqual({
+        wallTimeMs: 0,
+        localActionCount: 0,
+        retainedBuckOutBytes: 0,
+        retainedOutputBytes: 0,
+      })
+      expect(evidence.marginalCurve[1].previousRawCumulative.localActionCount).toBe(
+        evidence.marginalCurve[0].actions.localActionCount,
+      )
+      expect(evidence.marginalCurve[0].marginalSlope).toEqual({
+        wallTimeMsPerAddedLabel: expect.any(Number),
+        localActionCountPerAddedLabel: 1,
+        retainedBuckOutBytesPerAddedLabel: expect.any(Number),
+        retainedOutputBytesPerAddedLabel: expect.any(Number),
+      })
+      expect(typeof evidence.runner.filesystem.reflink.supported).toBe('boolean')
+      expect(evidence.budget.jobTimeoutMs).toBe(240 * 60000)
+      expect(evidence.budget.timeoutHeadroomMs).toBeLessThan(evidence.budget.jobTimeoutMs)
+      expect(evidence.coldFullCandidateGraph.host.sampling.observedIntervalMsMean).toBeGreaterThan(
+        0,
+      )
+      expect(evidence.coldFullCandidateGraph.host.filesystem).toMatchObject({
+        physicalConsumedPeakBytes: expect.any(Number),
+        physicalConsumedDeltaBytes: expect.any(Number),
+      })
+      expect(evidence.coldFullCandidateGraph.host.memory.minAvailableBytes).toBeGreaterThan(0)
+      const ops = readFileSync(join(root, 'ops.log'), 'utf8').trimEnd().split('\n')
+      // Authority is the FIRST Buck operation, before any measured build.
+      expect(ops[0]).toContain('run effect_utils//scripts:editor-view-authority -- --repo-root')
+      expect(ops.filter((line) => line.startsWith('build ')).length).toBe(7)
+      for (const line of ops.filter((line) => line.startsWith('build '))) {
+        expect(line).toContain('--local-only --no-remote-cache')
+      }
+      expect(ops.some((line) => line.includes('scripts:buck-watch -- publish'))).toBe(true)
+      expect(ops.some((line) => line.includes('--snapshot-retention 3'))).toBe(true)
+      expect(ops.join('\n')).not.toContain('publish-editor-views')
+      expect(existsSync(join(member, '.devenv', 'editor-workspace-authority.json'))).toBe(true)
+      expect(existsSync(join(workspace, 'buck-out', 'megarepo'))).toBe(false)
+      expect(existsSync(join(workspace, '.buckconfig.local'))).toBe(true)
+      expect(readFileSync(join(root, 'summary.md'), 'utf8')).toContain(
+        'Buck2 capacity evidence (DQ4)',
+      )
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })

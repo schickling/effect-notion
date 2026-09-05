@@ -2,71 +2,23 @@
   "version": "2.0.0",
   "tasks": [
     // ============================================================
-    // install
-    // ============================================================
-    {
-      "label": "install",
-      "type": "shell",
-      "command": "devenv tasks run pnpm:install",
-      "problemMatcher": [],
-      "presentation": {
-        "focus": true,
-        "panel": "shared",
-        "group": "install",
-        "showReuseMessage": false,
-        "clear": false,
-        "close": true
-      }
-    },
-
-    // ============================================================
     // ts
     // ============================================================
     {
-      "label": "ts",
+      "label": "buck2:typescript:watch",
       "type": "shell",
-      "command": "devenv tasks run ts:check",
-      "problemMatcher": ["$tsc"],
-      "presentation": {
-        "focus": false,
-        "panel": "shared",
-        "group": "ts",
-        "showReuseMessage": false,
-        "clear": false
-      }
-    },
-    {
-      "label": "ts:build-watch",
-      "type": "shell",
-      "command": "devenv tasks run ts:build-watch",
-      "problemMatcher": ["$tsc-watch"],
-      "isBackground": true,
-      "presentation": {
-        "focus": false,
-        "panel": "shared",
-        "group": "ts",
-        "showReuseMessage": false,
-        "clear": false
-      }
-    },
-    {
-      "label": "ts:clean",
-      "type": "shell",
-      "command": "devenv tasks run ts:clean",
-      "problemMatcher": ["$tsc"],
-      "presentation": {
-        "focus": false,
-        "panel": "shared",
-        "group": "ts",
-        "showReuseMessage": false,
-        "clear": false
-      }
-    },
-    {
-      "label": "ts:clean:build-watch",
-      "type": "shell",
-      "command": "devenv tasks run ts:clean && devenv tasks run ts:build-watch",
-      "problemMatcher": ["$tsc-watch"],
+      "command": "devenv tasks run buck2:typescript:watch",
+      "problemMatcher": {
+        "owner": "buck-watch",
+        "pattern": {
+          "regexp": "a^"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^\\[buck-watch\\] starting$",
+          "endsPattern": "^\\[buck-watch\\] ready$"
+        }
+      },
       "isBackground": true,
       "presentation": {
         "focus": false,
@@ -141,19 +93,6 @@
     // ============================================================
     // misc
     // ============================================================
-    {
-      "label": "build",
-      "type": "shell",
-      "command": "devenv tasks run ts:build",
-      "problemMatcher": ["$tsc"],
-      "presentation": {
-        "focus": true,
-        "panel": "shared",
-        "group": "misc",
-        "showReuseMessage": false,
-        "clear": false
-      }
-    },
     {
       "label": "clean",
       "type": "shell",

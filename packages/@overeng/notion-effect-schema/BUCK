@@ -1,19 +1,27 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2:javascript.bzl", "vitest_test")
 # Projection source: packages/@overeng/notion-effect-schema/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:09ccd1a70f0d546fb29880d421fb9733e1b296656272465978c23c410c11c0dc
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-effect-schema/src/**/*.cts, packages/@overeng/notion-effect-schema/src/**/*.js, packages/@overeng/notion-effect-schema/src/**/*.mts, packages/@overeng/notion-effect-schema/src/**/*.ts, packages/@overeng/notion-effect-schema/src/**/*.tsx, packages/@overeng/notion-effect-schema/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
+# Semantic fingerprint: sha256:ffcfa5e45fbc1bc4ebb133e191074b3b4355862c26661d58f7c77352abd33268
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-effect-schema/*.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-effect-schema/src/**/*.cts, packages/@overeng/notion-effect-schema/src/**/*.js, packages/@overeng/notion-effect-schema/src/**/*.jsx, packages/@overeng/notion-effect-schema/src/**/*.mts, packages/@overeng/notion-effect-schema/src/**/*.ts, packages/@overeng/notion-effect-schema/src/**/*.tsx, packages/@overeng/notion-effect-schema/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
     name = "package.json",
     src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
     visibility = ["PUBLIC"],
 )
 
@@ -49,22 +57,59 @@ export_materialization_inputs([
     "src/webhook.ts",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_notion_effect_schema_4393910d3e7b",
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/common.ts": "src/common.ts",
+        "src/common.unit.test.ts": "src/common.unit.test.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/objects.ts": "src/objects.ts",
+        "src/objects.unit.test.ts": "src/objects.unit.test.ts",
+        "src/properties.unit.test.ts": "src/properties.unit.test.ts",
+        "src/properties/audit.ts": "src/properties/audit.ts",
+        "src/properties/boolean.ts": "src/properties/boolean.ts",
+        "src/properties/canonical-codec.ts": "src/properties/canonical-codec.ts",
+        "src/properties/canonical-codec.unit.test.ts": "src/properties/canonical-codec.unit.test.ts",
+        "src/properties/canonical.ts": "src/properties/canonical.ts",
+        "src/properties/common.ts": "src/properties/common.ts",
+        "src/properties/computed.ts": "src/properties/computed.ts",
+        "src/properties/contact.ts": "src/properties/contact.ts",
+        "src/properties/date.ts": "src/properties/date.ts",
+        "src/properties/descriptor.ts": "src/properties/descriptor.ts",
+        "src/properties/descriptor.unit.test.ts": "src/properties/descriptor.unit.test.ts",
+        "src/properties/mod.ts": "src/properties/mod.ts",
+        "src/properties/number.ts": "src/properties/number.ts",
+        "src/properties/reference.ts": "src/properties/reference.ts",
+        "src/properties/rollup.ts": "src/properties/rollup.ts",
+        "src/properties/select.ts": "src/properties/select.ts",
+        "src/properties/text.ts": "src/properties/text.ts",
+        "src/property-schema.ts": "src/property-schema.ts",
+        "src/rich-text-utils.ts": "src/rich-text-utils.ts",
+        "src/rich-text-utils.unit.test.ts": "src/rich-text-utils.unit.test.ts",
+        "src/rich-text.ts": "src/rich-text.ts",
+        "src/users.ts": "src/users.ts",
+        "src/webhook.ts": "src/webhook.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    },
     visibility = ["PUBLIC"],
 )
 
 alias(
     name = "editor_inputs",
-    actual = ":node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_notion_effect_schema_4393910d3e7b",
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_notion_effect_schema_4393910d3e7b",
     files = {
+        "vitest.config.ts": "vitest.config.ts",
         "package.json": "package.json",
         "src/common.ts": "src/common.ts",
         "src/common.unit.test.ts": "src/common.unit.test.ts",
@@ -99,22 +144,12 @@ package_tree(
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {
-        "@overeng/notion-core": {
-            "files": {
-                "dist": "//packages/@overeng/notion-core:dist",
-                "package.json": "//packages/@overeng/notion-core:package.json",
-            },
-            "links": ["@overeng/notion-core"],
-        },
-        "@overeng/utils-dev": {
-            "files": {
-                "dist": "//packages/@overeng/utils-dev:dist",
-                "package.json": "//packages/@overeng/utils-dev:package.json",
-            },
-            "links": ["@overeng/utils-dev"],
-        },
-    },
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -124,11 +159,21 @@ tsgo_typecheck(
     visibility = ["PUBLIC"],
 )
 
+
 tsgo_emit(
     name = "dist",
     package_tree = ":package_tree",
     declaration_sources = {
     },
     declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
     visibility = ["PUBLIC"],
 )

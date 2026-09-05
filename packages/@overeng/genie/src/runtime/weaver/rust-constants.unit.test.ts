@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -140,14 +140,12 @@ describe('renderAttributes attribute deprecation', () => {
   })
 })
 
-/** Resolve a binary from `$PATH` (rust tooling is provided by devenv/CI, absent in some sandboxes). */
-const onPath = (bin: string): string | undefined => {
-  for (const dir of (process.env['PATH'] ?? '').split(path.delimiter)) {
-    if (dir === '') continue
-    const candidate = path.join(dir, bin)
-    if (existsSync(candidate) === true) return candidate
-  }
-  return undefined
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
 }
 
 describe('renderRustConstants (otel-scrape fixture)', () => {
@@ -195,23 +193,23 @@ describe('renderRustConstants (otel-scrape fixture)', () => {
     expect(rust).toContain('// regen: devenv tasks run genie:run')
   })
 
-  const rustfmt = onPath('rustfmt')
-  it.runIf(rustfmt !== undefined)('is rustfmt-clean', () => {
+  const rustfmt = requireTool('RUSTFMT_BIN')
+  it('is rustfmt-clean', () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'weaver-rust-'))
     const file = path.join(dir, 'constants.rs')
     writeFileSync(file, rust)
-    const res = spawnSync(rustfmt as string, ['--check', file], { encoding: 'utf8' })
+    const res = spawnSync(rustfmt, ['--check', file], { encoding: 'utf8' })
     expect(res.stderr + res.stdout).toBe('')
     expect(res.status).toBe(0)
   })
 
-  const rustc = onPath('rustc')
-  it.runIf(rustc !== undefined)('compiles as valid Rust (rustc --emit=metadata)', () => {
+  const rustc = requireTool('RUSTC_BIN')
+  it('compiles as valid Rust (rustc --emit=metadata)', () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'weaver-rust-'))
     const file = path.join(dir, 'constants.rs')
     writeFileSync(file, rust)
     const res = spawnSync(
-      rustc as string,
+      rustc,
       ['--emit=metadata', '--crate-type', 'lib', file, '-o', path.join(dir, 'out.rmeta')],
       { encoding: 'utf8' },
     )

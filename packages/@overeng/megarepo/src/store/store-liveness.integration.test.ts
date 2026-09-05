@@ -9,6 +9,7 @@ import { expect } from 'vitest'
 import { EffectPath } from '@overeng/effect-path'
 
 import { decodeJson } from '../test-utils/mod.ts'
+import { requireTool } from '../test-utils/require-tool.ts'
 import {
   createStoreFixture,
   createWorkspaceWithLock,
@@ -23,12 +24,14 @@ import {
 } from './store-liveness.ts'
 import { makeStoreLayer, Store } from './store.ts'
 
+const gitBin = requireTool('GIT_BIN')
+
 const normalizePath = (path: string): string => path.replace(/\/+$/, '')
 
 const runGitCommand = (cwd: string, ...args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const result = yield* ChildProcessSpawner.use((spawner) =>
-      spawner.string(Command.make('git', args, { cwd })),
+      spawner.string(Command.make(gitBin, args, { cwd })),
     )
     return result.trim()
   })

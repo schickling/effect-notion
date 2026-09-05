@@ -1,0 +1,76 @@
+load("//buck2:typescript.bzl", "sandbox_probe")
+
+# The platform containment gate (EXEC-R07, EXEC-R11).
+#
+# Containment is never inferred from a compiler's exit status: a denied undeclared read may be
+# ignored by the tool that attempted it. Each probe below therefore makes one explicit
+# observation *inside* a real action sandbox and fails the action unless the observed outcome is
+# exactly the declared one.
+#
+# Positive declared access needs no probe: every `tsgo_typecheck`/`tsgo_emit` action reads its
+# declared view and writes its declared output through the same sandbox, so those paths are
+# proven by the graph itself.
+#
+# These targets fail analysis on an execution platform whose sandbox is not active
+# (`//buck2/toolchains:typescript_sandbox`), which is the intended signal: a platform is either
+# gated or it is not admitted as a sandboxed executor.
+
+# An undeclared host file that the runner first proves is readable outside the sandbox.
+sandbox_probe(
+    name = "denies_undeclared_host_read",
+    expect = "denied",
+    probe = "read",
+    target = "/etc/hosts",
+    visibility = ["PUBLIC"],
+)
+
+# The runner selects and stats an existing store entry outside every declared tool closure. The
+# exact undeclared child must remain hidden even though Bubblewrap creates `/nix/store` as a mount
+# parent for declared closure entries.
+sandbox_probe(
+    name = "denies_undeclared_store_metadata",
+    expect = "denied",
+    probe = "stat",
+    target = "controlled-store-entry",
+    visibility = ["PUBLIC"],
+)
+
+# The runner owns and reaches a loopback HTTP server before entering the sandbox. The isolated
+# child must not reach that same controlled endpoint.
+sandbox_probe(
+    name = "denies_network",
+    expect = "denied",
+    probe = "connect",
+    target = "controlled-loopback",
+    visibility = ["PUBLIC"],
+)
+
+# This marker is explicitly seeded in the outer probe action; the runner's cleared action
+# environment must remove it from the sandboxed child.
+sandbox_probe(
+    name = "denies_ambient_environment",
+    expect = "denied",
+    probe = "env",
+    target = "EFFECT_UTILS_SANDBOX_PROBE_SECRET",
+    visibility = ["PUBLIC"],
+)
+
+# The runner proves this unique /tmp file is writable before entering the sandbox and removes it.
+# The child receives neither ambient /tmp nor any write root beyond its declared scratch.
+sandbox_probe(
+    name = "denies_undeclared_host_write",
+    expect = "denied",
+    probe = "write",
+    target = "/tmp/effect-utils-buck2-sandbox-write",
+    visibility = ["PUBLIC"],
+)
+
+# Process execution is confined to declared tool/write roots. `/bin/sh` is executable during the
+# outer precondition but is neither a declared tool nor an action input.
+sandbox_probe(
+    name = "denies_undeclared_process_exec",
+    expect = "denied",
+    probe = "exec",
+    target = "/bin/sh",
+    visibility = ["PUBLIC"],
+)

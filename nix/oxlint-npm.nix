@@ -148,6 +148,14 @@ pkgs.stdenv.mkDerivation {
   passthru = {
     pluginBundle = if hasPlugin then pluginBundle else null;
     pluginPath = if hasPlugin then "${pluginBundle}/plugin.js" else null;
+  }
+  // lib.optionalAttrs hasPlugin {
+    inherit (pluginBundle)
+      depsBuildEntries
+      depsBuildsByInstallRoot
+      evergreen
+      fodHashRepairTargets
+      ;
   };
 
   meta = with pkgs.lib; {

@@ -123,15 +123,146 @@ export const checkoutStep = (opts?: { repository?: string; ref?: string; path?: 
  */
 export const prepareEffectUtilsCompositionStep = {
   name: 'Prepare effect-utils composition',
-  run: '"$GITHUB_WORKSPACE/genie/ci-scripts/prepare-effect-utils-composition.sh"',
+  // Invoked through `bash` rather than executed: the script's `#!/usr/bin/env bash` shebang
+  // needs an `/usr/bin/env` that a contained execution environment does not have, and the
+  // interpreter is the same one GitHub's default `run:` shell already provides.
+  run: 'bash "$GITHUB_WORKSPACE/genie/ci-scripts/prepare-effect-utils-composition.sh"',
 } as const
 
 /** Always remove the per-job synthesized workspace, worktree registration, and store. */
 export const cleanupEffectUtilsCompositionStep = {
   name: 'Cleanup effect-utils composition',
   if: 'always()',
-  run: '"$GITHUB_WORKSPACE/genie/ci-scripts/cleanup-effect-utils-composition.sh"',
+  run: 'bash "$GITHUB_WORKSPACE/genie/ci-scripts/cleanup-effect-utils-composition.sh"',
 } as const
+
+/**
+ * Join an ephemeral tailnet node for the duration of one job, authenticating with the
+ * job's GitHub OIDC token instead of a stored Tailscale secret.
+ *
+ * Least privilege by construction: there is no long-lived credential to leak, the
+ * Tailscale-side federated identity is pinned to this repository's issuer and subject and
+ * to the single tag it may mint, the node is ephemeral (it disappears when the runner
+ * does), and no tailnet host, address, or key material appears in the generated workflow.
+ * The client id and audience are non-secret repository configuration, so they travel as
+ * `vars.*` rather than `secrets.*`. The job must carry `permissions: id-token: write` for
+ * the action to be able to mint the OIDC token at all.
+ */
+export const tailnetEphemeralConnectStep = ({
+  clientId,
+  audience,
+  tags,
+  name = 'Join ephemeral tailnet',
+}: {
+  /** Tailscale federated-identity client id; non-secret, passed as `oauth-client-id`. */
+  readonly clientId: string
+  /** OIDC audience the Tailscale federated identity expects. */
+  readonly audience: string
+  readonly tags: string
+  readonly name?: string
+}) => ({
+  name,
+  uses: 'tailscale/github-action@v3' as const,
+  with: {
+    'oauth-client-id': clientId,
+    audience,
+    tags,
+    version: 'latest',
+  },
+})
+
+/** Drop the ephemeral tailnet node even when the job failed. */
+export const tailnetEphemeralDisconnectStep = {
+  name: 'Leave ephemeral tailnet',
+  if: 'always()',
+  shell: 'bash',
+  run: 'command -v tailscale >/dev/null 2>&1 && tailscale logout || true',
+} as const
+
+/**
+ * Refuse to start a shared-cache lane whose cache is unconfigured or unreachable.
+ *
+ * Deliberately placed BEFORE the composition overlay: the endpoint has to be in the
+ * generated root buckconfig before the first Buck invocation, so an outage must be
+ * detected before that config is written rather than after a build silently degrades.
+ */
+export const buck2SharedCachePreflightStep = {
+  name: 'Preflight shared Buck cache',
+  run: 'bash "$GITHUB_WORKSPACE/genie/ci-scripts/buck2-cache-preflight.sh"',
+} as const
+
+/**
+ * Directory the lane script fills with one `log what-uploaded --format json` record list
+ * per evidence block. It is the artifact path below and the script's own default, so the
+ * retained provenance and the uploaded artifact can never point at different directories.
+ */
+export const buck2SharedCacheProvenanceDir = '${{ runner.temp }}/buck2-cache-provenance'
+
+/**
+ * Retain the FULL uploaded-digest list, not just the summary count.
+ *
+ * The step summary carries a count, which cannot answer "which digests did this dispatch
+ * write". `always()` because a failed assertion is exactly when the digest list matters,
+ * and `warn` because a leg that dies before its first build legitimately has nothing to
+ * upload and must fail on its own error rather than on a missing artifact.
+ */
+export const buck2SharedCacheProvenanceArtifactStep = {
+  name: 'Upload uploaded-digest provenance',
+  if: 'always()',
+  uses: 'actions/upload-artifact@v4' as const,
+  with: {
+    name: 'buck2-cache-provenance-${{ github.job }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}',
+    path: buck2SharedCacheProvenanceDir,
+    'if-no-files-found': 'warn',
+    'retention-days': 14,
+  },
+} as const
+
+/** Bounded machine-readable DQ4 evidence emitted by the opt-in capacity lane. */
+export const buck2CapacityEvidenceDir = '${{ runner.temp }}/buck2-capacity-evidence'
+export const buck2CapacityEvidenceArtifactStep = {
+  name: 'Upload Buck2 capacity evidence',
+  if: 'always()',
+  uses: 'actions/upload-artifact@v4' as const,
+  with: {
+    name: 'buck2-capacity-${{ github.job }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}',
+    path: `${buck2CapacityEvidenceDir}/capacity.json`,
+    'if-no-files-found': 'error',
+    'retention-days': 14,
+  },
+} as const
+
+/**
+ * One leg of the shared-cache evidence lane. Every assertion is made by
+ * `genie/ci-scripts/buck2-cache-lane.sh` from Buck's own `log what-ran` /
+ * `log what-uploaded` records, never from wall time or exit code alone.
+ */
+export const buck2SharedCacheLaneStep = ({
+  name,
+  mode,
+  args,
+  env,
+}: {
+  readonly name: string
+  readonly mode: 'publish' | 'restore' | 'miss' | 'outage' | 'capacity'
+  readonly args: readonly string[]
+  readonly env?: Record<string, string>
+}) => ({
+  name,
+  ...(env === undefined ? {} : { env }),
+  shell: 'bash',
+  // Multi-line on purpose: a single-line `run` mixing shell double quotes with
+  // shell-single-quoted arguments is not reliably round-tripped by the YAML emitter's
+  // scalar-style heuristic, while a literal block scalar is emitted verbatim.
+  run: [
+    'set -euo pipefail',
+    [
+      'bash "$GITHUB_WORKSPACE/genie/ci-scripts/buck2-cache-lane.sh"',
+      mode,
+      ...args.map((arg) => shellSingleQuote(arg)),
+    ].join(' '),
+  ].join('\n'),
+})
 
 export const prepareCiScriptsStep = {
   name: 'Prepare CI helper scripts',

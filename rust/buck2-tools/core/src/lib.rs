@@ -14,6 +14,12 @@ pub const SUPPORT_CAPABILITY_CONTRACT: &str = "effect-utils/buck2-support-tools/
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct CapabilityManifest {
     closure_identity: String,
+    /// The projected transitive `/nix/store` requisite set of the realization.
+    ///
+    /// This is the sandbox read allowlist, so the tool re-derives the producer's
+    /// invariant instead of trusting it: strictly sorted, unique, canonical
+    /// `/nix/store/<basename>` paths that include the tool's own closure.
+    closure_store_paths: Vec<String>,
     content_digest: String,
     execution_platform: String,
     executable_store_path: String,
@@ -21,6 +27,41 @@ struct CapabilityManifest {
     runtime_contract: String,
     schema: String,
     tool_id: String,
+}
+
+fn verify_closure_store_paths(manifest: &CapabilityManifest) -> ToolResult<()> {
+    let canonical = |value: &str| {
+        value
+            .strip_prefix("/nix/store/")
+            .is_some_and(|basename| !basename.is_empty() && !basename.contains('/'))
+    };
+    let ordered = manifest
+        .closure_store_paths
+        .windows(2)
+        .all(|pair| pair[0] < pair[1]);
+    if manifest.closure_store_paths.is_empty()
+        || !ordered
+        || !manifest
+            .closure_store_paths
+            .iter()
+            .all(|value| canonical(value.as_str()))
+    {
+        return Err(ToolError::new(
+            "BUCK2_CAPABILITY_CLOSURE",
+            "capability closure paths are not a canonical sorted store-path set",
+        ));
+    }
+    if !manifest
+        .closure_store_paths
+        .iter()
+        .any(|value| value == &manifest.closure_identity)
+    {
+        return Err(ToolError::new(
+            "BUCK2_CAPABILITY_CLOSURE",
+            "capability closure omits its own realization",
+        ));
+    }
+    Ok(())
 }
 
 pub fn verify_execution_capability(
@@ -120,6 +161,7 @@ fn verify_capability_manifest(
             "executable is outside the declared Nix closure identity",
         ));
     }
+    verify_closure_store_paths(manifest)?;
     if sha256_bytes(executable_bytes) != manifest.content_digest {
         return Err(ToolError::new(
             "BUCK2_CAPABILITY_DIGEST",
@@ -325,6 +367,10 @@ mod tests {
     fn capability() -> CapabilityManifest {
         CapabilityManifest {
             closure_identity: "/nix/store/00000000000000000000000000000000-tool".into(),
+            closure_store_paths: vec![
+                "/nix/store/00000000000000000000000000000000-tool".into(),
+                "/nix/store/11111111111111111111111111111111-glibc".into(),
+            ],
             content_digest: sha256_bytes(b"tool-bytes"),
             execution_platform: "x86_64-linux".into(),
             executable_store_path: "/nix/store/00000000000000000000000000000000-tool/bin/tool"
@@ -334,6 +380,53 @@ mod tests {
             schema: SUPPORT_CAPABILITY_CONTRACT.into(),
             tool_id: "tool".into(),
         }
+    }
+
+    #[test]
+    fn capability_attestation_rejects_every_closure_lie() {
+        let path = Path::new("/nix/store/00000000000000000000000000000000-tool/bin/tool");
+        let verify = |manifest: &CapabilityManifest| {
+            verify_capability_manifest(
+                manifest,
+                path,
+                b"tool-bytes",
+                "x86_64-linux",
+                "tool",
+                "tool/v1",
+                "native-executable/v1",
+            )
+        };
+        // A projected closure is the sandbox read allowlist, so an empty,
+        // unsorted, duplicated, non-normalized, or self-omitting set must fail
+        // before the tool runs rather than work because the host store is
+        // visible.
+        let mut empty = capability();
+        empty.closure_store_paths.clear();
+        let mut unsorted = capability();
+        unsorted.closure_store_paths.reverse();
+        let mut duplicated = capability();
+        duplicated.closure_store_paths =
+            vec![duplicated.closure_identity.clone(), duplicated.closure_identity.clone()];
+        let mut nested = capability();
+        nested.closure_store_paths =
+            vec![nested.executable_store_path.clone(), nested.closure_identity.clone()];
+        let mut relative = capability();
+        relative.closure_store_paths =
+            vec!["nix/store/00000000000000000000000000000000-tool".into()];
+        let mut bare = capability();
+        bare.closure_store_paths = vec!["/nix/store/".into()];
+        let mut foreign = capability();
+        foreign.closure_store_paths =
+            vec!["/nix/store/22222222222222222222222222222222-other".into()];
+        for broken in [empty, unsorted, duplicated, nested, relative, bare, foreign] {
+            assert_eq!(
+                verify(&broken).unwrap_err().code,
+                "BUCK2_CAPABILITY_CLOSURE",
+                "accepted closure {:?}",
+                broken.closure_store_paths
+            );
+        }
+        assert!(verify(&capability()).is_ok());
     }
 
     #[test]

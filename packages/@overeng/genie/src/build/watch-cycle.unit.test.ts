@@ -8,6 +8,16 @@ import { describe, expect, it } from 'vitest'
 
 const probePath = new URL('./watch-cycle.probe.ts', import.meta.url).pathname
 
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+const bunBin = requireTool('BUN_BIN')
+
 interface ParsedAction {
   readonly _tag: string
   readonly path?: string
@@ -51,7 +61,7 @@ describe('genie watch cycle', () => {
       // them as one batched pass.
       fsSync.mkdirSync(join(root, 'members'), { recursive: true })
 
-      const probe = spawnSync('bun', [probePath, root], { encoding: 'utf8' })
+      const probe = spawnSync(bunBin, [probePath, root], { encoding: 'utf8' })
       expect(probe.status).toBe(0)
 
       const changed = join(root, 'members', 'package.json.genie.ts')

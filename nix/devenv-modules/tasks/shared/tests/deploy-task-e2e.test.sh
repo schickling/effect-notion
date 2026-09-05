@@ -149,6 +149,48 @@ extract_netlify_task_script() {
   chmod +x "$output_path"
 }
 
+extract_netlify_buck_task_script() {
+  local artifact_label="$1"
+  local package_json_path="$2"
+  local output_path="$3"
+
+  nix-instantiate --eval --strict --json --expr "
+    let
+      flake = builtins.getFlake \"$NIX_FLAKE_REF\";
+      pkgs = import flake.inputs.nixpkgs { system = builtins.currentSystem; };
+      evaluated = pkgs.lib.evalModules {
+        modules = [
+          ({ ... }: {
+            options.tasks = pkgs.lib.mkOption { type = pkgs.lib.types.attrsOf pkgs.lib.types.anything; default = { }; };
+            options.processes = pkgs.lib.mkOption { type = pkgs.lib.types.attrsOf pkgs.lib.types.anything; default = { }; };
+            options.packages = pkgs.lib.mkOption { type = pkgs.lib.types.listOf pkgs.lib.types.anything; default = [ ]; };
+          })
+          ((import $ROOT/nix/devenv-modules/tasks/shared/netlify.nix {
+            siteName = \"fake-site\";
+            siteId = \"fake-site-id\";
+            ciToolsBin = \"$tmpdir/ci-tools-wrapper\";
+            netlifyBin = \"$tmpdir/fake-netlify-pkg/bin/netlify\";
+            deployments = [
+              {
+                name = \"storybook\";
+                artifactLabel = \"$artifact_label\";
+                packageJsonPath = \"$package_json_path\";
+                workspaceFilter = true;
+                afterTask = null;
+              }
+            ];
+          }) {
+            pkgs = pkgs;
+            lib = pkgs.lib;
+            config = { };
+          })
+        ];
+      };
+    in evaluated.config.tasks.\"netlify:deploy:storybook\".exec
+  " | jq -r . > "$output_path"
+  chmod +x "$output_path"
+}
+
 extract_vercel_static_task_script() {
   local static_dir="$1"
   local output_path="$2"
@@ -261,6 +303,37 @@ mkdir -p \
 echo "storybook marker" > "$workspace/storybook-static/index.html"
 echo "vercel marker" > "$workspace/static/index.html"
 echo '{"name":"fixture-app"}' > "$workspace/app/package.json"
+
+# Buck-mode fixture: the deploy task resolves the declared output of a Buck
+# label, so the artifact lives outside the package directory and the workspace
+# root must expose `.megarepo/bin/buck2`.
+buck_workspace="$tmpdir/buck-workspace"
+buck_repo_root="$buck_workspace/repos/effect-utils"
+buck_package_dir="$buck_repo_root/packages/@overeng/effect-react"
+buck_artifact_dir="$buck_workspace/buck-out/gen/storybook-static"
+mkdir -p \
+  "$buck_workspace/.megarepo/bin" \
+  "$buck_package_dir" \
+  "$buck_artifact_dir"
+echo '{"name":"@overeng/effect-react"}' > "$buck_package_dir/package.json"
+echo "buck storybook marker" > "$buck_artifact_dir/index.html"
+
+cat > "$buck_workspace/.megarepo/bin/buck2" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'cwd=%s args=%s\n' "$PWD" "$*" >> "${FAKE_BUCK2_LOG:?}"
+
+case "${FAKE_BUCK2_MODE:-ok}" in
+  ok) echo "buck-out/gen/storybook-static" ;;
+  empty) ;;
+  missing) echo "buck-out/gen/absent-storybook-static" ;;
+  *)
+    echo "unexpected fake buck2 mode: ${FAKE_BUCK2_MODE:-}" >&2
+    exit 1
+    ;;
+esac
+EOF
+chmod +x "$buck_workspace/.megarepo/bin/buck2"
 
 cat > "$tmpdir/fake-api.mjs" <<'EOF'
 import { createServer } from 'node:http'
@@ -407,10 +480,10 @@ printf '\n' >> "\${FAKE_CI_TOOLS_LOG:?}"
 
 case "\${1:-}:\${2:-}" in
   deploy:netlify)
-    exec bun "$ROOT/packages/@overeng/ci-tools/bin/ci-tools.ts" "\$@" --netlify-api-base-url "\${FAKE_API_BASE_URL:?}"
+    exec "${CI_TOOLS_BIN:?}" "\$@" --netlify-api-base-url "\${FAKE_API_BASE_URL:?}"
     ;;
   deploy:vercel)
-    exec bun "$ROOT/packages/@overeng/ci-tools/bin/ci-tools.ts" "\$@" --vercel-api-base-url "\${FAKE_API_BASE_URL:?}"
+    exec "${CI_TOOLS_BIN:?}" "\$@" --vercel-api-base-url "\${FAKE_API_BASE_URL:?}"
     ;;
   *)
     echo "unexpected ci-tools wrapper invocation: \$*" >&2
@@ -481,6 +554,101 @@ assert_exit_code 1 "$netlify_missing_pr_status" "Netlify missing PR input should
 assert_contains "$netlify_missing_pr_output" "Error: PR deploy requires 'pr' input" "Netlify missing PR input should explain required field"
 if [ -s "$tmpdir/netlify-missing-pr.log" ]; then
   echo "FAIL: Netlify missing PR input should not call ci-tools"
+  exit 1
+fi
+
+echo "Test 2a: Netlify Buck task deploys the output resolved from the Buck label"
+extract_netlify_buck_task_script \
+  "effect_utils//packages/@overeng/effect-react:storybook_build_candidate" \
+  "packages/@overeng/effect-react/package.json" \
+  "$tmpdir/netlify-buck-deploy.sh"
+
+netlify_buck_report_file="$tmpdir/netlify-buck-report.jsonl"
+netlify_buck_output="$(
+  cd "$buck_repo_root"
+  export DEVENV_ROOT="$buck_repo_root"
+  export FAKE_CI_TOOLS_LOG="$tmpdir/netlify-buck-ci-tools.log"
+  export FAKE_NETLIFY_LOG="$tmpdir/netlify-buck-provider.log"
+  export FAKE_BUCK2_LOG="$tmpdir/netlify-buck2.log"
+  export NETLIFY_AUTH_TOKEN="fake-token"
+  export DEVENV_TASK_INPUT='{"type":"pr","pr":7}'
+  export WORKFLOW_REPORT_OUTPUT_FILE="$netlify_buck_report_file"
+  bash "$tmpdir/netlify-buck-deploy.sh" 2>&1
+)"
+
+netlify_buck_args="$(cat "$tmpdir/netlify-buck-ci-tools.log")"
+assert_contains "$(cat "$tmpdir/netlify-buck2.log")" "args=build --show-simple-output effect_utils//packages/@overeng/effect-react:storybook_build_candidate" "Buck-mode deploy should resolve the declared storybook output"
+assert_contains "$netlify_buck_args" "--artifact-dir $buck_artifact_dir" "Buck-mode deploy should publish the resolved Buck output directory"
+assert_not_contains "$netlify_buck_args" "packages/@overeng/effect-react/storybook-static" "Buck-mode deploy should never publish a source-tree storybook-static path"
+assert_contains "$netlify_buck_args" "--workspace-filter @overeng/effect-react" "Buck-mode deploy should read the workspace filter from the declared package.json"
+assert_contains "$netlify_buck_output" "Netlify deploy URL: https://storybook-pr-7--fake-site.netlify.app" "Buck-mode deploy should surface the ci-tools deploy URL"
+assert_json_field "netlify" "$netlify_buck_report_file" "value => value.data.provider" "Buck-mode deploy should emit the delegated workflow report record"
+
+echo "Test 2b: Netlify Buck task fails closed when Buck reports no output path"
+set +e
+netlify_buck_empty_output="$(
+  cd "$buck_repo_root"
+  : > "$tmpdir/netlify-buck-empty-ci-tools.log"
+  export DEVENV_ROOT="$buck_repo_root"
+  export FAKE_CI_TOOLS_LOG="$tmpdir/netlify-buck-empty-ci-tools.log"
+  export FAKE_BUCK2_LOG="$tmpdir/netlify-buck2-empty.log"
+  export FAKE_BUCK2_MODE="empty"
+  export NETLIFY_AUTH_TOKEN="fake-token"
+  export DEVENV_TASK_INPUT='{"type":"draft"}'
+  bash "$tmpdir/netlify-buck-deploy.sh" 2>&1
+)"
+netlify_buck_empty_status=$?
+set -e
+
+assert_exit_code 1 "$netlify_buck_empty_status" "Unresolvable Buck output should fail the deploy task"
+assert_contains "$netlify_buck_empty_output" "buck2 reported no output path" "Unresolvable Buck output should explain the failure"
+if [ -s "$tmpdir/netlify-buck-empty-ci-tools.log" ]; then
+  echo "FAIL: Unresolvable Buck output should not reach ci-tools"
+  exit 1
+fi
+
+echo "Test 2c: Netlify Buck task fails closed when the resolved output is missing"
+set +e
+netlify_buck_missing_output="$(
+  cd "$buck_repo_root"
+  : > "$tmpdir/netlify-buck-missing-ci-tools.log"
+  export DEVENV_ROOT="$buck_repo_root"
+  export FAKE_CI_TOOLS_LOG="$tmpdir/netlify-buck-missing-ci-tools.log"
+  export FAKE_BUCK2_LOG="$tmpdir/netlify-buck2-missing.log"
+  export FAKE_BUCK2_MODE="missing"
+  export NETLIFY_AUTH_TOKEN="fake-token"
+  export DEVENV_TASK_INPUT='{"type":"draft"}'
+  bash "$tmpdir/netlify-buck-deploy.sh" 2>&1
+)"
+netlify_buck_missing_status=$?
+set -e
+
+assert_exit_code 1 "$netlify_buck_missing_status" "A missing Buck output directory should fail instead of skipping"
+assert_contains "$netlify_buck_missing_output" "is not a directory" "A missing Buck output should explain the failure"
+if [ -s "$tmpdir/netlify-buck-missing-ci-tools.log" ]; then
+  echo "FAIL: A missing Buck output should not reach ci-tools and be reported as skipped"
+  exit 1
+fi
+
+echo "Test 2d: Netlify Buck task rejects invalid input before building"
+set +e
+netlify_buck_no_pr_output="$(
+  cd "$buck_repo_root"
+  : > "$tmpdir/netlify-buck-no-pr-buck2.log"
+  export DEVENV_ROOT="$buck_repo_root"
+  export FAKE_CI_TOOLS_LOG="$tmpdir/netlify-buck-no-pr-ci-tools.log"
+  export FAKE_BUCK2_LOG="$tmpdir/netlify-buck-no-pr-buck2.log"
+  export NETLIFY_AUTH_TOKEN="fake-token"
+  export DEVENV_TASK_INPUT='{"type":"pr"}'
+  bash "$tmpdir/netlify-buck-deploy.sh" 2>&1
+)"
+netlify_buck_no_pr_status=$?
+set -e
+
+assert_exit_code 1 "$netlify_buck_no_pr_status" "Buck-mode deploy without a PR number should fail"
+assert_contains "$netlify_buck_no_pr_output" "Error: PR deploy requires 'pr' input" "Buck-mode deploy should validate input"
+if [ -s "$tmpdir/netlify-buck-no-pr-buck2.log" ]; then
+  echo "FAIL: Invalid deploy input should not trigger a Buck build"
   exit 1
 fi
 

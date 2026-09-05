@@ -9,6 +9,26 @@ import { Effect, Fiber, Schema, Stream } from 'effect'
 import { PtyClient, layer as ptyClientLayer } from './client.ts'
 import { PtyName } from './PtySpec.ts'
 
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+/** POSIX shell the daemons run, from the target's declared `SHELL_BIN`. */
+const shell = (): string => requireTool('SHELL_BIN')
+
+/**
+ * A delay the shell performs itself.
+ *
+ * The action environment declares no `PATH`, so an external `sleep` is unreachable and would
+ * end the script with 127 before the assertions run. `read -t` is a Bash builtin; nothing
+ * writes to these sessions' input, and discarding its timeout status keeps the exit code 0.
+ */
+const pause = (seconds: number): string => `read -t ${seconds} || true`
+
 /** Per-test isolated `PTY_SESSION_DIR` so daemons can't collide. */
 const withIsolatedDir = <A, E, R>(eff: Effect.Effect<A, E, R>) =>
   Effect.acquireUseRelease(
@@ -89,7 +109,8 @@ describe('PtyClient', () => {
         ),
       )
 
-      execFileSync('bun', ['build', entryPath, '--compile', '--outfile', outPath], {
+      const bun = requireTool('BUN_BIN')
+      execFileSync(bun, ['build', entryPath, '--compile', '--outfile', outPath], {
         cwd: dir,
         stdio: 'pipe',
       })
@@ -107,8 +128,8 @@ describe('PtyClient', () => {
 
         yield* client.spawnDaemon({
           name: decodeName(name),
-          command: 'sh',
-          args: ['-c', 'echo HELLO_FROM_CLIENT && sleep 1'],
+          command: shell(),
+          args: ['-c', `echo HELLO_FROM_CLIENT && ${pause(1)}`],
         })
 
         const sessions = yield* client.list
@@ -139,8 +160,8 @@ describe('PtyClient', () => {
 
         yield* client.spawnDaemon({
           name: decodeName(name),
-          command: 'sh',
-          args: ['-c', 'sleep 1'],
+          command: shell(),
+          args: ['-c', pause(1)],
         })
 
         yield* Effect.scoped(
@@ -164,8 +185,8 @@ describe('PtyClient', () => {
 
         yield* client.spawnDaemon({
           name: decodeName(name),
-          command: 'sh',
-          args: ['-c', 'echo PEEK_TARGET && sleep 0.5'],
+          command: shell(),
+          args: ['-c', `echo PEEK_TARGET && ${pause(0.5)}`],
         })
 
         const screen = yield* waitForPeekText(client, { name, needle: 'PEEK_TARGET' })
@@ -187,8 +208,8 @@ describe('PtyClient', () => {
 
           yield* client.spawnDaemon({
             name,
-            command: 'sh',
-            args: ['-c', 'echo "ENV:$PTY_EFFECT_TEST_VALUE" && sleep 0.5'],
+            command: shell(),
+            args: ['-c', `echo "ENV:$PTY_EFFECT_TEST_VALUE" && ${pause(0.5)}`],
             env: { PTY_EFFECT_TEST_VALUE: marker },
           })
 
@@ -217,8 +238,8 @@ describe('PtyClient', () => {
 
         yield* client.spawnDaemon({
           name,
-          command: 'sh',
-          args: ['-c', 'sleep 0.5'],
+          command: shell(),
+          args: ['-c', pause(0.5)],
           tags: {
             'forge.tab': 'tab-1',
             'forge.workspace': 'ws-1',
@@ -247,7 +268,7 @@ describe('PtyClient', () => {
           'forge.tab': 'tab-2',
         })
 
-        // Watch session_exit (fires ~500ms later when sleep 0.5 completes) rather
+        // Watch session_exit (fires ~500ms later when the shell pause ends) rather
         // than session_start: EventFollower.watchFile sets its read offset to the
         // current file size on new-session discovery, so session_start (written at
         // creation time) is skipped. session_exit is written after the offset is
@@ -299,7 +320,7 @@ describe('PtyClient', () => {
 
         yield* client.spawnDaemon({
           name,
-          command: 'node',
+          command: requireTool('NODE_BIN'),
           args: ['-e', stdinEchoScript],
         })
 
@@ -342,7 +363,7 @@ describe('PtyClient', () => {
           .spawnDaemon({
             // @ts-expect-error — bypass branded type to test runtime validation
             name: 'has spaces',
-            command: 'sh',
+            command: shell(),
             args: ['-c', 'true'],
           })
           .pipe(Effect.result)

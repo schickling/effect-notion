@@ -161,6 +161,9 @@ oxlint_exec="$(nix eval --impure --raw --expr "
     mod = (import $ROOT/nix/devenv-modules/tasks/shared/lint-oxc.nix {
       geniePatterns = [ \"packages/*/*.genie.ts\" ];
       genieCoverageDirs = [ \"packages\" ];
+      # lint-oxc.nix requires an explicit packaged Genie product; the oxlint exec
+      # under test never runs it, so a stub keeps this eval hermetic.
+      geniePkg = pkgs.writeShellScriptBin \"genie\" \"exit 0\";
     }) { lib = pkgs.lib; pkgs = pkgs; config = { }; };
   in mod.tasks.\"lint:check:oxlint\".exec
 ")"

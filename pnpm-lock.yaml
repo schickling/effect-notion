@@ -177,6 +177,9 @@ importers:
       '@overeng/utils-dev':
         specifier: workspace:^
         version: link:../utils-dev
+      '@types/node':
+        specifier: 26.0.0
+        version: 26.0.0
       effect:
         specifier: 4.0.0-rc.111
         version: 4.0.0-rc.111
@@ -250,6 +253,9 @@ importers:
       '@storybook/react-vite':
         specifier: 10.5.10
         version: 10.5.10(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(esbuild@0.28.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(storybook@10.5.10(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(prettier@3.8.4)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@6.0.3)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.2)(jiti@2.7.0)))(typescript@6.0.3)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.2)(jiti@2.7.0))
+      '@types/node':
+        specifier: 26.0.0
+        version: 26.0.0
       '@types/react':
         specifier: 19.2.17
         version: 19.2.17
@@ -322,6 +328,12 @@ importers:
 
   packages/@overeng/effect-rpc-tanstack/examples/basic:
     dependencies:
+      '@effect/platform-node':
+        specifier: 4.0.0-rc.111
+        version: 4.0.0-rc.111(effect@4.0.0-rc.111)(redis@6.2.1(@opentelemetry/api@1.9.1))
+      '@overeng/effect-rpc-tanstack':
+        specifier: workspace:^
+        version: link:../..
       '@tanstack/react-router':
         specifier: 1.170.16
         version: 1.170.16(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

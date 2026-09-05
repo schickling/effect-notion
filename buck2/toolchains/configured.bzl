@@ -1,12 +1,14 @@
 """Attested executor capabilities provisioned by the activated Nix profile."""
 
 load("//buck2/platforms:defs.bzl", "host_execution_constraints")
-load("//buck2/toolchains:defs.bzl", "host_capability_platform")
-load("//.buck2/capabilities:defs.bzl", "CAPABILITIES")
+load("//buck2/toolchains:defs.bzl", "host_capability_platform", "require_capability_closure")
+load("//.buck2/capabilities:defs.bzl", "CAPABILITIES", "GENERATION")
 
 BuckSupportToolInfo = provider(fields = {
     "content_digest": str,
     "closure_identity": str,
+    # Complete immutable runtime closure of the realization; a sandbox exposes exactly these.
+    "closure_store_paths": list[str],
     "execution_platform": str,
     "executable": Artifact,
     "manifest": Artifact,
@@ -29,6 +31,7 @@ def _support_tool_impl(ctx):
         BuckSupportToolInfo(
             content_digest = ctx.attrs.content_digest,
             closure_identity = ctx.attrs.closure_identity,
+            closure_store_paths = ctx.attrs.closure_store_paths,
             execution_platform = platform,
             executable = executable,
             manifest = manifest,
@@ -44,6 +47,7 @@ _support_tool = rule(
     attrs = {
         "content_digest": attrs.string(),
         "closure_identity": attrs.string(),
+        "closure_store_paths": attrs.list(attrs.string()),
         "executable": attrs.source(),
         "manifest": attrs.source(),
         "protocol": attrs.string(),
@@ -61,6 +65,7 @@ def support_tool(name, protocol, tool_id, **kwargs):
         name = name,
         content_digest = metadata["contentDigest"],
         closure_identity = metadata["closureIdentity"],
+        closure_store_paths = require_capability_closure(CAPABILITIES, GENERATION, platform, tool_id),
         executable = capability + ":executable",
         manifest = capability + ":manifest",
         protocol = protocol,

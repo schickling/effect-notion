@@ -11,7 +11,8 @@ Draft.
 ## Scope
 
 **Defines:** package archive and entry providers, platform selection, SCC
-assembly, package views, workspace dist entries, and editor publication.
+assembly, package views, workspace dist entries, editor publication, and
+watch-driven snapshot refresh with bounded retention.
 
 **Does not define:** dependency intent (01), execution sandboxes and tools (02),
 or cache transport (04).
@@ -23,7 +24,7 @@ pnpm-lock.yaml + integrity sidecar + patches
   -> npm_archive(package snapshot)       fetch + extract once, all platforms
   -> pnpm_store_entry(snapshot)          copy own package per entry variant
        |-- symlink dependency edges: invariant entries
-       `-- distinct configured artifacts: nine platform-selected entries
+       `-- distinct configured artifacts: platform-selected entries
   -> pnpm_store_scc(members)             one sandboxed action per real SCC
   -> pnpm_store_view(importer closure)   metadata-only dependency links
   -> package_view(package + view + dist workspace entries), bounded owned bytes
@@ -43,15 +44,18 @@ version, peer identity, selected platform-edge variant, package artifact,
 dependency-entry providers, bin metadata, and optional platform condition. For
 an acyclic entry, `assembled_dir.copy` materializes its package tree under
 `node_modules/<name>`; dependency edges use `assembled_dir.symlink`. There is
-one entry artifact per peer identity except for the nine platform-selected
-entries, which own one per distinct configured edge variant. The own-package
+one entry artifact per peer identity except for the platform-selected entries,
+which own one per distinct configured edge variant. The own-package
 copy is required so realpath keeps sibling dependency links visible. An
 importer view records direct links, complete closure, and bin precedence
 without copying dependency bytes.
 
-Exactly these nine direct-dependency entries select different dependency edges
-by configured platform. Each selected variant has its own configured entry and
-own-package materialization; the shared archive/extract bytes are unchanged:
+The platform-selected set is derived from the lockfile: every snapshot whose
+dependency or optional-dependency edges select a package carrying an `os`,
+`cpu`, or `libc` constraint. The current complete lock yields ten such
+direct-dependency entries over 113 platform-constrained packages. Each selected
+variant has its own configured entry and own-package materialization; the shared
+archive/extract bytes are unchanged:
 
 - `playwright@1.61.0`
 - `vite@8.0.16`
@@ -62,6 +66,14 @@ own-package materialization; the shared archive/extract bytes are unchanged:
 - `oxc-resolver@11.21.2`
 - `oxc-parser@0.127.0`
 - `@opentui/core@0.4.1`
+- `oxlint-tsgolint@0.23.0`
+
+Nine of these are inside the 17-package #1209 closure the 2026-09-04 probes
+built; `oxlint-tsgolint` is outside it and is why the whole-lock count is ten
+([decision 0030](../.decisions/0030-normalized-store-scc-and-atomic-cutover.md)
+Amendment 1). Translation recomputes the set on every lock change and fails
+closed on a platform-varying entry with no configured variant; the list above is
+the current derived value, not a checked-in constant.
 
 The platform `select()` belongs only on those entries' dependency-provider
 attributes. Archive providers, all other store entries, and consumer views
@@ -93,13 +105,21 @@ execution view copies only package-owned sources and workspace dist boundaries,
 then links one metadata-only importer dependency view. TypeScript projects that
 view into its metadata-only scratch overlay inside the sandbox (02).
 
-The migration lands store primitives, SCCs, package manifests, and dependent
-consumer changes in staged PRs while the old producer remains authoritative.
-The final authority PR is atomic: all 17 packages from #1209 must expose and
-consume valid dist boundaries; all five repo-wide SCCs must build; DQ1's CI
-cache path and DQ4's accepted numeric cold-capacity envelope must close; and
-both platform sandboxes must pass. It then flips every production consumer and
-deletes the old producer, root install, and source fallback together.
+The migration lands store primitives, SCCs, sandboxes, editor publication,
+package manifests, and consumer adoption in staged PRs while the old producer
+remains authoritative. Staged targets build in an explicitly named candidate
+cache namespace and isolation dir, so production keys and consumers are
+untouched until the flip and every staged measurement names its namespace.
+
+The final authority PR is atomic and repository-wide: every workspace package
+the repository consumes must expose and consume valid dist boundaries (the 17
+packages from #1209 are the prerequisite subset that proves the mechanism); all
+five repo-wide SCCs must build; the `exec_linux_x86_64`, `exec_linux_aarch64`,
+and `exec_macos_aarch64` sandbox gates must pass; DQ1's CI cache path and DQ4's
+accepted numeric cold-capacity envelope — including editor-snapshot disk and
+retention — must close. It then flips every production consumer, editor, and
+tool surface and deletes the old producer, the root install and its task edges,
+and every source fallback together.
 
 ## Editor Snapshot
 
@@ -138,8 +158,24 @@ longer live; ambiguity rejects recovery. Under the held lock the publisher:
 A failure before either rename leaves the previous pointer intact. A completed
 snapshot contains no links to store entries, SCC outputs, views, or `buck-out`;
 deleting every backing artifact therefore cannot break the editor. Published
-snapshots are read-only. Garbage collection never removes the current snapshot
-and is outside publication.
+snapshots are read-only.
+
+## Snapshot Refresh Loop
+
+The watch loop (BUCK-R17) is the steady-state driver of republication. On a
+source or manifest change the loop rebuilds the affected admitted closure, then
+republishes only those packages whose selected-view fingerprint changed; an
+unchanged fingerprint is a no-op, so an edit in one package does not rewrite
+unrelated snapshots (DEPS-R08, DEPS-R12). Republication always uses the full
+locked sequence above — there is no fast in-place update path — and a build
+failure or refused lock leaves the current pointer serving the last valid
+snapshot while reporting loudly.
+
+Garbage collection is outside publication and bounded: it retains the current
+snapshot plus a fixed number of prior generations per package and never removes
+the current one. Retained snapshot bytes and generation count are recorded
+capacity observations (BUCK-R16) and part of the DQ4 envelope, because this is
+the one boundary in the design that deliberately duplicates bytes per package.
 
 ## Staleness Gate
 

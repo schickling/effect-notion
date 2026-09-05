@@ -1,19 +1,27 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2:javascript.bzl", "vitest_test")
 # Projection source: packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:6deef741efc4e0a9691362d3de4879f72acf3d9a89de5dfbbd77d34db31e281b
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts, packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts, packages/@overeng/effect-rpc-tanstack/package.json.genie.ts, packages/@overeng/effect-rpc-tanstack/src/**/*.cts, packages/@overeng/effect-rpc-tanstack/src/**/*.js, packages/@overeng/effect-rpc-tanstack/src/**/*.mts, packages/@overeng/effect-rpc-tanstack/src/**/*.ts, packages/@overeng/effect-rpc-tanstack/src/**/*.tsx, packages/@overeng/effect-rpc-tanstack/tsconfig.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:1ce660f43f2d5fd726e7eb273043efff5ec28b95575be25cc2bc5a60f420384c
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/effect-rpc-tanstack/*.genie.ts, packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts, packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts, packages/@overeng/effect-rpc-tanstack/package.json.genie.ts, packages/@overeng/effect-rpc-tanstack/src/**/*.cts, packages/@overeng/effect-rpc-tanstack/src/**/*.js, packages/@overeng/effect-rpc-tanstack/src/**/*.jsx, packages/@overeng/effect-rpc-tanstack/src/**/*.mts, packages/@overeng/effect-rpc-tanstack/src/**/*.snap, packages/@overeng/effect-rpc-tanstack/src/**/*.ts, packages/@overeng/effect-rpc-tanstack/src/**/*.tsx, packages/@overeng/effect-rpc-tanstack/tsconfig.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
     name = "package.json",
     src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
     visibility = ["PUBLIC"],
 )
 
@@ -27,22 +35,45 @@ export_materialization_inputs([
     "src/streaming.unit.test.ts",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_effect_rpc_tanstack_269934211838",
+# Declared test data: fixture bytes a test reads at runtime, admitted by glob so a
+# new fixture under a declared root is an action input without a projection rewrite.
+# An empty match fails the package instead of silently dropping a declared input.
+package_test_data = {
+    source: source
+    for source in glob(["src/**/*.snap"])
+} or fail("declared test data matched no file: packages/@overeng/effect-rpc-tanstack")
+
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/client.test.ts": "src/client.test.ts",
+        "src/client.ts": "src/client.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/router.ts": "src/router.ts",
+        "src/rpc-wire-baseline.test.ts": "src/rpc-wire-baseline.test.ts",
+        "src/server.ts": "src/server.ts",
+        "src/streaming.unit.test.ts": "src/streaming.unit.test.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    } | package_test_data,
     visibility = ["PUBLIC"],
 )
 
 alias(
     name = "editor_inputs",
-    actual = ":node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_effect_rpc_tanstack_269934211838",
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_effect_rpc_tanstack_269934211838",
     files = {
+        "vitest.config.ts": "vitest.config.ts",
         "package.json": "package.json",
         "src/client.test.ts": "src/client.test.ts",
         "src/client.ts": "src/client.ts",
@@ -52,18 +83,15 @@ package_tree(
         "src/server.ts": "src/server.ts",
         "src/streaming.unit.test.ts": "src/streaming.unit.test.ts",
         "tsconfig.json": "tsconfig.json",
-    },
+    } | package_test_data,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {
-        "@overeng/utils": {
-            "files": {
-                "dist": "//packages/@overeng/utils:dist",
-                "package.json": "//packages/@overeng/utils:package.json",
-            },
-            "links": ["@overeng/utils"],
-        },
-    },
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -73,11 +101,21 @@ tsgo_typecheck(
     visibility = ["PUBLIC"],
 )
 
+
 tsgo_emit(
     name = "dist",
     package_tree = ":package_tree",
     declaration_sources = {
     },
     declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
     visibility = ["PUBLIC"],
 )

@@ -10,6 +10,86 @@ case "$source_sha" in
 esac
 checkout_status_before="$(git -C "$checkout_root" status --porcelain=v1 --untracked-files=all)"
 
+# Fail closed when any component of a composed path is an absolute symlink.
+#
+# Uploaded CAS bytes and action keys are derived from the composed member tree, so a path
+# component that hops to an unrelated absolute location on the runner would publish
+# digests whose provenance is not the tree under proof, and would make two compositions
+# that look distinct share bytes. This runs BEFORE the composition overlay (and therefore
+# before the first upload-enabled Buck invocation) and again on the composed member root.
+#
+# This checks the PREFIX only. A relative symlink in a prefix component is accepted here
+# because it cannot be rewritten to a foreign absolute location by relocation; it is NOT
+# accepted on the grounds that relative links stay inside the prefix, which is false
+# (`../../outside` escapes). Content-level escape is covered by
+# `assert_member_symlinks_stay_inside_workspace` below.
+assert_no_absolute_symlink_traversal() {
+  local subject="$1" scanned='' component link_target
+  local -a components
+  IFS='/' read -r -a components <<<"${subject#/}"
+  for component in "${components[@]}"; do
+    scanned="$scanned/$component"
+    [ -L "$scanned" ] || continue
+    if ! link_target="$(readlink "$scanned")"; then
+      echo "::error::cannot read a symlink on the composed path: $scanned" >&2
+      exit 1
+    fi
+    case "$link_target" in
+      /*)
+        echo "::error::composed path traverses an absolute symlink: $scanned -> $link_target" >&2
+        exit 1
+        ;;
+    esac
+  done
+}
+
+# Fail closed when a symlink INSIDE the composed member escapes the composed workspace.
+#
+# Buck records a symlink that leaves the project as an external symlink whose digest comes
+# from the absolute target path rather than from bytes, so an escaping link either keys one
+# action differently in every job prefix or maps one key onto whatever that absolute path
+# holds on the next host. Both are cache poisoning, so an absolute target and a relative
+# target that resolves outside the workspace are equally refused.
+#
+# Scope is the member's TRACKED symlinks (`git ls-files -s` mode 120000). The caller
+# asserts the member worktree is clean first, so at this point tracked content IS the whole
+# member tree, and that is exactly the revision whose bytes the lane uploads. Links a later
+# devenv shell entry may create (for example a `/nix/store` `.pre-commit-config.yaml`) are
+# deliberately out of scope: they are not part of the revision and no Buck target declares
+# them as a source.
+assert_member_symlinks_stay_inside_workspace() {
+  local member="$1" workspace="$2" workspace_real link mode target resolved
+  workspace_real="$(cd "$workspace" && pwd -P)"
+  while IFS= read -r -d '' entry; do
+    mode="${entry%% *}"
+    [ "$mode" = 120000 ] || continue
+    link="${entry#*$'\t'}"
+    if ! target="$(readlink "$member/$link")"; then
+      echo "::error::cannot read tracked member symlink: $link" >&2
+      exit 1
+    fi
+    case "$target" in
+      /*)
+        echo "::error::tracked member symlink is absolute: $link -> $target" >&2
+        exit 1
+        ;;
+    esac
+    # `-e` on purpose: a dangling tracked link is a refusal, not a pass, because there is
+    # nothing whose provenance could be checked.
+    if ! resolved="$(realpath -e "$member/$link" 2>/dev/null)"; then
+      echo "::error::tracked member symlink does not resolve: $link -> $target" >&2
+      exit 1
+    fi
+    case "$resolved" in
+      "$workspace_real"/*) ;;
+      *)
+        echo "::error::tracked member symlink escapes the composed workspace: $link -> $target (resolves to $resolved)" >&2
+        exit 1
+        ;;
+    esac
+  done < <(git -C "$member" ls-files -s -z)
+}
+
 mr_out="$(cd "$checkout_root" && nix build --no-link --print-out-paths .#megarepo)"
 mr_bin="$mr_out/bin/mr"
 if [ ! -x "$mr_bin" ]; then
@@ -64,6 +144,11 @@ else
   git --git-dir="$bare_repo" worktree add "$workspace_root" "$branch_name"
 fi
 
+# Before the overlay: no upload-enabled Buck invocation has run yet, and the whole
+# workspace prefix is already materialized, so this is the last point at which a
+# provenance-breaking path can be rejected for free.
+assert_no_absolute_symlink_traversal "$workspace_root"
+
 workspace_parent="$(dirname "$workspace_root")"
 (
   cd "$workspace_parent"
@@ -76,6 +161,8 @@ workspace_parent="$(dirname "$workspace_root")"
     MEGAREPO_STORE="$store_root" \
     CI=true \
     BUCK2_NO_REMOTE_CACHE="${BUCK2_NO_REMOTE_CACHE:-}" \
+    BUCK2_CACHE_ENDPOINT="${BUCK2_CACHE_ENDPOINT:-}" \
+    BUCK2_CACHE_INSTANCE_NAME="${BUCK2_CACHE_INSTANCE_NAME:-}" \
     "$mr_bin" --cwd "$workspace_root" apply --worktree-mode tracking --lock-sync off --output ci
 )
 
@@ -88,6 +175,16 @@ test -f "$workspace_root/.megarepo/composition-generation.json"
 test -f "$workspace_root/.buckconfig"
 test -x "$workspace_root/.megarepo/bin/buck2"
 test -L "$workspace_root/repos/effect"
+assert_no_absolute_symlink_traversal "$member_root"
+# The tracked-symlink scope below is only the whole member tree if nothing untracked or
+# modified is present, so state that premise instead of assuming it.
+member_status="$(git -C "$member_root" status --porcelain=v1 --untracked-files=all)"
+if [ -n "$member_status" ]; then
+  echo "::error::composed member is not clean, so tracked content is not the whole member tree:" >&2
+  printf '%s\n' "$member_status" >&2
+  exit 1
+fi
+assert_member_symlinks_stay_inside_workspace "$member_root" "$workspace_root"
 member_sha="$(git -C "$member_root" rev-parse --verify HEAD)"
 member_ref="$(git -C "$member_root" symbolic-ref --quiet HEAD)"
 if [ "$member_sha" != "$source_sha" ] || [ "$member_ref" != "$branch_ref" ]; then

@@ -2,13 +2,14 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/stylex-tokens/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:4e5b343a0617c5033eda77ad47ef14b3c5249f21359a63c5ab398bc02b93c5b7
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/stylex-tokens/BUCK.genie.ts, packages/@overeng/stylex-tokens/BUCK.genie.ts, packages/@overeng/stylex-tokens/package.json.genie.ts, packages/@overeng/stylex-tokens/src/**/*.cts, packages/@overeng/stylex-tokens/src/**/*.js, packages/@overeng/stylex-tokens/src/**/*.mts, packages/@overeng/stylex-tokens/src/**/*.ts, packages/@overeng/stylex-tokens/src/**/*.tsx, packages/@overeng/stylex-tokens/tsconfig.json.genie.ts
+# Semantic fingerprint: sha256:07d0554519dce7e2fb86818997ed03124db84176a9c71f3273f6f92555456b15
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/stylex-tokens/*.genie.ts, packages/@overeng/stylex-tokens/BUCK.genie.ts, packages/@overeng/stylex-tokens/BUCK.genie.ts, packages/@overeng/stylex-tokens/package.json.genie.ts, packages/@overeng/stylex-tokens/src/**/*.cts, packages/@overeng/stylex-tokens/src/**/*.js, packages/@overeng/stylex-tokens/src/**/*.jsx, packages/@overeng/stylex-tokens/src/**/*.mts, packages/@overeng/stylex-tokens/src/**/*.ts, packages/@overeng/stylex-tokens/src/**/*.tsx, packages/@overeng/stylex-tokens/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -17,25 +18,39 @@ export_file(
     visibility = ["PUBLIC"],
 )
 
+export_file(
+    name = "BUCK",
+    src = "BUCK",
+    visibility = ["PUBLIC"],
+)
+
 export_materialization_inputs([
     "src/tokens.stylex.ts",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_stylex_tokens_61644ffb4ebc",
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/tokens.stylex.ts": "src/tokens.stylex.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    },
     visibility = ["PUBLIC"],
 )
 
 alias(
     name = "editor_inputs",
-    actual = ":node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_stylex_tokens_61644ffb4ebc",
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_stylex_tokens_61644ffb4ebc",
     files = {
         "package.json": "package.json",
         "src/tokens.stylex.ts": "src/tokens.stylex.ts",
@@ -43,7 +58,12 @@ package_tree(
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {},
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -52,6 +72,7 @@ tsgo_typecheck(
     package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
+
 
 tsgo_emit(
     name = "dist",

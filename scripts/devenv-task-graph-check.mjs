@@ -103,17 +103,21 @@ const reaches = ({ start, target }) => {
 }
 
 for (const name of [
-  'ts:check',
-  'ts:check:strict',
-  'ts:build',
-  'ts:build-watch',
   'check:quick',
+  'check:all',
   'buck2:check',
+  'buck2:sandbox-gate:fresh',
   'buck2:typescript:materialize-dist',
   'buck2:tui-core:publish-editor',
   'buck2:tui-core:check-editor',
 ])
   requireTask(name)
+
+for (const name of ['ts:check', 'ts:check:strict', 'ts:build', 'ts:build-watch'])
+  ok({
+    condition: tasks.has(name) === false,
+    name: `${name} no longer exists: TypeScript authority is Buck-owned`,
+  })
 
 const visiting = new Set()
 const visited = new Set()
@@ -133,10 +137,16 @@ try {
 }
 
 const materializer = 'buck2:typescript:materialize-dist'
-for (const name of ['ts:check', 'ts:check:strict', 'ts:build', 'ts:build-watch', 'check:quick']) {
+for (const name of ['check:quick', 'check:all', 'buck2:check']) {
   ok({
     condition: reaches({ start: name, target: materializer }),
     name: `${name} reaches ${materializer}`,
+  })
+}
+for (const name of ['check:quick', 'check:all']) {
+  ok({
+    condition: reaches({ start: name, target: 'buck2:check' }),
+    name: `${name} gates on the Buck typecheck aggregate`,
   })
 }
 // `mr apply` both reconciles the workspace and installs the `.buck2/capabilities`
@@ -145,6 +155,7 @@ for (const name of ['ts:check', 'ts:check:strict', 'ts:build', 'ts:build-watch',
 for (const name of [
   materializer,
   'buck2:check',
+  'buck2:sandbox-gate:fresh',
   'buck2:editor-authority',
   'buck2:tui-core:publish-editor',
   'buck2:tui-core:check-editor',
@@ -166,13 +177,14 @@ const taskSource = (name) => {
 
 const materializerSource = taskSource(materializer)
 const typescriptAuthorityRuntimePath = 'genie/buck2/typescript-authority-runtime.ts'
+const typescriptAuthorityRuntimeTarget = 'effect_utils//genie/buck2:typescript-authority-runtime'
 const typescriptAuthorityRuntimeSource = readFileSync(
   `${root}/${typescriptAuthorityRuntimePath}`,
   'utf8',
 )
 ok({
   condition:
-    materializerSource.includes(typescriptAuthorityRuntimePath) === true &&
+    materializerSource.includes(typescriptAuthorityRuntimeTarget) === true &&
     materializerSource.includes('materialize-dist "$root"') === true &&
     materializerSource.includes('BUCK2_BIN=') === true,
   name: 'materializer dispatches the registry-backed TypeScript authority runtime',
@@ -188,12 +200,23 @@ ok({
 })
 ok({
   condition:
-    materializerSource.includes('.megarepo-owned-worktree.json') === true &&
-    materializerSource.includes('TYPESCRIPT_DIST_MODE=publish') === true &&
-    materializerSource.includes('TYPESCRIPT_DIST_MODE=check') === true &&
-    materializerSource.includes('TSGO_BIN=') === true &&
-    materializerSource.includes('DIFF_BIN=') === true,
-  name: 'materializer publishes from a composition root and checks freshness standalone',
+    materializerSource.includes('.megarepo-owned-worktree.json') === false &&
+    materializerSource.includes('TYPESCRIPT_DIST_MODE') === false &&
+    materializerSource.includes('TSGO_BIN') === false &&
+    materializerSource.includes('DIFF_BIN') === false &&
+    materializerSource.includes('WORKSPACE_ROOT=') === true,
+  name: 'materializer publishes unconditionally from the composition root with no tsgo fallback',
+})
+const materializerScriptSource = readFileSync(
+  `${root}/scripts/typescript-materialize-dist.sh`,
+  'utf8',
+)
+ok({
+  condition:
+    materializerScriptSource.includes('TYPESCRIPT_DIST_MODE') === false &&
+    materializerScriptSource.includes('TSGO_BIN') === false &&
+    materializerScriptSource.includes('DIFF_BIN') === false,
+  name: 'declaration materializer script has no direct-tsgo check mode',
 })
 
 for (const name of ['buck2:tui-core:publish-editor', 'buck2:tui-core:check-editor']) {
@@ -211,9 +234,19 @@ ok({
   condition:
     buckCheckSource.includes('realpath "$root/../.."') === true &&
     buckCheckSource.includes('$workspace_root/.megarepo/bin/buck2') === true &&
-    buckCheckSource.includes(typescriptAuthorityRuntimePath) === true &&
+    buckCheckSource.includes(typescriptAuthorityRuntimeTarget) === true &&
     buckCheckSource.includes('build "$buck"') === true,
   name: 'buck2:check resolves the composition wrapper and dispatches the authority runtime',
+})
+const sandboxGateSource = taskSource('buck2:sandbox-gate:fresh')
+ok({
+  condition:
+    sandboxGateSource.includes('--isolation-dir') === true &&
+    sandboxGateSource.includes('--no-remote-cache') === true &&
+    sandboxGateSource.includes('${RANDOM}') === true &&
+    sandboxGateSource.includes('buck2Machine') === true &&
+    sandboxGateSource.includes('sandbox-gate:denies_undeclared_store_metadata') === true,
+  name: 'sandbox admission uses a fresh local cache namespace and every controlled gate',
 })
 const buckToolchainSource = readFileSync(`${root}/buck2/toolchains/BUCK`, 'utf8')
 ok({

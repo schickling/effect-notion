@@ -51,7 +51,7 @@ and remains disabled.
 The runner creates a metadata-only execution overlay in `BUCK_SCRATCH_PATH`:
 symlinks project declared package files and the normalized dependency view into
 one package-relative namespace, and links the configured `outDir` to the Buck
-declared output. It copies no source or dependency bytes. On both platforms the
+declared output. It copies no source or dependency bytes. On every platform the
 launcher clears the inherited environment and sets only the explicit
 operation allowlist. The overlay and other temporary state remain scratch; only
 declared result bytes leave the action.
@@ -70,6 +70,13 @@ Seatbelt is deprecated despite remaining available on supported macOS releases.
 The Darwin smoke gate therefore runs inside the pinned Buck action on every OS
 upgrade before that release becomes an admitted executor; disappearance or
 semantic drift blocks the upgrade rather than silently weakening containment.
+
+Each admitted execution platform carries its own staged gate before the
+consumer authority flip: `exec_linux_x86_64` and `exec_linux_aarch64` under
+Bubblewrap and `exec_macos_aarch64` under Seatbelt. The two Linux gates share a
+mechanism but not evidence — the aarch64 gate runs the same positive, negative,
+and byte-identity assertions on an aarch64 executor, and its Bubblewrap
+capability is resolved per system rather than assumed present.
 
 Containment tests assert allowed reads/writes as well as denied undeclared
 repository, host, store, and network access. A denial may be ignored by a tool,
@@ -92,14 +99,22 @@ boundary. A production action has no source fallback. Typecheck runs with
 Buck-declared output. Incremental compilation is disabled and any unavoidable
 build-info path is redirected to scratch, so `.tsbuildinfo` never enters a dist
 or cache upload. JavaScript, declarations, and maps must remain byte-identical
-across equivalent unsandboxed controls and both platform sandboxes.
+across equivalent unsandboxed controls and every platform sandbox.
 
 The normalized importer dependency view and scratch overlay are metadata-only
 and are not returned as outputs. The package execution view materializes only
 package-owned sources/workspace dist boundaries, never a dependency closure.
 Typecheck returns a slim verdict; emit returns only the declared dist. No
-action hashes, copies, recursively chmods, or retains a private dependency tree
-to enforce immutability: the sandbox enforces it.
+action copies, recursively chmods, or retains a private dependency tree to
+enforce immutability.
+
+Immutability enforcement is staged per platform (EXEC-R12). On a platform whose
+sandbox gate has passed, the sandbox enforces it and the action performs no
+input hashing. Until that gate passes, the runner keeps hashing the complete
+declared input tree before and after the tool and fails the action on any
+difference; that hash is the only remaining reason an action walks its inputs,
+and it is deleted for a platform in the same change that admits that platform's
+sandbox.
 
 ## Darwin Capability
 

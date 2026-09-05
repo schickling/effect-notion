@@ -39,7 +39,7 @@ import tuiReactTsconfig from '../packages/@overeng/tui-react/tsconfig.json.genie
 import tuiStoriesTsconfig from '../packages/@overeng/tui-stories/tsconfig.json.genie.ts'
 import utilsDevTsconfig from '../packages/@overeng/utils-dev/tsconfig.json.genie.ts'
 import utilsTsconfig from '../packages/@overeng/utils/tsconfig.json.genie.ts'
-import { authoritativeBuck2TypeScriptAdmissions } from './buck2/typescript-admissions.ts'
+import { buck2TypeScriptAuthorityProjects } from './buck2/typescript-admissions.ts'
 
 export type Buck2TypeScriptAuthority = {
   readonly _tag: 'Buck2TypeScriptAuthority'
@@ -56,10 +56,37 @@ export type RootTsconfigProject = {
 type RootTsconfigProjectDefinition = Omit<RootTsconfigProject, 'path'>
 
 export const isRootTsconfigCheckProject = (project: RootTsconfigProject): boolean =>
-  project.buck2Authority?.typecheckTarget === undefined
+  project.buck2Authority === undefined
 
 export const isRootTsconfigEmitProject = (project: RootTsconfigProject): boolean =>
-  project.buck2Authority?.emitTarget === undefined
+  project.buck2Authority === undefined
+
+const buck2AuthoritiesByProjectPath: Readonly<Record<string, Buck2TypeScriptAuthority>> =
+  Object.fromEntries(
+    buck2TypeScriptAuthorityProjects.map(
+      ({ emitTarget, projectPath, typecheckTarget }): readonly [
+        string,
+        Buck2TypeScriptAuthority,
+      ] => [
+        projectPath,
+        {
+          _tag: 'Buck2TypeScriptAuthority',
+          ...(emitTarget === undefined ? {} : { emitTarget }),
+          typecheckTarget,
+        },
+      ],
+    ),
+  )
+
+const attachBuck2Authority = ({
+  path,
+  ...definition
+}: RootTsconfigProject): RootTsconfigProject => {
+  const buck2Authority = buck2AuthoritiesByProjectPath[path]
+  return buck2Authority === undefined
+    ? { path, ...definition }
+    : { path, ...definition, buck2Authority }
+}
 
 export const rootWorkspaceTsconfigProjects = (() => {
   const workspaceTsconfigsByPath: Record<string, RootTsconfigProjectDefinition> = {
@@ -127,40 +154,21 @@ export const rootWorkspaceTsconfigProjects = (() => {
         .join('\n'),
     )
   }
-  const buck2AuthoritiesByPackagePath: Readonly<Record<string, Buck2TypeScriptAuthority>> =
-    Object.fromEntries(
-      authoritativeBuck2TypeScriptAdmissions.map(
-        ({
-          distTarget,
-          packagePath,
-          typecheckTarget,
-        }): readonly [string, Buck2TypeScriptAuthority] => [
-          packagePath,
-          {
-            _tag: 'Buck2TypeScriptAuthority',
-            typecheckTarget,
-            emitTarget: distTarget,
-          },
-        ],
-      ),
-    )
+
   return rootWorkspacePackagePaths.map((path): RootTsconfigProject => {
     const definition = workspaceTsconfigsByPath[path]
     if (definition === undefined) {
       throw new Error(`missing tsconfig data for workspace package: ${path}`)
     }
-    const buck2Authority = buck2AuthoritiesByPackagePath[path]
-    return buck2Authority === undefined
-      ? { path, ...definition }
-      : { path, ...definition, buck2Authority }
+    return attachBuck2Authority({ path, ...definition })
   })
 })()
 
 export const extraRootTsconfigProjects = [
-  {
+  attachBuck2Authority({
     path: 'packages/@overeng/react-inspector/tsconfig.strict-consumer.json',
     tsconfig: reactInspectorStrictConsumerTsconfig,
-  },
+  }),
 ] satisfies readonly RootTsconfigProject[]
 
 export const rootTsconfigProjects = [

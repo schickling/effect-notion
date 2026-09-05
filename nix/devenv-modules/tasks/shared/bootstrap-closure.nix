@@ -37,13 +37,19 @@
 { lib, pkgs, ... }:
 let
   trace = import ../lib/trace.nix { inherit lib; };
-  effectUtilsSrc = builtins.path {
-    path = ../../../..;
-    name = "effect-utils-source";
-  };
-  checkerPkg = import (effectUtilsSrc + "/packages/@overeng/genie/nix/bootstrap-closure-check.nix") {
-    inherit pkgs;
-    src = effectUtilsSrc;
+  trackedProducts = import ../../../buck2-products { inherit lib; };
+  product = trackedProducts.products.genie-bootstrap-closure-check;
+  checkerPkg = (import ../../../workspace-tools/lib/javascript-product-import.nix { inherit pkgs; }) {
+    inherit (product)
+      artifact
+      descriptor
+      expectedDescriptorSha256
+      expectedModuleSha256
+      ;
+    expectedProductName = "genie-bootstrap-closure-check";
+    expectedProductKind = "cli";
+    binaryName = "genie-bootstrap-closure-check";
+    smokeTestArgs = [ "--help" ];
   };
   legacyEntryDescriptionSuffix =
     if entry == null then "" else " (legacy entry argument ignored; packaged checker is used)";

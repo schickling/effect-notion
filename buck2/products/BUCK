@@ -6,3 +6,10 @@ export_file(
     src = "defs.bzl",
     visibility = ["PUBLIC"],
 )
+
+# Read as data by the root Buck test target's same-cell label assertions.
+export_file(
+    name = "defs.bzl",
+    src = "defs.bzl",
+    visibility = ["PUBLIC"],
+)

@@ -1,19 +1,27 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2:javascript.bzl", "vitest_test")
 # Projection source: packages/@overeng/utils-dev/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:794882fd8fc7c425a0cfd459df6a39037e6e48828bcefa29ccd5d3ebf236f9e8
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils-dev/src/**/*.cts, packages/@overeng/utils-dev/src/**/*.js, packages/@overeng/utils-dev/src/**/*.mts, packages/@overeng/utils-dev/src/**/*.ts, packages/@overeng/utils-dev/src/**/*.tsx, packages/@overeng/utils-dev/tsconfig.json.genie.ts
+# Semantic fingerprint: sha256:2f9595bc21c5bf7e8bf2a9f58b5c90e2c491306263c2e0d23f46ce8c4f0a49a6
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/utils-dev/*.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils-dev/src/**/*.cts, packages/@overeng/utils-dev/src/**/*.js, packages/@overeng/utils-dev/src/**/*.jsx, packages/@overeng/utils-dev/src/**/*.mts, packages/@overeng/utils-dev/src/**/*.ndjson, packages/@overeng/utils-dev/src/**/*.ts, packages/@overeng/utils-dev/src/**/*.tsx, packages/@overeng/utils-dev/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
     name = "package.json",
     src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
     visibility = ["PUBLIC"],
 )
 
@@ -44,22 +52,62 @@ export_materialization_inputs([
     "src/otelite/vitest-bridge.ts",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_utils_dev_8614cc76469c",
+# Declared test data: fixture bytes a test reads at runtime, admitted by glob so a
+# new fixture under a declared root is an action input without a projection rewrite.
+# An empty match fails the package instead of silently dropping a declared input.
+package_test_data = {
+    source: source
+    for source in glob(["src/**/*.ndjson"])
+} or fail("declared test data matched no file: packages/@overeng/utils-dev")
+
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/cli-contract.test.ts": "src/cli-contract.test.ts",
+        "src/cli-contract.ts": "src/cli-contract.ts",
+        "src/node-vitest/Vitest.ts": "src/node-vitest/Vitest.ts",
+        "src/node-vitest/global.ts": "src/node-vitest/global.ts",
+        "src/node-vitest/mod.ts": "src/node-vitest/mod.ts",
+        "src/node-vitest/otel-vitest-flush.test.ts": "src/node-vitest/otel-vitest-flush.test.ts",
+        "src/node-vitest/setup-fast-check.ts": "src/node-vitest/setup-fast-check.ts",
+        "src/otelite/Otelite.test.ts": "src/otelite/Otelite.test.ts",
+        "src/otelite/Otelite.ts": "src/otelite/Otelite.ts",
+        "src/otelite/diagnostics.ts": "src/otelite/diagnostics.ts",
+        "src/otelite/emitter.ts": "src/otelite/emitter.ts",
+        "src/otelite/errors.ts": "src/otelite/errors.ts",
+        "src/otelite/mod.ts": "src/otelite/mod.ts",
+        "src/otelite/otel.ts": "src/otelite/otel.ts",
+        "src/otelite/otlp-url.ts": "src/otelite/otlp-url.ts",
+        "src/otelite/schema.ts": "src/otelite/schema.ts",
+        "src/otelite/signal-expect.test.ts": "src/otelite/signal-expect.test.ts",
+        "src/otelite/signal-expect.ts": "src/otelite/signal-expect.ts",
+        "src/otelite/test-harness.test.ts": "src/otelite/test-harness.test.ts",
+        "src/otelite/test-harness.ts": "src/otelite/test-harness.ts",
+        "src/otelite/trace-expect.test.ts": "src/otelite/trace-expect.test.ts",
+        "src/otelite/trace-expect.ts": "src/otelite/trace-expect.ts",
+        "src/otelite/vitest-bridge.test.ts": "src/otelite/vitest-bridge.test.ts",
+        "src/otelite/vitest-bridge.ts": "src/otelite/vitest-bridge.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    } | package_test_data,
     visibility = ["PUBLIC"],
 )
 
 alias(
     name = "editor_inputs",
-    actual = ":node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_utils_dev_8614cc76469c",
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_utils_dev_8614cc76469c",
     files = {
+        "vitest.config.ts": "vitest.config.ts",
         "package.json": "package.json",
         "src/cli-contract.test.ts": "src/cli-contract.test.ts",
         "src/cli-contract.ts": "src/cli-contract.ts",
@@ -86,10 +134,15 @@ package_tree(
         "src/otelite/vitest-bridge.test.ts": "src/otelite/vitest-bridge.test.ts",
         "src/otelite/vitest-bridge.ts": "src/otelite/vitest-bridge.ts",
         "tsconfig.json": "tsconfig.json",
-    },
+    } | package_test_data,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {},
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -99,11 +152,23 @@ tsgo_typecheck(
     visibility = ["PUBLIC"],
 )
 
+
 tsgo_emit(
     name = "dist",
     package_tree = ":package_tree",
     declaration_sources = {
     },
     declaration_entrypoint = "src/node-vitest/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
+    tools = {"BUN_BIN": "//buck2/toolchains:tool_bun", "FALSE_BIN": "//buck2/toolchains:tool_coreutils_false", "OTELITE_BIN": "//buck2/toolchains:tool_test_otelite", "PS_BIN": "//buck2/toolchains:tool_test_procps", "TRUE_BIN": "//buck2/toolchains:tool_coreutils_true"},
+    capabilities = ["subprocess"],
     visibility = ["PUBLIC"],
 )

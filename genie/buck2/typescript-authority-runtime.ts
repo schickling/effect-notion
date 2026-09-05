@@ -1,10 +1,28 @@
 import { spawn } from 'node:child_process'
 import process from 'node:process'
 
-import {
-  authoritativeBuck2TypeScriptAdmissions,
-  type AuthoritativeBuck2TypeScriptAdmission,
-} from './typescript-admissions.ts'
+import typescriptAuthorityManifest from './typescript-authority-manifest.json' with { type: 'json' }
+
+export type AuthoritativeBuck2TypeScriptAdmission = {
+  readonly declarationEntrypoint: string
+  readonly distTarget: string
+  readonly packagePath: string
+  readonly projectFile: string
+  readonly typecheckTarget: string
+}
+
+export type Buck2TypeScriptAuthorityProject = {
+  readonly typecheckTarget: string
+}
+
+const authoritativeBuck2TypeScriptAdmissions: readonly AuthoritativeBuck2TypeScriptAdmission[] =
+  typescriptAuthorityManifest.authoritativeAdmissions
+const buck2TypeScriptAuthorityProjects: readonly Buck2TypeScriptAuthorityProject[] =
+  typescriptAuthorityManifest.authorityProjects
+
+const fail = (message: string): never => {
+  throw new Error(`typescript authority runtime: ${message}`)
+}
 
 /** Executable followed by its exact ordered argument vector. */
 export type CommandArgv = [executable: string, ...args: string[]]
@@ -58,12 +76,12 @@ export const planTypeScriptDistMaterialization = ({
     ],
   )
 
-/** Plans the single Buck build used by buck2:check, preserving target order. */
+/** Plans the single Buck build used by buck2:check, preserving project order. */
 export const planBuck2TypeScriptBuild = ({
-  admissions = authoritativeBuck2TypeScriptAdmissions,
+  admissions = buck2TypeScriptAuthorityProjects,
   buck2Bin,
 }: {
-  readonly admissions?: readonly AuthoritativeBuck2TypeScriptAdmission[]
+  readonly admissions?: readonly Pick<Buck2TypeScriptAuthorityProject, 'typecheckTarget'>[]
   readonly buck2Bin: string
 }): CommandArgv => [
   buck2Bin,
@@ -102,7 +120,8 @@ export const executeCommandPlan = async ({
   return { _tag: 'Status', status: 0 }
 }
 
-const qualifyEffectUtilsLabel = (label: `//${string}`): string => `effect_utils${label}`
+const qualifyEffectUtilsLabel = (label: string): string =>
+  label.startsWith('//') ? `effect_utils${label}` : fail(`invalid Buck target label: ${label}`)
 
 const nodeCommandRuntime: CommandRuntime = {
   spawn: ([executable, ...args]) => {

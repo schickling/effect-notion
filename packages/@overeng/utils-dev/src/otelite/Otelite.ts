@@ -204,9 +204,11 @@ export interface OteliteService {
  * tagged errors. The CLI's JSON output is the single source of truth — this
  * service never reimplements capture/inspect logic.
  *
- * The `otelite` binary is resolved from `OTELITE_BIN` first, then `PATH`.
- * Tests normally get the nix-built binary from the devenv `PATH`; raw-shell
- * runs can set `OTELITE_BIN="$(nix build --no-link --print-out-paths .#otelite)/bin/otelite"`.
+ * The `otelite` binary is named ONLY by `OTELITE_BIN` — there is no ambient
+ * `PATH` fallback, so a test target that forgot to declare the tool fails
+ * loudly instead of silently resolving some other binary. Under Buck the test
+ * target declares `tools = { OTELITE_BIN: ... }`; raw-shell runs set
+ * `OTELITE_BIN="$(nix build --no-link --print-out-paths .#otelite)/bin/otelite"`.
  */
 export class Otelite extends Context.Service<Otelite, OteliteService>()(
   '@overeng/utils-dev/otelite/Otelite',
@@ -215,7 +217,10 @@ export class Otelite extends Context.Service<Otelite, OteliteService>()(
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
       const fs = yield* FileSystem.FileSystem
 
-      const binary = process.env.OTELITE_BIN ?? 'otelite'
+      const binary = process.env['OTELITE_BIN']
+      if (binary === undefined || binary === '') {
+        return yield* Effect.die(new Error('declared test tool is unavailable: OTELITE_BIN'))
+      }
 
       /**
        * Run otelite and collect its stdout + exit code. Spawn failures become

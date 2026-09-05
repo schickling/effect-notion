@@ -8,7 +8,7 @@ exports[`tui-stories CLI contract baselines (status/signal invariant, prose owne
 ERROR
   Invalid value for flag --width: "nope". Expected a string representing a finite number (tui-stories 0.1.0)
 ~effect/cli/CliError/ShowHelp: Help requested
-    at <anonymous> (<repo>/node_modules/.pnpm/effect@4.0.0-rc.111/node_modules/effect/dist/unstable/cli/Command.js:1077:34)
+    at <anonymous> (<node_modules>/effect/dist/unstable/cli/Command.js:1077:34)
 ",
   "stdout": "DESCRIPTION
   Render a story to terminal output
@@ -70,7 +70,7 @@ GLOBAL FLAGS
 ERROR
   Invalid value for flag --width: "nope". Expected a string representing a finite number (tui-stories 0.1.0)
 ~effect/cli/CliError/ShowHelp: Help requested
-    at <anonymous> (<repo>/node_modules/.pnpm/effect@4.0.0-rc.111/node_modules/effect/dist/unstable/cli/Command.js:1077:34)
+    at <anonymous> (<node_modules>/effect/dist/unstable/cli/Command.js:1077:34)
 ",
   "stdout": "",
 }
@@ -109,7 +109,7 @@ exports[`tui-stories CLI contract baselines (status/signal invariant, prose owne
 ERROR
   Missing required flag: --path (tui-stories 0.1.0)
 ~effect/cli/CliError/ShowHelp: Help requested
-    at <anonymous> (<repo>/node_modules/.pnpm/effect@4.0.0-rc.111/node_modules/effect/dist/unstable/cli/Command.js:1077:34)
+    at <anonymous> (<node_modules>/effect/dist/unstable/cli/Command.js:1077:34)
 ",
   "stdout": "DESCRIPTION
   List all discovered stories

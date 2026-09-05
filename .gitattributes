@@ -27,6 +27,11 @@ genie/ci-scripts/prepare-job-local-rust-state.sh linguist-generated=true
 genie/ci-scripts/resolve-devenv.sh linguist-generated=true
 genie/ci-scripts/run-with-nix-gc-race-retry.sh linguist-generated=true
 
+# Tracked Buck product modules are content-addressed generated artifacts. Their
+# embedded documentation can contain semantic Markdown trailing spaces.
+nix/buck2-products/*/*.js linguist-generated=true -whitespace
+nix/buck2-products/*/product.json linguist-generated=true
+
 # Lock files - collapse in GitHub PR diffs
 *.lock linguist-generated=true
 **/*.lock linguist-generated=true

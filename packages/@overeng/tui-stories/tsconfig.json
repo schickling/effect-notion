@@ -3,9 +3,7 @@
 {
   "compilerOptions": {
     "target": "ES2024",
-    "lib": [
-      "ES2024"
-    ],
+    "lib": ["ES2024"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "allowImportingTsExtensions": true,
@@ -46,20 +44,9 @@
     "composite": true,
     "rootDir": ".",
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
-    "types": [
-      "node"
-    ],
-    "jsx": "react-jsx"
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "noEmit": true
   },
-  "include": [
-    "src/**/*",
-    "test/**/*",
-    "bin/**/*.ts",
-    "bin/**/*.tsx"
-  ],
-  "references": [
-    {
-      "path": "../megarepo"
-    }
-  ]
+  "include": ["src/**/*", "test/**/*", "bin/**/*.ts", "bin/**/*.tsx"]
 }

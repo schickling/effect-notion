@@ -1,19 +1,29 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2:package_tools.bzl", "node_package_bin", "package_bin", "package_bin_artifact", "package_bin_build", "package_bin_check", "storybook_candidates")
+load("//buck2:products.bzl", "bun_cli_product", "cli_product", "module_product")
+load("//buck2:javascript.bzl", "vitest_test")
 # Projection source: packages/@overeng/oxc-config/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:652ebe5ae831cdaeb175951359c645577c09ec7f887ae0957e1fad690a8c739a
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/oxc-config/BUCK.genie.ts, packages/@overeng/oxc-config/BUCK.genie.ts, packages/@overeng/oxc-config/package.json.genie.ts, packages/@overeng/oxc-config/src/**/*.cts, packages/@overeng/oxc-config/src/**/*.js, packages/@overeng/oxc-config/src/**/*.mts, packages/@overeng/oxc-config/src/**/*.ts, packages/@overeng/oxc-config/src/**/*.tsx, packages/@overeng/oxc-config/tsconfig.json.genie.ts
+# Semantic fingerprint: sha256:d29a2617005f8cbf4c055768eb662623ce6eacdda2f7ed01cfdbf8b9fb3d6c36
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/oxc-config/*.genie.ts, packages/@overeng/oxc-config/BUCK.genie.ts, packages/@overeng/oxc-config/BUCK.genie.ts, packages/@overeng/oxc-config/package.json.genie.ts, packages/@overeng/oxc-config/src/**/*.cts, packages/@overeng/oxc-config/src/**/*.js, packages/@overeng/oxc-config/src/**/*.jsx, packages/@overeng/oxc-config/src/**/*.mts, packages/@overeng/oxc-config/src/**/*.ts, packages/@overeng/oxc-config/src/**/*.tsx, packages/@overeng/oxc-config/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
     name = "package.json",
     src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
     visibility = ["PUBLIC"],
 )
 
@@ -60,22 +70,70 @@ export_materialization_inputs([
     "src/stylex-upstream-plugin.ts",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_oxc_config_0c9db47f45b6",
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/explicit-boolean-compare.ts": "src/explicit-boolean-compare.ts",
+        "src/explicit-boolean-compare.unit.test.ts": "src/explicit-boolean-compare.unit.test.ts",
+        "src/exports-first.ts": "src/exports-first.ts",
+        "src/exports-first.unit.test.ts": "src/exports-first.unit.test.ts",
+        "src/jsdoc-require-exports.ts": "src/jsdoc-require-exports.ts",
+        "src/jsdoc-require-exports.unit.test.ts": "src/jsdoc-require-exports.unit.test.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/named-args.ts": "src/named-args.ts",
+        "src/named-args.unit.test.ts": "src/named-args.unit.test.ts",
+        "src/no-external-imports.ts": "src/no-external-imports.ts",
+        "src/no-external-imports.unit.test.ts": "src/no-external-imports.unit.test.ts",
+        "src/no-non-durable-wait.ts": "src/no-non-durable-wait.ts",
+        "src/no-non-durable-wait.unit.test.ts": "src/no-non-durable-wait.unit.test.ts",
+        "src/no-raw-nondeterminism.ts": "src/no-raw-nondeterminism.ts",
+        "src/no-raw-nondeterminism.unit.test.ts": "src/no-raw-nondeterminism.unit.test.ts",
+        "src/no-raw-otel-primitives.ts": "src/no-raw-otel-primitives.ts",
+        "src/no-raw-otel-primitives.unit.test.ts": "src/no-raw-otel-primitives.unit.test.ts",
+        "src/otel-contract-in-seam-file.ts": "src/otel-contract-in-seam-file.ts",
+        "src/otel-contract-in-seam-file.unit.test.ts": "src/otel-contract-in-seam-file.unit.test.ts",
+        "src/storybook/csf-component.ts": "src/storybook/csf-component.ts",
+        "src/storybook/csf-component.unit.test.ts": "src/storybook/csf-component.unit.test.ts",
+        "src/storybook/default-exports.ts": "src/storybook/default-exports.ts",
+        "src/storybook/default-exports.unit.test.ts": "src/storybook/default-exports.unit.test.ts",
+        "src/storybook/hierarchy-separator.ts": "src/storybook/hierarchy-separator.ts",
+        "src/storybook/hierarchy-separator.unit.test.ts": "src/storybook/hierarchy-separator.unit.test.ts",
+        "src/storybook/meta-satisfies-type.ts": "src/storybook/meta-satisfies-type.ts",
+        "src/storybook/meta-satisfies-type.unit.test.ts": "src/storybook/meta-satisfies-type.unit.test.ts",
+        "src/storybook/no-redundant-story-name.ts": "src/storybook/no-redundant-story-name.ts",
+        "src/storybook/no-redundant-story-name.unit.test.ts": "src/storybook/no-redundant-story-name.unit.test.ts",
+        "src/storybook/prefer-pascal-case.ts": "src/storybook/prefer-pascal-case.ts",
+        "src/storybook/prefer-pascal-case.unit.test.ts": "src/storybook/prefer-pascal-case.unit.test.ts",
+        "src/storybook/story-exports.ts": "src/storybook/story-exports.ts",
+        "src/storybook/story-exports.unit.test.ts": "src/storybook/story-exports.unit.test.ts",
+        "src/storybook/utils.ts": "src/storybook/utils.ts",
+        "src/stylex-no-raw-color.ts": "src/stylex-no-raw-color.ts",
+        "src/stylex-no-raw-color.unit.test.ts": "src/stylex-no-raw-color.unit.test.ts",
+        "src/stylex-outline-focus-visible-only.ts": "src/stylex-outline-focus-visible-only.ts",
+        "src/stylex-outline-focus-visible-only.unit.test.ts": "src/stylex-outline-focus-visible-only.unit.test.ts",
+        "src/stylex-shared.ts": "src/stylex-shared.ts",
+        "src/stylex-upstream-plugin.ts": "src/stylex-upstream-plugin.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    },
     visibility = ["PUBLIC"],
 )
 
 alias(
     name = "editor_inputs",
-    actual = ":node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_oxc_config_0c9db47f45b6",
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_oxc_config_0c9db47f45b6",
     files = {
+        "vitest.config.ts": "vitest.config.ts",
         "package.json": "package.json",
         "src/explicit-boolean-compare.ts": "src/explicit-boolean-compare.ts",
         "src/explicit-boolean-compare.unit.test.ts": "src/explicit-boolean-compare.unit.test.ts",
@@ -121,7 +179,12 @@ package_tree(
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {},
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -131,11 +194,48 @@ tsgo_typecheck(
     visibility = ["PUBLIC"],
 )
 
+
 tsgo_emit(
     name = "dist",
     package_tree = ":package_tree",
     declaration_sources = {
     },
     declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
+    visibility = ["PUBLIC"],
+)
+
+package_bin_artifact(
+    name = "oxc-config-candidate-module",
+    entrypoint = "src/mod.ts",
+    external = [],
+    external_capabilities = [],
+    kind = "module",
+    output = "oxc-config.js",
+    package_tree = ":package_tree",
+    target = "node",
+    visibility = ["PUBLIC"],
+)
+
+module_product(
+    name = "oxc-config-candidate",
+    module = ":oxc-config-candidate-module",
+    product_name = "oxc-config",
+    visibility = ["PUBLIC"],
+)
+
+package_bin_check(
+    name = "oxc-config-candidate-smoke",
+    entrypoint = "src/mod.ts",
+    external_capabilities = [],
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )

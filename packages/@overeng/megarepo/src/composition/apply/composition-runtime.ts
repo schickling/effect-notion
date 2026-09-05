@@ -183,7 +183,12 @@ export const compositionApplyRuntimeFromEnv = ({
       install: (input) =>
         installOwnedCapabilityProjection({
           ...input,
-          runtime: { cpPath, mvPath, nonce },
+          runtime: {
+            cpPath,
+            mvPath,
+            nonce,
+            capabilityGcRoots: { nixPath: capabilityRuntime.nixPath, env },
+          },
         }),
     },
     system,

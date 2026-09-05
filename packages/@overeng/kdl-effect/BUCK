@@ -1,0 +1,107 @@
+# Generated file - DO NOT EDIT
+# Source: BUCK.genie.ts
+
+load("//buck2:javascript.bzl", "vitest_test")
+# Projection source: packages/@overeng/kdl-effect/BUCK.genie.ts
+# Projection schema version: 5
+# Projection generator: effect-utils/genie/buck2-typescript-package-projection
+# Semantic fingerprint: sha256:c6108d4415678699bd57f65db633dca5d769cfe8a948393c4c98bb2af7f1be70
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/kdl-effect/*.genie.ts, packages/@overeng/kdl-effect/BUCK.genie.ts, packages/@overeng/kdl-effect/BUCK.genie.ts, packages/@overeng/kdl-effect/package.json.genie.ts, packages/@overeng/kdl-effect/src/**/*.cts, packages/@overeng/kdl-effect/src/**/*.js, packages/@overeng/kdl-effect/src/**/*.jsx, packages/@overeng/kdl-effect/src/**/*.mts, packages/@overeng/kdl-effect/src/**/*.ts, packages/@overeng/kdl-effect/src/**/*.tsx, packages/@overeng/kdl-effect/tsconfig.json.genie.ts, packages/@overeng/kdl/BUCK.genie.ts, packages/@overeng/kdl/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
+# Regenerate: devenv tasks run genie:run
+
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
+
+export_file(
+    name = "package.json",
+    src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
+    visibility = ["PUBLIC"],
+)
+
+export_materialization_inputs([
+    "src/decode.ts",
+    "src/encode.ts",
+    "src/mod.ts",
+    "src/parse.test.ts",
+    "src/parse.ts",
+])
+
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/decode.ts": "src/decode.ts",
+        "src/encode.ts": "src/encode.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/parse.test.ts": "src/parse.test.ts",
+        "src/parse.ts": "src/parse.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    },
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "editor_inputs",
+    actual = "//buck2/dependencies:view_packages_overeng_kdl_effect_bdfdc416cbf6",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_kdl_effect_bdfdc416cbf6",
+    files = {
+        "vitest.config.ts": "vitest.config.ts",
+        "package.json": "package.json",
+        "src/decode.ts": "src/decode.ts",
+        "src/encode.ts": "src/encode.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/parse.test.ts": "src/parse.test.ts",
+        "src/parse.ts": "src/parse.ts",
+        "tsconfig.json": "tsconfig.json",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+tsgo_typecheck(
+    name = "typecheck",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+
+tsgo_emit(
+    name = "dist",
+    package_tree = ":package_tree",
+    declaration_sources = {
+    },
+    declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
+    visibility = ["PUBLIC"],
+)

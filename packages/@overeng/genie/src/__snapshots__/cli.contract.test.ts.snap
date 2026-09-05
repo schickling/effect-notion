@@ -8,7 +8,7 @@ exports[`genie CLI contract baselines (status/signal invariant, prose owner-reba
 ERROR
   Invalid value for flag --phase: "nope". Expected: "bootstrap" | "design-time" (genie 0.1.0)
 ~effect/cli/CliError/ShowHelp: Help requested
-    at <anonymous> (<repo>node_modules/.pnpm/effect@4.0.0-rc.111/node_modules/effect/dist/unstable/cli/Command.js:1077:34)
+    at <anonymous> (<node_modules>/effect/dist/unstable/cli/Command.js:1077:34)
 ",
   "stdout": "USAGE
   genie [flags]
@@ -62,7 +62,7 @@ GLOBAL FLAGS
 ERROR
   Invalid value for flag --phase: "nope". Expected: "bootstrap" | "design-time" (genie 0.1.0)
 ~effect/cli/CliError/ShowHelp: Help requested
-    at <anonymous> (<repo>node_modules/.pnpm/effect@4.0.0-rc.111/node_modules/effect/dist/unstable/cli/Command.js:1077:34)
+    at <anonymous> (<node_modules>/effect/dist/unstable/cli/Command.js:1077:34)
 ",
   "stdout": "",
 }
@@ -76,7 +76,7 @@ exports[`genie CLI contract baselines (status/signal invariant, prose owner-reba
 ERROR
   Missing value for flag --cwd. Expected: string (genie 0.1.0)
 ~effect/cli/CliError/ShowHelp: Help requested
-    at <anonymous> (<repo>node_modules/.pnpm/effect@4.0.0-rc.111/node_modules/effect/dist/unstable/cli/Command.js:1070:34)
+    at <anonymous> (<node_modules>/effect/dist/unstable/cli/Command.js:1070:34)
 ",
   "stdout": "USAGE
   genie [flags]

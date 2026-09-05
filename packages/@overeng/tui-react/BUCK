@@ -1,14 +1,18 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2:package_tools.bzl", "node_package_bin", "package_bin", "package_bin_artifact", "package_bin_build", "package_bin_check", "storybook_candidates")
+load("//buck2:products.bzl", "bun_cli_product", "cli_product", "module_product")
+load("//buck2:javascript.bzl", "vitest_test")
 # Projection source: packages/@overeng/tui-react/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:d06701912253f46216334f9ffd268fb1ed2fc53f836b549c97be22e0d5cf2602
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/tui-core/BUCK.genie.ts, packages/@overeng/tui-core/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/examples/**/*.cts, packages/@overeng/tui-react/examples/**/*.js, packages/@overeng/tui-react/examples/**/*.mts, packages/@overeng/tui-react/examples/**/*.ts, packages/@overeng/tui-react/examples/**/*.tsx, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/tui-react/src/**/*.cts, packages/@overeng/tui-react/src/**/*.js, packages/@overeng/tui-react/src/**/*.mts, packages/@overeng/tui-react/src/**/*.ts, packages/@overeng/tui-react/src/**/*.tsx, packages/@overeng/tui-react/test/**/*.cts, packages/@overeng/tui-react/test/**/*.js, packages/@overeng/tui-react/test/**/*.mts, packages/@overeng/tui-react/test/**/*.ts, packages/@overeng/tui-react/test/**/*.tsx, packages/@overeng/tui-react/tsconfig.buck.json.genie.ts, packages/@overeng/tui-react/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:93bb35d8aa312632a1e6d6528b86d354663cf76e1f1c6af73fea9c402ead7a8c
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/tui-core/BUCK.genie.ts, packages/@overeng/tui-core/package.json.genie.ts, packages/@overeng/tui-react/*.genie.ts, packages/@overeng/tui-react/.storybook/**/*.cts, packages/@overeng/tui-react/.storybook/**/*.js, packages/@overeng/tui-react/.storybook/**/*.jsx, packages/@overeng/tui-react/.storybook/**/*.mts, packages/@overeng/tui-react/.storybook/**/*.ts, packages/@overeng/tui-react/.storybook/**/*.tsx, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/examples/**/*.cts, packages/@overeng/tui-react/examples/**/*.js, packages/@overeng/tui-react/examples/**/*.jsx, packages/@overeng/tui-react/examples/**/*.mts, packages/@overeng/tui-react/examples/**/*.ts, packages/@overeng/tui-react/examples/**/*.tsx, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/tui-react/playwright.config.buck.ts, packages/@overeng/tui-react/playwright.config.ts, packages/@overeng/tui-react/src/**/*.cts, packages/@overeng/tui-react/src/**/*.js, packages/@overeng/tui-react/src/**/*.jsx, packages/@overeng/tui-react/src/**/*.mts, packages/@overeng/tui-react/src/**/*.ts, packages/@overeng/tui-react/src/**/*.tsx, packages/@overeng/tui-react/test/**/*.cts, packages/@overeng/tui-react/test/**/*.js, packages/@overeng/tui-react/test/**/*.jsx, packages/@overeng/tui-react/test/**/*.mts, packages/@overeng/tui-react/test/**/*.ts, packages/@overeng/tui-react/test/**/*.tsx, packages/@overeng/tui-react/tsconfig.buck.json.genie.ts, packages/@overeng/tui-react/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -17,7 +21,15 @@ export_file(
     visibility = ["PUBLIC"],
 )
 
+export_file(
+    name = "BUCK",
+    src = "BUCK",
+    visibility = ["PUBLIC"],
+)
+
 export_materialization_inputs([
+    ".storybook/main.ts",
+    ".storybook/preview.tsx",
     "examples/01-basic/hello-world.stories.tsx",
     "examples/01-basic/hello-world.tsx",
     "examples/01-basic/schema.ts",
@@ -44,6 +56,8 @@ export_materialization_inputs([
     "examples/06-log-capture/schema.ts",
     "examples/06-log-capture/view.tsx",
     "examples/viewport-overflow-stress.tsx",
+    "playwright.config.buck.ts",
+    "playwright.config.ts",
     "src/components/Box.stories.tsx",
     "src/components/Box.tsx",
     "src/components/Spinner.stories.tsx",
@@ -124,22 +138,13 @@ export_materialization_inputs([
     "test/unit/viewport.test.tsx",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_tui_react_f20a858a9232",
-    visibility = ["PUBLIC"],
-)
-
-alias(
-    name = "editor_inputs",
-    actual = ":node_modules",
-    visibility = ["PUBLIC"],
-)
-
-package_tree(
-    name = "package_tree",
-    node_modules = ":node_modules",
-    files = {
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        ".storybook/main.ts": ".storybook/main.ts",
+        ".storybook/preview.tsx": ".storybook/preview.tsx",
+        "BUCK.genie.ts": "BUCK.genie.ts",
         "examples/01-basic/hello-world.stories.tsx": "examples/01-basic/hello-world.stories.tsx",
         "examples/01-basic/hello-world.tsx": "examples/01-basic/hello-world.tsx",
         "examples/01-basic/schema.ts": "examples/01-basic/schema.ts",
@@ -167,6 +172,137 @@ package_tree(
         "examples/06-log-capture/view.tsx": "examples/06-log-capture/view.tsx",
         "examples/viewport-overflow-stress.tsx": "examples/viewport-overflow-stress.tsx",
         "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "playwright.config.buck.ts": "playwright.config.buck.ts",
+        "playwright.config.ts": "playwright.config.ts",
+        "src/components/Box.stories.tsx": "src/components/Box.stories.tsx",
+        "src/components/Box.tsx": "src/components/Box.tsx",
+        "src/components/Spinner.stories.tsx": "src/components/Spinner.stories.tsx",
+        "src/components/Spinner.tsx": "src/components/Spinner.tsx",
+        "src/components/Static.tsx": "src/components/Static.tsx",
+        "src/components/TaskList.stories.tsx": "src/components/TaskList.stories.tsx",
+        "src/components/TaskList.tsx": "src/components/TaskList.tsx",
+        "src/components/Text.stories.tsx": "src/components/Text.stories.tsx",
+        "src/components/Text.tsx": "src/components/Text.tsx",
+        "src/components/Tree.stories.tsx": "src/components/Tree.stories.tsx",
+        "src/components/Tree.tsx": "src/components/Tree.tsx",
+        "src/effect/LogCapture.ts": "src/effect/LogCapture.ts",
+        "src/effect/OpenTuiRenderer.ts": "src/effect/OpenTuiRenderer.ts",
+        "src/effect/OutputMode.node.ts": "src/effect/OutputMode.node.ts",
+        "src/effect/OutputMode.tsx": "src/effect/OutputMode.tsx",
+        "src/effect/TerminalInput.ts": "src/effect/TerminalInput.ts",
+        "src/effect/TestRenderer.ts": "src/effect/TestRenderer.ts",
+        "src/effect/TuiApp.tsx": "src/effect/TuiApp.tsx",
+        "src/effect/TuiLogger.ts": "src/effect/TuiLogger.ts",
+        "src/effect/TuiRenderer.ts": "src/effect/TuiRenderer.ts",
+        "src/effect/cli.tsx": "src/effect/cli.tsx",
+        "src/effect/errors.tsx": "src/effect/errors.tsx",
+        "src/effect/events.ts": "src/effect/events.ts",
+        "src/effect/hooks.tsx": "src/effect/hooks.tsx",
+        "src/effect/opentui/components.tsx": "src/effect/opentui/components.tsx",
+        "src/effect/opentui/hooks.tsx": "src/effect/opentui/hooks.tsx",
+        "src/effect/opentui/mod.tsx": "src/effect/opentui/mod.tsx",
+        "src/effect/stdout.node.ts": "src/effect/stdout.node.ts",
+        "src/effect/testing.tsx": "src/effect/testing.tsx",
+        "src/hooks/useSymbols.tsx": "src/hooks/useSymbols.tsx",
+        "src/hooks/useViewport.tsx": "src/hooks/useViewport.tsx",
+        "src/mod.tsx": "src/mod.tsx",
+        "src/node/mod.ts": "src/node/mod.ts",
+        "src/reconciler/host-config.ts": "src/reconciler/host-config.ts",
+        "src/reconciler/output.ts": "src/reconciler/output.ts",
+        "src/reconciler/reconciler.ts": "src/reconciler/reconciler.ts",
+        "src/reconciler/types.ts": "src/reconciler/types.ts",
+        "src/reconciler/yoga-utils.ts": "src/reconciler/yoga-utils.ts",
+        "src/renderToString.ts": "src/renderToString.ts",
+        "src/root.tsx": "src/root.tsx",
+        "src/storybook/PowerlinePrompt.tsx": "src/storybook/PowerlinePrompt.tsx",
+        "src/storybook/TuiStoryPreview.tsx": "src/storybook/TuiStoryPreview.tsx",
+        "src/storybook/asset-modules.d.ts": "src/storybook/asset-modules.d.ts",
+        "src/storybook/mod.tsx": "src/storybook/mod.tsx",
+        "src/storybook/opentui-stub.ts": "src/storybook/opentui-stub.ts",
+        "src/storybook/preview.ts": "src/storybook/preview.ts",
+        "src/storybook/static-app.ts": "src/storybook/static-app.ts",
+        "src/storybook/theme.ts": "src/storybook/theme.ts",
+        "src/truncate.ts": "src/truncate.ts",
+        "test/helpers/mock-terminal.ts": "test/helpers/mock-terminal.ts",
+        "test/helpers/mod.ts": "test/helpers/mod.ts",
+        "test/helpers/stdout-capture.ts": "test/helpers/stdout-capture.ts",
+        "test/helpers/virtual-terminal.ts": "test/helpers/virtual-terminal.ts",
+        "test/integration/cli-integration.test.tsx": "test/integration/cli-integration.test.tsx",
+        "test/integration/cli-shutdown-flush.test.ts": "test/integration/cli-shutdown-flush.test.ts",
+        "test/integration/fixtures/runResult-cli.tsx": "test/integration/fixtures/runResult-cli.tsx",
+        "test/integration/fixtures/stdout-drain-cli.ts": "test/integration/fixtures/stdout-drain-cli.ts",
+        "test/integration/inline-renderer.test.ts": "test/integration/inline-renderer.test.ts",
+        "test/integration/long-lines.test.ts": "test/integration/long-lines.test.ts",
+        "test/integration/reconciler-host-config.test.tsx": "test/integration/reconciler-host-config.test.tsx",
+        "test/integration/runResult-stdout-contract.test.ts": "test/integration/runResult-stdout-contract.test.ts",
+        "test/integration/stdout-drain.test.ts": "test/integration/stdout-drain.test.ts",
+        "test/integration/viewport-safety-net.test.tsx": "test/integration/viewport-safety-net.test.tsx",
+        "test/integration/virtual-terminal-basic.test.ts": "test/integration/virtual-terminal-basic.test.ts",
+        "test/unit/LogCapture.test.tsx": "test/unit/LogCapture.test.tsx",
+        "test/unit/OutputMode.test.ts": "test/unit/OutputMode.test.ts",
+        "test/unit/TuiApp.test.tsx": "test/unit/TuiApp.test.tsx",
+        "test/unit/ansi-strip.test.ts": "test/unit/ansi-strip.test.ts",
+        "test/unit/cli.test.ts": "test/unit/cli.test.ts",
+        "test/unit/createRoot-options.test.tsx": "test/unit/createRoot-options.test.tsx",
+        "test/unit/exit-rendering.test.tsx": "test/unit/exit-rendering.test.tsx",
+        "test/unit/mock-terminal.test.ts": "test/unit/mock-terminal.test.ts",
+        "test/unit/renderToString.test.tsx": "test/unit/renderToString.test.tsx",
+        "test/unit/task-list.test.tsx": "test/unit/task-list.test.tsx",
+        "test/unit/terminal-input.test.ts": "test/unit/terminal-input.test.ts",
+        "test/unit/tree.test.tsx": "test/unit/tree.test.tsx",
+        "test/unit/useTuiState.test.tsx": "test/unit/useTuiState.test.tsx",
+        "test/unit/viewport.test.tsx": "test/unit/viewport.test.tsx",
+        "tsconfig.buck.json": "tsconfig.buck.json",
+        "tsconfig.buck.json.genie.ts": "tsconfig.buck.json.genie.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    },
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "editor_inputs",
+    actual = "//buck2/dependencies:view_packages_overeng_tui_react_f20a858a9232",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_tui_react_f20a858a9232",
+    files = {
+        "vitest.config.ts": "vitest.config.ts",
+        ".storybook/main.ts": ".storybook/main.ts",
+        ".storybook/preview.tsx": ".storybook/preview.tsx",
+        "examples/01-basic/hello-world.stories.tsx": "examples/01-basic/hello-world.stories.tsx",
+        "examples/01-basic/hello-world.tsx": "examples/01-basic/hello-world.tsx",
+        "examples/01-basic/schema.ts": "examples/01-basic/schema.ts",
+        "examples/01-basic/view.tsx": "examples/01-basic/view.tsx",
+        "examples/02-effect-integration/counter.stories.tsx": "examples/02-effect-integration/counter.stories.tsx",
+        "examples/02-effect-integration/counter.tsx": "examples/02-effect-integration/counter.tsx",
+        "examples/02-effect-integration/schema.ts": "examples/02-effect-integration/schema.ts",
+        "examples/02-effect-integration/view.tsx": "examples/02-effect-integration/view.tsx",
+        "examples/03-cli/deploy/deploy.stories.tsx": "examples/03-cli/deploy/deploy.stories.tsx",
+        "examples/03-cli/deploy/deploy.tsx": "examples/03-cli/deploy/deploy.tsx",
+        "examples/03-cli/deploy/main.ts": "examples/03-cli/deploy/main.ts",
+        "examples/03-cli/deploy/schema.ts": "examples/03-cli/deploy/schema.ts",
+        "examples/03-cli/deploy/view.tsx": "examples/03-cli/deploy/view.tsx",
+        "examples/04-stress-tests/rapid-updates.stories.tsx": "examples/04-stress-tests/rapid-updates.stories.tsx",
+        "examples/04-stress-tests/rapid-updates.tsx": "examples/04-stress-tests/rapid-updates.tsx",
+        "examples/04-stress-tests/schema.ts": "examples/04-stress-tests/schema.ts",
+        "examples/04-stress-tests/view.tsx": "examples/04-stress-tests/view.tsx",
+        "examples/05-advanced/bouncing-windows.stories.tsx": "examples/05-advanced/bouncing-windows.stories.tsx",
+        "examples/05-advanced/bouncing-windows.tsx": "examples/05-advanced/bouncing-windows.tsx",
+        "examples/05-advanced/schema.ts": "examples/05-advanced/schema.ts",
+        "examples/05-advanced/view.tsx": "examples/05-advanced/view.tsx",
+        "examples/06-log-capture/log-capture.stories.tsx": "examples/06-log-capture/log-capture.stories.tsx",
+        "examples/06-log-capture/log-capture.tsx": "examples/06-log-capture/log-capture.tsx",
+        "examples/06-log-capture/schema.ts": "examples/06-log-capture/schema.ts",
+        "examples/06-log-capture/view.tsx": "examples/06-log-capture/view.tsx",
+        "examples/viewport-overflow-stress.tsx": "examples/viewport-overflow-stress.tsx",
+        "package.json": "package.json",
+        "playwright.config.buck.ts": "playwright.config.buck.ts",
+        "playwright.config.ts": "playwright.config.ts",
         "src/components/Box.stories.tsx": "src/components/Box.stories.tsx",
         "src/components/Box.tsx": "src/components/Box.tsx",
         "src/components/Spinner.stories.tsx": "src/components/Spinner.stories.tsx",
@@ -250,29 +386,12 @@ package_tree(
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {
-        "@overeng/tui-core": {
-            "files": {
-                "dist": "//packages/@overeng/tui-core:dist",
-                "package.json": "//packages/@overeng/tui-core:package.json",
-            },
-            "links": ["@overeng/tui-core"],
-        },
-        "@overeng/utils": {
-            "files": {
-                "dist": "//packages/@overeng/utils:dist",
-                "package.json": "//packages/@overeng/utils:package.json",
-            },
-            "links": ["@overeng/utils"],
-        },
-        "@overeng/utils-dev": {
-            "files": {
-                "dist": "//packages/@overeng/utils-dev:dist",
-                "package.json": "//packages/@overeng/utils-dev:package.json",
-            },
-            "links": ["@overeng/utils-dev"],
-        },
-    },
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -283,6 +402,7 @@ tsgo_typecheck(
     visibility = ["PUBLIC"],
 )
 
+
 tsgo_emit(
     name = "dist",
     package_tree = ":package_tree",
@@ -292,4 +412,39 @@ tsgo_emit(
     project = "tsconfig.buck.json",
     declaration_entrypoint = "src/mod.d.ts",
     visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
+    tools = {"BUN_BIN": "//buck2/toolchains:tool_bun", "NODE_BIN": "//buck2/toolchains:tool_node"},
+    capabilities = ["subprocess"],
+    visibility = ["PUBLIC"],
+)
+
+storybook_candidates(
+    name = "storybook",
+    package_tree = ":package_tree",
+    port = 6006,
+)
+
+
+package_bin_check(
+    name = "playwright_candidate",
+    package_tree = ":package_tree",
+    entrypoint = "node_modules/@playwright/test/cli.js",
+    args = ["test", "--config", "playwright.config.buck.ts"],
+    external_capabilities = ["playwright-browsers"],
+)
+
+package_bin(
+    name = "playwright_ui_candidate",
+    package_tree = ":package_tree",
+    entrypoint = "node_modules/@playwright/test/cli.js",
+    args = ["test", "--ui", "--config", "playwright.config.buck.ts"],
+    external_capabilities = ["playwright-browsers"],
+    process_kind = "long-lived",
 )

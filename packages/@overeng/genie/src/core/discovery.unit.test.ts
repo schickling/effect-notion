@@ -9,6 +9,16 @@ import { describe, expect, it } from 'vitest'
 
 import { findGenieFiles } from './discovery.ts'
 
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+const gitBin = requireTool('GIT_BIN')
+
 const writeFile = async ({ content, filePath }: { content: string; filePath: string }) => {
   await fs.mkdir(path.dirname(filePath), { recursive: true })
   await fs.writeFile(filePath, content)
@@ -34,7 +44,7 @@ describe('findGenieFiles', () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genie-discovery-'))
 
     try {
-      execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' })
+      execFileSync(gitBin, ['init'], { cwd: root, stdio: 'ignore' })
       await writeFile({ filePath: path.join(root, '.gitignore'), content: '.claude/\n' })
       await writeFile({
         filePath: path.join(root, 'tracked', 'package.json.genie.ts'),
@@ -48,7 +58,7 @@ describe('findGenieFiles', () => {
         filePath: path.join(root, '.claude', 'worktrees', 'stale', 'package.json.genie.ts'),
         content: 'throw new Error("ignored local worktree should not be discovered")\n',
       })
-      execFileSync('git', ['add', '.gitignore', 'tracked/package.json.genie.ts'], {
+      execFileSync(gitBin, ['add', '.gitignore', 'tracked/package.json.genie.ts'], {
         cwd: root,
         stdio: 'ignore',
       })
@@ -72,18 +82,18 @@ describe('findGenieFiles', () => {
     const submoduleSource = await fs.mkdtemp(path.join(os.tmpdir(), 'genie-submodule-'))
 
     try {
-      execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' })
-      execFileSync('git', ['init'], { cwd: submoduleSource, stdio: 'ignore' })
+      execFileSync(gitBin, ['init'], { cwd: root, stdio: 'ignore' })
+      execFileSync(gitBin, ['init'], { cwd: submoduleSource, stdio: 'ignore' })
       await writeFile({
         filePath: path.join(submoduleSource, 'package.json.genie.ts'),
         content: 'export default {}\n',
       })
-      execFileSync('git', ['add', 'package.json.genie.ts'], {
+      execFileSync(gitBin, ['add', 'package.json.genie.ts'], {
         cwd: submoduleSource,
         stdio: 'ignore',
       })
       execFileSync(
-        'git',
+        gitBin,
         [
           '-c',
           'user.email=261620128+schickling-assistant@users.noreply.github.com',
@@ -103,7 +113,7 @@ describe('findGenieFiles', () => {
         { cwd: submoduleSource, stdio: 'ignore' },
       )
       execFileSync(
-        'git',
+        gitBin,
         ['-c', 'protocol.file.allow=always', 'submodule', 'add', submoduleSource, 'vendor/genie'],
         { cwd: root, stdio: 'ignore' },
       )

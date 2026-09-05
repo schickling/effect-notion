@@ -7,8 +7,9 @@ import { captureStoryProps } from '../src/StoryCapture.ts'
 import { discoverStories, type DiscoverStoriesResult } from '../src/StoryDiscovery.ts'
 import { findStory } from '../src/StoryModule.ts'
 
-const WORKSPACE_ROOT = resolve(import.meta.dirname, '../../../..')
-const MEGAREPO_DIR = resolve(WORKSPACE_ROOT, 'packages/@overeng/megarepo')
+/* The story fixture package is resolved through its declared dependency link, not through a
+ * repository layout guess, so discovery works in a checkout and in a Buck package view alike. */
+const MEGAREPO_DIR = resolve(import.meta.dirname, '../node_modules/@overeng/megarepo')
 
 /* Story discovery is slow on CI (glob + sequential imports due to Bun TDZ workaround
    can take >5s). Provide it as a layer so it runs once in beforeAll — independent of

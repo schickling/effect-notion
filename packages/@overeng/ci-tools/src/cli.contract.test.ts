@@ -7,6 +7,16 @@ import { normalizeCliOutput } from '@overeng/utils-dev/cli-contract'
 
 const cliPath = fileURLToPath(new URL('../bin/ci-tools.ts', import.meta.url))
 
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+const bunBin = requireTool('BUN_BIN')
+
 /**
  * CLI contract capture: `status` and `signal` are cross-major invariants; stdout/stderr help,
  * usage, and error prose are captured for review but may be re-baselined by the ci-tools owner
@@ -15,7 +25,7 @@ const cliPath = fileURLToPath(new URL('../bin/ci-tools.ts', import.meta.url))
  */
 
 const runCli = (...args: ReadonlyArray<string>) => {
-  const result = spawnSync('bun', [cliPath, ...args], {
+  const result = spawnSync(bunBin, [cliPath, ...args], {
     encoding: 'utf8',
     env: { ...process.env, NO_COLOR: '1' },
   })

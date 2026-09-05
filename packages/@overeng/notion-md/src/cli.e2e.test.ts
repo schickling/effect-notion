@@ -35,8 +35,18 @@ const packageDir = fileURLToPath(new URL('..', import.meta.url))
 const cliProcessTimeoutMs = 20_000
 const cliTestTimeoutMs = 25_000
 
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+const bunBin = requireTool('BUN_BIN')
+
 const runCli = (args: readonly string[]) =>
-  execFileAsync('bun', ['src/cli.ts', ...args], {
+  execFileAsync(bunBin, ['src/cli.ts', ...args], {
     cwd: packageDir,
     timeout: cliProcessTimeoutMs,
     env: {

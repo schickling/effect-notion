@@ -10,10 +10,12 @@ Draft.
 ## Scope
 
 **Defines:** authority, component ownership, dependency direction, composition
-shape, subsystem responsibilities, and atomic authority-cutover sequencing.
+shape, subsystem responsibilities, atomic authority-cutover sequencing, and the
+shape of the development loop that replaces deleted inner-loop producers.
 
-**Does not define:** deployment, activation, rollback, health, CI topology, or
-post-authority rollout sequencing ([roadmap.md](./roadmap.md)).
+**Does not define:** deployment, activation, rollback, health, CI topology,
+post-authority rollout sequencing ([roadmap.md](./roadmap.md)), or the task and
+shell wiring that invokes the development loop.
 
 ## Architecture
 
@@ -79,7 +81,8 @@ own cache namespace. Mechanism and the key-stability discipline:
 2. composition root selects admitted targets and platforms
 3. normalized entries materialize package identities once; views link closures
 4. sandboxed Buck actions execute; unchanged work resolves from shared cache
-5. dependency snapshots flip atomically for the editor surface when requested
+5. editor snapshots flip atomically on request or when the watch loop observes
+   a changed view fingerprint
 6. products cross to Nix through independent import when requested
 7. the caller records native evidence; telemetry links to it without replacing it
 ```
@@ -87,19 +90,53 @@ own cache namespace. Mechanism and the key-stability discipline:
 Buck's result is determined at step 4. Export, retention, or import failures
 are separate outcomes and never rewrite it.
 
-## TypeScript Authority Cutover
+## TypeScript And Dependency Authority Cutover
 
-The normalized store and sandbox mechanics land through staged dependent PRs
-while the existing producer remains authoritative. Before the final authority
-change, every one of the 17 packages in the #1209 graph must be servable from
-its declared `dist` boundary; all five SCCs must build; production actions must
-not fall back to sibling source; and DQ1's CI cache path and DQ4's accepted
-numeric cold-capacity envelope must be closed. One atomic final change proves
-Linux Bubblewrap, Darwin Seatbelt, editor snapshot survival, deterministic
-JS/declaration/map bytes, and cache-only upload/restore, then flips all
-consumers and deletes the old producer. Raising timeout or disk alone does not
-satisfy the capacity gate. True remote execution remains disabled until it has
-separate end-to-end evidence.
+The normalized store, platform sandboxes, editor snapshots, and consumer
+adoption land through staged dependent PRs while the existing producer remains
+authoritative. Staged work builds in an explicitly named candidate cache
+namespace and isolation dir, so no production key or consumer changes until the
+flip; every staged measurement names that namespace
+([decision 0030](./.decisions/0030-normalized-store-scc-and-atomic-cutover.md)
+Amendment 1).
+
+Gates required before the single final change:
+
+| Gate             | Content                                                                                                                                                            |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| dist-servability | Every admitted workspace package serves its declared `dist`; no production source fallback                                                                         |
+| SCCs             | All five repo-wide SCCs build with distinct member namespaces                                                                                                      |
+| sandboxes        | `exec_linux_x86_64`, `exec_linux_aarch64`, and `exec_macos_aarch64` each pass positive, negative, and byte-identity gates                                          |
+| editor           | Snapshots survive deletion of every backing artifact; the watch loop refreshes them atomically                                                                     |
+| reuse            | Cache-only upload/restore from a CI runner (DQ1)                                                                                                                   |
+| capacity         | Accepted numeric cold wall, peak disk/scratch, editor-snapshot disk/retention, staging/action p95, and admission slope from the full candidate namespace E2E (DQ4) |
+
+Until a platform's sandbox gate passes, that platform keeps the runner's
+before/after input-tree mutation hashing; the control is deleted per platform
+with its gate, never globally in advance.
+
+The final change is atomic and repository-wide: it flips every consumer, editor,
+and tool surface — root TypeScript solutions, package tasks, test and Storybook
+runners, Genie, lint and package-bin consumers, editor configuration — and
+deletes the old producer, the root install and its task edges, and every source
+fallback together. The 17 packages of #1209 are a prerequisite subset, not the
+scope. Raising timeout or disk alone does not satisfy the capacity gate. True
+remote execution is out of scope for this cutover and remains disabled.
+
+## Development Loop
+
+```text
+source edit -> Buck daemon file watcher -> affected admitted closure rebuilds
+            -> changed view fingerprints -> atomic editor snapshot republication
+```
+
+Deleting the root install deletes the pnpm inner loop, so the watch loop is
+part of the cutover, not a follow-up (BUCK-R17). It is an ordinary Buck caller:
+no launcher interposition, no authority of its own, and no partial surface. A
+build failure or a refused publication lock leaves the previous snapshot
+pointer intact and reports loudly. Snapshot mechanics and retention:
+[03-materialization](./03-materialization/spec.md). Shell and task wiring is
+consumer-owned and outside this spec.
 
 ## Forbidden Edges
 
@@ -120,7 +157,7 @@ separate end-to-end evidence.
 | ---------------------------- | --------------------- |
 | BUCK-R01, BUCK-R05           | 01 Semantic Graph     |
 | BUCK-R02, BUCK-R04           | 02 Execution          |
-| BUCK-R08, BUCK-R11           | 03 Materialization    |
+| BUCK-R08, BUCK-R11, BUCK-R17 | 03 Materialization    |
 | BUCK-R06, BUCK-R07           | 04 Reuse              |
 | BUCK-R05, BUCK-R14           | 05 Composition        |
 | BUCK-R03, BUCK-R10           | 06 Nix Bridge         |

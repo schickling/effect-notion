@@ -8,7 +8,7 @@
  */
 
 import { NodeRuntime } from '@effect/platform-node'
-import { Schema } from 'effect'
+import { Data, Schema } from 'effect'
 import { Effect } from 'effect'
 import React from 'react'
 
@@ -30,6 +30,8 @@ type State = typeof State.Type
 
 const Action = Schema.Union([Schema.TaggedStruct('Approve', { output: Schema.String })])
 type Action = typeof Action.Type
+
+class FixtureFailure extends Data.TaggedError('FixtureFailure')<{ readonly message: string }> {}
 
 const App: TuiApp<State, Action> = createTuiApp({
   stateSchema: State,
@@ -58,8 +60,12 @@ const View = (): React.ReactElement => {
 const program = runResult(
   App,
   (tui) =>
-    Effect.sync(() => {
+    Effect.gen(function* () {
       const payload = process.env.TEST_PAYLOAD ?? 'hello-world'
+      // Failure mode: exercises the exit-code + stderr side of the runTuiMain contract.
+      if (process.env.TEST_FAIL === '1') {
+        return yield* new FixtureFailure({ message: 'boom: fixture failure' })
+      }
       tui.dispatch({ _tag: 'Approve', output: payload })
       return payload
     }),

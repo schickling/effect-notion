@@ -24,6 +24,7 @@ import { Effect, Fiber } from 'effect'
 import { expect } from 'vitest'
 
 import { CompositionGeneratorConfig, EffectPath } from '../../core/config.ts'
+import { requireTool } from '../../test-utils/require-tool.ts'
 import {
   planCompositionRootPublication,
   publishCompositionRoot,
@@ -94,7 +95,7 @@ const makeFixture = ({
         )
       }
       const buckExecutable = NodePath.join(root, 'fake-buck2')
-      await writeFile(buckExecutable, '#!/bin/sh\nprintf "%s\\n" "$@"\n')
+      await writeFile(buckExecutable, `#!${requireTool('BASH_BIN')}\nprintf "%s\\n" "$@"\n`)
       await chmod(buckExecutable, 0o755)
       return {
         root,
@@ -1101,12 +1102,16 @@ describe('composition root publisher', () => {
         const wrapper = NodePath.join(fixture.root, '.megarepo/bin/buck2')
         const info = yield* Effect.promise(() => stat(wrapper))
         expect(info.mode & 0o777).toBe(0o755)
+        // The published wrapper is POSIX `#!/bin/sh`, which is right for a real workspace and
+        // absent from a contained action, so it is launched through the declared shell. The
+        // assertions are about the argv it forwards, which the interpreter does not change.
+        const wrapperShell = requireTool('BASH_BIN')
         const success = yield* Effect.promise(() =>
-          execFilePromise(wrapper, ['build', '//alpha:all']),
+          execFilePromise(wrapperShell, [wrapper, 'build', '//alpha:all']),
         )
         expect(success.stdout).toBe('--isolation-dir\nfleet-buck\nbuild\n//alpha:all\n')
         const rejected = yield* Effect.promise(() =>
-          execFilePromise(wrapper, ['--isolation-dir=other', 'build']).then(
+          execFilePromise(wrapperShell, [wrapper, '--isolation-dir=other', 'build']).then(
             () => ({ code: 0, stderr: '' }),
             (cause: unknown) => {
               const error = cause as { readonly code?: number; readonly stderr?: string }

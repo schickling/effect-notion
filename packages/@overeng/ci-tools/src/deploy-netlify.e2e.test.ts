@@ -2,14 +2,27 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 type ApiMode = 'ok' | 'unauthorized' | 'missing' | 'blank-site'
 
-const repoRoot = resolve(import.meta.dirname, '../../../..')
-const cliPath = join(repoRoot, 'packages/@overeng/ci-tools/bin/ci-tools.ts')
+/* The CLI under test is a file of this package, resolved relative to this test module so the
+ * path holds in a checkout and in a Buck package view alike. */
+const cliPath = fileURLToPath(new URL('../bin/ci-tools.ts', import.meta.url))
+
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+const bunBin = requireTool('BUN_BIN')
+const bashBin = requireTool('BASH_BIN')
 let apiMode: ApiMode = 'ok'
 let server: Server
 let apiBaseUrl = ''
@@ -49,7 +62,7 @@ const runCiTools = async (opts: {
   readonly env?: Readonly<Record<string, string | undefined>>
 }) => {
   const child = spawn(
-    'bun',
+    bunBin,
     [
       cliPath,
       'deploy',
@@ -135,7 +148,7 @@ describe('ci-tools deploy netlify', () => {
     const fakeNetlifyBin = join(binDir, 'netlify')
     writeFileSync(
       fakeNetlifyBin,
-      `#!/usr/bin/env bash
+      `#!${bashBin}
 set -euo pipefail
 printf 'NETLIFY_SITE_ID=%s args=%s\\n' "\${NETLIFY_SITE_ID:-}" "$*" >> "${logPath}"
 if [ "\${FAKE_NETLIFY_MODE:-success}" = "project-not-found" ]; then

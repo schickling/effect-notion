@@ -1,0 +1,65 @@
+{
+  "products": {
+    "ci-tools": {
+      "artifact": "ci-tools/6d3ab3cd4c8afd60d92e12f9863d00d43692d3a11b920f648df10cb9dc688555-ci-tools.js",
+      "descriptorSha256": "c12229816b1bc90c1fb51d52fb956764a328c23750bff699595a95a16b438769",
+      "label": "//packages/@overeng/ci-tools:ci-tools-candidate",
+      "moduleSha256": "6d3ab3cd4c8afd60d92e12f9863d00d43692d3a11b920f648df10cb9dc688555"
+    },
+    "genie": {
+      "artifact": "genie/3860fcdd9e2a92a218b85d4de0ce22f2e812f521e8086f6ab9ca8518886a3a5d-genie.js",
+      "descriptorSha256": "411b772691414c2d3996a831993883fc8875f64c0a91bc4ff790edb69ff27ff1",
+      "label": "//packages/@overeng/genie:genie-candidate",
+      "moduleSha256": "3860fcdd9e2a92a218b85d4de0ce22f2e812f521e8086f6ab9ca8518886a3a5d"
+    },
+    "genie-bootstrap-closure-check": {
+      "artifact": "genie-bootstrap-closure-check/32833de6a5f4c1bff4d4a0ba9fd4dbb628df585aa42f8fa0e0a06982c9897cc2-genie-bootstrap-closure-check.js",
+      "descriptorSha256": "4ab5eaeda518ee50cc1ed5867aba05c3aef897ec9fb9ed48d6f1b6b7d7cfe9a1",
+      "label": "//packages/@overeng/genie:genie-bootstrap-closure-check-candidate",
+      "moduleSha256": "32833de6a5f4c1bff4d4a0ba9fd4dbb628df585aa42f8fa0e0a06982c9897cc2"
+    },
+    "megarepo": {
+      "artifact": "megarepo/c4c19ae14f55c2ae474e3b66834f35bc6e95a0488404f1a0d6bdaa8aa6c22a84-mr.js",
+      "descriptorSha256": "a499ea3665725087a7a83c73baafb59ca0a94b8b05824aeeffc25038903c592e",
+      "label": "//packages/@overeng/megarepo:megarepo-candidate",
+      "moduleSha256": "c4c19ae14f55c2ae474e3b66834f35bc6e95a0488404f1a0d6bdaa8aa6c22a84"
+    },
+    "notion-cli": {
+      "artifact": "notion-cli/381f059f05f8fd87011834ec047b149b46fb3a9ca821f50a1e85460bcb4489b3-notion.js",
+      "descriptorSha256": "0305a887cc5219ae2974c7139e3ae723e28bd6c16963fa78415925d56d5f0005",
+      "label": "//packages/@overeng/notion-cli:notion-cli-candidate",
+      "moduleSha256": "381f059f05f8fd87011834ec047b149b46fb3a9ca821f50a1e85460bcb4489b3"
+    },
+    "notion-db-runtime": {
+      "artifact": "notion-db-runtime/1390b00d68db675d056d970995188a43f19bda6f89f40b9678c5000bcf45fb89-notion-db.js",
+      "descriptorSha256": "207762f0bca76b41827803ad84fdc5e22820dbcae68c3438bf05fd1dbee76432",
+      "label": "//packages/@overeng/notion-cli:notion-db-candidate",
+      "moduleSha256": "1390b00d68db675d056d970995188a43f19bda6f89f40b9678c5000bcf45fb89"
+    },
+    "notion-md": {
+      "artifact": "notion-md/bbc4824aa6c172aac5605d6e2926a176c715944aa10de4f0e8c4aaa52ac968f0-notion-md.js",
+      "descriptorSha256": "070bc64272cbbc6127a1f0f110ddf9bda15db1eb999368f7ca00ede97bb400ee",
+      "label": "//packages/@overeng/notion-md:notion-md-candidate",
+      "moduleSha256": "bbc4824aa6c172aac5605d6e2926a176c715944aa10de4f0e8c4aaa52ac968f0"
+    },
+    "npm-release": {
+      "artifact": "npm-release/136d6e4edadbae746a911bfa80d9bd6b256b16ff8278acbddacef0ef46145aa9-npm-release.js",
+      "descriptorSha256": "b1d1432302708ec0e23adb1754c62da91fd7ad8e9259c5aa96ee19dad457ff77",
+      "label": "//packages/@overeng/npm-release:npm-release-candidate",
+      "moduleSha256": "136d6e4edadbae746a911bfa80d9bd6b256b16ff8278acbddacef0ef46145aa9"
+    },
+    "oxc-config": {
+      "artifact": "oxc-config/f300c5d6e2faf51f432895a0e74d87e6d76bca1140ad07b31efb887c5d2d78be-oxc-config.js",
+      "descriptorSha256": "9e36b232f95caf232a5f4cf13b4f7a7cddf07fe4c0ebe772ec6bbae2032108f6",
+      "label": "//packages/@overeng/oxc-config:oxc-config-candidate",
+      "moduleSha256": "f300c5d6e2faf51f432895a0e74d87e6d76bca1140ad07b31efb887c5d2d78be"
+    },
+    "tui-stories": {
+      "artifact": "tui-stories/6a61f27efc11ab20263f7d117d5b4b4fb0bc48bc90377ad9cc0c37311911a43b-tui-stories.js",
+      "descriptorSha256": "7de696177a155c96f4ecf9b4b926ed0139f640b6290369c4f49915f61d065646",
+      "label": "//packages/@overeng/tui-stories:tui-stories-candidate",
+      "moduleSha256": "6a61f27efc11ab20263f7d117d5b4b4fb0bc48bc90377ad9cc0c37311911a43b"
+    }
+  },
+  "schema": "effect-utils/tracked-buck-products/v1"
+}

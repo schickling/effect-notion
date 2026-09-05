@@ -24,8 +24,11 @@ __pycache__/
 
 # Buck2 daemon and materialized build state
 buck-out/
-# Scoped generated editor snapshots for packages/@overeng/*
+# Generated editor snapshots for all admitted package roots
+/.editor-view/
+/context/.editor-view/
 /packages/.editor-view/
+/packages/@overeng/effect-rpc-tanstack/.editor-view/
 # Machine-local cache client wiring (devenv-generated from the fleet default in
 # devenv.nix; hand-edited overrides stay local)
 /.buckconfig.local
@@ -35,6 +38,8 @@ buck-out/
 /.buck2/capabilities.candidate.*
 /.buck2/capabilities.lock
 /.buck2/capability-generations/
+# Registered Nix GC roots retaining the installed capability generation
+/.buck2/capability-gcroots/
 
 # Direnv
 repos/

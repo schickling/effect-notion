@@ -121,12 +121,32 @@ const CapabilityExecutable = Schema.String.check(
   }),
 ).annotate({ identifier: 'Megarepo.BuckCapabilityExecutable' })
 
-/** One member-owned Nix executable capability. Toolchain pins remain hub-owned. */
+/** Nix systems a capability can be realized on. Absent means every admitted system. */
+const CapabilitySystem = Schema.Literals(['x86_64-linux', 'aarch64-linux', 'aarch64-darwin'])
+
+/**
+ * One member-owned Nix executable capability. Toolchain pins remain hub-owned.
+ *
+ * `systems` scopes a capability whose Nix realization only exists on some admitted systems (for
+ * example Bubblewrap, which is Linux-only because Darwin containment is a fixed system Seatbelt
+ * capability instead). An absent `systems` means the capability is projected on every system.
+ */
 export const BuckMemberCapabilitySchema = Schema.Struct({
   toolId: CapabilityToken,
   protocol: CapabilityProtocol,
   flakePackage: CapabilityToken,
   executable: CapabilityExecutable,
+  systems: Schema.optional(
+    Schema.Array(CapabilitySystem).check(
+      Schema.makeFilter<ReadonlyArray<typeof CapabilitySystem.Type>>((value) =>
+        value.length === 0
+          ? 'Expected at least one capability system'
+          : new Set(value).size !== value.length
+            ? 'Expected unique capability systems'
+            : undefined,
+      ),
+    ),
+  ),
 }).annotate({ identifier: 'Megarepo.BuckMemberCapability' })
 export type BuckMemberCapability = typeof BuckMemberCapabilitySchema.Type
 
@@ -180,6 +200,26 @@ export const buckMemberProjectedCapabilities = (
       : [],
   ),
 ]
+
+/** One admitted Nix system a capability projection can be realized for. */
+export type BuckMemberCapabilitySystem = typeof CapabilitySystem.Type
+
+/**
+ * The projected capabilities realizable on one system.
+ *
+ * A capability with an explicit `systems` list is skipped on every other system, so a
+ * platform-scoped realization (Bubblewrap on Linux) never becomes a Darwin resolution failure.
+ */
+export const buckMemberProjectedCapabilitiesForSystem = ({
+  manifest,
+  system,
+}: {
+  readonly manifest: BuckMemberManifest
+  readonly system: BuckMemberCapabilitySystem
+}): ReadonlyArray<BuckMemberCapability> =>
+  buckMemberProjectedCapabilities(manifest).filter(
+    (capability) => capability.systems === undefined || capability.systems.includes(system),
+  )
 
 /** Find one declared member-owned Nix capability by its stable tool id. */
 export const buckMemberCapabilityByToolId = ({
@@ -247,8 +287,13 @@ const normalizeDistOverlay = (overlay: BuckMemberDistOverlay): BuckMemberDistOve
   destination: overlay.destination,
 })
 
+const canonicalCapabilitySystems = (
+  systems: ReadonlyArray<typeof CapabilitySystem.Type>,
+): ReadonlyArray<typeof CapabilitySystem.Type> =>
+  [...new Set(systems)].toSorted((left, right) => compareCodeUnits({ left, right }))
+
 const executableCapabilitySortKey = (capability: BuckMemberCapability): string =>
-  `${capability.toolId}:${capability.protocol}:${capability.flakePackage}:${capability.executable}`
+  `${capability.toolId}:${capability.protocol}:${capability.flakePackage}:${capability.executable}:${capability.systems === undefined ? '*' : canonicalCapabilitySystems(capability.systems).join(',')}`
 
 const normalizeCapability = (
   capability: BuckMemberManifestCapability,
@@ -259,6 +304,9 @@ const normalizeCapability = (
       protocol: capability.protocol,
       flakePackage: capability.flakePackage,
       executable: capability.executable,
+      ...(capability.systems === undefined
+        ? {}
+        : { systems: canonicalCapabilitySystems(capability.systems) }),
     }
   }
   if (capability._tag === 'ToolchainAuthority') {

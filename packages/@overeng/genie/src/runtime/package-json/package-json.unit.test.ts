@@ -18,6 +18,17 @@ import {
   nodePackageJsonValidationRuntime,
 } from './node/export-environments.ts'
 
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+/** Fixture interpreter: the declared bash, so written fixtures never need an ambient `env`. */
+const bashShebang = `#!${requireTool('BASH_BIN')}`
+
 /** Mock GenieContext for package tests (nested package location) */
 const mockGenieContext: GenieContext = {
   location: 'packages/@test/package',
@@ -800,8 +811,27 @@ describe('packageJson', () => {
     fs.writeFileSync(path.join(packageDir, 'package.json'), '{"name":"@test/package"}\n')
     fs.writeFileSync(path.join(packageDir, 'src/mod.ts'), 'export const value = 1\n')
 
+    // The cache contract is what this test proves, so the proof itself runs through a
+    // fixture compiler with a fixed `--version`: the key then varies only with the
+    // dependency metadata the test rewrites.
+    const compilerBin = path.join(repo.repoRoot, 'fake-tsgo')
+    fs.writeFileSync(
+      compilerBin,
+      [
+        bashShebang,
+        'if [ "$1" = "--version" ]; then',
+        '  echo "Fake TypeScript 1.0.0"',
+        'fi',
+        'exit 0',
+      ].join('\n'),
+    )
+    fs.chmodSync(compilerBin, 0o755)
+    const runtime = createNodePackageJsonValidationRuntime({
+      typeProofCompiler: { path: compilerBin, kind: 'tsgo' },
+    })
+
     const validate = () =>
-      nodePackageJsonValidationRuntime.validateExportEnvironments({
+      runtime.validateExportEnvironments({
         cwd: repo.repoRoot,
         location: 'packages/pkg',
         packageName: '@test/package',
@@ -837,7 +867,7 @@ describe('packageJson', () => {
     fs.writeFileSync(
       compilerBin,
       [
-        '#!/usr/bin/env bash',
+        bashShebang,
         'if [ "$1" = "--version" ]; then',
         '  echo "Fake TypeScript 1.0.0"',
         '  exit 0',
@@ -879,7 +909,7 @@ describe('packageJson', () => {
     fs.writeFileSync(
       compilerBin,
       [
-        '#!/usr/bin/env bash',
+        bashShebang,
         'if [ "$1" = "--version" ]; then',
         '  echo "Fake TypeScript 1.0.0"',
         '  exit 0',
@@ -958,7 +988,7 @@ describe('packageJson', () => {
     fs.mkdirSync(path.join(packageDir, 'src'))
     fs.mkdirSync(binDir)
     fs.writeFileSync(path.join(packageDir, 'src/mod.ts'), 'export const value = 1\n')
-    fs.writeFileSync(path.join(binDir, 'tsc'), '#!/usr/bin/env bash\nexit 0\n')
+    fs.writeFileSync(path.join(binDir, 'tsc'), `${bashShebang}\nexit 0\n`)
     fs.chmodSync(path.join(binDir, 'tsc'), 0o755)
 
     const originalPath = process.env.PATH
@@ -999,7 +1029,15 @@ describe('packageJson', () => {
   })
 
   it('accepts a strict isomorphic TypeScript proof for the pure genie runtime entry', () => {
-    const repoRoot = path.resolve(import.meta.dirname, '../../../../../..')
+    // This suite runs against the package's own declared input tree: the package root is the
+    // top of it, there is no repository above it, and it is read-only. The proof therefore runs
+    // at the package root and stages its cache in a writable scratch directory. The compiler is
+    // the declared immutable tool, never a PATH lookup.
+    const packageRoot = path.resolve(import.meta.dirname, '../../..')
+    const runtime = createNodePackageJsonValidationRuntime({
+      typeProofCompiler: { path: requireTool('TSGO_BIN'), kind: 'tsgo' },
+      proofCacheDir: fs.mkdtempSync(path.join(os.tmpdir(), 'genie-export-proof-')),
+    })
     const result = packageJson({
       name: '@overeng/genie',
       version: '0.0.0',
@@ -1012,9 +1050,9 @@ describe('packageJson', () => {
     })
 
     const issues = result.validate?.({
-      cwd: repoRoot,
-      location: 'packages/@overeng/genie',
-      validation: { packageJson: nodePackageJsonValidationRuntime },
+      cwd: packageRoot,
+      location: '.',
+      validation: { packageJson: runtime },
     })
 
     expect(issues).toEqual([])

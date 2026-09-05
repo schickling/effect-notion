@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url'
 
 import { afterAll, describe, expect, it } from 'vitest'
 
+import { requireTool } from './test-utils/require-tool.ts'
+
 const cliPath = fileURLToPath(new URL('../bin/mr.ts', import.meta.url))
 const workspaceRoot = mkdtempSync(join(tmpdir(), 'megarepo-cli-contract-'))
 writeFileSync(join(workspaceRoot, 'megarepo.kdl'), 'members {\n}\n')
@@ -37,7 +39,7 @@ const normalizeOutput = (output: string) =>
     .replace(/^ +at <anonymous> .+$/gmu, '')
 
 const runCli = (...args: ReadonlyArray<string>) => {
-  const result = spawnSync('bun', [cliPath, ...args], {
+  const result = spawnSync(requireTool('BUN_BIN'), [cliPath, ...args], {
     encoding: 'utf8',
     env: { ...process.env, NO_COLOR: '1' },
   })

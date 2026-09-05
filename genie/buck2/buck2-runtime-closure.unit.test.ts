@@ -48,6 +48,22 @@ const importClosure = (entry: string): readonly string[] => {
 }
 
 const rootBuck = readFileSync('BUCK', 'utf8')
+const buck2ToolsBuck = readFileSync('packages/@overeng/buck2-tools/BUCK', 'utf8')
+
+/**
+ * Package-relative sources `packages/@overeng/buck2-tools` declares as
+ * materialization inputs, whatever rendering the projection uses for them.
+ *
+ * One declared input is one single-file Buck target named after the path, which
+ * is what a root alias for a one-file runtime resolves to. Asserting the
+ * declaration rather than a particular `export_file(...)` spelling keeps this
+ * test about the staging contract instead of the generator's text.
+ */
+const buck2ToolsMaterializationInputs = [
+  ...(/export_materialization_inputs\(\[([\s\S]*?)\]\)/u.exec(buck2ToolsBuck)?.[1] ?? '').matchAll(
+    /"([^"]+)"/gu,
+  ),
+].map((match) => match[1] ?? '')
 
 describe('staged Buck runtime closure', () => {
   it.each(buck2StagedRuntimes.map((runtime) => [runtime.label, runtime] as const))(
@@ -64,22 +80,30 @@ describe('staged Buck runtime closure', () => {
   )('%s is staged as one file and therefore imports nothing relative', (_label, runtime) => {
     expect(runtime.modules).toEqual([runtime.entry])
     expect(relativeSpecifiers(readFileSync(runtime.entry, 'utf8'))).toEqual([])
-    expect(rootBuck).toContain(`    src = "${runtime.entry}",`)
+    expect(rootBuck).toContain(
+      `    actual = "//packages/@overeng/buck2-tools:${runtime.entry.slice('packages/@overeng/buck2-tools/'.length)}",`,
+    )
+    expect(buck2ToolsMaterializationInputs).toContain(
+      runtime.entry.slice('packages/@overeng/buck2-tools/'.length),
+    )
   })
 
-  it('declares every filegroup-staged module in the root Buck package', () => {
+  it('declares every filegroup-staged module in the buck2-tools package', () => {
     for (const runtime of buck2StagedRuntimes.filter((entry) => entry.staging === 'filegroup')) {
       const name = runtime.label.slice('//:'.length)
-      const block = rootBuck.split(`name = "${name}",`)[1]?.split(')')[0] ?? ''
+      const rootAlias = rootBuck.split(`name = "${name}",`)[1]?.split(')')[0] ?? ''
+      expect(rootAlias).toContain(
+        'actual = "//packages/@overeng/buck2-tools:package_tree_runtime"',
+      )
+      const block = buck2ToolsBuck.split(`name = "${name}",`)[1]?.split(')')[0] ?? ''
       expect(block, `no filegroup block for ${runtime.label}`).not.toBe('')
       const declared = [...block.matchAll(/"([^"]+)":\s*"([^"]+)"/gu)].map((match) => ({
         staged: match[1],
-        source: match[2],
+        source: `packages/@overeng/buck2-tools/${match[2]}`,
       }))
       expect(declared.map(({ source }) => source).toSorted()).toEqual(
         [...runtime.modules].toSorted(),
       )
-      // The tree is flat, so the entry passed as `runtime_entry` is a bare name.
       expect(declared.map(({ staged }) => staged).toSorted()).toEqual(
         runtime.modules.map(stagedModuleName).toSorted(),
       )

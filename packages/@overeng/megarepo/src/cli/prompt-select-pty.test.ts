@@ -3,6 +3,13 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
+import { requireTool } from '../test-utils/require-tool.ts'
+
+const scriptBin = requireTool('SCRIPT_BIN')
+const bashBin = requireTool('BASH_BIN')
+const sttyBin = requireTool('STTY_BIN')
+const bunBin = requireTool('BUN_BIN')
+
 type PromptCase = {
   readonly id: 'select' | 'interrupt'
   readonly readiness: string
@@ -37,9 +44,12 @@ const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`
 
 const runPromptCase = (testCase: PromptCase): Promise<PtyResult> =>
   new Promise((resolve, reject) => {
-    const command = `stty cols 80 rows 24; exec bun ${shellQuote(fixturePath)} ${testCase.id}`
-    const child = spawn('script', ['-qfec', command, '/dev/null'], {
+    // `script` runs its `-c` command through `$SHELL`; pin that to the declared bash so no
+    // shell is resolved through an ambient PATH or a host `/bin/sh`.
+    const command = `${shellQuote(sttyBin)} cols 80 rows 24; exec ${shellQuote(bunBin)} ${shellQuote(fixturePath)} ${testCase.id}`
+    const child = spawn(scriptBin, ['-qfec', command, '/dev/null'], {
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, SHELL: bashBin },
     })
     const stdout: Buffer[] = []
     const stderr: Buffer[] = []

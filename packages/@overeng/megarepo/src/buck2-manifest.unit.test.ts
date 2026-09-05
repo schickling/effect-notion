@@ -7,6 +7,7 @@ import {
   COMPOSITION_ROOT_SCHEMA_VERSION,
   buckMemberCapabilityByToolId,
   buckMemberProjectedCapabilities,
+  buckMemberProjectedCapabilitiesForSystem,
   decodeBuckMemberManifest,
   decodeBuckMemberManifestJson,
   encodeBuckMemberManifest,
@@ -31,6 +32,14 @@ const tsgoCapability: BuckMemberCapability = {
   protocol: 'effect-utils/buck2-effect-tsgo/v1',
   flakePackage: 'effect-tsgo',
   executable: 'bin/tsgo',
+}
+
+const linuxOnlyCapability: BuckMemberCapability = {
+  toolId: 'sandbox-bubblewrap',
+  protocol: 'containers/bubblewrap/v1',
+  flakePackage: 'buck2-bubblewrap',
+  executable: 'bin/bwrap',
+  systems: ['x86_64-linux', 'aarch64-linux'],
 }
 
 const toolchainAuthority: BuckMemberToolchainAuthority = {
@@ -74,5 +83,29 @@ describe('@overeng/megarepo/buck2-manifest', () => {
     expect(buckMemberCapabilityByToolId({ manifest: decoded, toolId: 'buck2' })).toEqual(capability)
     expect(buckMemberCapabilityByToolId({ manifest: decoded, toolId: 'tsgo' })).toBeUndefined()
     expect(buckMemberProjectedCapabilities(decoded)).toEqual([capability, tsgoCapability])
+  })
+
+  it('projects a system-scoped capability only on the systems it declares', () => {
+    const decoded = decodeBuckMemberManifest({
+      ...manifest,
+      capabilities: [capability, linuxOnlyCapability, toolchainAuthority, toolchainRequirement],
+    })
+    // Normalization sorts the declared systems so the tracked manifest bytes stay canonical.
+    expect(
+      buckMemberProjectedCapabilitiesForSystem({ manifest: decoded, system: 'x86_64-linux' }),
+    ).toEqual([
+      capability,
+      { ...linuxOnlyCapability, systems: ['aarch64-linux', 'x86_64-linux'] },
+      tsgoCapability,
+    ])
+    expect(
+      buckMemberProjectedCapabilitiesForSystem({ manifest: decoded, system: 'aarch64-darwin' }),
+    ).toEqual([capability, tsgoCapability])
+    expect(() =>
+      decodeBuckMemberManifest({
+        ...manifest,
+        capabilities: [{ ...linuxOnlyCapability, systems: [] }],
+      }),
+    ).toThrow()
   })
 })

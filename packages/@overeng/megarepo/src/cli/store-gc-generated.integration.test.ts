@@ -13,7 +13,6 @@ import * as Git from '../core/git.ts'
 import { makeConsoleCapture } from '../test-utils/consoleCapture.ts'
 import { decodeJson, encodeJson } from '../test-utils/json.ts'
 import { createStoreFixture } from '../test-utils/store-setup.ts'
-import { Cwd } from './context.ts'
 import { mrCommand } from './mod.ts'
 
 const NOW = Date.now()
@@ -61,7 +60,12 @@ const runGc = ({
     const { consoleLayer, getStdoutLines } = yield* makeConsoleCapture
     const previous = process.env['MEGAREPO_STORE']
     process.env['MEGAREPO_STORE'] = storePath
+    // `mrCommand` provides its own `Cwd` layer from the `--cwd` global flag, so an
+    // outer `Effect.provideService(Cwd, …)` is overridden and every command would
+    // silently run against the ambient process cwd. Drive the documented flag.
     const exit = yield* Cli.Command.runWith(mrCommand, { version: 'test' })([
+      '--cwd',
+      cwd,
       'store',
       'gc',
       ...(generatedArtifacts === true ? ['--generated-artifacts'] : []),
@@ -69,7 +73,6 @@ const runGc = ({
       '--output',
       'json',
     ]).pipe(
-      Effect.provideService(Cwd, cwd),
       Effect.provide(Layer.mergeAll(consoleLayer, liveClock, NodeServices.layer)),
       Effect.exit,
     )

@@ -1,0 +1,175 @@
+# Generated file - DO NOT EDIT
+# Source: BUCK.genie.ts
+
+load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:materialization.bzl", "empty_package_view", "package_view")
+load("//buck2:package_tools.bzl", "package_bin")
+
+# Composed repository-root layout: the suite imports repository sources by their
+# original relative paths, so the tree reproduces those paths. Its own sources
+# come from this package, contributing packages export the generator sources
+# they own as one tree each, and individual library modules come from the
+# per-package exported inputs. The census is derived from the suite's relative
+# import closure by `genie/buck2/root-test-layout.ts`, never hand-listed.
+root_test_files = {
+    "genie/buck2/{}".format(source): source
+    for source in glob(["*.ts"])
+}
+
+# Directory trees mounted at their repository paths.
+root_test_files.update({
+    ".github": "//:root_test_sources/.github",
+    "context/effect/socket": "//context/effect/socket:projection_inputs",
+    "context/opentui": "//context/opentui:projection_inputs",
+    "genie": "//:root_test_sources/genie",
+    "packages/@overeng/agent-session-ingest": "//packages/@overeng/agent-session-ingest:projection_inputs",
+    "packages/@overeng/buck2-tools": "//packages/@overeng/buck2-tools:projection_inputs",
+    "packages/@overeng/ci-tools": "//packages/@overeng/ci-tools:projection_inputs",
+    "packages/@overeng/content-address": "//packages/@overeng/content-address:projection_inputs",
+    "packages/@overeng/effect-ai-claude-cli": "//packages/@overeng/effect-ai-claude-cli:projection_inputs",
+    "packages/@overeng/effect-distributed-lock": "//packages/@overeng/effect-distributed-lock:projection_inputs",
+    "packages/@overeng/effect-path": "//packages/@overeng/effect-path:projection_inputs",
+    "packages/@overeng/effect-react": "//packages/@overeng/effect-react:projection_inputs",
+    "packages/@overeng/effect-rpc-tanstack": "//packages/@overeng/effect-rpc-tanstack:projection_inputs",
+    "packages/@overeng/effect-rpc-tanstack/examples/basic": "//packages/@overeng/effect-rpc-tanstack/examples/basic:projection_inputs",
+    "packages/@overeng/effect-schema-form": "//packages/@overeng/effect-schema-form:projection_inputs",
+    "packages/@overeng/effect-schema-form-aria": "//packages/@overeng/effect-schema-form-aria:projection_inputs",
+    "packages/@overeng/genie": "//packages/@overeng/genie:projection_inputs",
+    "packages/@overeng/kdl": "//packages/@overeng/kdl:projection_inputs",
+    "packages/@overeng/kdl-effect": "//packages/@overeng/kdl-effect:projection_inputs",
+    "packages/@overeng/megarepo": "//packages/@overeng/megarepo:projection_inputs",
+    "packages/@overeng/notion-cli": "//packages/@overeng/notion-cli:projection_inputs",
+    "packages/@overeng/notion-core": "//packages/@overeng/notion-core:projection_inputs",
+    "packages/@overeng/notion-datasource-sync": "//packages/@overeng/notion-datasource-sync:projection_inputs",
+    "packages/@overeng/notion-effect-client": "//packages/@overeng/notion-effect-client:projection_inputs",
+    "packages/@overeng/notion-effect-schema": "//packages/@overeng/notion-effect-schema:projection_inputs",
+    "packages/@overeng/notion-md": "//packages/@overeng/notion-md:projection_inputs",
+    "packages/@overeng/notion-property-write": "//packages/@overeng/notion-property-write:projection_inputs",
+    "packages/@overeng/notion-react": "//packages/@overeng/notion-react:projection_inputs",
+    "packages/@overeng/npm-release": "//packages/@overeng/npm-release:projection_inputs",
+    "packages/@overeng/otel-contract": "//packages/@overeng/otel-contract:projection_inputs",
+    "packages/@overeng/oxc-config": "//packages/@overeng/oxc-config:projection_inputs",
+    "packages/@overeng/pty-effect": "//packages/@overeng/pty-effect:projection_inputs",
+    "packages/@overeng/react-inspector": "//packages/@overeng/react-inspector:projection_inputs",
+    "packages/@overeng/restate-effect": "//packages/@overeng/restate-effect:projection_inputs",
+    "packages/@overeng/stylex-tokens": "//packages/@overeng/stylex-tokens:projection_inputs",
+    "packages/@overeng/tui-core": "//packages/@overeng/tui-core:projection_inputs",
+    "packages/@overeng/tui-react": "//packages/@overeng/tui-react:projection_inputs",
+    "packages/@overeng/tui-stories": "//packages/@overeng/tui-stories:projection_inputs",
+    "packages/@overeng/utils": "//packages/@overeng/utils:projection_inputs",
+    "packages/@overeng/utils-dev": "//packages/@overeng/utils-dev:projection_inputs",
+})
+
+# Individual modules the suite loads from other Buck packages.
+root_test_files.update({
+    "buck2-member.json.genie.ts": "//:buck2-member.json.genie.ts",
+    "buck2/dependencies/BUCK.genie.ts": "//buck2/dependencies:BUCK.genie.ts",
+    "buck2/dependencies/assemble-store.ts": "//buck2/dependencies:assemble-store.ts",
+    "buck2/dependencies/assemble-store.unit.test.ts": "//buck2/dependencies:assemble-store.unit.test.ts",
+    "buck2/dependencies/generate-sidecar.ts": "//buck2/dependencies:generate-sidecar.ts",
+    "buck2/dependencies/generate.ts": "//buck2/dependencies:generate.ts",
+    "buck2/dependencies/pnpm-lock.sha256.json.genie.ts": "//buck2/dependencies:pnpm-lock.sha256.json.genie.ts",
+    "buck2/dependencies/pnpm-lock.ts": "//buck2/dependencies:pnpm-lock.ts",
+    "buck2/dependencies/pnpm-lock.unit.test.ts": "//buck2/dependencies:pnpm-lock.unit.test.ts",
+    "buck2/dependencies/pnpm-store-buck.ts": "//buck2/dependencies:pnpm-store-buck.ts",
+    "buck2/dependencies/pnpm-store.ts": "//buck2/dependencies:pnpm-store.ts",
+    "buck2/dependencies/pnpm-store.unit.test.ts": "//buck2/dependencies:pnpm-store.unit.test.ts",
+    "buck2/dependencies/vitest.config.ts": "//buck2/dependencies:vitest.config.ts",
+    "genie/buck2/typescript-authority-manifest.json": "typescript-authority-manifest.json",
+    "package.json.genie.ts": "//:package.json.genie.ts",
+})
+
+# Declared test data: repository bytes the suite reads by path rather than
+# importing — the real lockfile pair, generated Starlark and `BUCK` text, the
+# generated workflows, the emitted CI scripts and the devenv task modules. The
+# census is `rootTestDataRoots` plus `rootTestDataFiles` in
+# `genie/buck2/root-test-layout.ts`, expanded from the repository.
+root_test_files.update({
+    "BUCK": "//:BUCK",
+    "buck2": "//:root_test_sources/buck2",
+    "buck2/dependencies/BUCK": "//buck2/dependencies:BUCK",
+    "buck2/dependencies/pnpm-lock.sha256.json": "//buck2/dependencies:pnpm-lock.sha256.json",
+    "buck2/platforms/defs.bzl": "//buck2/platforms:defs.bzl",
+    "buck2/products/defs.bzl": "//buck2/products:defs.bzl",
+    "buck2/toolchains/BUCK": "//buck2/toolchains:BUCK",
+    "buck2/toolchains/configured.bzl": "//buck2/toolchains:configured.bzl",
+    "devenv.nix": "//:devenv.nix",
+    "genie/buck2/BUCK": "//genie/buck2:BUCK",
+    "nix": "//:root_test_sources/nix",
+    "nix/devenv-modules/tasks/shared/megarepo.nix": "//nix/devenv-modules:tasks/shared/megarepo.nix",
+    "nix/devenv-modules/tasks/shared/netlify.nix": "//nix/devenv-modules:tasks/shared/netlify.nix",
+    "nix/devenv-modules/tasks/shared/vercel.nix": "//nix/devenv-modules:tasks/shared/vercel.nix",
+    "nix/devenv-modules/tasks/shared/workflow-report-module.nix": "//nix/devenv-modules:tasks/shared/workflow-report-module.nix",
+    "packages/@overeng/buck2-tools/BUCK": "//packages/@overeng/buck2-tools:BUCK",
+    "packages/@overeng/utils/patches/@myobie__pty@0.10.0.patch": "//packages/@overeng/utils:patches/@myobie__pty@0.10.0.patch",
+    "pnpm-lock.yaml": "//:pnpm-lock.yaml",
+    "pnpm-workspace.yaml": "//:pnpm-workspace.yaml",
+})
+
+export_file(
+    name = "typescript-authority-manifest.json",
+    src = "typescript-authority-manifest.json",
+    visibility = ["PUBLIC"],
+)
+
+# The suite asserts over its own generated declaration, so that file is a
+# declared input of the test action and not only its output.
+export_file(
+    name = "BUCK",
+    src = "BUCK",
+    visibility = ["PUBLIC"],
+)
+
+empty_package_view(
+    name = "authority_runtime_package_tree",
+    files = {
+        "genie/buck2/typescript-authority-manifest.json": "typescript-authority-manifest.json",
+        "genie/buck2/typescript-authority-runtime.ts": "typescript-authority-runtime.ts",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "root_test_package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_genie_b7534483be10",
+    files = root_test_files,
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":root_test_package_tree",
+    config = "genie/buck2/vitest.config.ts",
+    test_files = ["buck2/dependencies","genie/buck2","packages/@overeng/genie/src/runtime/github-workflow","packages/@overeng/otel-contract/src"],
+    # Repository-contract suites execute the CI scripts and generated workflows they assert
+    # over: `bash` is the interpreter the emitted scripts are run through, `git`, `jq`,
+    # and `wc` are driven directly by the workflow-helper fixtures, `grep` is what
+    # `genie/ci-scripts/resolve-devenv.sh` extracts an invalid store path with, `env` and the
+    # rest of the coreutils realization back the scripts' own utility lookups, and `bun` runs
+    # the generator probes. Each is the attested capability, never a host PATH lookup.
+    tools = {
+        "BASH_BIN": "//buck2/toolchains:tool_test_bash",
+        "BUN_BIN": "//buck2/toolchains:tool_bun",
+        "ENV_BIN": "//buck2/toolchains:tool_coreutils_env",
+        "GIT_BIN": "//buck2/toolchains:tool_test_git",
+        "GREP_BIN": "//buck2/toolchains:tool_test_grep",
+        "DEVENV_MODULE_TOOLS_BIN": "//buck2/toolchains:tool_test_devenv_module_tools",
+        "WC_BIN": "//buck2/toolchains:tool_coreutils_wc",
+    },
+    capabilities = ["subprocess"],
+    timeout_ms = 120000,
+    hook_timeout_ms = 120000,
+    visibility = ["PUBLIC"],
+)
+
+package_bin(
+    name = "typescript-authority-runtime",
+    entrypoint = "genie/buck2/typescript-authority-runtime.ts",
+    external_capabilities = ["buck2", "coreutils"],
+    package_tree = ":authority_runtime_package_tree",
+    visibility = ["PUBLIC"],
+)

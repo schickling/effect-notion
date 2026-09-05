@@ -3,17 +3,13 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": [
-      "ES2024",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "types": [
-      "node"
-    ],
+    "rewriteRelativeImportExtensions": true,
+    "declaration": true,
+    "types": ["node"],
     "jsx": "react-jsx",
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -23,8 +19,5 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": [
-    "src/**/*",
-    "vite.config.ts"
-  ]
+  "include": ["src/**/*", "vite.config.ts"]
 }

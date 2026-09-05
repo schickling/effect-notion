@@ -1,9 +1,6 @@
-# Backward-compatible parameterized wrapper around the canonical report module.
-#
-# New modules should import `workflow-report-module.nix` directly and configure
-# `effectUtils.workflowReport.ciToolsBin` only when overriding the default.
+# Parameterized wrapper around the canonical report module.
 {
-  ciToolsBin ? null,
+  ciToolsBin,
 }:
 { pkgs, ... }:
 {

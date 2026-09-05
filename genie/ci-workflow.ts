@@ -176,6 +176,12 @@ export {
 } from './ci-workflow/support-files.ts'
 export {
   appendGitHubAccessTokenToNixConfigStep,
+  buck2CapacityEvidenceArtifactStep,
+  buck2CapacityEvidenceDir,
+  buck2SharedCacheLaneStep,
+  buck2SharedCachePreflightStep,
+  buck2SharedCacheProvenanceArtifactStep,
+  buck2SharedCacheProvenanceDir,
   cachixCliBuildStep,
   cachixStep,
   checkoutStep,
@@ -209,6 +215,8 @@ export {
   standardSelfHostedDevenvTaskJob,
   standardSelfHostedPnpmCiPostSteps,
   standardSelfHostedPnpmCiPrepSteps,
+  tailnetEphemeralConnectStep,
+  tailnetEphemeralDisconnectStep,
   validateColdPnpmDepsStep,
   validateNixStoreStep,
   validateNixStoreStepFor,

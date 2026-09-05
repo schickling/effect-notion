@@ -1,14 +1,18 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2:package_tools.bzl", "node_package_bin", "package_bin", "package_bin_artifact", "package_bin_build", "package_bin_check", "storybook_candidates")
+load("//buck2:products.bzl", "bun_cli_product", "cli_product", "module_product")
+load("//buck2:javascript.bzl", "vitest_test")
 # Projection source: packages/@overeng/effect-react/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:01b4a2599a9e95e5d38d052556b5126541cf8869e904c7388cdfba653b4b0cf4
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/effect-react/BUCK.genie.ts, packages/@overeng/effect-react/BUCK.genie.ts, packages/@overeng/effect-react/package.json.genie.ts, packages/@overeng/effect-react/src/**/*.cts, packages/@overeng/effect-react/src/**/*.js, packages/@overeng/effect-react/src/**/*.mts, packages/@overeng/effect-react/src/**/*.ts, packages/@overeng/effect-react/src/**/*.tsx, packages/@overeng/effect-react/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:5f6b9407fe6fbb1e4654e67dff5615ed1b6881be63f6d194cfd46c5742ba5566
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/effect-react/*.genie.ts, packages/@overeng/effect-react/.storybook/**/*.cts, packages/@overeng/effect-react/.storybook/**/*.js, packages/@overeng/effect-react/.storybook/**/*.jsx, packages/@overeng/effect-react/.storybook/**/*.mts, packages/@overeng/effect-react/.storybook/**/*.ts, packages/@overeng/effect-react/.storybook/**/*.tsx, packages/@overeng/effect-react/BUCK.genie.ts, packages/@overeng/effect-react/BUCK.genie.ts, packages/@overeng/effect-react/package.json.genie.ts, packages/@overeng/effect-react/src/**/*.cts, packages/@overeng/effect-react/src/**/*.js, packages/@overeng/effect-react/src/**/*.jsx, packages/@overeng/effect-react/src/**/*.mts, packages/@overeng/effect-react/src/**/*.ts, packages/@overeng/effect-react/src/**/*.tsx, packages/@overeng/effect-react/test/**/*.cts, packages/@overeng/effect-react/test/**/*.js, packages/@overeng/effect-react/test/**/*.jsx, packages/@overeng/effect-react/test/**/*.mts, packages/@overeng/effect-react/test/**/*.ts, packages/@overeng/effect-react/test/**/*.tsx, packages/@overeng/effect-react/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -17,7 +21,14 @@ export_file(
     visibility = ["PUBLIC"],
 )
 
+export_file(
+    name = "BUCK",
+    src = "BUCK",
+    visibility = ["PUBLIC"],
+)
+
 export_materialization_inputs([
+    ".storybook/main.ts",
     "src/context.tsx",
     "src/effect-button.tsx",
     "src/external-store.ts",
@@ -26,24 +37,46 @@ export_materialization_inputs([
     "src/react-aria/EffectButton.stories.tsx",
     "src/react-aria/EffectButton.tsx",
     "src/react-aria/mod.ts",
+    "test/external-store.test.tsx",
+    "test/runtime-baseline.test.tsx",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_effect_react_111d6e63d407",
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        ".storybook/main.ts": ".storybook/main.ts",
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/context.tsx": "src/context.tsx",
+        "src/effect-button.tsx": "src/effect-button.tsx",
+        "src/external-store.ts": "src/external-store.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/progress-reporter.ts": "src/progress-reporter.ts",
+        "src/react-aria/EffectButton.stories.tsx": "src/react-aria/EffectButton.stories.tsx",
+        "src/react-aria/EffectButton.tsx": "src/react-aria/EffectButton.tsx",
+        "src/react-aria/mod.ts": "src/react-aria/mod.ts",
+        "test/external-store.test.tsx": "test/external-store.test.tsx",
+        "test/runtime-baseline.test.tsx": "test/runtime-baseline.test.tsx",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    },
     visibility = ["PUBLIC"],
 )
 
 alias(
     name = "editor_inputs",
-    actual = ":node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_effect_react_111d6e63d407",
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_effect_react_111d6e63d407",
     files = {
+        "vitest.config.ts": "vitest.config.ts",
+        ".storybook/main.ts": ".storybook/main.ts",
         "package.json": "package.json",
         "src/context.tsx": "src/context.tsx",
         "src/effect-button.tsx": "src/effect-button.tsx",
@@ -53,26 +86,18 @@ package_tree(
         "src/react-aria/EffectButton.stories.tsx": "src/react-aria/EffectButton.stories.tsx",
         "src/react-aria/EffectButton.tsx": "src/react-aria/EffectButton.tsx",
         "src/react-aria/mod.ts": "src/react-aria/mod.ts",
+        "test/external-store.test.tsx": "test/external-store.test.tsx",
+        "test/runtime-baseline.test.tsx": "test/runtime-baseline.test.tsx",
         "tsconfig.json": "tsconfig.json",
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {
-        "@overeng/otel-contract": {
-            "files": {
-                "dist": "//packages/@overeng/otel-contract:dist",
-                "package.json": "//packages/@overeng/otel-contract:package.json",
-            },
-            "links": ["@overeng/otel-contract"],
-        },
-        "@overeng/utils": {
-            "files": {
-                "dist": "//packages/@overeng/utils:dist",
-                "package.json": "//packages/@overeng/utils:package.json",
-            },
-            "links": ["@overeng/utils"],
-        },
-    },
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -82,6 +107,7 @@ tsgo_typecheck(
     visibility = ["PUBLIC"],
 )
 
+
 tsgo_emit(
     name = "dist",
     package_tree = ":package_tree",
@@ -89,4 +115,19 @@ tsgo_emit(
     },
     declaration_entrypoint = "src/mod.d.ts",
     visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
+    visibility = ["PUBLIC"],
+)
+
+storybook_candidates(
+    name = "storybook",
+    package_tree = ":package_tree",
+    port = 6009,
 )

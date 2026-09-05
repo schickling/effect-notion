@@ -13,5 +13,5 @@ export default tsconfigJson({
     noEmit: true,
   },
   include: ['src/**/*', 'bin/**/*.ts'],
-  references: [{ path: '../effect-path' }],
+  references: [],
 } satisfies TSConfigArgs)

@@ -3,9 +3,7 @@
 {
   "compilerOptions": {
     "target": "ES2024",
-    "lib": [
-      "ES2024"
-    ],
+    "lib": ["ES2024"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "allowImportingTsExtensions": true,
@@ -46,16 +44,9 @@
     "composite": true,
     "rootDir": ".",
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
-    "types": [
-      "node",
-      "bun"
-    ],
-    "jsx": "react-jsx"
+    "types": ["node", "bun"],
+    "jsx": "react-jsx",
+    "noEmit": true
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "bin/**/*.ts",
-    "bin/**/*.tsx"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "bin/**/*.ts", "bin/**/*.tsx"]
 }

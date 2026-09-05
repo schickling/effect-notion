@@ -17,11 +17,22 @@ const LOG_TIME_PATTERN = /^\[\d{2}:\d{2}:\d{2}\.\d{3}\]/gmu
 /** Version suffix appended by locally checked-out CLIs (` — running from local source (...)`). */
 const LOCAL_SOURCE_SUFFIX_PATTERN = / — running from local source \([^)]+\)/gu
 
+/**
+ * Absolute path prefix of an installed dependency, up to and including its last
+ * `node_modules/` segment. The prefix depends on how dependencies were
+ * materialized (a pnpm virtual store, a Buck dependency view, a hoisted tree),
+ * while the package-relative remainder does not.
+ */
+const MODULE_PATH_PREFIX_PATTERN = /\/\S*\/node_modules\//gu
+
 /** Replacement token written into the baseline in place of a log timestamp. */
 export const TIME_TOKEN = '[time]'
 
 /** Replacement token written into the baseline in place of the checkout root. */
 export const REPO_TOKEN = '<repo>'
+
+/** Replacement token written into the baseline in place of a dependency-install prefix. */
+export const MODULE_PATH_TOKEN = '<node_modules>/'
 
 /** Raw CLI output plus the explicit masking policy applied before baseline comparison. */
 export interface NormalizeCliOutputPolicy {
@@ -43,6 +54,14 @@ export interface NormalizeCliOutputPolicy {
    * the baseline. Root discovery stays caller-specific. Default: not applied.
    */
   readonly repoRoot?: string | undefined
+  /**
+   * Mask the absolute install prefix of dependency paths (everything up to and
+   * including the last `node_modules/` segment) as `<node_modules>/`, so the
+   * dependency materialization layout — pnpm virtual store, Buck dependency
+   * view, hoisted tree — does not gate the baseline while the
+   * package-relative file, line, and column still do. Default: `false`.
+   */
+  readonly modulePaths?: boolean | undefined
 }
 
 /**
@@ -52,17 +71,19 @@ export interface NormalizeCliOutputPolicy {
  * masked.
  *
  * @example
- * normalizeCliOutput({ input: result.stdout, ansi: true, time: true, repoRoot })
+ * normalizeCliOutput({ input: result.stdout, ansi: true, time: true, modulePaths: true, repoRoot })
  */
 export const normalizeCliOutput = ({
   input,
   ansi = false,
   time = false,
+  modulePaths = false,
   repoRoot,
 }: NormalizeCliOutputPolicy): string => {
   let output = input
   if (ansi === true) output = output.replace(ANSI_PATTERN, '')
   if (time === true) output = output.replace(LOG_TIME_PATTERN, TIME_TOKEN)
+  if (modulePaths === true) output = output.replace(MODULE_PATH_PREFIX_PATTERN, MODULE_PATH_TOKEN)
   if (repoRoot !== undefined) {
     if (repoRoot === '') throw new Error('normalizeCliOutput: repoRoot must be non-empty')
     output = output.replaceAll(repoRoot, REPO_TOKEN)

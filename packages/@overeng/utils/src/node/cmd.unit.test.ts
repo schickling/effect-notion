@@ -13,6 +13,18 @@ import { CurrentWorkingDirectory } from './workspace.ts'
 
 const TestLayer = Layer.mergeAll(NodeServices.layer, CurrentWorkingDirectory.live)
 
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+const bunBin = requireTool('BUN_BIN')
+const echoBin = requireTool('ECHO_BIN')
+const printfBin = requireTool('PRINTF_BIN')
+
 Vitest.describe('cmd helper', () => {
   const ansiRegex = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
 
@@ -20,7 +32,7 @@ Vitest.describe('cmd helper', () => {
     'runs tokenized string without shell',
     Effect.fnUntraced(
       function* () {
-        const exit = yield* cmd('printf ok')
+        const exit = yield* cmd(`${printfBin} ok`)
         expect(exit).toBe(ChildProcessSpawner.ExitCode(0))
       },
       Effect.provide(TestLayer),
@@ -32,7 +44,7 @@ Vitest.describe('cmd helper', () => {
     'runs array input',
     Effect.fnUntraced(
       function* () {
-        const exit = yield* cmd(['printf', 'ok'])
+        const exit = yield* cmd([printfBin, 'ok'])
         expect(exit).toBe(ChildProcessSpawner.ExitCode(0))
       },
       Effect.provide(TestLayer),
@@ -48,7 +60,7 @@ Vitest.describe('cmd helper', () => {
         const logsDir = path.join(workspaceRoot, 'tmp', 'cmd-tests', String(Date.now()))
 
         // first run
-        const exit1 = yield* cmd('printf first', { logDir: logsDir })
+        const exit1 = yield* cmd(`${printfBin} first`, { logDir: logsDir })
         expect(exit1).toBe(ChildProcessSpawner.ExitCode(0))
         const current = path.join(logsDir, 'dev.log')
         expect(fs.existsSync(current)).toBe(true)
@@ -58,11 +70,11 @@ Vitest.describe('cmd helper', () => {
         for (const line of firstStdoutLines) {
           expect(line).toContain('[stdout] first')
           expect(line).toContain('Info')
-          expect(line).toContain('printf first')
+          expect(line).toContain(`${printfBin} first`)
         }
 
         // second run — archives previous
-        const exit2 = yield* cmd('printf second', { logDir: logsDir })
+        const exit2 = yield* cmd(`${printfBin} second`, { logDir: logsDir })
         expect(exit2).toBe(ChildProcessSpawner.ExitCode(0))
         const archiveDir = path.join(logsDir, 'archive')
         const archives = fs.readdirSync(archiveDir).filter((file) => file.endsWith('.log'))
@@ -90,7 +102,7 @@ Vitest.describe('cmd helper', () => {
         // generate many archives to exercise retention (keep 50)
         for (let i = 0; i < 60; i++) {
           // Use small unique payloads
-          yield* cmd(['printf', String(i)], { logDir: logsDir })
+          yield* cmd([printfBin, String(i)], { logDir: logsDir })
         }
         const archivesAfter = fs.readdirSync(archiveDir).filter((file) => file.endsWith('.log'))
         expect(archivesAfter.length).toBeLessThanOrEqual(50)
@@ -108,7 +120,7 @@ Vitest.describe('cmd helper', () => {
         const workspaceRoot = path.resolve(import.meta.dirname, '../../../..')
         const logsDir = path.join(workspaceRoot, 'tmp', 'cmd-tests', `format-${Date.now()}`)
 
-        const exit = yield* cmd(['bun', '-e', "console.log('out'); console.error('err')"], {
+        const exit = yield* cmd([bunBin, '-e', "console.log('out'); console.error('err')"], {
           logDir: logsDir,
         })
         expect(exit).toBe(ChildProcessSpawner.ExitCode(0))
@@ -147,7 +159,7 @@ Vitest.describe('cmdCollect', () => {
     'collects stdout lines',
     Effect.fnUntraced(
       function* () {
-        const result = yield* cmdCollect({ commandInput: ['echo', 'hello'] })
+        const result = yield* cmdCollect({ commandInput: [echoBin, 'hello'] })
         expect(result.stdout).toEqual(['hello'])
         expect(result.exitCode).toBe(0)
       },
@@ -160,7 +172,7 @@ Vitest.describe('cmdCollect', () => {
     'collects stderr lines',
     Effect.fnUntraced(
       function* () {
-        const result = yield* cmdCollect({ commandInput: ['bun', '-e', "console.error('oops')"] })
+        const result = yield* cmdCollect({ commandInput: [bunBin, '-e', "console.error('oops')"] })
         expect(result.stderr).toEqual(['oops'])
         expect(result.exitCode).toBe(0)
       },
@@ -176,7 +188,7 @@ Vitest.describe('cmdCollect', () => {
         const lines: Array<{ stream: string; line: string }> = []
         const result = yield* cmdCollect({
           commandInput: [
-            'bun',
+            bunBin,
             '-e',
             "console.log('out1'); console.log('out2'); console.error('err1')",
           ],
@@ -201,7 +213,7 @@ Vitest.describe('cmdCollect', () => {
     'returns non-zero exit code without failing',
     Effect.fnUntraced(
       function* () {
-        const result = yield* cmdCollect({ commandInput: ['bun', '-e', 'process.exit(42)'] })
+        const result = yield* cmdCollect({ commandInput: [bunBin, '-e', 'process.exit(42)'] })
         expect(result.exitCode).toBe(42)
       },
       Effect.provide(TestLayer),

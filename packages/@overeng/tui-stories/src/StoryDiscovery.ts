@@ -5,7 +5,7 @@
  * then loads them via dynamic import() to extract CSF exports.
  */
 
-import { globSync } from 'node:fs'
+import { globSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { Context, Effect, Layer, Array as Arr } from 'effect'
@@ -38,6 +38,10 @@ const globFiles = ({
 }): string[] => {
   const results: string[] = []
   const absDir = resolve(dir)
+  /* A package directory that does not exist contributes no story files. Node's `globSync`
+     returns an empty match set for a missing `cwd` while Bun's throws `ENOENT`, so the
+     absent-directory case is decided here instead of by the host runtime. */
+  if (statSync(absDir, { throwIfNoEntry: false })?.isDirectory() !== true) return results
   for (const pattern of patterns) {
     const matches = globSync(pattern, { cwd: absDir })
     for (const match of matches) {

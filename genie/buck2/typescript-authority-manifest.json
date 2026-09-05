@@ -1,0 +1,1025 @@
+{
+  "schema": "effect-utils/typescript-authority-manifest/v1",
+  "watchPackages": [
+    {
+      "packageName": "@overeng/agent-session-ingest",
+      "packagePath": "packages/@overeng/agent-session-ingest",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": ["packages/@overeng/utils", "packages/@overeng/utils-dev"],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/buck2-tools",
+      "packagePath": "packages/@overeng/buck2-tools",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": ["packages/@overeng/utils-dev"],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/ci-tools",
+      "packagePath": "packages/@overeng/ci-tools",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src", "bin"],
+      "workspaceDependencies": [
+        "packages/@overeng/otel-contract",
+        "packages/@overeng/utils",
+        "packages/@overeng/utils-dev"
+      ],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/content-address",
+      "packagePath": "packages/@overeng/content-address",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": ["packages/@overeng/utils-dev"],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/effect-ai-claude-cli",
+      "packagePath": "packages/@overeng/effect-ai-claude-cli",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": ["packages/@overeng/utils-dev"],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/effect-distributed-lock",
+      "packagePath": "packages/@overeng/effect-distributed-lock",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": ["packages/@overeng/utils-dev"],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/effect-path",
+      "packagePath": "packages/@overeng/effect-path",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": ["packages/@overeng/utils-dev"],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/effect-react",
+      "packagePath": "packages/@overeng/effect-react",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src", ".storybook"],
+      "workspaceDependencies": ["packages/@overeng/otel-contract", "packages/@overeng/utils"],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/effect-rpc-tanstack",
+      "packagePath": "packages/@overeng/effect-rpc-tanstack",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": ["packages/@overeng/utils"],
+      "hasDist": true
+    },
+    {
+      "packageName": "effect-rpc-tanstack-example-basic",
+      "packagePath": "packages/@overeng/effect-rpc-tanstack/examples/basic",
+      "sourceFiles": ["vite.config.ts", "playwright.config.buck.ts"],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src", "tests"],
+      "workspaceDependencies": ["packages/@overeng/utils"],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/effect-schema-form",
+      "packagePath": "packages/@overeng/effect-schema-form",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": [],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/effect-schema-form-aria",
+      "packagePath": "packages/@overeng/effect-schema-form-aria",
+      "sourceFiles": ["vite.config.ts"],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src", ".storybook"],
+      "workspaceDependencies": [
+        "packages/@overeng/effect-schema-form",
+        "packages/@overeng/stylex-tokens",
+        "packages/@overeng/utils"
+      ],
+      "hasDist": true
+    },
+    {
+      "packageName": "effect-socket-examples",
+      "packagePath": "context/effect/socket",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["examples"],
+      "workspaceDependencies": [],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/genie",
+      "packagePath": "packages/@overeng/genie",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src", "bin", ".storybook"],
+      "workspaceDependencies": [
+        "packages/@overeng/otel-contract",
+        "packages/@overeng/tui-react",
+        "packages/@overeng/utils",
+        "packages/@overeng/utils-dev"
+      ],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/kdl",
+      "packagePath": "packages/@overeng/kdl",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": ["packages/@overeng/utils-dev"],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/kdl-effect",
+      "packagePath": "packages/@overeng/kdl-effect",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": ["packages/@overeng/kdl", "packages/@overeng/utils-dev"],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/megarepo",
+      "packagePath": "packages/@overeng/megarepo",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src", "bin", ".storybook"],
+      "workspaceDependencies": [
+        "packages/@overeng/effect-path",
+        "packages/@overeng/kdl",
+        "packages/@overeng/kdl-effect",
+        "packages/@overeng/otel-contract",
+        "packages/@overeng/tui-core",
+        "packages/@overeng/tui-react",
+        "packages/@overeng/utils",
+        "packages/@overeng/utils-dev"
+      ],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/notion-cli",
+      "packagePath": "packages/@overeng/notion-cli",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src", ".storybook"],
+      "workspaceDependencies": [
+        "packages/@overeng/notion-datasource-sync",
+        "packages/@overeng/notion-effect-client",
+        "packages/@overeng/notion-effect-schema",
+        "packages/@overeng/notion-md",
+        "packages/@overeng/otel-contract",
+        "packages/@overeng/tui-core",
+        "packages/@overeng/tui-react",
+        "packages/@overeng/utils",
+        "packages/@overeng/utils-dev"
+      ],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/notion-core",
+      "packagePath": "packages/@overeng/notion-core",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": [],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/notion-datasource-sync",
+      "packagePath": "packages/@overeng/notion-datasource-sync",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": [
+        "packages/@overeng/content-address",
+        "packages/@overeng/notion-core",
+        "packages/@overeng/notion-effect-client",
+        "packages/@overeng/notion-effect-schema",
+        "packages/@overeng/notion-md",
+        "packages/@overeng/notion-property-write",
+        "packages/@overeng/otel-contract",
+        "packages/@overeng/tui-react",
+        "packages/@overeng/utils"
+      ],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/notion-effect-client",
+      "packagePath": "packages/@overeng/notion-effect-client",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": [
+        "packages/@overeng/content-address",
+        "packages/@overeng/notion-core",
+        "packages/@overeng/notion-effect-schema",
+        "packages/@overeng/otel-contract",
+        "packages/@overeng/utils",
+        "packages/@overeng/utils-dev"
+      ],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/notion-effect-schema",
+      "packagePath": "packages/@overeng/notion-effect-schema",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": ["packages/@overeng/notion-core", "packages/@overeng/utils-dev"],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/notion-md",
+      "packagePath": "packages/@overeng/notion-md",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src", ".storybook"],
+      "workspaceDependencies": [
+        "packages/@overeng/content-address",
+        "packages/@overeng/notion-core",
+        "packages/@overeng/notion-effect-client",
+        "packages/@overeng/notion-effect-schema",
+        "packages/@overeng/notion-property-write",
+        "packages/@overeng/otel-contract",
+        "packages/@overeng/tui-react",
+        "packages/@overeng/utils",
+        "packages/@overeng/utils-dev"
+      ],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/notion-property-write",
+      "packagePath": "packages/@overeng/notion-property-write",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": ["packages/@overeng/notion-effect-schema"],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/notion-react",
+      "packagePath": "packages/@overeng/notion-react",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src", ".storybook"],
+      "workspaceDependencies": [
+        "packages/@overeng/notion-effect-client",
+        "packages/@overeng/notion-effect-schema",
+        "packages/@overeng/notion-md",
+        "packages/@overeng/otel-contract"
+      ],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/npm-release",
+      "packagePath": "packages/@overeng/npm-release",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": ["packages/@overeng/utils-dev"],
+      "hasDist": true
+    },
+    {
+      "packageName": "opentui-examples",
+      "packagePath": "context/opentui",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["examples"],
+      "workspaceDependencies": [],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/otel-contract",
+      "packagePath": "packages/@overeng/otel-contract",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": ["packages/@overeng/content-address", "packages/@overeng/utils-dev"],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/oxc-config",
+      "packagePath": "packages/@overeng/oxc-config",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": [],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/pty-effect",
+      "packagePath": "packages/@overeng/pty-effect",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": ["packages/@overeng/otel-contract", "packages/@overeng/utils-dev"],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/react-inspector",
+      "packagePath": "packages/@overeng/react-inspector",
+      "sourceFiles": ["vitest.setup.ts"],
+      "additionalTypecheckProjects": [
+        {
+          "projectFile": "tsconfig.strict-consumer.json",
+          "sourceRoots": ["test-d"],
+          "targetName": "typecheck_strict_consumer"
+        }
+      ],
+      "sourceRoots": ["src", ".storybook"],
+      "workspaceDependencies": [],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/restate-effect",
+      "packagePath": "packages/@overeng/restate-effect",
+      "sourceFiles": [
+        "examples/01-service.ts",
+        "examples/02-virtual-object.ts",
+        "examples/03-workflow.ts",
+        "examples/07-clients-idempotency-awakeables.ts",
+        "examples/11-testing.ts",
+        "examples/12-self-reschedule.ts",
+        "examples/13-admin-operations.ts",
+        "examples/14-http-error-classification.ts"
+      ],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": [
+        "packages/@overeng/otel-contract",
+        "packages/@overeng/utils",
+        "packages/@overeng/utils-dev"
+      ],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/tui-core",
+      "packagePath": "packages/@overeng/tui-core",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src", "test"],
+      "workspaceDependencies": [],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/tui-react",
+      "packagePath": "packages/@overeng/tui-react",
+      "sourceFiles": ["playwright.config.ts", "playwright.config.buck.ts"],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src", "test", "examples", ".storybook"],
+      "workspaceDependencies": [
+        "packages/@overeng/tui-core",
+        "packages/@overeng/utils",
+        "packages/@overeng/utils-dev"
+      ],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/tui-stories",
+      "packagePath": "packages/@overeng/tui-stories",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src", "test", "bin", ".storybook"],
+      "workspaceDependencies": [
+        "packages/@overeng/megarepo",
+        "packages/@overeng/tui-react",
+        "packages/@overeng/utils",
+        "packages/@overeng/utils-dev"
+      ],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/stylex-tokens",
+      "packagePath": "packages/@overeng/stylex-tokens",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": [],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/utils",
+      "packagePath": "packages/@overeng/utils",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": [
+        "packages/@overeng/effect-distributed-lock",
+        "packages/@overeng/otel-contract",
+        "packages/@overeng/utils-dev"
+      ],
+      "hasDist": true
+    },
+    {
+      "packageName": "@overeng/utils-dev",
+      "packagePath": "packages/@overeng/utils-dev",
+      "sourceFiles": [],
+      "additionalTypecheckProjects": [],
+      "sourceRoots": ["src"],
+      "workspaceDependencies": [],
+      "hasDist": true
+    }
+  ],
+  "authoritativeAdmissions": [
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/agent-session-ingest:dist",
+      "packagePath": "packages/@overeng/agent-session-ingest",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/agent-session-ingest:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/buck2-tools:dist",
+      "packagePath": "packages/@overeng/buck2-tools",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/buck2-tools:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/ci-tools:dist",
+      "packagePath": "packages/@overeng/ci-tools",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/ci-tools:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/content-address:dist",
+      "packagePath": "packages/@overeng/content-address",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/content-address:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/effect-ai-claude-cli:dist",
+      "packagePath": "packages/@overeng/effect-ai-claude-cli",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/effect-ai-claude-cli:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/effect-distributed-lock:dist",
+      "packagePath": "packages/@overeng/effect-distributed-lock",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/effect-distributed-lock:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/effect-path:dist",
+      "packagePath": "packages/@overeng/effect-path",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/effect-path:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/effect-react:dist",
+      "packagePath": "packages/@overeng/effect-react",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/effect-react:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/effect-rpc-tanstack:dist",
+      "packagePath": "packages/@overeng/effect-rpc-tanstack",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/effect-rpc-tanstack:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/ssr.d.ts",
+      "distTarget": "//packages/@overeng/effect-rpc-tanstack/examples/basic:dist",
+      "packagePath": "packages/@overeng/effect-rpc-tanstack/examples/basic",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/effect-rpc-tanstack/examples/basic:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/effect-schema-form:dist",
+      "packagePath": "packages/@overeng/effect-schema-form",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/effect-schema-form:typecheck"
+    },
+    {
+      "declarationEntrypoint": "mod.d.ts",
+      "distTarget": "//packages/@overeng/effect-schema-form-aria:dist",
+      "packagePath": "packages/@overeng/effect-schema-form-aria",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/effect-schema-form-aria:typecheck"
+    },
+    {
+      "declarationEntrypoint": "examples/rpc-schema.d.ts",
+      "distTarget": "//context/effect/socket:dist",
+      "packagePath": "context/effect/socket",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//context/effect/socket:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/runtime/mod.d.ts",
+      "distTarget": "//packages/@overeng/genie:dist",
+      "packagePath": "packages/@overeng/genie",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/genie:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/kdl:dist",
+      "packagePath": "packages/@overeng/kdl",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/kdl:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/kdl-effect:dist",
+      "packagePath": "packages/@overeng/kdl-effect",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/kdl-effect:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/megarepo:dist",
+      "packagePath": "packages/@overeng/megarepo",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/megarepo:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/notion-cli:dist",
+      "packagePath": "packages/@overeng/notion-cli",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/notion-cli:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/notion-core:dist",
+      "packagePath": "packages/@overeng/notion-core",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/notion-core:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/notion-datasource-sync:dist",
+      "packagePath": "packages/@overeng/notion-datasource-sync",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/notion-datasource-sync:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/notion-effect-client:dist",
+      "packagePath": "packages/@overeng/notion-effect-client",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/notion-effect-client:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/notion-effect-schema:dist",
+      "packagePath": "packages/@overeng/notion-effect-schema",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/notion-effect-schema:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/notion-md:dist",
+      "packagePath": "packages/@overeng/notion-md",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/notion-md:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/notion-property-write:dist",
+      "packagePath": "packages/@overeng/notion-property-write",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/notion-property-write:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/notion-react:dist",
+      "packagePath": "packages/@overeng/notion-react",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/notion-react:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/npm-release:dist",
+      "packagePath": "packages/@overeng/npm-release",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/npm-release:typecheck"
+    },
+    {
+      "declarationEntrypoint": "examples/simple-counter.d.ts",
+      "distTarget": "//context/opentui:dist",
+      "packagePath": "context/opentui",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//context/opentui:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/otel-contract:dist",
+      "packagePath": "packages/@overeng/otel-contract",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/otel-contract:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/oxc-config:dist",
+      "packagePath": "packages/@overeng/oxc-config",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/oxc-config:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/pty-effect:dist",
+      "packagePath": "packages/@overeng/pty-effect",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/pty-effect:typecheck"
+    },
+    {
+      "declarationEntrypoint": "index.d.ts",
+      "distTarget": "//packages/@overeng/react-inspector:dist",
+      "packagePath": "packages/@overeng/react-inspector",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/react-inspector:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/restate-effect:dist",
+      "packagePath": "packages/@overeng/restate-effect",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/restate-effect:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/tui-core:dist",
+      "packagePath": "packages/@overeng/tui-core",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/tui-core:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/tui-react:dist",
+      "packagePath": "packages/@overeng/tui-react",
+      "projectFile": "tsconfig.buck.json",
+      "typecheckTarget": "//packages/@overeng/tui-react:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/mod.d.ts",
+      "distTarget": "//packages/@overeng/tui-stories:dist",
+      "packagePath": "packages/@overeng/tui-stories",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/tui-stories:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/tokens.stylex.d.ts",
+      "distTarget": "//packages/@overeng/stylex-tokens:dist",
+      "packagePath": "packages/@overeng/stylex-tokens",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/stylex-tokens:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/isomorphic/mod.d.ts",
+      "distTarget": "//packages/@overeng/utils:dist",
+      "packagePath": "packages/@overeng/utils",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/utils:typecheck"
+    },
+    {
+      "declarationEntrypoint": "src/node-vitest/mod.d.ts",
+      "distTarget": "//packages/@overeng/utils-dev:dist",
+      "packagePath": "packages/@overeng/utils-dev",
+      "projectFile": "tsconfig.json",
+      "typecheckTarget": "//packages/@overeng/utils-dev:typecheck"
+    }
+  ],
+  "authorityProjects": [
+    {
+      "emitTarget": "//packages/@overeng/agent-session-ingest:dist",
+      "packagePath": "packages/@overeng/agent-session-ingest",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/agent-session-ingest",
+      "typecheckTarget": "//packages/@overeng/agent-session-ingest:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/buck2-tools:dist",
+      "packagePath": "packages/@overeng/buck2-tools",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/buck2-tools",
+      "typecheckTarget": "//packages/@overeng/buck2-tools:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/ci-tools:dist",
+      "packagePath": "packages/@overeng/ci-tools",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/ci-tools",
+      "typecheckTarget": "//packages/@overeng/ci-tools:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/content-address:dist",
+      "packagePath": "packages/@overeng/content-address",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/content-address",
+      "typecheckTarget": "//packages/@overeng/content-address:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/effect-ai-claude-cli:dist",
+      "packagePath": "packages/@overeng/effect-ai-claude-cli",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/effect-ai-claude-cli",
+      "typecheckTarget": "//packages/@overeng/effect-ai-claude-cli:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/effect-distributed-lock:dist",
+      "packagePath": "packages/@overeng/effect-distributed-lock",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/effect-distributed-lock",
+      "typecheckTarget": "//packages/@overeng/effect-distributed-lock:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/effect-path:dist",
+      "packagePath": "packages/@overeng/effect-path",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/effect-path",
+      "typecheckTarget": "//packages/@overeng/effect-path:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/effect-react:dist",
+      "packagePath": "packages/@overeng/effect-react",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/effect-react",
+      "typecheckTarget": "//packages/@overeng/effect-react:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/effect-rpc-tanstack:dist",
+      "packagePath": "packages/@overeng/effect-rpc-tanstack",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/effect-rpc-tanstack",
+      "typecheckTarget": "//packages/@overeng/effect-rpc-tanstack:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/effect-rpc-tanstack/examples/basic:dist",
+      "packagePath": "packages/@overeng/effect-rpc-tanstack/examples/basic",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/effect-rpc-tanstack/examples/basic",
+      "typecheckTarget": "//packages/@overeng/effect-rpc-tanstack/examples/basic:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/effect-schema-form:dist",
+      "packagePath": "packages/@overeng/effect-schema-form",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/effect-schema-form",
+      "typecheckTarget": "//packages/@overeng/effect-schema-form:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/effect-schema-form-aria:dist",
+      "packagePath": "packages/@overeng/effect-schema-form-aria",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/effect-schema-form-aria",
+      "typecheckTarget": "//packages/@overeng/effect-schema-form-aria:typecheck"
+    },
+    {
+      "emitTarget": "//context/effect/socket:dist",
+      "packagePath": "context/effect/socket",
+      "projectFile": "tsconfig.json",
+      "projectPath": "context/effect/socket",
+      "typecheckTarget": "//context/effect/socket:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/genie:dist",
+      "packagePath": "packages/@overeng/genie",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/genie",
+      "typecheckTarget": "//packages/@overeng/genie:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/kdl:dist",
+      "packagePath": "packages/@overeng/kdl",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/kdl",
+      "typecheckTarget": "//packages/@overeng/kdl:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/kdl-effect:dist",
+      "packagePath": "packages/@overeng/kdl-effect",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/kdl-effect",
+      "typecheckTarget": "//packages/@overeng/kdl-effect:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/megarepo:dist",
+      "packagePath": "packages/@overeng/megarepo",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/megarepo",
+      "typecheckTarget": "//packages/@overeng/megarepo:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/notion-cli:dist",
+      "packagePath": "packages/@overeng/notion-cli",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/notion-cli",
+      "typecheckTarget": "//packages/@overeng/notion-cli:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/notion-core:dist",
+      "packagePath": "packages/@overeng/notion-core",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/notion-core",
+      "typecheckTarget": "//packages/@overeng/notion-core:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/notion-datasource-sync:dist",
+      "packagePath": "packages/@overeng/notion-datasource-sync",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/notion-datasource-sync",
+      "typecheckTarget": "//packages/@overeng/notion-datasource-sync:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/notion-effect-client:dist",
+      "packagePath": "packages/@overeng/notion-effect-client",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/notion-effect-client",
+      "typecheckTarget": "//packages/@overeng/notion-effect-client:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/notion-effect-schema:dist",
+      "packagePath": "packages/@overeng/notion-effect-schema",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/notion-effect-schema",
+      "typecheckTarget": "//packages/@overeng/notion-effect-schema:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/notion-md:dist",
+      "packagePath": "packages/@overeng/notion-md",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/notion-md",
+      "typecheckTarget": "//packages/@overeng/notion-md:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/notion-property-write:dist",
+      "packagePath": "packages/@overeng/notion-property-write",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/notion-property-write",
+      "typecheckTarget": "//packages/@overeng/notion-property-write:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/notion-react:dist",
+      "packagePath": "packages/@overeng/notion-react",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/notion-react",
+      "typecheckTarget": "//packages/@overeng/notion-react:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/npm-release:dist",
+      "packagePath": "packages/@overeng/npm-release",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/npm-release",
+      "typecheckTarget": "//packages/@overeng/npm-release:typecheck"
+    },
+    {
+      "emitTarget": "//context/opentui:dist",
+      "packagePath": "context/opentui",
+      "projectFile": "tsconfig.json",
+      "projectPath": "context/opentui",
+      "typecheckTarget": "//context/opentui:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/otel-contract:dist",
+      "packagePath": "packages/@overeng/otel-contract",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/otel-contract",
+      "typecheckTarget": "//packages/@overeng/otel-contract:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/oxc-config:dist",
+      "packagePath": "packages/@overeng/oxc-config",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/oxc-config",
+      "typecheckTarget": "//packages/@overeng/oxc-config:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/pty-effect:dist",
+      "packagePath": "packages/@overeng/pty-effect",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/pty-effect",
+      "typecheckTarget": "//packages/@overeng/pty-effect:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/react-inspector:dist",
+      "packagePath": "packages/@overeng/react-inspector",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/react-inspector",
+      "typecheckTarget": "//packages/@overeng/react-inspector:typecheck"
+    },
+    {
+      "packagePath": "packages/@overeng/react-inspector",
+      "projectFile": "tsconfig.strict-consumer.json",
+      "projectPath": "packages/@overeng/react-inspector/tsconfig.strict-consumer.json",
+      "typecheckTarget": "//packages/@overeng/react-inspector:typecheck_strict_consumer"
+    },
+    {
+      "emitTarget": "//packages/@overeng/restate-effect:dist",
+      "packagePath": "packages/@overeng/restate-effect",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/restate-effect",
+      "typecheckTarget": "//packages/@overeng/restate-effect:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/tui-core:dist",
+      "packagePath": "packages/@overeng/tui-core",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/tui-core",
+      "typecheckTarget": "//packages/@overeng/tui-core:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/tui-react:dist",
+      "packagePath": "packages/@overeng/tui-react",
+      "projectFile": "tsconfig.buck.json",
+      "projectPath": "packages/@overeng/tui-react",
+      "typecheckTarget": "//packages/@overeng/tui-react:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/tui-stories:dist",
+      "packagePath": "packages/@overeng/tui-stories",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/tui-stories",
+      "typecheckTarget": "//packages/@overeng/tui-stories:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/stylex-tokens:dist",
+      "packagePath": "packages/@overeng/stylex-tokens",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/stylex-tokens",
+      "typecheckTarget": "//packages/@overeng/stylex-tokens:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/utils:dist",
+      "packagePath": "packages/@overeng/utils",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/utils",
+      "typecheckTarget": "//packages/@overeng/utils:typecheck"
+    },
+    {
+      "emitTarget": "//packages/@overeng/utils-dev:dist",
+      "packagePath": "packages/@overeng/utils-dev",
+      "projectFile": "tsconfig.json",
+      "projectPath": "packages/@overeng/utils-dev",
+      "typecheckTarget": "//packages/@overeng/utils-dev:typecheck"
+    }
+  ],
+  "editorViewConsumerPackagePaths": [
+    "context/effect/socket",
+    "context/opentui",
+    "packages/@overeng/agent-session-ingest",
+    "packages/@overeng/buck2-tools",
+    "packages/@overeng/ci-tools",
+    "packages/@overeng/content-address",
+    "packages/@overeng/effect-ai-claude-cli",
+    "packages/@overeng/effect-distributed-lock",
+    "packages/@overeng/effect-path",
+    "packages/@overeng/effect-react",
+    "packages/@overeng/effect-rpc-tanstack",
+    "packages/@overeng/effect-rpc-tanstack/examples/basic",
+    "packages/@overeng/effect-schema-form",
+    "packages/@overeng/effect-schema-form-aria",
+    "packages/@overeng/genie",
+    "packages/@overeng/kdl",
+    "packages/@overeng/kdl-effect",
+    "packages/@overeng/megarepo",
+    "packages/@overeng/notion-cli",
+    "packages/@overeng/notion-core",
+    "packages/@overeng/notion-datasource-sync",
+    "packages/@overeng/notion-effect-client",
+    "packages/@overeng/notion-effect-schema",
+    "packages/@overeng/notion-md",
+    "packages/@overeng/notion-property-write",
+    "packages/@overeng/notion-react",
+    "packages/@overeng/npm-release",
+    "packages/@overeng/otel-contract",
+    "packages/@overeng/oxc-config",
+    "packages/@overeng/pty-effect",
+    "packages/@overeng/react-inspector",
+    "packages/@overeng/restate-effect",
+    "packages/@overeng/stylex-tokens",
+    "packages/@overeng/tui-core",
+    "packages/@overeng/tui-react",
+    "packages/@overeng/tui-stories",
+    "packages/@overeng/utils",
+    "packages/@overeng/utils-dev"
+  ]
+}

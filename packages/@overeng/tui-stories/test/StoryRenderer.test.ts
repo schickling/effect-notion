@@ -11,8 +11,9 @@ import { renderStory } from '../src/StoryRenderer.ts'
 /** Permissive JSON decode for asserting render output shape. */
 const parseJson = Schema.decodeSync(Schema.fromJsonString(Schema.Unknown))
 
-const WORKSPACE_ROOT = resolve(import.meta.dirname, '../../../..')
-const MEGAREPO_DIR = resolve(WORKSPACE_ROOT, 'packages/@overeng/megarepo')
+/* The story fixture package is resolved through its declared dependency link, not through a
+ * repository layout guess, so discovery works in a checkout and in a Buck package view alike. */
+const MEGAREPO_DIR = resolve(import.meta.dirname, '../node_modules/@overeng/megarepo')
 
 /* Story discovery is slow on CI (glob + sequential imports due to Bun TDZ workaround
    can take >5s). Provide it as a layer so it runs once in beforeAll — independent of

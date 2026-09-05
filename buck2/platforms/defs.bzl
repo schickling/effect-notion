@@ -21,6 +21,70 @@ def admitted_rust_target_triple(os, architecture, abi, runtime_contract):
     return triple
 
 
+# A portable product is a real target platform, not metadata: the graph under a
+# product is CONFIGURED for it, which is what makes the dependency store select
+# the platform-invariant package set instead of the host's.
+#
+# It cannot borrow prelude's cpu/os constraints — every value there names a
+# concrete machine — so it declares its own `any` values in their own
+# constraint settings. Native platforms carry none of those settings and this
+# platform carries none of prelude's, so the lockfile-derived `select()` over
+# the four admitted platforms is exhaustive and non-overlapping, and an
+# unadmitted configuration fails analysis instead of falling through a default.
+#
+# It has no Rust target triple: `admitted_rust_target_triple` rejects `any`, so
+# it can never be used as a native or execution platform.
+PortableProductPlatformInfo = provider(fields = {
+    "abi": str,
+    "architecture": str,
+    "os": str,
+    "runtime_contract": str,
+    "runtime_contract_version": str,
+})
+
+PORTABLE_PLATFORM_FIELD = "any"
+
+def _portable_product_platform_impl(ctx):
+    for field, value in [
+        ("os", ctx.attrs.os),
+        ("architecture", ctx.attrs.architecture),
+        ("abi", ctx.attrs.abi),
+    ]:
+        if value != PORTABLE_PLATFORM_FIELD:
+            fail("portable product platform {} must be {}, got {}".format(field, PORTABLE_PLATFORM_FIELD, value))
+    if not ctx.attrs.runtime_contract or not ctx.attrs.runtime_contract_version:
+        fail("portable product platform must name its runtime contract and version")
+    if len(ctx.attrs.constraint_values) != 3:
+        fail("portable product platform must pin exactly its own os, cpu, and abi `any` values")
+    constraints = {}
+    for dep in ctx.attrs.constraint_values:
+        value = dep[ConstraintValueInfo]
+        constraints[value.setting.label] = value
+    configuration = ConfigurationInfo(constraints = constraints, values = {})
+    return [
+        DefaultInfo(),
+        PlatformInfo(label = str(ctx.label.raw_target()), configuration = configuration),
+        PortableProductPlatformInfo(
+            abi = ctx.attrs.abi,
+            architecture = ctx.attrs.architecture,
+            os = ctx.attrs.os,
+            runtime_contract = ctx.attrs.runtime_contract,
+            runtime_contract_version = ctx.attrs.runtime_contract_version,
+        ),
+    ]
+
+portable_product_platform = rule(
+    impl = _portable_product_platform_impl,
+    attrs = {
+        "abi": attrs.string(),
+        "architecture": attrs.string(),
+        "constraint_values": attrs.list(attrs.dep(providers = [ConstraintValueInfo])),
+        "os": attrs.string(),
+        "runtime_contract": attrs.string(),
+        "runtime_contract_version": attrs.string(),
+    },
+)
+
 
 def _product_platform_impl(ctx):
     expected_triple = admitted_rust_target_triple(

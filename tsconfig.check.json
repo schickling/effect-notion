@@ -2,36 +2,5 @@
 // Source: tsconfig.check.json.genie.ts
 {
   "files": [],
-  "references": [
-    {
-      "path": "./context/effect/socket"
-    },
-    {
-      "path": "./context/opentui"
-    },
-    {
-      "path": "./packages/@overeng/buck2-tools"
-    },
-    {
-      "path": "./packages/@overeng/effect-rpc-tanstack/examples/basic"
-    },
-    {
-      "path": "./packages/@overeng/effect-schema-form-aria"
-    },
-    {
-      "path": "./packages/@overeng/genie"
-    },
-    {
-      "path": "./packages/@overeng/kdl-effect"
-    },
-    {
-      "path": "./packages/@overeng/megarepo"
-    },
-    {
-      "path": "./packages/@overeng/react-inspector/tsconfig.strict-consumer.json"
-    },
-    {
-      "path": "./packages/@overeng/tui-stories"
-    }
-  ]
+  "references": []
 }

@@ -3,9 +3,7 @@
 {
   "compilerOptions": {
     "target": "ES2024",
-    "lib": [
-      "ES2024"
-    ],
+    "lib": ["ES2024"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "allowImportingTsExtensions": true,
@@ -49,13 +47,6 @@
     "jsx": "react-jsx",
     "noEmit": true
   },
-  "include": [
-    "src/**/*",
-    "bin/**/*.ts"
-  ],
-  "references": [
-    {
-      "path": "../effect-path"
-    }
-  ]
+  "include": ["src/**/*", "bin/**/*.ts"],
+  "references": []
 }

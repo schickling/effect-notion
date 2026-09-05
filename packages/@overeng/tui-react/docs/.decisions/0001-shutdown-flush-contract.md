@@ -10,8 +10,8 @@ accepted
 OTLP exporter already flushes as a scope finalizer on natural exit, so correctness
 does not require a fixed sleep. The failure mode was setting
 `shutdownTimeout` below one collector round-trip, which interrupted the final
-export and silently dropped telemetry. Separately, default `NodeRuntime.runMain`
-teardown maps signals to exit code 0.
+export and silently dropped telemetry. Separately, the process exit code has to
+survive a signal: an interrupt must not be reported as success.
 
 ## Decision
 
@@ -21,6 +21,12 @@ teardown maps signals to exit code 0.
   override this with tiny values.
 - Ctrl-C remains interruptible and exits quickly even during a slow flush.
 - Signal exit preserves code 130; uncaught failures map to 1 and success to 0.
+  The code is derived from the fiber `Exit` only (`runTuiMain` leaves an
+  interrupt in the error channel; its `teardown` delegates to
+  `Runtime.defaultTeardown`). The mutable global `process.exitCode` is never an
+  input to the interrupt/failure decision — it is read only to forward an
+  app-level code on the success path, which is `createTuiApp`'s `exitCode`
+  channel.
 
 ## Consequences
 

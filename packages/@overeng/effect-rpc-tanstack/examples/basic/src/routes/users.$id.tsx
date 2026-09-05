@@ -4,7 +4,8 @@ import {
   createEffectRoute,
   type ExitEncoded,
   makeEffectLoaderResult,
-} from '../../../../src/router.ts'
+} from '@overeng/effect-rpc-tanstack/router'
+
 import { type User, UserNotFoundError } from '../rpc/api.ts'
 import { userClient } from '../rpc/client.ts'
 

@@ -1,14 +1,18 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2:package_tools.bzl", "node_package_bin", "package_bin", "package_bin_artifact", "package_bin_build", "package_bin_check", "storybook_candidates")
+load("//buck2:products.bzl", "bun_cli_product", "cli_product", "module_product")
+load("//buck2:javascript.bzl", "vitest_test")
 # Projection source: packages/@overeng/ci-tools/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:0d0518fe187c979e6dad320952114f771ce774caec997cd7a8990f5080559d14
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/ci-tools/BUCK.genie.ts, packages/@overeng/ci-tools/BUCK.genie.ts, packages/@overeng/ci-tools/package.json.genie.ts, packages/@overeng/ci-tools/src/**/*.cts, packages/@overeng/ci-tools/src/**/*.js, packages/@overeng/ci-tools/src/**/*.mts, packages/@overeng/ci-tools/src/**/*.ts, packages/@overeng/ci-tools/src/**/*.tsx, packages/@overeng/ci-tools/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:71ed2e156700cfdb3dee57e5f7d6d16b6dcc41188a6fe56d577fca0defab014b
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/ci-tools/*.genie.ts, packages/@overeng/ci-tools/BUCK.genie.ts, packages/@overeng/ci-tools/BUCK.genie.ts, packages/@overeng/ci-tools/bin/**/*.cts, packages/@overeng/ci-tools/bin/**/*.js, packages/@overeng/ci-tools/bin/**/*.jsx, packages/@overeng/ci-tools/bin/**/*.mts, packages/@overeng/ci-tools/bin/**/*.ts, packages/@overeng/ci-tools/bin/**/*.tsx, packages/@overeng/ci-tools/package.json.genie.ts, packages/@overeng/ci-tools/src/**/*.cts, packages/@overeng/ci-tools/src/**/*.js, packages/@overeng/ci-tools/src/**/*.jsx, packages/@overeng/ci-tools/src/**/*.mts, packages/@overeng/ci-tools/src/**/*.snap, packages/@overeng/ci-tools/src/**/*.ts, packages/@overeng/ci-tools/src/**/*.tsx, packages/@overeng/ci-tools/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -17,7 +21,14 @@ export_file(
     visibility = ["PUBLIC"],
 )
 
+export_file(
+    name = "BUCK",
+    src = "BUCK",
+    visibility = ["PUBLIC"],
+)
+
 export_materialization_inputs([
+    "bin/ci-tools.ts",
     "src/cli-command.ts",
     "src/cli.contract.test.ts",
     "src/deploy-domain.contract.ts",
@@ -38,22 +49,58 @@ export_materialization_inputs([
     "src/workflow-report.ts",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_ci_tools_ed163de971d5",
+# Declared test data: fixture bytes a test reads at runtime, admitted by glob so a
+# new fixture under a declared root is an action input without a projection rewrite.
+# An empty match fails the package instead of silently dropping a declared input.
+package_test_data = {
+    source: source
+    for source in glob(["src/**/*.snap"])
+} or fail("declared test data matched no file: packages/@overeng/ci-tools")
+
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "bin/ci-tools.ts": "bin/ci-tools.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/cli-command.ts": "src/cli-command.ts",
+        "src/cli.contract.test.ts": "src/cli.contract.test.ts",
+        "src/deploy-domain.contract.ts": "src/deploy-domain.contract.ts",
+        "src/deploy-domain.test.ts": "src/deploy-domain.test.ts",
+        "src/deploy-domain.ts": "src/deploy-domain.ts",
+        "src/deploy-io.ts": "src/deploy-io.ts",
+        "src/deploy-netlify.e2e.test.ts": "src/deploy-netlify.e2e.test.ts",
+        "src/deploy-netlify.live.e2e.test.ts": "src/deploy-netlify.live.e2e.test.ts",
+        "src/deploy-netlify.ts": "src/deploy-netlify.ts",
+        "src/deploy-vercel.e2e.test.ts": "src/deploy-vercel.e2e.test.ts",
+        "src/deploy-vercel.live.e2e.test.ts": "src/deploy-vercel.live.e2e.test.ts",
+        "src/deploy-vercel.ts": "src/deploy-vercel.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/quarantine.test.ts": "src/quarantine.test.ts",
+        "src/quarantine.ts": "src/quarantine.ts",
+        "src/workflow-report.e2e.test.ts": "src/workflow-report.e2e.test.ts",
+        "src/workflow-report.test.ts": "src/workflow-report.test.ts",
+        "src/workflow-report.ts": "src/workflow-report.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    } | package_test_data,
     visibility = ["PUBLIC"],
 )
 
 alias(
     name = "editor_inputs",
-    actual = ":node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_ci_tools_ed163de971d5",
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_ci_tools_ed163de971d5",
     files = {
+        "vitest.config.ts": "vitest.config.ts",
+        "bin/ci-tools.ts": "bin/ci-tools.ts",
         "package.json": "package.json",
         "src/cli-command.ts": "src/cli-command.ts",
         "src/cli.contract.test.ts": "src/cli.contract.test.ts",
@@ -74,32 +121,15 @@ package_tree(
         "src/workflow-report.test.ts": "src/workflow-report.test.ts",
         "src/workflow-report.ts": "src/workflow-report.ts",
         "tsconfig.json": "tsconfig.json",
-    },
+    } | package_test_data,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {
-        "@overeng/otel-contract": {
-            "files": {
-                "dist": "//packages/@overeng/otel-contract:dist",
-                "package.json": "//packages/@overeng/otel-contract:package.json",
-            },
-            "links": ["@overeng/otel-contract"],
-        },
-        "@overeng/utils": {
-            "files": {
-                "dist": "//packages/@overeng/utils:dist",
-                "package.json": "//packages/@overeng/utils:package.json",
-            },
-            "links": ["@overeng/utils"],
-        },
-        "@overeng/utils-dev": {
-            "files": {
-                "dist": "//packages/@overeng/utils-dev:dist",
-                "package.json": "//packages/@overeng/utils-dev:package.json",
-            },
-            "links": ["@overeng/utils-dev"],
-        },
-    },
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -109,11 +139,97 @@ tsgo_typecheck(
     visibility = ["PUBLIC"],
 )
 
+
 tsgo_emit(
     name = "dist",
     package_tree = ":package_tree",
     declaration_sources = {
     },
     declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
+    excludes = ["src/deploy-netlify.live.e2e.test.ts", "src/deploy-vercel.live.e2e.test.ts"],
+    tools = {"BASH_BIN": "//buck2/toolchains:tool_test_bash", "BUN_BIN": "//buck2/toolchains:tool_bun", "ENV_BIN": "//buck2/toolchains:tool_coreutils_env"},
+    capabilities = ["subprocess"],
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test_netlify_live",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 300000,
+    test_files = ["src/deploy-netlify.live.e2e.test.ts"],
+    env = {"CI_TOOLS_NETLIFY_LIVE": "1"},
+    configured_external_inputs = {"CI_TOOLS_LIVE_NETLIFY_BIN": read_config("test_capabilities", "netlify", "")},
+    tools = {"BUN_BIN": "//buck2/toolchains:tool_bun"},
+    inherited_env = ["NETLIFY_AUTH_TOKEN", "NETLIFY_SITE_ID"],
+    writable_directories = {"CI_TOOLS_LIVE_WORKSPACE": "netlify"},
+    capabilities = ["network", "subprocess"],
+    execution_mode = "unsandboxed-local",
+    cacheable = False,
+    labels = ["local-only", "live", "network", "secret"],
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test_vercel_live",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 300000,
+    test_files = ["src/deploy-vercel.live.e2e.test.ts"],
+    env = {"CI_TOOLS_VERCEL_LIVE": "1"},
+    configured_external_inputs = {"CI_TOOLS_LIVE_VERCEL_BIN": read_config("test_capabilities", "vercel", "")},
+    tools = {"BUN_BIN": "//buck2/toolchains:tool_bun"},
+    inherited_env = ["VERCEL_TOKEN", "VERCEL_PROJECT_ID", "VERCEL_ORG_ID", "VERCEL_SCOPE"],
+    writable_directories = {"CI_TOOLS_LIVE_WORKSPACE": "vercel"},
+    capabilities = ["network", "subprocess"],
+    execution_mode = "unsandboxed-local",
+    cacheable = False,
+    labels = ["local-only", "live", "network", "secret"],
+    visibility = ["PUBLIC"],
+)
+
+package_bin_artifact(
+    name = "ci-tools-candidate-module",
+    entrypoint = "bin/ci-tools.ts",
+    external = [],
+    external_capabilities = [],
+    kind = "cli",
+    output = "ci-tools.js",
+    package_tree = ":package_tree",
+    target = "node",
+    visibility = ["PUBLIC"],
+)
+
+node_package_bin(
+    name = "ci-tools-candidate-launch",
+    external_capabilities = [],
+    module = ":ci-tools-candidate-module",
+    visibility = ["PUBLIC"],
+)
+
+cli_product(
+    name = "ci-tools-candidate",
+    launch = ":ci-tools-candidate-launch",
+    product_name = "ci-tools",
+    visibility = ["PUBLIC"],
+)
+
+package_bin_check(
+    name = "ci-tools-candidate-smoke",
+    args = ["--help"],
+    entrypoint = "bin/ci-tools.ts",
+    external_capabilities = [],
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )

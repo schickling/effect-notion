@@ -128,33 +128,38 @@ describe('effectSerde wire baselines (cross-major invariant)', () => {
   // replaces this transport text when it lands.
   it('captures ingress decode failure transport bytes for invalid input', () => {
     const serde = ingressSerde({ schema: Schema.Struct({ n: Schema.Finite }) })
-    const cases = {
-      wrongType: JSON.stringify({ n: 'not-a-number' }),
-      malformedJson: '{"n":',
-    } as const
-    const failures: Record<string, string> = {}
-
-    for (const [name, wire] of Object.entries(cases)) {
+    const decodeFailure = (wire: string): restate.TerminalError => {
       try {
         serde.deserialize(textEncoder.encode(wire))
-        expect.unreachable(`expected TerminalError for ${name}`)
+        return expect.unreachable(`expected TerminalError for ${wire}`)
       } catch (error) {
         expect(error).toBeInstanceOf(restate.TerminalError)
-        const terminal = error as restate.TerminalError
-        failures[name] = JSON.stringify({
-          code: terminal.code,
-          message: terminal.message,
-          metadata: terminal.metadata ?? null,
-        })
+        return error as restate.TerminalError
       }
     }
 
-    expect(failures).toMatchInlineSnapshot(`
-      {
-        "malformedJson": "{"code":400,"message":"serde decode failed: Unexpected end of JSON input","metadata":{}}",
-        "wrongType": "{"code":400,"message":"serde decode failed: Expected number\\n  at [\\"n\\"]","metadata":{}}",
-      }
-    `)
+    /* A schema mismatch renders entirely through Effect's issue formatter, so
+     * the whole envelope is this package's own output and pins byte-exactly. */
+    const wrongType = decodeFailure(JSON.stringify({ n: 'not-a-number' }))
+    expect(
+      JSON.stringify({
+        code: wrongType.code,
+        message: wrongType.message,
+        metadata: wrongType.metadata ?? null,
+      }),
+    ).toMatchInlineSnapshot(
+      `"{"code":400,"message":"serde decode failed: Expected number\\n  at [\\"n\\"]","metadata":{}}"`,
+    )
+
+    /* Malformed JSON never reaches the schema: the detail is the host engine's
+     * own `SyntaxError.message` — "Unexpected end of JSON input" on V8,
+     * "JSON Parse error: Unexpected EOF" on JavaScriptCore. Only the envelope
+     * this package renders around it is a contract, so pin exactly that and
+     * leave the engine's wording to the engine. */
+    const malformedJson = decodeFailure('{"n":')
+    expect(malformedJson.code).toBe(400)
+    expect(malformedJson.metadata ?? null).toStrictEqual({})
+    expect(malformedJson.message).toMatch(/^serde decode failed: .+/)
   })
 
   // Internal decode failure must stay outside #978's stable ingress 400

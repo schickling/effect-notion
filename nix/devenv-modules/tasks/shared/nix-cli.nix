@@ -307,9 +307,6 @@ let
     "nix:check:${pkg.name}" = {
       description = "Check if ${pkg.name} hash is stale (full build)";
       exec = trace.exec "nix:check:${pkg.name}" "${checkHashScript} '${pkg.flakeRef}' '${pkg.name}' '${pkg.hashSource}' '${pkg.lockfile or ""}' '${pkg.packageJson or ""}'";
-      # Depends on the full workspace pnpm:install so the staged build inputs
-      # stay synchronized with the authoritative repo-root lockfile.
-      after = lib.optional (pkg ? lockfile) "pnpm:install";
     };
   };
 
@@ -363,7 +360,6 @@ lib.mkIf hasPackages {
           "nix:check" = {
             description = "Check if any CLI hashes are stale (for CI, full build)";
             exec = trace.exec "nix:check" "${sequentialNixCheckScript}";
-            after = lib.optional (packagesWithLockfile != [ ]) "pnpm:install";
           };
 
           "nix:check:quick" = {

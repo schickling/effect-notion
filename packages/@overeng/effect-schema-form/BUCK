@@ -1,19 +1,27 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2:javascript.bzl", "vitest_test")
 # Projection source: packages/@overeng/effect-schema-form/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:442806d87a7f36fb9481a8cb5c5e943511dd5b9a346b776de14c81dcef942a4a
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/effect-schema-form/BUCK.genie.ts, packages/@overeng/effect-schema-form/BUCK.genie.ts, packages/@overeng/effect-schema-form/package.json.genie.ts, packages/@overeng/effect-schema-form/src/**/*.cts, packages/@overeng/effect-schema-form/src/**/*.js, packages/@overeng/effect-schema-form/src/**/*.mts, packages/@overeng/effect-schema-form/src/**/*.ts, packages/@overeng/effect-schema-form/src/**/*.tsx, packages/@overeng/effect-schema-form/tsconfig.json.genie.ts
+# Semantic fingerprint: sha256:5fd605cb994e4eba069075e05731705f9d0bdf46fa322de3d0ea97c62ff934a9
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/effect-schema-form/*.genie.ts, packages/@overeng/effect-schema-form/BUCK.genie.ts, packages/@overeng/effect-schema-form/BUCK.genie.ts, packages/@overeng/effect-schema-form/package.json.genie.ts, packages/@overeng/effect-schema-form/src/**/*.cts, packages/@overeng/effect-schema-form/src/**/*.js, packages/@overeng/effect-schema-form/src/**/*.jsx, packages/@overeng/effect-schema-form/src/**/*.mts, packages/@overeng/effect-schema-form/src/**/*.ts, packages/@overeng/effect-schema-form/src/**/*.tsx, packages/@overeng/effect-schema-form/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
     name = "package.json",
     src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
     visibility = ["PUBLIC"],
 )
 
@@ -28,22 +36,38 @@ export_materialization_inputs([
     "src/utils.ts",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_effect_schema_form_9234ab1a7f4a",
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/SchemaForm.tsx": "src/SchemaForm.tsx",
+        "src/context.tsx": "src/context.tsx",
+        "src/hooks.ts": "src/hooks.ts",
+        "src/introspection.ts": "src/introspection.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/mod.unit.test.tsx": "src/mod.unit.test.tsx",
+        "src/types.ts": "src/types.ts",
+        "src/utils.ts": "src/utils.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    },
     visibility = ["PUBLIC"],
 )
 
 alias(
     name = "editor_inputs",
-    actual = ":node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_effect_schema_form_9234ab1a7f4a",
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_effect_schema_form_9234ab1a7f4a",
     files = {
+        "vitest.config.ts": "vitest.config.ts",
         "package.json": "package.json",
         "src/SchemaForm.tsx": "src/SchemaForm.tsx",
         "src/context.tsx": "src/context.tsx",
@@ -57,7 +81,12 @@ package_tree(
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {},
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -67,11 +96,21 @@ tsgo_typecheck(
     visibility = ["PUBLIC"],
 )
 
+
 tsgo_emit(
     name = "dist",
     package_tree = ":package_tree",
     declaration_sources = {
     },
     declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
     visibility = ["PUBLIC"],
 )

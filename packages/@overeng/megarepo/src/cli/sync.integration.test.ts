@@ -38,7 +38,6 @@ import {
   createWorkspaceWithLock,
   type StoreFixtureResult,
 } from '../test-utils/store-setup.ts'
-import { Cwd } from './context.ts'
 import { mrCommand } from './mod.ts'
 
 /** Schema for parsing JSON output from `mr ... --output json` */
@@ -150,9 +149,11 @@ const runMrCommand = ({
         }),
     )
 
-    const argv = [...command, ...args]
+    // `mrCommand` provides its own `Cwd` layer from the `--cwd` global flag, so an
+    // outer `Effect.provideService(Cwd, …)` is overridden and every command would
+    // silently run against the ambient process cwd. Drive the documented flag.
+    const argv = ['--cwd', cwd, ...command, ...args]
     const effect = Cli.Command.runWith(mrCommand, { version: 'test' })(argv).pipe(
-      Effect.provideService(Cwd, cwd),
       Effect.provide(consoleLayer),
     )
     const exit = yield* Effect.exit(effect)

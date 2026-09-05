@@ -21,12 +21,15 @@ import { expect } from 'vitest'
 
 import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
 
+import { requireTool } from '../test-utils/require-tool.ts'
 import * as Git from './git.ts'
+
+const gitBin = requireTool('GIT_BIN')
 
 const git = (cwd: string, ...args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     return (yield* ChildProcessSpawner.use((spawner) =>
-      spawner.string(Command.make('git', args, { cwd })),
+      spawner.string(Command.make(gitBin, args, { cwd })),
     )).trim()
   })
 

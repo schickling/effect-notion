@@ -1,0 +1,262 @@
+# Generated file - DO NOT EDIT
+# Source: BUCK.genie.ts
+
+load("//buck2:package_tools.bzl", "node_package_bin", "package_bin", "package_bin_artifact", "package_bin_build", "package_bin_check", "storybook_candidates")
+load("//buck2:products.bzl", "bun_cli_product", "cli_product", "module_product")
+load("//buck2:javascript.bzl", "vitest_test")
+# Projection source: packages/@overeng/tui-stories/BUCK.genie.ts
+# Projection schema version: 5
+# Projection generator: effect-utils/genie/buck2-typescript-package-projection
+# Semantic fingerprint: sha256:bfceca2b33f013bd6970ebb35b3a419cb5392d23a25d02ff6d0bfa52c6f5bad0
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/megarepo/BUCK.genie.ts, packages/@overeng/megarepo/package.json.genie.ts, packages/@overeng/megarepo/src/**/*.cts, packages/@overeng/megarepo/src/**/*.js, packages/@overeng/megarepo/src/**/*.jsx, packages/@overeng/megarepo/src/**/*.mts, packages/@overeng/megarepo/src/**/*.ts, packages/@overeng/megarepo/src/**/*.tsx, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/tui-stories/*.genie.ts, packages/@overeng/tui-stories/.storybook/**/*.cts, packages/@overeng/tui-stories/.storybook/**/*.js, packages/@overeng/tui-stories/.storybook/**/*.jsx, packages/@overeng/tui-stories/.storybook/**/*.mts, packages/@overeng/tui-stories/.storybook/**/*.ts, packages/@overeng/tui-stories/.storybook/**/*.tsx, packages/@overeng/tui-stories/BUCK.genie.ts, packages/@overeng/tui-stories/BUCK.genie.ts, packages/@overeng/tui-stories/bin/**/*.cts, packages/@overeng/tui-stories/bin/**/*.js, packages/@overeng/tui-stories/bin/**/*.jsx, packages/@overeng/tui-stories/bin/**/*.mts, packages/@overeng/tui-stories/bin/**/*.ts, packages/@overeng/tui-stories/bin/**/*.tsx, packages/@overeng/tui-stories/package.json.genie.ts, packages/@overeng/tui-stories/src/**/*.cts, packages/@overeng/tui-stories/src/**/*.js, packages/@overeng/tui-stories/src/**/*.jsx, packages/@overeng/tui-stories/src/**/*.mts, packages/@overeng/tui-stories/src/**/*.ts, packages/@overeng/tui-stories/src/**/*.tsx, packages/@overeng/tui-stories/test/**/*.cts, packages/@overeng/tui-stories/test/**/*.js, packages/@overeng/tui-stories/test/**/*.jsx, packages/@overeng/tui-stories/test/**/*.mts, packages/@overeng/tui-stories/test/**/*.snap, packages/@overeng/tui-stories/test/**/*.ts, packages/@overeng/tui-stories/test/**/*.tsx, packages/@overeng/tui-stories/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Regenerate: devenv tasks run genie:run
+
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
+
+export_file(
+    name = "package.json",
+    src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
+    visibility = ["PUBLIC"],
+)
+
+export_materialization_inputs([
+    ".storybook/main.ts",
+    ".storybook/preview.tsx",
+    "bin/tui-stories.tsx",
+    "src/StoryCapture.ts",
+    "src/StoryDiscovery.ts",
+    "src/StoryModule.ts",
+    "src/StoryRenderer.ts",
+    "src/cli/inspect.ts",
+    "src/cli/list.ts",
+    "src/cli/mod.ts",
+    "src/cli/render.ts",
+    "src/cli/renderers/InspectOutput/app.ts",
+    "src/cli/renderers/InspectOutput/mod.ts",
+    "src/cli/renderers/InspectOutput/schema.ts",
+    "src/cli/renderers/InspectOutput/stories/Results.stories.tsx",
+    "src/cli/renderers/InspectOutput/stories/_fixtures.ts",
+    "src/cli/renderers/InspectOutput/view.tsx",
+    "src/cli/renderers/ListOutput/app.ts",
+    "src/cli/renderers/ListOutput/mod.ts",
+    "src/cli/renderers/ListOutput/schema.ts",
+    "src/cli/renderers/ListOutput/stories/Results.stories.tsx",
+    "src/cli/renderers/ListOutput/stories/_fixtures.ts",
+    "src/cli/renderers/ListOutput/view.tsx",
+    "src/cli/renderers/RenderOutput/app.ts",
+    "src/cli/renderers/RenderOutput/mod.ts",
+    "src/cli/renderers/RenderOutput/schema.ts",
+    "src/cli/renderers/RenderOutput/stories/Errors.stories.tsx",
+    "src/cli/renderers/RenderOutput/stories/Success.stories.tsx",
+    "src/cli/renderers/RenderOutput/stories/_fixtures.ts",
+    "src/cli/renderers/RenderOutput/stories/_megarepo-renders.ts",
+    "src/cli/renderers/RenderOutput/stories/_render-helper.ts",
+    "src/cli/renderers/RenderOutput/view.tsx",
+    "src/mod.ts",
+    "test/StoryCapture.test.ts",
+    "test/StoryDiscovery.test.ts",
+    "test/StoryModule.test.ts",
+    "test/StoryRenderer.test.ts",
+    "test/cli.contract.test.ts",
+    "test/render-wire-baseline.test.ts",
+])
+
+# Declared test data: fixture bytes a test reads at runtime, admitted by glob so a
+# new fixture under a declared root is an action input without a projection rewrite.
+# An empty match fails the package instead of silently dropping a declared input.
+package_test_data = {
+    source: source
+    for source in glob(["test/**/*.snap"])
+} or fail("declared test data matched no file: packages/@overeng/tui-stories")
+
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        ".storybook/main.ts": ".storybook/main.ts",
+        ".storybook/preview.tsx": ".storybook/preview.tsx",
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "bin/tui-stories.tsx": "bin/tui-stories.tsx",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/StoryCapture.ts": "src/StoryCapture.ts",
+        "src/StoryDiscovery.ts": "src/StoryDiscovery.ts",
+        "src/StoryModule.ts": "src/StoryModule.ts",
+        "src/StoryRenderer.ts": "src/StoryRenderer.ts",
+        "src/cli/inspect.ts": "src/cli/inspect.ts",
+        "src/cli/list.ts": "src/cli/list.ts",
+        "src/cli/mod.ts": "src/cli/mod.ts",
+        "src/cli/render.ts": "src/cli/render.ts",
+        "src/cli/renderers/InspectOutput/app.ts": "src/cli/renderers/InspectOutput/app.ts",
+        "src/cli/renderers/InspectOutput/mod.ts": "src/cli/renderers/InspectOutput/mod.ts",
+        "src/cli/renderers/InspectOutput/schema.ts": "src/cli/renderers/InspectOutput/schema.ts",
+        "src/cli/renderers/InspectOutput/stories/Results.stories.tsx": "src/cli/renderers/InspectOutput/stories/Results.stories.tsx",
+        "src/cli/renderers/InspectOutput/stories/_fixtures.ts": "src/cli/renderers/InspectOutput/stories/_fixtures.ts",
+        "src/cli/renderers/InspectOutput/view.tsx": "src/cli/renderers/InspectOutput/view.tsx",
+        "src/cli/renderers/ListOutput/app.ts": "src/cli/renderers/ListOutput/app.ts",
+        "src/cli/renderers/ListOutput/mod.ts": "src/cli/renderers/ListOutput/mod.ts",
+        "src/cli/renderers/ListOutput/schema.ts": "src/cli/renderers/ListOutput/schema.ts",
+        "src/cli/renderers/ListOutput/stories/Results.stories.tsx": "src/cli/renderers/ListOutput/stories/Results.stories.tsx",
+        "src/cli/renderers/ListOutput/stories/_fixtures.ts": "src/cli/renderers/ListOutput/stories/_fixtures.ts",
+        "src/cli/renderers/ListOutput/view.tsx": "src/cli/renderers/ListOutput/view.tsx",
+        "src/cli/renderers/RenderOutput/app.ts": "src/cli/renderers/RenderOutput/app.ts",
+        "src/cli/renderers/RenderOutput/mod.ts": "src/cli/renderers/RenderOutput/mod.ts",
+        "src/cli/renderers/RenderOutput/schema.ts": "src/cli/renderers/RenderOutput/schema.ts",
+        "src/cli/renderers/RenderOutput/stories/Errors.stories.tsx": "src/cli/renderers/RenderOutput/stories/Errors.stories.tsx",
+        "src/cli/renderers/RenderOutput/stories/Success.stories.tsx": "src/cli/renderers/RenderOutput/stories/Success.stories.tsx",
+        "src/cli/renderers/RenderOutput/stories/_fixtures.ts": "src/cli/renderers/RenderOutput/stories/_fixtures.ts",
+        "src/cli/renderers/RenderOutput/stories/_megarepo-renders.ts": "src/cli/renderers/RenderOutput/stories/_megarepo-renders.ts",
+        "src/cli/renderers/RenderOutput/stories/_render-helper.ts": "src/cli/renderers/RenderOutput/stories/_render-helper.ts",
+        "src/cli/renderers/RenderOutput/view.tsx": "src/cli/renderers/RenderOutput/view.tsx",
+        "src/mod.ts": "src/mod.ts",
+        "test/StoryCapture.test.ts": "test/StoryCapture.test.ts",
+        "test/StoryDiscovery.test.ts": "test/StoryDiscovery.test.ts",
+        "test/StoryModule.test.ts": "test/StoryModule.test.ts",
+        "test/StoryRenderer.test.ts": "test/StoryRenderer.test.ts",
+        "test/cli.contract.test.ts": "test/cli.contract.test.ts",
+        "test/render-wire-baseline.test.ts": "test/render-wire-baseline.test.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    } | package_test_data,
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "editor_inputs",
+    actual = "//buck2/dependencies:view_packages_overeng_tui_stories_e7d895529eb9",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_tui_stories_e7d895529eb9",
+    files = {
+        "vitest.config.ts": "vitest.config.ts",
+        ".storybook/main.ts": ".storybook/main.ts",
+        ".storybook/preview.tsx": ".storybook/preview.tsx",
+        "bin/tui-stories.tsx": "bin/tui-stories.tsx",
+        "package.json": "package.json",
+        "src/StoryCapture.ts": "src/StoryCapture.ts",
+        "src/StoryDiscovery.ts": "src/StoryDiscovery.ts",
+        "src/StoryModule.ts": "src/StoryModule.ts",
+        "src/StoryRenderer.ts": "src/StoryRenderer.ts",
+        "src/cli/inspect.ts": "src/cli/inspect.ts",
+        "src/cli/list.ts": "src/cli/list.ts",
+        "src/cli/mod.ts": "src/cli/mod.ts",
+        "src/cli/render.ts": "src/cli/render.ts",
+        "src/cli/renderers/InspectOutput/app.ts": "src/cli/renderers/InspectOutput/app.ts",
+        "src/cli/renderers/InspectOutput/mod.ts": "src/cli/renderers/InspectOutput/mod.ts",
+        "src/cli/renderers/InspectOutput/schema.ts": "src/cli/renderers/InspectOutput/schema.ts",
+        "src/cli/renderers/InspectOutput/stories/Results.stories.tsx": "src/cli/renderers/InspectOutput/stories/Results.stories.tsx",
+        "src/cli/renderers/InspectOutput/stories/_fixtures.ts": "src/cli/renderers/InspectOutput/stories/_fixtures.ts",
+        "src/cli/renderers/InspectOutput/view.tsx": "src/cli/renderers/InspectOutput/view.tsx",
+        "src/cli/renderers/ListOutput/app.ts": "src/cli/renderers/ListOutput/app.ts",
+        "src/cli/renderers/ListOutput/mod.ts": "src/cli/renderers/ListOutput/mod.ts",
+        "src/cli/renderers/ListOutput/schema.ts": "src/cli/renderers/ListOutput/schema.ts",
+        "src/cli/renderers/ListOutput/stories/Results.stories.tsx": "src/cli/renderers/ListOutput/stories/Results.stories.tsx",
+        "src/cli/renderers/ListOutput/stories/_fixtures.ts": "src/cli/renderers/ListOutput/stories/_fixtures.ts",
+        "src/cli/renderers/ListOutput/view.tsx": "src/cli/renderers/ListOutput/view.tsx",
+        "src/cli/renderers/RenderOutput/app.ts": "src/cli/renderers/RenderOutput/app.ts",
+        "src/cli/renderers/RenderOutput/mod.ts": "src/cli/renderers/RenderOutput/mod.ts",
+        "src/cli/renderers/RenderOutput/schema.ts": "src/cli/renderers/RenderOutput/schema.ts",
+        "src/cli/renderers/RenderOutput/stories/Errors.stories.tsx": "src/cli/renderers/RenderOutput/stories/Errors.stories.tsx",
+        "src/cli/renderers/RenderOutput/stories/Success.stories.tsx": "src/cli/renderers/RenderOutput/stories/Success.stories.tsx",
+        "src/cli/renderers/RenderOutput/stories/_fixtures.ts": "src/cli/renderers/RenderOutput/stories/_fixtures.ts",
+        "src/cli/renderers/RenderOutput/stories/_megarepo-renders.ts": "src/cli/renderers/RenderOutput/stories/_megarepo-renders.ts",
+        "src/cli/renderers/RenderOutput/stories/_render-helper.ts": "src/cli/renderers/RenderOutput/stories/_render-helper.ts",
+        "src/cli/renderers/RenderOutput/view.tsx": "src/cli/renderers/RenderOutput/view.tsx",
+        "src/mod.ts": "src/mod.ts",
+        "test/StoryCapture.test.ts": "test/StoryCapture.test.ts",
+        "test/StoryDiscovery.test.ts": "test/StoryDiscovery.test.ts",
+        "test/StoryModule.test.ts": "test/StoryModule.test.ts",
+        "test/StoryRenderer.test.ts": "test/StoryRenderer.test.ts",
+        "test/cli.contract.test.ts": "test/cli.contract.test.ts",
+        "test/render-wire-baseline.test.ts": "test/render-wire-baseline.test.ts",
+        "tsconfig.json": "tsconfig.json",
+    } | package_test_data,
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+tsgo_typecheck(
+    name = "typecheck",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+
+tsgo_emit(
+    name = "dist",
+    package_tree = ":package_tree",
+    declaration_sources = {
+    },
+    declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
+    tools = {"BUN_BIN": "//buck2/toolchains:tool_bun"},
+    capabilities = ["subprocess"],
+    visibility = ["PUBLIC"],
+)
+
+storybook_candidates(
+    name = "storybook",
+    package_tree = ":package_tree",
+    port = 6013,
+)
+
+package_bin_artifact(
+    name = "tui-stories-candidate-module",
+    entrypoint = "bin/tui-stories.tsx",
+    external = [],
+    external_capabilities = [],
+    kind = "cli",
+    output = "tui-stories.js",
+    package_tree = ":package_tree",
+    target = "node",
+    visibility = ["PUBLIC"],
+)
+
+node_package_bin(
+    name = "tui-stories-candidate-launch",
+    external_capabilities = [],
+    module = ":tui-stories-candidate-module",
+    visibility = ["PUBLIC"],
+)
+
+cli_product(
+    name = "tui-stories-candidate",
+    launch = ":tui-stories-candidate-launch",
+    product_name = "tui-stories",
+    visibility = ["PUBLIC"],
+)
+
+package_bin_check(
+    name = "tui-stories-candidate-smoke",
+    args = ["--help"],
+    entrypoint = "bin/tui-stories.tsx",
+    external_capabilities = [],
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
