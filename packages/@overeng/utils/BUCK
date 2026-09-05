@@ -1,19 +1,27 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2:javascript.bzl", "vitest_test")
 # Projection source: packages/@overeng/utils/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:d1e8d611418409b8d5fbbd1dc432f2546767a0a7ec4cc501458bee4cbeddbf47
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/effect-distributed-lock/BUCK.genie.ts, packages/@overeng/effect-distributed-lock/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts, packages/@overeng/utils/src/**/*.cts, packages/@overeng/utils/src/**/*.js, packages/@overeng/utils/src/**/*.mts, packages/@overeng/utils/src/**/*.ts, packages/@overeng/utils/src/**/*.tsx, packages/@overeng/utils/tsconfig.json.genie.ts
+# Semantic fingerprint: sha256:355c94fc76d19d5894e6528be11180148cef97847599598b213f7f09cc920e61
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/effect-distributed-lock/BUCK.genie.ts, packages/@overeng/effect-distributed-lock/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/*.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts, packages/@overeng/utils/patches/@myobie__pty@0.10.0.patch, packages/@overeng/utils/src/**/*.cts, packages/@overeng/utils/src/**/*.js, packages/@overeng/utils/src/**/*.jsx, packages/@overeng/utils/src/**/*.mts, packages/@overeng/utils/src/**/*.ts, packages/@overeng/utils/src/**/*.tsx, packages/@overeng/utils/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
     name = "package.json",
     src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
     visibility = ["PUBLIC"],
 )
 
@@ -121,25 +129,139 @@ export_materialization_inputs([
     "src/node/watch.ts",
     "src/node/watch.unit.test.ts",
     "src/node/workspace.ts",
+    "patches/@myobie__pty@0.10.0.patch",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_utils_07fe64e7b8ad",
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "patches/@myobie__pty@0.10.0.patch": "patches/@myobie__pty@0.10.0.patch",
+        "src/browser/BroadcastLogger.ts": "src/browser/BroadcastLogger.ts",
+        "src/browser/__tests__/BroadcastLogger.pw.test.ts": "src/browser/__tests__/BroadcastLogger.pw.test.ts",
+        "src/browser/__tests__/fixtures/test-page.ts": "src/browser/__tests__/fixtures/test-page.ts",
+        "src/browser/__tests__/fixtures/test-worker.ts": "src/browser/__tests__/fixtures/test-worker.ts",
+        "src/browser/__tests__/vite.config.ts": "src/browser/__tests__/vite.config.ts",
+        "src/browser/base64.ts": "src/browser/base64.ts",
+        "src/browser/base64.unit.test.ts": "src/browser/base64.unit.test.ts",
+        "src/browser/browser-detect.ts": "src/browser/browser-detect.ts",
+        "src/browser/mod.ts": "src/browser/mod.ts",
+        "src/browser/opfs.ts": "src/browser/opfs.ts",
+        "src/browser/pretty-bytes.ts": "src/browser/pretty-bytes.ts",
+        "src/browser/web-lock.ts": "src/browser/web-lock.ts",
+        "src/cuid/cuid.browser.ts": "src/cuid/cuid.browser.ts",
+        "src/cuid/cuid.node.ts": "src/cuid/cuid.node.ts",
+        "src/cuid/mod.ts": "src/cuid/mod.ts",
+        "src/isomorphic/ScopeDebugger.ts": "src/isomorphic/ScopeDebugger.ts",
+        "src/isomorphic/ScopeDebugger.unit.test.ts": "src/isomorphic/ScopeDebugger.unit.test.ts",
+        "src/isomorphic/binary.ts": "src/isomorphic/binary.ts",
+        "src/isomorphic/core.ts": "src/isomorphic/core.ts",
+        "src/isomorphic/get-env.ts": "src/isomorphic/get-env.ts",
+        "src/isomorphic/hash.ts": "src/isomorphic/hash.ts",
+        "src/isomorphic/hash.unit.test.ts": "src/isomorphic/hash.unit.test.ts",
+        "src/isomorphic/humanized-date.ts": "src/isomorphic/humanized-date.ts",
+        "src/isomorphic/in-memory-backing.ts": "src/isomorphic/in-memory-backing.ts",
+        "src/isomorphic/lineage/mod.ts": "src/isomorphic/lineage/mod.ts",
+        "src/isomorphic/lineage/mod.unit.test.ts": "src/isomorphic/lineage/mod.unit.test.ts",
+        "src/isomorphic/misc.ts": "src/isomorphic/misc.ts",
+        "src/isomorphic/misc.unit.test.ts": "src/isomorphic/misc.unit.test.ts",
+        "src/isomorphic/mod.ts": "src/isomorphic/mod.ts",
+        "src/isomorphic/object/mod.ts": "src/isomorphic/object/mod.ts",
+        "src/isomorphic/object/omit.ts": "src/isomorphic/object/omit.ts",
+        "src/isomorphic/object/pick.ts": "src/isomorphic/object/pick.ts",
+        "src/isomorphic/single-item.ts": "src/isomorphic/single-item.ts",
+        "src/isomorphic/string.ts": "src/isomorphic/string.ts",
+        "src/isomorphic/string.unit.test.ts": "src/isomorphic/string.unit.test.ts",
+        "src/isomorphic/time.ts": "src/isomorphic/time.ts",
+        "src/isomorphic/timestamp.ts": "src/isomorphic/timestamp.ts",
+        "src/isomorphic/types/json.ts": "src/isomorphic/types/json.ts",
+        "src/isomorphic/types/mod.ts": "src/isomorphic/types/mod.ts",
+        "src/lock/mod.ts": "src/lock/mod.ts",
+        "src/node/ActiveHandlesDebugger.ts": "src/node/ActiveHandlesDebugger.ts",
+        "src/node/ActiveHandlesDebugger.unit.test.ts": "src/node/ActiveHandlesDebugger.unit.test.ts",
+        "src/node/FileLogger.ts": "src/node/FileLogger.ts",
+        "src/node/FileLogger.unit.test.ts": "src/node/FileLogger.unit.test.ts",
+        "src/node/cli-help-rewrite.ts": "src/node/cli-help-rewrite.ts",
+        "src/node/cli-help-rewrite.unit.test.ts": "src/node/cli-help-rewrite.unit.test.ts",
+        "src/node/cli-version.ts": "src/node/cli-version.ts",
+        "src/node/cli-version.unit.test.ts": "src/node/cli-version.unit.test.ts",
+        "src/node/cmd-log.ts": "src/node/cmd-log.ts",
+        "src/node/cmd.contract.ts": "src/node/cmd.contract.ts",
+        "src/node/cmd.ts": "src/node/cmd.ts",
+        "src/node/cmd.unit.test.ts": "src/node/cmd.unit.test.ts",
+        "src/node/file-system-backing.ts": "src/node/file-system-backing.ts",
+        "src/node/file-system-backing.unit.test.ts": "src/node/file-system-backing.unit.test.ts",
+        "src/node/mod.ts": "src/node/mod.ts",
+        "src/node/net.ts": "src/node/net.ts",
+        "src/node/net.unit.test.ts": "src/node/net.unit.test.ts",
+        "src/node/otel-attrs.ts": "src/node/otel-attrs.ts",
+        "src/node/otel-attrs.unit.test.ts": "src/node/otel-attrs.unit.test.ts",
+        "src/node/otel-identity.test.ts": "src/node/otel-identity.test.ts",
+        "src/node/otel-telemetry.test.ts": "src/node/otel-telemetry.test.ts",
+        "src/node/otel.ts": "src/node/otel.ts",
+        "src/node/otel.unit.test.ts": "src/node/otel.unit.test.ts",
+        "src/node/playwright/config/config.unit.test.ts": "src/node/playwright/config/config.unit.test.ts",
+        "src/node/playwright/config/mod.ts": "src/node/playwright/config/mod.ts",
+        "src/node/playwright/context.ts": "src/node/playwright/context.ts",
+        "src/node/playwright/locator.ts": "src/node/playwright/locator.ts",
+        "src/node/playwright/mod.ts": "src/node/playwright/mod.ts",
+        "src/node/playwright/op.ts": "src/node/playwright/op.ts",
+        "src/node/playwright/otel.ts": "src/node/playwright/otel.ts",
+        "src/node/playwright/otel.unit.test.ts": "src/node/playwright/otel.unit.test.ts",
+        "src/node/playwright/page.ts": "src/node/playwright/page.ts",
+        "src/node/playwright/pw.contract.ts": "src/node/playwright/pw.contract.ts",
+        "src/node/playwright/step.ts": "src/node/playwright/step.ts",
+        "src/node/playwright/tags.ts": "src/node/playwright/tags.ts",
+        "src/node/playwright/test.ts": "src/node/playwright/test.ts",
+        "src/node/playwright/wait.ts": "src/node/playwright/wait.ts",
+        "src/node/semaphore.contract.ts": "src/node/semaphore.contract.ts",
+        "src/node/storybook/config/mod.ts": "src/node/storybook/config/mod.ts",
+        "src/node/storybook/config/mod.unit.test.ts": "src/node/storybook/config/mod.unit.test.ts",
+        "src/node/storybook/gate/annotations.ts": "src/node/storybook/gate/annotations.ts",
+        "src/node/storybook/gate/cli.ts": "src/node/storybook/gate/cli.ts",
+        "src/node/storybook/gate/constants.ts": "src/node/storybook/gate/constants.ts",
+        "src/node/storybook/gate/mod.ts": "src/node/storybook/gate/mod.ts",
+        "src/node/storybook/gate/project.ts": "src/node/storybook/gate/project.ts",
+        "src/node/storybook/gate/project.unit.test.ts": "src/node/storybook/gate/project.unit.test.ts",
+        "src/node/storybook/gate/run.ts": "src/node/storybook/gate/run.ts",
+        "src/node/storybook/gate/run.unit.test.ts": "src/node/storybook/gate/run.unit.test.ts",
+        "src/node/storybook/gate/settle.ts": "src/node/storybook/gate/settle.ts",
+        "src/node/storybook/gate/settle.unit.test.ts": "src/node/storybook/gate/settle.unit.test.ts",
+        "src/node/storybook/gate/setup.ts": "src/node/storybook/gate/setup.ts",
+        "src/node/storybook/gate/virtual-modules.d.ts": "src/node/storybook/gate/virtual-modules.d.ts",
+        "src/node/storybook/mod.ts": "src/node/storybook/mod.ts",
+        "src/node/storybook/opentui-stub.ts": "src/node/storybook/opentui-stub.ts",
+        "src/node/stylex/focus-order.ts": "src/node/stylex/focus-order.ts",
+        "src/node/stylex/focus-order.unit.test.ts": "src/node/stylex/focus-order.unit.test.ts",
+        "src/node/stylex/mod-types.d.ts": "src/node/stylex/mod-types.d.ts",
+        "src/node/stylex/mod.installed-consumer.test.ts": "src/node/stylex/mod.installed-consumer.test.ts",
+        "src/node/stylex/mod.js": "src/node/stylex/mod.js",
+        "src/node/stylex/mod.unit.test.ts": "src/node/stylex/mod.unit.test.ts",
+        "src/node/watch.ts": "src/node/watch.ts",
+        "src/node/watch.unit.test.ts": "src/node/watch.unit.test.ts",
+        "src/node/workspace.ts": "src/node/workspace.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    },
     visibility = ["PUBLIC"],
 )
 
 alias(
     name = "editor_inputs",
-    actual = ":node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_utils_07fe64e7b8ad",
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_utils_07fe64e7b8ad",
     files = {
+        "vitest.config.ts": "vitest.config.ts",
         "package.json": "package.json",
+        "patches/@myobie__pty@0.10.0.patch": "patches/@myobie__pty@0.10.0.patch",
         "src/browser/BroadcastLogger.ts": "src/browser/BroadcastLogger.ts",
         "src/browser/__tests__/BroadcastLogger.pw.test.ts": "src/browser/__tests__/BroadcastLogger.pw.test.ts",
         "src/browser/__tests__/fixtures/test-page.ts": "src/browser/__tests__/fixtures/test-page.ts",
@@ -247,29 +369,12 @@ package_tree(
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {
-        "@overeng/effect-distributed-lock": {
-            "files": {
-                "dist": "//packages/@overeng/effect-distributed-lock:dist",
-                "package.json": "//packages/@overeng/effect-distributed-lock:package.json",
-            },
-            "links": ["@overeng/effect-distributed-lock"],
-        },
-        "@overeng/otel-contract": {
-            "files": {
-                "dist": "//packages/@overeng/otel-contract:dist",
-                "package.json": "//packages/@overeng/otel-contract:package.json",
-            },
-            "links": ["@overeng/otel-contract"],
-        },
-        "@overeng/utils-dev": {
-            "files": {
-                "dist": "//packages/@overeng/utils-dev:dist",
-                "package.json": "//packages/@overeng/utils-dev:package.json",
-            },
-            "links": ["@overeng/utils-dev"],
-        },
-    },
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -279,6 +384,7 @@ tsgo_typecheck(
     visibility = ["PUBLIC"],
 )
 
+
 tsgo_emit(
     name = "dist",
     package_tree = ":package_tree",
@@ -287,5 +393,16 @@ tsgo_emit(
         "src/node/stylex/mod-types.d.ts": "src/node/stylex/mod-types.d.ts",
     },
     declaration_entrypoint = "src/isomorphic/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
+    tools = {"BUN_BIN": "//buck2/toolchains:tool_bun", "ECHO_BIN": "//buck2/toolchains:tool_coreutils_echo", "OTELITE_BIN": "//buck2/toolchains:tool_test_otelite", "PRINTF_BIN": "//buck2/toolchains:tool_coreutils_printf"},
+    capabilities = ["subprocess"],
     visibility = ["PUBLIC"],
 )

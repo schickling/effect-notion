@@ -37,13 +37,9 @@ simulate_tool_identity() {
   local tool_path="$2"
   local resolved_path
 
-  resolved_path=$(python - <<'PY' "$tool_path"
-import pathlib
-import sys
-
-print(pathlib.Path(sys.argv[1]).resolve())
-PY
-)
+  # `realpath` from the declared coreutils, not a Python one-liner: decision 0028 admits exactly
+  # one hermetic Python realization and this lane's tool set deliberately does not carry another.
+  resolved_path=$(realpath -- "$tool_path")
 
   {
     printf 'tool %s path %s\n' "$tool_name" "$tool_path"

@@ -32,11 +32,14 @@
 #   - test:watch - Run tests in watch mode
 #   - test:<name> - Run tests for specific package (when packages provided)
 {
+  targets ? [ ],
   packages ? [ ],
+  legacy ? false,
   installTask ? "pnpm:install",
   extraTests ? [ ],
   packageConcurrency ? null,
   retainVitestJson ? false,
+  buckAfter ? [ ],
 }:
 { lib, pkgs, ... }:
 let
@@ -46,6 +49,40 @@ let
     builtins.readFile ./pnpm-task-helpers.sh
   );
   hasPackages = packages != [ ];
+  buckTaskName = target: "test:${target.name}";
+  # Each capability is a `--config test_capabilities.<key>=<immutable path>`
+  # argument, so a lane's executable inputs stay declared instead of ambient.
+  capabilityArgs =
+    target:
+    lib.concatMap (key: [
+      "--config"
+      "test_capabilities.${key}=${target.capabilities.${key}}"
+    ]) (lib.attrNames (target.capabilities or { }));
+  mkBuckTask = target: {
+    "${buckTaskName target}" = {
+      description = "Run ${target.name} tests through Buck";
+      after = buckAfter ++ (target.after or [ ]);
+      exec = trace.exec (buckTaskName target) ''
+        set -euo pipefail
+        root="''${DEVENV_ROOT:-$PWD}"
+        workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
+        exec "$workspace_root/.megarepo/bin/buck2" test ${
+          lib.escapeShellArgs ([ target.label ] ++ capabilityArgs target)
+        }
+      '';
+    };
+  };
+  buckTasks = lib.mkMerge (
+    (map mkBuckTask targets)
+    ++ [
+      {
+        "test:run" = {
+          description = "Run all Buck-owned JavaScript tests";
+          after = map buckTaskName targets ++ extraTests;
+        };
+      }
+    ]
+  );
   hasPackageConcurrency = packageConcurrency != null;
   validatedPackageConcurrency =
     if hasPackageConcurrency && packageConcurrency < 1 then
@@ -89,6 +126,7 @@ let
     }:
     ''
       set -euo pipefail
+      export PNPM_LEGACY_NODE_MODULES=1
       source ${lib.escapeShellArg pnpmTaskHelpersScript}
       ${trace.instr {
         adapter = "vitest";
@@ -108,6 +146,7 @@ let
     '';
   vitestWatchExec = ''
     set -euo pipefail
+    export PNPM_LEGACY_NODE_MODULES=1
     source ${lib.escapeShellArg pnpmTaskHelpersScript}
     run_package_bin vitest vitest
   '';
@@ -193,17 +232,25 @@ let
     };
   };
 in
-{
-  packages = cliGuard.fromTasks guardedTasks;
+assert lib.assertMsg (
+  legacy || targets != [ ]
+) "test.nix Buck mode requires at least one explicit target";
+if legacy then
+  {
+    packages = cliGuard.fromTasks guardedTasks;
 
-  tasks = lib.mkMerge (
-    (if hasPackages then map (pkg: cliGuard.stripGuards (mkTestTask pkg)) packagesWithIndexes else [ ])
-    ++ (
-      if hasPackages && hasPackageConcurrency then
-        lib.imap0 mkPackageTestBatchTask packageTestBatches
-      else
-        [ ]
-    )
-    ++ [ (cliGuard.stripGuards guardedTasks) ]
-  );
-}
+    tasks = lib.mkMerge (
+      (if hasPackages then map (pkg: cliGuard.stripGuards (mkTestTask pkg)) packagesWithIndexes else [ ])
+      ++ (
+        if hasPackages && hasPackageConcurrency then
+          lib.imap0 mkPackageTestBatchTask packageTestBatches
+        else
+          [ ]
+      )
+      ++ [ (cliGuard.stripGuards guardedTasks) ]
+    );
+  }
+else
+  {
+    tasks = buckTasks;
+  }

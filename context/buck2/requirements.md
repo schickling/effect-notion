@@ -78,25 +78,37 @@ invariants named in its own document:
   re-executes zero actions for unchanged admitted targets; a violation is a
   key-stability regression ([04-reuse](./04-reuse/requirements.md)).
 - **BUCK-R07 Capacity budgets:** The admitted surface holds a warm no-op check
-  at ≤ 5 s and a fresh-context green with warm shared cache at ≤ 3 min. Before
-  an authority flip, its cache-disabled cold lane must also satisfy an accepted
-  numeric wall-clock, peak disk/scratch, staging/action p95, and marginal
+  at ≤ 5 s and a fresh-context green with warm shared cache at ≤ 3 min. The
+  watch-driven development loop holds an equivalent incremental budget: a single
+  source edit rebuilds only its affected closure and republishes only the
+  affected editor snapshots. Before an authority flip, its cache-disabled cold
+  lane must also satisfy an accepted numeric wall-clock, peak disk/scratch,
+  editor-snapshot disk and retention, staging/action p95, and marginal
   admission-slope envelope measured on the full candidate runner profile.
   Raising timeout or disk without changing and measuring that curve does not
   satisfy the gate; regression blocks further widening.
 - **BUCK-R08 Disk anti-duplication:** Each normalized store identity may
   materialize its own package bytes once, shared by every consumer; only the
-  nine entries with platform-selected edges own one such entry artifact per
-  distinct configured variant. Archive/extract bytes remain shared. Importer
-  and scratch overlays must not materialize dependency closure bytes per
-  consumer, independent of filesystem CoW support.
+  entries whose selected dependency edges vary by platform own one such entry
+  artifact per distinct configured variant. That set is derived from the
+  lockfile at admission — ten entries in the current complete lock
+  ([decision 0030](./.decisions/0030-normalized-store-scc-and-atomic-cutover.md)
+  Amendment 1) — and is never a hard-coded constant. Archive/extract bytes
+  remain shared. Importer and scratch overlays must not materialize dependency
+  closure bytes per consumer, independent of filesystem CoW support.
 
 ### Must dissolve superseded systems
 
 - **BUCK-R09 Deletion ledger:** Every admission names the devenv task, script,
   CI job, Nix builder, or install step it supersedes, and the transfer change
   deletes it. A subsystem with no dissolution condition is a design defect, not
-  an exemption.
+  an exemption. Where an admission's superseded producer is repository-wide
+  rather than package-scoped — the root install and the root TypeScript
+  solutions — its staged prerequisites build in an explicitly named candidate
+  namespace and one atomic change flips every consumer, editor, and tool
+  surface and deletes the producer
+  ([decision 0030](./.decisions/0030-normalized-store-scc-and-atomic-cutover.md)
+  Amendment 1).
 - **BUCK-R10 FOD dissolution:** Admitted repository-local tools reach Nix
   consumers only through product import; their dependency closures cause zero
   fixed-output hash maintenance.
@@ -137,7 +149,22 @@ invariants named in its own document:
 - **BUCK-R16 Benchmark evidence:** Efficiency claims are measured, never
   asserted. Each admission records warm no-op time; fresh-context time with a
   warm shared cache; cache-disabled cold-lane wall time; cache hits and local
-  executions; peak `buck-out`, output, and scratch disk; staging/action p95;
-  CI wall-clock delta; and the marginal time, disk, and action-count slope per
-  admitted package. A regression against BUCK-R07 or the recorded baseline
-  blocks further widening until fixed or explicitly accepted in a decision.
+  executions; peak `buck-out`, output, and scratch disk; retained
+  editor-snapshot disk and generation count; staging/action p95; CI wall-clock
+  delta; and the marginal time, disk, and action-count slope per admitted
+  package. A staged measurement names the candidate namespace and isolation dir
+  it ran in. A regression against BUCK-R07 or the recorded baseline blocks
+  further widening until fixed or explicitly accepted in a decision.
+
+### Must keep the development loop live
+
+- **BUCK-R17 Watch-driven development loop:** Deleting an inner-loop producer
+  requires its replacement in the same change. The admitted loop is a watch
+  loop over the Buck daemon's file watcher plus atomic republication of the
+  affected editor snapshots: a source edit rebuilds exactly the affected
+  admitted closure and refreshes only the snapshots whose view fingerprint
+  changed. The loop is an ordinary Buck caller — it holds no authority,
+  interposes no launcher (BUCK-R01,
+  [decision 0011](./.decisions/0011-direct-native-evidence-observation.md)),
+  and a failed build or refused publication lock leaves the previous editor
+  state intact and fails loudly rather than degrading to a partial surface.

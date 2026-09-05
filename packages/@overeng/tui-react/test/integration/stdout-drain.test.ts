@@ -25,8 +25,19 @@ const FIXTURE = path.resolve(__dirname, 'fixtures', 'stdout-drain-cli.ts')
 
 const PAYLOAD_BYTES = 1_000_000
 
-/** Runtimes the package must stay correct on. */
-const RUNTIMES = ['bun', 'node'] as const
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+/** Runtimes the package must stay correct on, resolved from declared tools. */
+const RUNTIMES = [
+  { label: 'bun', bin: requireTool('BUN_BIN') },
+  { label: 'node', bin: requireTool('NODE_BIN') },
+] as const
 
 interface FixtureRun {
   readonly byteLength: number
@@ -79,9 +90,9 @@ const runFixture = ({
   })
 
 describe('stdout data channel survives a non-zero exit', () => {
-  for (const runtime of RUNTIMES) {
-    test(`${runtime}: the whole payload reaches the reader`, async () => {
-      const { byteLength, exitCode } = await runFixture({ runtime, strategy: 'sync' })
+  for (const { label, bin } of RUNTIMES) {
+    test(`${label}: the whole payload reaches the reader`, async () => {
+      const { byteLength, exitCode } = await runFixture({ runtime: bin, strategy: 'sync' })
 
       // The point of the fix: `process.exit(1)` drops nothing.
       expect(byteLength).toBe(PAYLOAD_BYTES)
@@ -89,8 +100,8 @@ describe('stdout data channel survives a non-zero exit', () => {
       expect(exitCode).toBe(1)
     })
 
-    test(`${runtime}: buffered control truncates, proving the test can fail`, async () => {
-      const { byteLength } = await runFixture({ runtime, strategy: 'stream' })
+    test(`${label}: buffered control truncates, proving the test can fail`, async () => {
+      const { byteLength } = await runFixture({ runtime: bin, strategy: 'stream' })
 
       // Guards the assertions above: if `process.stdout.write` + `process.exit`
       // ever delivered everything, they would pass for free and protect nothing.

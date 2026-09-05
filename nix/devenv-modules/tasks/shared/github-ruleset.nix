@@ -1,6 +1,10 @@
 {
   repo,
   ruleset,
+  # Packaged module exporting reconcileGithubRuleset and
+  # formatGithubRulesetReport. Source-tree imports are intentionally unsupported.
+  runtimeModule,
+  ghPkg,
   file ? ".github/repo-settings.json",
   taskPrefix ? "gh",
   after ? [ "genie:run" ],
@@ -8,7 +12,7 @@
 { lib, pkgs, ... }:
 let
   trace = import ../lib/trace.nix { inherit lib; };
-  githubRulesetModule = toString ../../../.. + "/packages/@overeng/genie/src/runtime/node/mod.ts";
+  githubRulesetModule = toString runtimeModule;
   mkTask =
     mode:
     let
@@ -24,6 +28,7 @@ let
         } the live GitHub ruleset";
         exec = trace.exec taskName ''
           set -euo pipefail
+          export PATH=${lib.makeBinPath [ ghPkg ]}
           ${pkgs.bun}/bin/bun --eval ${lib.escapeShellArg ''
             import {
               formatGithubRulesetReport,

@@ -1,0 +1,174 @@
+# Generated file - DO NOT EDIT
+# Source: BUCK.genie.ts
+
+load("//buck2:javascript.bzl", "bun_test")
+# Projection source: packages/@overeng/buck2-tools/BUCK.genie.ts
+# Projection schema version: 5
+# Projection generator: effect-utils/genie/buck2-typescript-package-projection
+# Semantic fingerprint: sha256:bc6a64a042c25c6643637aaca11e0375f88081847e2b30ced165c9258b67fc70
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/*.genie.ts, packages/@overeng/buck2-tools/BUCK.genie.ts, packages/@overeng/buck2-tools/BUCK.genie.ts, packages/@overeng/buck2-tools/package.json.genie.ts, packages/@overeng/buck2-tools/src/**/*.cts, packages/@overeng/buck2-tools/src/**/*.js, packages/@overeng/buck2-tools/src/**/*.jsx, packages/@overeng/buck2-tools/src/**/*.mts, packages/@overeng/buck2-tools/src/**/*.ts, packages/@overeng/buck2-tools/src/**/*.tsx, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
+# Regenerate: devenv tasks run genie:run
+
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
+
+export_file(
+    name = "package.json",
+    src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
+    visibility = ["PUBLIC"],
+)
+
+export_materialization_inputs([
+    "src/buck-watch.ts",
+    "src/buck-watch.unit.test.ts",
+    "src/canonical.ts",
+    "src/editor-view-authority.integration.test.ts",
+    "src/editor-view-authority.ts",
+    "src/editor-view.integration.test.ts",
+    "src/editor-view.ts",
+    "src/editor-view.unit.test.ts",
+    "src/javascript-runner.ts",
+    "src/javascript-runner.unit.test.ts",
+    "src/mod.ts",
+    "src/owned-files.integration.test.ts",
+    "src/owned-files.ts",
+    "src/owned-files.unit.test.ts",
+    "src/package-command-runner.ts",
+    "src/package-command-runner.unit.test.ts",
+    "src/package-tree.ts",
+    "src/package-tree.unit.test.ts",
+    "src/real-path.ts",
+    "src/typescript-runner.ts",
+    "src/typescript-runner.unit.test.ts",
+])
+
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/buck-watch.ts": "src/buck-watch.ts",
+        "src/buck-watch.unit.test.ts": "src/buck-watch.unit.test.ts",
+        "src/canonical.ts": "src/canonical.ts",
+        "src/editor-view-authority.integration.test.ts": "src/editor-view-authority.integration.test.ts",
+        "src/editor-view-authority.ts": "src/editor-view-authority.ts",
+        "src/editor-view.integration.test.ts": "src/editor-view.integration.test.ts",
+        "src/editor-view.ts": "src/editor-view.ts",
+        "src/editor-view.unit.test.ts": "src/editor-view.unit.test.ts",
+        "src/javascript-runner.ts": "src/javascript-runner.ts",
+        "src/javascript-runner.unit.test.ts": "src/javascript-runner.unit.test.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/owned-files.integration.test.ts": "src/owned-files.integration.test.ts",
+        "src/owned-files.ts": "src/owned-files.ts",
+        "src/owned-files.unit.test.ts": "src/owned-files.unit.test.ts",
+        "src/package-command-runner.ts": "src/package-command-runner.ts",
+        "src/package-command-runner.unit.test.ts": "src/package-command-runner.unit.test.ts",
+        "src/package-tree.ts": "src/package-tree.ts",
+        "src/package-tree.unit.test.ts": "src/package-tree.unit.test.ts",
+        "src/real-path.ts": "src/real-path.ts",
+        "src/typescript-runner.ts": "src/typescript-runner.ts",
+        "src/typescript-runner.unit.test.ts": "src/typescript-runner.unit.test.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    },
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "editor_inputs",
+    actual = "//buck2/dependencies:view_packages_overeng_buck2_tools_e521acf736cf",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_buck2_tools_e521acf736cf",
+    files = {
+        "package.json": "package.json",
+        "src/buck-watch.ts": "src/buck-watch.ts",
+        "src/buck-watch.unit.test.ts": "src/buck-watch.unit.test.ts",
+        "src/canonical.ts": "src/canonical.ts",
+        "src/editor-view-authority.integration.test.ts": "src/editor-view-authority.integration.test.ts",
+        "src/editor-view-authority.ts": "src/editor-view-authority.ts",
+        "src/editor-view.integration.test.ts": "src/editor-view.integration.test.ts",
+        "src/editor-view.ts": "src/editor-view.ts",
+        "src/editor-view.unit.test.ts": "src/editor-view.unit.test.ts",
+        "src/javascript-runner.ts": "src/javascript-runner.ts",
+        "src/javascript-runner.unit.test.ts": "src/javascript-runner.unit.test.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/owned-files.integration.test.ts": "src/owned-files.integration.test.ts",
+        "src/owned-files.ts": "src/owned-files.ts",
+        "src/owned-files.unit.test.ts": "src/owned-files.unit.test.ts",
+        "src/package-command-runner.ts": "src/package-command-runner.ts",
+        "src/package-command-runner.unit.test.ts": "src/package-command-runner.unit.test.ts",
+        "src/package-tree.ts": "src/package-tree.ts",
+        "src/package-tree.unit.test.ts": "src/package-tree.unit.test.ts",
+        "src/real-path.ts": "src/real-path.ts",
+        "src/typescript-runner.ts": "src/typescript-runner.ts",
+        "src/typescript-runner.unit.test.ts": "src/typescript-runner.unit.test.ts",
+        "tsconfig.json": "tsconfig.json",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+tsgo_typecheck(
+    name = "typecheck",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+
+tsgo_emit(
+    name = "dist",
+    package_tree = ":package_tree",
+    declaration_sources = {
+    },
+    declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+bun_test(
+    name = "test",
+    package_tree = ":package_tree",
+    timeout_ms = 30000,
+    tools = {"CP_BIN": "//buck2/toolchains:tool_coreutils_cp", "FALSE_BIN": "//buck2/toolchains:tool_coreutils_false", "MV_BIN": "//buck2/toolchains:tool_coreutils_mv"},
+    capabilities = ["subprocess"],
+    labels = ["local-only", "native-tool"],
+    visibility = ["PUBLIC"],
+)
+
+# Runtime targets stay package-local; root aliases preserve the established public labels.
+filegroup(
+    name = "package_tree_runtime",
+    srcs = {
+        "package-tree.ts": "src/package-tree.ts",
+        "real-path.ts": "src/real-path.ts",
+    },
+    visibility = ["PUBLIC"],
+)
+
+filegroup(
+    name = "javascript_action_runtime",
+    srcs = {
+        "javascript-runner.ts": "src/javascript-runner.ts",
+        "typescript-runner.ts": "src/typescript-runner.ts",
+    },
+    visibility = ["PUBLIC"],
+)

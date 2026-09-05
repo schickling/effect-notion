@@ -1,5 +1,4 @@
-import { execFileSync } from 'node:child_process'
-import { realpathSync } from 'node:fs'
+import { readdirSync, realpathSync, statSync } from 'node:fs'
 import {
   chmod,
   lstat,
@@ -18,6 +17,7 @@ import { describe, expect, it } from 'vitest'
 
 import { decodeBuckMemberManifest, type BuckMemberManifest } from '@overeng/megarepo/buck2-manifest'
 
+import { requireTool } from '../../test-utils/require-tool.ts'
 import { CompositionCapabilityResolutionError } from './composition-capability-resolver-schema.ts'
 import {
   checkCompositionCapabilityProjection,
@@ -33,19 +33,46 @@ import {
 const MEMBER_PROJECTOR_FIXTURE = '#!/bin/sh\nexit 1\n'
 const MEMBER_PROJECTOR_NAME = 'member-capability-projector.sh'
 
-const rawShell = execFileSync('bash', ['-c', 'command -v bash'], { encoding: 'utf8' }).trim()
-const shell = realpathSync(rawShell)
-const commandPath = (name: string): string =>
-  execFileSync(shell, ['-c', `command -v ${name}`], { encoding: 'utf8' }).trim()
+/** Every executable this file names comes from a Buck-declared tool, never from an ambient PATH. */
+const shell = realpathSync(requireTool('BASH_BIN'))
 
-const bashExecutable = realpathSync(commandPath('bash'))
+const bashExecutable = shell
 const bashOutput = NodePath.dirname(NodePath.dirname(bashExecutable))
-const alternateExecutable = realpathSync(commandPath('grep'))
+const alternateExecutable = realpathSync(requireTool('GREP_BIN'))
 const alternateOutput = NodePath.dirname(NodePath.dirname(alternateExecutable))
-const escapingStoreOutput = [rawShell, commandPath('nix'), commandPath('grep')]
-  .filter((path) => /^\/nix\/store\/[^/]+\/bin\/[^/]+$/u.test(path))
-  .map((path) => ({ output: NodePath.dirname(NodePath.dirname(path)), target: realpathSync(path) }))
-  .find(({ output, target }) => target.startsWith(`${output}${NodePath.sep}`) === false)?.output
+
+/**
+ * A real store output holding a `bin/` entry whose realpath leaves that output — the exact shape
+ * the resolver must refuse. Declared tool paths are realized inside their own output, so the
+ * fixture is found among the store roots the sandbox exposes (all of them belong to the declared
+ * tools' closures).
+ */
+const escapingStoreExecutable = ((): { readonly output: string; readonly executable: string } => {
+  for (const entry of readdirSync('/nix/store')) {
+    const output = `/nix/store/${entry}`
+    let binEntries: ReadonlyArray<string>
+    try {
+      binEntries = readdirSync(NodePath.join(output, 'bin'))
+    } catch {
+      continue
+    }
+    const canonicalOutput = realpathSync(output)
+    for (const name of binEntries.filter((entry) => /^[A-Za-z0-9][A-Za-z0-9._+-]*$/u.test(entry))) {
+      try {
+        const target = realpathSync(NodePath.join(output, 'bin', name))
+        if (
+          statSync(target).isFile() === true &&
+          target.startsWith(`${canonicalOutput}${NodePath.sep}`) === false
+        ) {
+          return { output, executable: `bin/${name}` }
+        }
+      } catch {
+        continue
+      }
+    }
+  }
+  throw new Error('no store output with an escaping bin entry is visible to this test')
+})()
 
 const manifest = ({
   capabilities = [
@@ -103,7 +130,7 @@ const makeFixture = async ({
   ])
   await writeFile(
     nixPath,
-    `#!${shell}\nset -eu\nprintf '%s\\n' "$*" >>"${nixLog}"\nIFS= read -r mode <"${nixModePath}"\nIFS= read -r output <"${nixOutputPath}"\ncase "$mode" in\n  missing) exit 0 ;;\n  duplicate) printf '%s\\n%s\\n' "$output" "$output" ;;\n  nonstore) printf '/tmp/not-a-store-output\\n' ;;\n  lock-write-attempt)\n    case " $* " in\n      *" --no-write-lock-file --no-update-lock-file "*) exit 73 ;;\n      *) printf 'mutated\\n' >"${memberRoot}/flake.lock"; exit 74 ;;\n    esac ;;\n  fail) exit 37 ;;\n  *) printf '%s\\n' "$output" ;;\nesac\n`,
+    `#!${shell}\nset -eu\nprintf '%s\\n' "$*" >>"${nixLog}"\nIFS= read -r mode <"${nixModePath}"\nIFS= read -r output <"${nixOutputPath}"\ncase " $* " in\n  *" path-info "*)\n    case "$mode" in\n      closure-empty) exit 0 ;;\n      closure-nonstore) printf '/tmp/not-a-store-path\\n' ;;\n      closure-foreign) printf '/nix/store/00000000000000000000000000000000-foreign\\n' ;;\n      *) printf '%s\\n' "$output" ;;\n    esac\n    exit 0 ;;\nesac\ncase "$mode" in\n  missing) exit 0 ;;\n  duplicate) printf '%s\\n%s\\n' "$output" "$output" ;;\n  nonstore) printf '/tmp/not-a-store-output\\n' ;;\n  lock-write-attempt)\n    case " $* " in\n      *" --no-write-lock-file --no-update-lock-file "*) exit 73 ;;\n      *) printf 'mutated\\n' >"${memberRoot}/flake.lock"; exit 74 ;;\n    esac ;;\n  fail) exit 37 ;;\n  *) printf '%s\\n' "$output" ;;\nesac\n`,
     { mode: 0o755 },
   )
   await writeFile(
@@ -214,12 +241,101 @@ describe('composition capability resolver', () => {
       ])
       expect(await readFile(fixture.nixLog, 'utf8')).toBe(
         `build --no-link --print-out-paths --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#a-package^out\n` +
-          `build --no-link --print-out-paths --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#z-package^out\n`,
+          `path-info --recursive --offline --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#a-package^out\n` +
+          `build --no-link --print-out-paths --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#z-package^out\n` +
+          `path-info --recursive --offline --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#z-package^out\n`,
       )
       expect(result.projectionDigest).toMatch(/^[0-9a-f]{64}$/u)
       expect((await lstat(result.candidateRoot)).mode & 0o777).toBe(0o700)
       await result.release()
       expect(await readdir(fixture.scratchRoot)).toEqual([])
+    } finally {
+      await clean(fixture)
+    }
+  })
+
+  it('projects the exact Nix closure of every capability into manifest and defs bytes', async () => {
+    const fixture = await makeFixture()
+    try {
+      const result = await resolve(fixture)
+      if (result._tag !== 'Resolved') throw new Error('unreachable')
+      const resolved = resolvedCompositionCapabilityByToolId({
+        resolution: result,
+        toolId: 'buck2',
+      })
+      expect(resolved.closureStorePaths).toEqual([bashOutput])
+      const manifestFile = NodePath.join(
+        result.projectionPath,
+        'generations',
+        (/^GENERATION = "([0-9a-f]{64})"$/mu.exec(
+          await readFile(NodePath.join(result.projectionPath, 'defs.bzl'), 'utf8'),
+        ) ?? [])[1]!,
+        'x86_64-linux',
+        'buck2',
+        'manifest.json',
+      )
+      expect(JSON.parse(await readFile(manifestFile, 'utf8')).closureStorePaths).toEqual([
+        bashOutput,
+      ])
+      expect(await readFile(NodePath.join(result.projectionPath, 'defs.bzl'), 'utf8')).toContain(
+        `"closureStorePaths": ["${bashOutput}"]`,
+      )
+      await result.release()
+    } finally {
+      await clean(fixture)
+    }
+  })
+
+  it.each(['closure-empty', 'closure-nonstore', 'closure-foreign'] as const)(
+    'refuses the %s closure query result without projecting anything',
+    async (mode) => {
+      const fixture = await makeFixture()
+      try {
+        await writeFile(fixture.nixModePath, `${mode}\n`)
+        expect((await failure(resolve(fixture))).reason).toBe('InvalidNixOutput')
+        expect(await readdir(fixture.scratchRoot)).toEqual([])
+      } finally {
+        await clean(fixture)
+      }
+    },
+  )
+
+  it('never resolves a capability scoped to other systems', async () => {
+    const fixture = await makeFixture()
+    try {
+      const scoped = manifest({
+        capabilities: [
+          {
+            toolId: 'buck2',
+            protocol: 'facebook/buck2-cli/test',
+            flakePackage: 'buck2',
+            executable: 'bin/bash',
+          },
+          {
+            toolId: 'sandbox-bubblewrap',
+            protocol: 'containers/bubblewrap/test',
+            flakePackage: 'buck2-bubblewrap',
+            executable: 'bin/bwrap',
+            systems: ['x86_64-linux', 'aarch64-linux'],
+          },
+        ],
+      })
+      const linux = await resolve(fixture, { dryRun: true, manifest: scoped })
+      expect(linux.nixCommands.map(({ args }) => args.at(-1))).toEqual([
+        `${fixture.memberRoot}#buck2^out`,
+        `${fixture.memberRoot}#buck2^out`,
+        `${fixture.memberRoot}#buck2-bubblewrap^out`,
+        `${fixture.memberRoot}#buck2-bubblewrap^out`,
+      ])
+      const darwin = await resolve(fixture, {
+        dryRun: true,
+        manifest: scoped,
+        system: 'aarch64-darwin',
+      })
+      expect(darwin.nixCommands.map(({ args }) => args.at(-1))).toEqual([
+        `${fixture.memberRoot}#buck2^out`,
+        `${fixture.memberRoot}#buck2^out`,
+      ])
     } finally {
       await clean(fixture)
     }
@@ -326,9 +442,21 @@ describe('composition capability resolver', () => {
   it('rejects a store-output executable whose realpath escapes that output', async () => {
     const fixture = await makeFixture()
     try {
-      if (escapingStoreOutput === undefined) return
-      await writeFile(fixture.nixOutputPath, `${escapingStoreOutput}\n`)
-      const error = await failure(resolve(fixture))
+      await writeFile(fixture.nixOutputPath, `${escapingStoreExecutable.output}\n`)
+      const error = await failure(
+        resolve(fixture, {
+          manifest: manifest({
+            capabilities: [
+              {
+                toolId: 'buck2',
+                protocol: 'facebook/buck2-cli/test',
+                flakePackage: 'buck2',
+                executable: escapingStoreExecutable.executable,
+              },
+            ],
+          }),
+        }),
+      )
       expect(error.reason).toBe('InvalidExecutable')
       expect(await readdir(fixture.scratchRoot)).toEqual([])
     } finally {
@@ -383,6 +511,14 @@ describe('composition capability resolver', () => {
         'build',
         '--no-link',
         '--print-out-paths',
+        '--no-write-lock-file',
+        '--no-update-lock-file',
+        `${fixture.memberRoot}#buck2^out`,
+      ])
+      expect(result.nixCommands[1]?.args).toEqual([
+        'path-info',
+        '--recursive',
+        '--offline',
         '--no-write-lock-file',
         '--no-update-lock-file',
         `${fixture.memberRoot}#buck2^out`,
@@ -474,8 +610,11 @@ describe('composition capability resolver', () => {
           ],
         }),
       })
-      expect(result.nixCommands).toHaveLength(1)
-      expect(result.nixCommands[0]?.args.at(-1)).toBe(`${fixture.memberRoot}#buck2^out`)
+      expect(result.nixCommands).toHaveLength(2)
+      expect(result.nixCommands.map(({ args }) => args.at(-1))).toEqual([
+        `${fixture.memberRoot}#buck2^out`,
+        `${fixture.memberRoot}#buck2^out`,
+      ])
     } finally {
       await clean(fixture)
     }
@@ -511,6 +650,8 @@ describe('composition capability resolver', () => {
       })
       expect(result.nixCommands.map(({ args }) => args.at(-1))).toEqual([
         `${fixture.memberRoot}#buck2^out`,
+        `${fixture.memberRoot}#buck2^out`,
+        `${fixture.memberRoot}#effect-tsgo^out`,
         `${fixture.memberRoot}#effect-tsgo^out`,
       ])
     } finally {

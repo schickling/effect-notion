@@ -3,6 +3,16 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+const bunBin = requireTool('BUN_BIN')
+
 /**
  * Regression test for #787.
  *
@@ -18,7 +28,7 @@ describe('concurrent command-tree import (#787)', () => {
   it('loads all three trees concurrently under Bun without a TDZ crash', () => {
     const fixture = fileURLToPath(new URL('./concurrent-import.fixture.ts', import.meta.url))
 
-    const proc = spawnSync('bun', ['run', fixture], {
+    const proc = spawnSync(bunBin, ['run', fixture], {
       encoding: 'utf8',
       timeout: 25_000,
     })

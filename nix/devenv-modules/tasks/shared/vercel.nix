@@ -6,7 +6,7 @@
   deployments ? [ ],
   buildTaskPrefix ? null,
   aliasSuffix ? null,
-  ciToolsBin ? null,
+  ciToolsBin,
   vercelCliPkg ? null,
   vercelBin ? null,
 }:
@@ -14,12 +14,7 @@
 let
   trace = import ../lib/trace.nix { inherit lib; };
   root = ../../../..;
-  ciToolsPkg = import (root + "/packages/@overeng/ci-tools/nix/build.nix") {
-    inherit pkgs;
-    src = root;
-    dirty = true;
-  };
-  resolvedCiToolsBin = if ciToolsBin == null then "${ciToolsPkg}/bin/ci-tools" else ciToolsBin;
+  resolvedCiToolsBin = ciToolsBin;
   defaultVercelCliPkg =
     if vercelCliPkg == null then
       import (root + "/nix/provider-clis/vercel-cli") { inherit pkgs; }

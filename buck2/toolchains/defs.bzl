@@ -65,6 +65,25 @@ def require_capability(capabilities, generation, platform, tool_id):
         fail("generated {} capability has an invalid content digest".format(tool_id))
     return metadata
 
+def require_capability_closure(capabilities, generation, platform, tool_id):
+    """Returns the complete immutable runtime closure a sandboxed action may read.
+
+    The projection publishes the transitive `/nix/store` requisites of each realization
+    (`closureStorePaths`). A sandbox exposes exactly these paths read-only and no other store
+    path, so an incomplete or non-normalized closure must fail analysis rather than produce an
+    action that only works because the host store happens to be visible.
+    """
+    metadata = require_capability(capabilities, generation, platform, tool_id)
+    closure = metadata.get("closureStorePaths")
+    if not closure:
+        fail("generated {} capability has no closureStorePaths".format(tool_id))
+    for path in closure:
+        if not path.startswith("/nix/store/") or path.count("/") != 3:
+            fail("generated {} capability closure path is not a normalized store path: {}".format(tool_id, path))
+    if metadata["closureIdentity"] not in closure:
+        fail("generated {} capability closure omits its own realization".format(tool_id))
+    return sorted({path: None for path in closure})
+
 def host_rust_target_triple():
     """Returns the Rust target triple for the admitted native host."""
     host = host_info()
@@ -242,6 +261,9 @@ def bun_toolchain(name, capabilities, generation, **kwargs):
 
 EffectTsgoToolchainInfo = provider(fields = {
     "bun": str,
+    # Every `/nix/store` path the Bun and tsgo realizations need at runtime. The sandbox exposes
+    # exactly these read-only, so an action never depends on an ambient store view.
+    "closure_store_paths": list[str],
     "executable": str,
     "identity": str,
     "runner": Artifact,
@@ -251,12 +273,19 @@ EffectTsgoToolchainInfo = provider(fields = {
 def _effect_tsgo_toolchain_impl(ctx):
     _require_nix_store_binary(ctx.attrs.bun, "bun", "Bun")
     _require_nix_store_binary(ctx.attrs.executable, "tsgo", "effect-tsgo")
+    if not ctx.attrs.closure_store_paths:
+        fail("effect-tsgo toolchain requires the complete Bun and tsgo runtime closures")
     return [
         DefaultInfo(),
         EffectTsgoToolchainInfo(
             bun = ctx.attrs.bun,
+            closure_store_paths = ctx.attrs.closure_store_paths,
             executable = ctx.attrs.executable,
-            identity = "bun={};tsgo={}".format(ctx.attrs.bun, ctx.attrs.executable),
+            identity = "bun={};tsgo={};closure={}".format(
+                ctx.attrs.bun,
+                ctx.attrs.executable,
+                ",".join(ctx.attrs.closure_store_paths),
+            ),
             runner = ctx.attrs.runner,
         ),
     ]
@@ -266,6 +295,7 @@ _effect_tsgo_toolchain = rule(
     impl = _effect_tsgo_toolchain_impl,
     attrs = {
         "bun": attrs.string(),
+        "closure_store_paths": attrs.list(attrs.string()),
         "executable": attrs.string(),
         "runner": attrs.source(),
     },
@@ -286,11 +316,199 @@ def effect_tsgo_toolchain(name, capabilities, generation, runner, **kwargs):
     )["executableStorePath"]
     _require_nix_store_binary(bun, "bun", "Bun")
     _require_nix_store_binary(executable, "tsgo", "effect-tsgo")
+    closure = (
+        require_capability_closure(capabilities, generation, platform, "bun") +
+        require_capability_closure(capabilities, generation, platform, "effect-tsgo")
+    )
     _effect_tsgo_toolchain(
         name = name,
         bun = bun,
+        closure_store_paths = sorted({path: None for path in closure}),
         executable = executable,
         runner = runner,
+        exec_compatible_with = host_execution_constraints(),
+        **kwargs
+    )
+
+
+# The Linux capability id of the sandbox launcher. Bubblewrap is an exact Nix tool dependency;
+# Darwin containment is instead the fixed system Seatbelt path bound to the admitted OS release.
+BUBBLEWRAP_TOOL_ID = "sandbox-bubblewrap"
+
+# Seatbelt's public interface is deprecated. It is admitted only at its fixed system path, so no
+# ambient `xcrun`/Xcode discovery can substitute a different launcher.
+DARWIN_SANDBOX_LAUNCHER = "/usr/bin/sandbox-exec"
+
+# Capability projection keys admitted for platform-native containment. This is deliberately not
+# inferred from the generated capability dictionary: a misspelled requested platform must fail
+# loading instead of silently selecting the `none` toolchain on that executor.
+_SANDBOX_CAPABILITY_PLATFORMS = [
+    "x86_64-linux",
+    "aarch64-linux",
+    "aarch64-macos",
+]
+
+def _sandbox_active_platform_error(active_platforms):
+    seen = {}
+    for platform in active_platforms:
+        if platform not in _SANDBOX_CAPABILITY_PLATFORMS:
+            return "sandbox active platform must be one of {}: {}".format(
+                ", ".join(_SANDBOX_CAPABILITY_PLATFORMS),
+                platform,
+            )
+        if platform in seen:
+            return "sandbox active platform must be declared once: {}".format(platform)
+        seen[platform] = None
+    return None
+
+def _validate_sandbox_active_platforms(active_platforms):
+    error = _sandbox_active_platform_error(active_platforms)
+    if error != None:
+        fail(error)
+
+def _sandbox_platform_key_validation_test_impl(_ctx):
+    if _sandbox_active_platform_error(_SANDBOX_CAPABILITY_PLATFORMS) != None:
+        fail("admitted sandbox platform keys must validate")
+    if _sandbox_active_platform_error(["aarch64-darwin"]) == None:
+        fail("the Darwin capability spelling typo must be rejected")
+    if _sandbox_active_platform_error(["x86_64-linux", "x86_64-linux"]) == None:
+        fail("duplicate sandbox active platforms must be rejected")
+    return [DefaultInfo()]
+
+_sandbox_platform_key_validation_test = rule(
+    impl = _sandbox_platform_key_validation_test_impl,
+    attrs = {},
+)
+
+def sandbox_platform_key_validation_test(name, **kwargs):
+    """Proves the fail-closed active-platform spelling contract at analysis time."""
+    _sandbox_platform_key_validation_test(name = name, **kwargs)
+
+SandboxToolchainInfo = provider(fields = {
+    # Darwin kernel majors whose Seatbelt semantics the Darwin gate has proven. Empty on Linux.
+    "darwin_kernel_majors": list[str],
+    "identity": str,
+    "kind": str,
+    "launcher": str,
+    "closure_store_paths": list[str],
+})
+
+
+def _sandbox_toolchain_impl(ctx):
+    kind = ctx.attrs.kind
+    if kind == "bubblewrap":
+        _require_nix_store_binary(ctx.attrs.launcher, "bwrap", "Bubblewrap")
+        if not ctx.attrs.closure_store_paths:
+            fail("the Bubblewrap sandbox requires its complete runtime closure")
+        if ctx.attrs.darwin_kernel_majors:
+            fail("the Bubblewrap sandbox must not declare Darwin kernel majors")
+    elif kind == "seatbelt":
+        if ctx.attrs.launcher != DARWIN_SANDBOX_LAUNCHER:
+            fail("Seatbelt must be the fixed system launcher {}".format(DARWIN_SANDBOX_LAUNCHER))
+        if not ctx.attrs.darwin_kernel_majors:
+            fail("Seatbelt requires the admitted Darwin kernel majors its gate proved")
+    elif kind == "none":
+        if ctx.attrs.launcher:
+            fail("an inactive sandbox must not declare a launcher")
+    else:
+        fail("unknown sandbox kind: {}".format(kind))
+    return [
+        DefaultInfo(),
+        SandboxToolchainInfo(
+            closure_store_paths = ctx.attrs.closure_store_paths,
+            darwin_kernel_majors = ctx.attrs.darwin_kernel_majors,
+            identity = "{}:{}:{}:{}".format(
+                kind,
+                ctx.attrs.launcher,
+                ",".join(ctx.attrs.closure_store_paths),
+                ",".join(ctx.attrs.darwin_kernel_majors),
+            ),
+            kind = kind,
+            launcher = ctx.attrs.launcher,
+        ),
+    ]
+
+
+_sandbox_toolchain = rule(
+    impl = _sandbox_toolchain_impl,
+    attrs = {
+        "closure_store_paths": attrs.list(attrs.string(), default = []),
+        "darwin_kernel_majors": attrs.list(attrs.string(), default = []),
+        "kind": attrs.string(),
+        "launcher": attrs.string(default = ""),
+    },
+)
+
+
+def sandbox_toolchain(
+        name,
+        capabilities,
+        generation,
+        active_platforms,
+        darwin_kernel_majors = [],
+        **kwargs):
+    """Declares the platform-native containment implementation TypeScript actions run inside.
+
+    `active_platforms` names the execution platforms whose containment gate has passed. On any
+    other platform the toolchain resolves to `none`, and the runner keeps hashing the input tree
+    to detect mutation instead — the slow evidence stays until the fast enforcement is proven.
+    """
+    if "exec_compatible_with" in kwargs:
+        fail("sandbox_toolchain owns execution compatibility")
+    _validate_sandbox_active_platforms(active_platforms)
+    platform = host_capability_platform()
+    if platform not in active_platforms:
+        _sandbox_toolchain(
+            name = name,
+            kind = "none",
+            exec_compatible_with = host_execution_constraints(),
+            **kwargs
+        )
+        return
+    if platform == "aarch64-macos":
+        _sandbox_toolchain(
+            name = name,
+            darwin_kernel_majors = darwin_kernel_majors,
+            kind = "seatbelt",
+            launcher = DARWIN_SANDBOX_LAUNCHER,
+            exec_compatible_with = host_execution_constraints(),
+            **kwargs
+        )
+        return
+    metadata = require_capability(capabilities, generation, platform, BUBBLEWRAP_TOOL_ID)
+    launcher = metadata["executableStorePath"]
+    _require_nix_store_binary(launcher, "bwrap", "Bubblewrap")
+    _sandbox_toolchain(
+        name = name,
+        closure_store_paths = require_capability_closure(
+            capabilities,
+            generation,
+            platform,
+            BUBBLEWRAP_TOOL_ID,
+        ),
+        kind = "bubblewrap",
+        launcher = launcher,
+        exec_compatible_with = host_execution_constraints(),
+        **kwargs
+    )
+
+
+def unsandboxed_local_toolchain(name, **kwargs):
+    """Declares the deliberate no-containment executor for host-service test lanes.
+
+    A lane that must reach the Nix daemon socket, the store's own root registry under
+    `/nix/var/nix`, loopback, the outbound network, or the host's `devpts` and controlling-terminal
+    semantics cannot be made hermetic by binding more read roots: those services are exactly what
+    containment removes. Such a lane names this
+    toolchain explicitly through `execution_mode = "unsandboxed-local"` and must also declare the
+    host-service capability and `cacheable = False`, so no sandboxed lane can reach an
+    unsandboxed executor by omission.
+    """
+    if "exec_compatible_with" in kwargs:
+        fail("unsandboxed_local_toolchain owns execution compatibility")
+    _sandbox_toolchain(
+        name = name,
+        kind = "none",
         exec_compatible_with = host_execution_constraints(),
         **kwargs
     )

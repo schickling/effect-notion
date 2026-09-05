@@ -1,0 +1,24 @@
+{
+  "schema": "effect-utils/javascript-product/v2",
+  "productName": "tui-stories",
+  "productKind": "cli",
+  "runtimeKind": "node",
+  "runtimeContract": "javascript-esm",
+  "runtimeContractVersion": "v1",
+  "platform": {
+    "abi": "any",
+    "architecture": "any",
+    "os": "any"
+  },
+  "modulePath": "tui-stories.js",
+  "integrity": "sha256-amHyfvwRqyAmP30RfVtLT7C8SLyQN3rZzAw3MRkRpDs=",
+  "sizeBytes": 2235452,
+  "target": "effect_utils//packages/@overeng/tui-stories:tui-stories-candidate",
+  "externalCapabilities": [],
+  "externalModules": [],
+  "provenance": {
+    "dependencyClosureIdentity": "/nix/store/3jfb6v4gz1calwj64nd0rz07fl3l2xpd-bun-1.3.13/bin/bun;effect_utils//packages/@overeng/tui-stories:package_tree (effect_utils//buck2/platforms:javascript_portable#069f7ef75d9e5edc)",
+    "configuredTarget": "effect_utils//packages/@overeng/tui-stories:tui-stories-candidate (effect_utils//buck2/platforms:javascript_portable#069f7ef75d9e5edc)",
+    "module": "effect_utils//packages/@overeng/tui-stories:tui-stories-candidate-module"
+  }
+}

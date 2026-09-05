@@ -21,7 +21,7 @@
 
 import { NodeServices } from '@effect/platform-node'
 import { describe, it } from '@effect/vitest'
-import { Clock, Duration, Effect, Layer, Option, Ref, Schema } from 'effect'
+import { Cause, Clock, Duration, Effect, Exit, Layer, Option, Ref, Schema } from 'effect'
 import * as FileSystem from 'effect/FileSystem'
 import * as Cli from 'effect/unstable/cli'
 import * as Command from 'effect/unstable/process/ChildProcess'
@@ -38,9 +38,11 @@ import {
   type StubPrRepo,
 } from '../store/store-pr-state.ts'
 import { makeConsoleCapture } from '../test-utils/consoleCapture.ts'
+import { requireTool } from '../test-utils/require-tool.ts'
 import { createStoreFixture, getWorktreeCommit } from '../test-utils/store-setup.ts'
-import { Cwd } from './context.ts'
 import { mrCommand } from './mod.ts'
+
+const gitBin = requireTool('GIT_BIN')
 
 const SERVICE = 'megarepo'
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -50,7 +52,7 @@ const NOW = Date.parse('2026-06-11T12:00:00.000Z')
 const git = (cwd: string, ...args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     return (yield* ChildProcessSpawner.use((spawner) =>
-      spawner.string(Command.make('git', args, { cwd })),
+      spawner.string(Command.make(gitBin, args, { cwd })),
     )).trim()
   })
 
@@ -148,9 +150,11 @@ const runGc = ({
     const previous = process.env['MEGAREPO_STORE']
     process.env['MEGAREPO_STORE'] = storePath
 
-    const argv = ['store', 'gc', '--output', 'json']
-    yield* Cli.Command.runWith(mrCommand, { version: 'test' })(argv).pipe(
-      Effect.provideService(Cwd, cwd),
+    // `mrCommand` provides its own `Cwd` layer from the `--cwd` global flag, so an
+    // outer `Effect.provideService(Cwd, …)` is overridden and every command would
+    // silently run against the ambient process cwd. Drive the documented flag.
+    const argv = ['--cwd', cwd, 'store', 'gc', '--output', 'json']
+    const exit = yield* Cli.Command.runWith(mrCommand, { version: 'test' })(argv).pipe(
       Effect.provideService(OtelConfig, { endpoint: telemetry }),
       Effect.provide(
         Layer.mergeAll(
@@ -168,6 +172,11 @@ const runGc = ({
     else process.env['MEGAREPO_STORE'] = previous
 
     const stdout = (yield* getStdoutLines).join('\n')
+    if (Exit.isSuccess(exit) === false) {
+      return yield* Effect.die(
+        new Error(`mr store gc failed:\n${Cause.pretty(exit.cause)}\nstdout:\n${stdout}`),
+      )
+    }
     yield* Ref.set(resultsRef, decodeGc(stdout).results)
   })
 

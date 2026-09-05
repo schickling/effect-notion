@@ -4,27 +4,20 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    effect-utils = {
+      url = "path:../../..";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+    };
   };
 
   outputs =
     {
-      self,
-      nixpkgs,
+      effect-utils,
       flake-utils,
       ...
     }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        gitRev =
-          self.sourceInfo.dirtyShortRev or self.sourceInfo.shortRev or self.sourceInfo.rev or "unknown";
-      in
-      {
-        packages.default = import ./nix/build.nix {
-          pkgs = import nixpkgs { inherit system; };
-          src = ../../..; # effect-utils root (for bun.lock, package.json)
-          inherit gitRev;
-        };
-      }
-    );
+    flake-utils.lib.eachDefaultSystem (system: {
+      packages.default = effect-utils.packages.${system}.genie;
+    });
 }

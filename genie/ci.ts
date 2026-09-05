@@ -20,9 +20,6 @@ export const CORE_CI_JOB_NAMES = [
   'lint',
   'test',
   'test-megarepo-cold-gc',
-  'nix-check',
-  'nix-fod-check',
-  'pnpm-builder-contract',
   'pnpm-regression',
   'bundle-smoke',
   // Local-only Buck graph, receipt, bridge, and benchmark-contract evidence.
@@ -41,8 +38,9 @@ export const DEFAULT_REF_POLICY_CI_JOB_NAME = 'default-ref-policy' as const
 
 /** Additional CI job keys generated outside the core product-job block. */
 export const EXTRA_CI_JOB_NAMES = [
-  // Empirical bootstrap-safety authority (R32, issue #884): builds the self-contained nix genie and
-  // proves `genie --phase bootstrap` + `pnpm install` run cold (no node_modules). Merge-blocking.
+  // Empirical install-free authority (R32, issue #884): builds the declared Buck Genie product,
+  // runs its bootstrap phase cold (no node_modules), then checks lock-derived projections
+  // install-free. Merge-blocking.
   'bootstrap-cold-proof',
   'nix-closure-sizes',
   'source-shape',
@@ -60,8 +58,20 @@ export const EXTRA_CI_JOB_NAMES = [
  * `devenv-perf` is the paired wall-clock lane. It is trend telemetry on a nightly cadence
  * against `main` plus an opt-in `ci:perf` label for a pull request that needs the numbers
  * before merge, because a 35-minute advisory measurement is not worth paying on every push.
+ *
+ * The three `buck2-cache-*` lanes are the 03-materialization DQ1 connectivity probe: they
+ * need an ephemeral tailnet node and repository cache configuration that a fork pull
+ * request never receives, and the outage leg is REQUIRED to fail its Buck build. The
+ * `buck2-capacity` lane is the manually dispatched cache-disabled DQ4 measurement. These
+ * facts make them operator-dispatched evidence lanes rather than merge gates.
  */
-export const OPT_IN_CI_JOB_NAMES = ['devenv-perf'] as const
+export const OPT_IN_CI_JOB_NAMES = [
+  'devenv-perf',
+  'buck2-cache-publish',
+  'buck2-cache-restore',
+  'buck2-cache-outage',
+  'buck2-capacity',
+] as const
 
 /**
  * Pull-request label that opts one pull request into the `devenv-perf` lane.
@@ -107,7 +117,7 @@ export const REQUIRED_CI_JOB_NAMES = [
   ...REQUIRED_DEPLOY_CI_JOB_NAMES,
 ] as const satisfies readonly CIJobName[]
 
-const matrixCIJobNames = ['test', 'nix-check', 'nix-fod-check'] as const
+const matrixCIJobNames = ['test'] as const
 
 /** GitHub status-check context names emitted by a workflow job key. */
 export const ciJobCheckContexts = (jobName: CIJobName) => {

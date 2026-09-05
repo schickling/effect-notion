@@ -43,6 +43,10 @@ extract_lint_task_script() {
       flake = builtins.getFlake \"$NIX_FLAKE_REF\";
       pkgs = import flake.inputs.nixpkgs { system = builtins.currentSystem; };
       oxfmtPkg = builtins.getEnv \"TEST_FAKE_OXFMT_PKG\";
+      # lint-oxc.nix now requires an explicit packaged Genie product; a stub
+      # keeps the module hermetic (genie is never invoked by the lint file-list
+      # tasks) while satisfying the absolute-path contract.
+      geniePkg = pkgs.writeShellScriptBin \"genie\" \"exit 0\";
       evaluated = pkgs.lib.evalModules {
         modules = [
           ({ ... }: {
@@ -55,6 +59,7 @@ extract_lint_task_script() {
             geniePatterns = [ ];
             genieCoverageDirs = [ \".\" ];
             oxfmtPkg = oxfmtPkg;
+            geniePkg = geniePkg;
           }) {
             pkgs = pkgs;
             lib = pkgs.lib;
@@ -184,6 +189,14 @@ EOF
 
 extract_lint_task_script "lint:check:oxlint" "$tmpdir/lint-check-oxlint.sh"
 extract_lint_task_script "lint:check:format" "$tmpdir/lint-check-format.sh"
+extract_lint_task_script "lint:check:genie" "$tmpdir/lint-check-genie.sh"
+
+# The injected geniePkg must be executed by absolute store path, never via PATH.
+if ! grep -Eq '/nix/store/[^ ]*-genie/bin/genie --check' "$tmpdir/lint-check-genie.sh"; then
+  echo "FAIL: lint:check:genie should exec the injected geniePkg by absolute store path"
+  cat "$tmpdir/lint-check-genie.sh"
+  exit 1
+fi
 
 export PATH="$tmpdir/bin:$PATH"
 export TEST_OXLINT_ARGS="$tmpdir/oxlint-args.txt"

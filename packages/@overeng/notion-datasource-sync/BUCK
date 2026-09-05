@@ -1,19 +1,27 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2:javascript.bzl", "vitest_test")
 # Projection source: packages/@overeng/notion-datasource-sync/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:c7d879a8f3bf12624bd0c7325ffe9536f5d3ed845208890c6212f439c8df2e0b
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/content-address/BUCK.genie.ts, packages/@overeng/content-address/package.json.genie.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-datasource-sync/BUCK.genie.ts, packages/@overeng/notion-datasource-sync/BUCK.genie.ts, packages/@overeng/notion-datasource-sync/package.json.genie.ts, packages/@overeng/notion-datasource-sync/src/**/*.cts, packages/@overeng/notion-datasource-sync/src/**/*.js, packages/@overeng/notion-datasource-sync/src/**/*.mts, packages/@overeng/notion-datasource-sync/src/**/*.ts, packages/@overeng/notion-datasource-sync/src/**/*.tsx, packages/@overeng/notion-datasource-sync/tsconfig.json.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/package.json.genie.ts, packages/@overeng/notion-property-write/BUCK.genie.ts, packages/@overeng/notion-property-write/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:5963ad7570f48cd73e7b92bf95acb0992b418343146cf4e4a072454c74cb071f
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/content-address/BUCK.genie.ts, packages/@overeng/content-address/package.json.genie.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-datasource-sync/*.genie.ts, packages/@overeng/notion-datasource-sync/BUCK.genie.ts, packages/@overeng/notion-datasource-sync/BUCK.genie.ts, packages/@overeng/notion-datasource-sync/package.json.genie.ts, packages/@overeng/notion-datasource-sync/src/**/*.cts, packages/@overeng/notion-datasource-sync/src/**/*.js, packages/@overeng/notion-datasource-sync/src/**/*.jsx, packages/@overeng/notion-datasource-sync/src/**/*.mts, packages/@overeng/notion-datasource-sync/src/**/*.snap, packages/@overeng/notion-datasource-sync/src/**/*.ts, packages/@overeng/notion-datasource-sync/src/**/*.tsx, packages/@overeng/notion-datasource-sync/tsconfig.json.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/package.json.genie.ts, packages/@overeng/notion-property-write/BUCK.genie.ts, packages/@overeng/notion-property-write/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
     name = "package.json",
     src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
     visibility = ["PUBLIC"],
 )
 
@@ -111,22 +119,129 @@ export_materialization_inputs([
     "src/webhook/tailscale.unit.test.ts",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_notion_datasource_sync_60c433be3a75",
+# Declared test data: fixture bytes a test reads at runtime, admitted by glob so a
+# new fixture under a declared root is an action input without a projection rewrite.
+# An empty match fails the package instead of silently dropping a declared input.
+package_test_data = {
+    source: source
+    for source in glob(["src/**/*.snap"])
+} or fail("declared test data matched no file: packages/@overeng/notion-datasource-sync")
+
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/body/adapter.ts": "src/body/adapter.ts",
+        "src/body/adapter.unit.test.ts": "src/body/adapter.unit.test.ts",
+        "src/body/notion-md.ts": "src/body/notion-md.ts",
+        "src/cli/effect-command.ts": "src/cli/effect-command.ts",
+        "src/cli/main.ts": "src/cli/main.ts",
+        "src/cli/progress.ts": "src/cli/progress.ts",
+        "src/core/canonical.ts": "src/core/canonical.ts",
+        "src/core/commands.ts": "src/core/commands.ts",
+        "src/core/conflicts.ts": "src/core/conflicts.ts",
+        "src/core/contracts.unit.test.ts": "src/core/contracts.unit.test.ts",
+        "src/core/domain.ts": "src/core/domain.ts",
+        "src/core/errors.ts": "src/core/errors.ts",
+        "src/core/events.ts": "src/core/events.ts",
+        "src/core/guards.ts": "src/core/guards.ts",
+        "src/core/ports.ts": "src/core/ports.ts",
+        "src/core/progress.ts": "src/core/progress.ts",
+        "src/core/property-write-interop.unit.test.ts": "src/core/property-write-interop.unit.test.ts",
+        "src/core/result-envelope.ts": "src/core/result-envelope.ts",
+        "src/core/signals.ts": "src/core/signals.ts",
+        "src/core/status.ts": "src/core/status.ts",
+        "src/daemon/watch.ts": "src/daemon/watch.ts",
+        "src/demo/live-demo.ts": "src/demo/live-demo.ts",
+        "src/demo/live-demo.unit.test.ts": "src/demo/live-demo.unit.test.ts",
+        "src/e2e/body-adapter.e2e.test.ts": "src/e2e/body-adapter.e2e.test.ts",
+        "src/e2e/cli.e2e.test.ts": "src/e2e/cli.e2e.test.ts",
+        "src/e2e/conflict-resolution.e2e.test.ts": "src/e2e/conflict-resolution.e2e.test.ts",
+        "src/e2e/daemon.e2e.test.ts": "src/e2e/daemon.e2e.test.ts",
+        "src/e2e/dry-run-suppression.e2e.test.ts": "src/e2e/dry-run-suppression.e2e.test.ts",
+        "src/e2e/fake-service.e2e.test.ts": "src/e2e/fake-service.e2e.test.ts",
+        "src/e2e/live-demo-replica.e2e.test.ts": "src/e2e/live-demo-replica.e2e.test.ts",
+        "src/e2e/live-notion.e2e.test.ts": "src/e2e/live-notion.e2e.test.ts",
+        "src/e2e/local-convergence-production.e2e.test.ts": "src/e2e/local-convergence-production.e2e.test.ts",
+        "src/e2e/local-workspace-fs.e2e.test.ts": "src/e2e/local-workspace-fs.e2e.test.ts",
+        "src/e2e/nmd-canonical-comparability.e2e.test.ts": "src/e2e/nmd-canonical-comparability.e2e.test.ts",
+        "src/e2e/one-shot-sync.e2e.test.ts": "src/e2e/one-shot-sync.e2e.test.ts",
+        "src/e2e/otel.e2e.test.ts": "src/e2e/otel.e2e.test.ts",
+        "src/e2e/property-materialization-production.e2e.test.ts": "src/e2e/property-materialization-production.e2e.test.ts",
+        "src/e2e/realistic-workflows.e2e.test.ts": "src/e2e/realistic-workflows.e2e.test.ts",
+        "src/e2e/sqlite-storage-contract.e2e.test.ts": "src/e2e/sqlite-storage-contract.e2e.test.ts",
+        "src/e2e/watch-authority-mode.e2e.test.ts": "src/e2e/watch-authority-mode.e2e.test.ts",
+        "src/e2e/watch-dry-run.e2e.test.ts": "src/e2e/watch-dry-run.e2e.test.ts",
+        "src/export/replica-export.ts": "src/export/replica-export.ts",
+        "src/gateway/fake.ts": "src/gateway/fake.ts",
+        "src/gateway/gateway.ts": "src/gateway/gateway.ts",
+        "src/gateway/gateway.unit.test.ts": "src/gateway/gateway.unit.test.ts",
+        "src/gateway/notion.ts": "src/gateway/notion.ts",
+        "src/local/manifest.ts": "src/local/manifest.ts",
+        "src/local/manifest.unit.test.ts": "src/local/manifest.unit.test.ts",
+        "src/local/sidecar.ts": "src/local/sidecar.ts",
+        "src/local/workspace.ts": "src/local/workspace.ts",
+        "src/local/workspace.unit.test.ts": "src/local/workspace.unit.test.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/observability/notion-datasource.contract.ts": "src/observability/notion-datasource.contract.ts",
+        "src/observability/notion-datasource.contract.unit.test.ts": "src/observability/notion-datasource.contract.unit.test.ts",
+        "src/observability/observability.ts": "src/observability/observability.ts",
+        "src/observability/observability.unit.test.ts": "src/observability/observability.unit.test.ts",
+        "src/planner/conflict-commands.ts": "src/planner/conflict-commands.ts",
+        "src/planner/conflict-commands.unit.test.ts": "src/planner/conflict-commands.unit.test.ts",
+        "src/planner/local-convergence.ts": "src/planner/local-convergence.ts",
+        "src/planner/local-convergence.unit.test.ts": "src/planner/local-convergence.unit.test.ts",
+        "src/planner/nmd-property-facts.ts": "src/planner/nmd-property-facts.ts",
+        "src/planner/planner.ts": "src/planner/planner.ts",
+        "src/planner/planner.unit.test.ts": "src/planner/planner.unit.test.ts",
+        "src/planner/property-proof.ts": "src/planner/property-proof.ts",
+        "src/planner/property-proof.unit.test.ts": "src/planner/property-proof.unit.test.ts",
+        "src/planner/user-commands.ts": "src/planner/user-commands.ts",
+        "src/replica/replica.ts": "src/replica/replica.ts",
+        "src/replica/replica.unit.test.ts": "src/replica/replica.unit.test.ts",
+        "src/store/projections.ts": "src/store/projections.ts",
+        "src/store/schema.ts": "src/store/schema.ts",
+        "src/store/store.ts": "src/store/store.ts",
+        "src/store/store.unit.test.ts": "src/store/store.unit.test.ts",
+        "src/sync/executor.ts": "src/sync/executor.ts",
+        "src/sync/executor.unit.test.ts": "src/sync/executor.unit.test.ts",
+        "src/sync/local-convergence-inputs.ts": "src/sync/local-convergence-inputs.ts",
+        "src/sync/local-convergence-inputs.unit.test.ts": "src/sync/local-convergence-inputs.unit.test.ts",
+        "src/sync/observation.ts": "src/sync/observation.ts",
+        "src/sync/sync.ts": "src/sync/sync.ts",
+        "src/testing/bidi-safety.ts": "src/testing/bidi-safety.ts",
+        "src/testing/dry-run-workspace.ts": "src/testing/dry-run-workspace.ts",
+        "src/testing/filesystem.ts": "src/testing/filesystem.ts",
+        "src/testing/harness.ts": "src/testing/harness.ts",
+        "src/testing/live-notion.ts": "src/testing/live-notion.ts",
+        "src/testing/scenarios.ts": "src/testing/scenarios.ts",
+        "src/webhook/mod.ts": "src/webhook/mod.ts",
+        "src/webhook/notion.ts": "src/webhook/notion.ts",
+        "src/webhook/notion.unit.test.ts": "src/webhook/notion.unit.test.ts",
+        "src/webhook/receiver.ts": "src/webhook/receiver.ts",
+        "src/webhook/receiver.unit.test.ts": "src/webhook/receiver.unit.test.ts",
+        "src/webhook/tailscale.ts": "src/webhook/tailscale.ts",
+        "src/webhook/tailscale.unit.test.ts": "src/webhook/tailscale.unit.test.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    } | package_test_data,
     visibility = ["PUBLIC"],
 )
 
 alias(
     name = "editor_inputs",
-    actual = ":node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_notion_datasource_sync_60c433be3a75",
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_notion_datasource_sync_60c433be3a75",
     files = {
+        "vitest.config.ts": "vitest.config.ts",
         "package.json": "package.json",
         "src/body/adapter.ts": "src/body/adapter.ts",
         "src/body/adapter.unit.test.ts": "src/body/adapter.unit.test.ts",
@@ -220,74 +335,15 @@ package_tree(
         "src/webhook/tailscale.ts": "src/webhook/tailscale.ts",
         "src/webhook/tailscale.unit.test.ts": "src/webhook/tailscale.unit.test.ts",
         "tsconfig.json": "tsconfig.json",
-    },
+    } | package_test_data,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {
-        "@overeng/content-address": {
-            "files": {
-                "dist": "//packages/@overeng/content-address:dist",
-                "package.json": "//packages/@overeng/content-address:package.json",
-            },
-            "links": ["@overeng/content-address"],
-        },
-        "@overeng/notion-core": {
-            "files": {
-                "dist": "//packages/@overeng/notion-core:dist",
-                "package.json": "//packages/@overeng/notion-core:package.json",
-            },
-            "links": ["@overeng/notion-core"],
-        },
-        "@overeng/notion-effect-client": {
-            "files": {
-                "dist": "//packages/@overeng/notion-effect-client:dist",
-                "package.json": "//packages/@overeng/notion-effect-client:package.json",
-            },
-            "links": ["@overeng/notion-effect-client"],
-        },
-        "@overeng/notion-effect-schema": {
-            "files": {
-                "dist": "//packages/@overeng/notion-effect-schema:dist",
-                "package.json": "//packages/@overeng/notion-effect-schema:package.json",
-            },
-            "links": ["@overeng/notion-effect-schema"],
-        },
-        "@overeng/notion-md": {
-            "files": {
-                "dist": "//packages/@overeng/notion-md:dist",
-                "package.json": "//packages/@overeng/notion-md:package.json",
-            },
-            "links": ["@overeng/notion-md"],
-        },
-        "@overeng/notion-property-write": {
-            "files": {
-                "dist": "//packages/@overeng/notion-property-write:dist",
-                "package.json": "//packages/@overeng/notion-property-write:package.json",
-            },
-            "links": ["@overeng/notion-property-write"],
-        },
-        "@overeng/otel-contract": {
-            "files": {
-                "dist": "//packages/@overeng/otel-contract:dist",
-                "package.json": "//packages/@overeng/otel-contract:package.json",
-            },
-            "links": ["@overeng/otel-contract"],
-        },
-        "@overeng/tui-react": {
-            "files": {
-                "dist": "//packages/@overeng/tui-react:dist",
-                "package.json": "//packages/@overeng/tui-react:package.json",
-            },
-            "links": ["@overeng/tui-react"],
-        },
-        "@overeng/utils": {
-            "files": {
-                "dist": "//packages/@overeng/utils:dist",
-                "package.json": "//packages/@overeng/utils:package.json",
-            },
-            "links": ["@overeng/utils"],
-        },
-    },
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -297,11 +353,41 @@ tsgo_typecheck(
     visibility = ["PUBLIC"],
 )
 
+
 tsgo_emit(
     name = "dist",
     package_tree = ":package_tree",
     declaration_sources = {
     },
     declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
+    excludes = ["src/e2e/live-notion.e2e.test.ts"],
+    tools = {"NODE_BIN": "//buck2/toolchains:tool_node"},
+    vitest_runtime = "node",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test_notion_live",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 300000,
+    timeout_ms = 300000,
+    test_files = ["src/e2e/live-notion.e2e.test.ts"],
+    env = {"NOTION_DATASOURCE_SYNC_LIVE": "1"},
+    inherited_env = ["NOTION_API_TOKEN", "NOTION_DATASOURCE_SYNC_PARENT_PAGE_ID"],
+    writable_directories = {"NOTION_DATASOURCE_SYNC_LEDGER_PATH": "notion-ledger/ledger.json"},
+    capabilities = ["network"],
+    execution_mode = "unsandboxed-local",
+    cacheable = False,
+    labels = ["local-only", "live", "network", "secret"],
     visibility = ["PUBLIC"],
 )

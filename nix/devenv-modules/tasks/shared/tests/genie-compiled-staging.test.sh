@@ -12,7 +12,12 @@ trap 'rm -rf "$tmpdir"' EXIT
 
 workspace="$tmpdir/workspace"
 tmp_root="$tmpdir/os-tmp"
-compiled_genie="$tmpdir/genie-compiled"
+# The subject is the *bundled* Genie entrypoint, so the packaged CLI is used instead of rebuilding
+# it from source (a source build needs the workspace `node_modules`, which the declared tool set
+# deliberately does not carry). The bundle is driven through the declared Bun rather than the
+# package's `bin/genie` launcher: that launcher pins `GENIE_EXPORT_TYPE_PROOF_COMPILER` with
+# `--set`, and Test 3 exists precisely to prove Genie honours an explicitly supplied compiler.
+compiled_genie=("${BUN_BIN:?}" "$(dirname "$(dirname "${GENIE_BIN:?}")")/libexec/genie.js")
 
 mkdir -p "$workspace/lib" "$tmp_root"
 
@@ -30,16 +35,12 @@ export default {
 EOF
 
 echo "Test 1: compiled Genie generates output and exits"
-(
-  cd "$ROOT"
-  bun build packages/@overeng/genie/bin/genie.tsx --compile --outfile "$compiled_genie" >/dev/null
-)
 
 for _ in 1 2 3; do
   rm -f "$workspace/demo.json"
   env -u OTEL_EXPORTER_OTLP_ENDPOINT \
     TMPDIR="$tmp_root" \
-    timeout 20s "$compiled_genie" --cwd "$workspace" --output json >/dev/null
+    timeout 20s "${compiled_genie[@]}" --cwd "$workspace" --output json >/dev/null
 done
 
 grep -q '"hello": "compiled"' "$workspace/demo.json"
@@ -92,7 +93,7 @@ chmod +x "$fake_compiler"
 env -u OTEL_EXPORTER_OTLP_ENDPOINT \
   GENIE_EXPORT_TYPE_PROOF_COMPILER="$fake_compiler" \
   TMPDIR="$tmp_root" \
-  timeout 20s "$compiled_genie" --cwd "$strict_workspace" --output json >/dev/null
+  timeout 20s "${compiled_genie[@]}" --cwd "$strict_workspace" --output json >/dev/null
 
 grep -q -- '--project' "$compiler_log"
 

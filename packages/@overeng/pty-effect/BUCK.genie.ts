@@ -1,5 +1,9 @@
+import { withJavaScriptCandidates } from '../../../genie/buck2/javascript-candidates.ts'
+import {
+  buck2JavaScriptPackageProjection,
+  javascriptTestPlanFor,
+} from '../../../genie/buck2/javascript-package-projection.ts'
 import type { Buck2TypeScriptAdmission } from '../../../genie/buck2/typescript-admissions.ts'
-import { buck2TypeScriptPackageProjection } from '../../../genie/buck2/typescript-package-projection.ts'
 
 export const buck2TypeScriptAdmission = {
   dependencyImporter: '//buck2/dependencies:importer_packages_overeng_pty_effect_ec6c01cbf1c8',
@@ -19,11 +23,22 @@ export const buck2TypeScriptAdmission = {
       distTarget: '//packages/@overeng/utils-dev:dist',
     },
   ],
-  editorViewConsumer: false,
   authority: {
     declarationEntrypoint: 'src/mod.d.ts',
     projectFile: 'tsconfig.json',
   },
 } as const satisfies Buck2TypeScriptAdmission
 
-export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)
+export default withJavaScriptCandidates({
+  projection: buck2JavaScriptPackageProjection(
+    buck2TypeScriptAdmission,
+    javascriptTestPlanFor(buck2TypeScriptAdmission.packageName),
+  ),
+  declarations: `
+package_bin_check(
+    name = "bundle_smoke_candidate",
+    package_tree = ":package_tree",
+    entrypoint = "src/bundle-smoke.buck.ts",
+)
+`,
+})

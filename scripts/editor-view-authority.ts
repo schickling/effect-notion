@@ -1,7 +1,7 @@
 #!/usr/bin/env -S bun
 import process from 'node:process'
 
-import { editorViewConsumerPackagePaths } from '../genie/buck2/typescript-admissions.ts'
+import typescriptAuthorityManifest from '../genie/buck2/typescript-authority-manifest.json' with { type: 'json' }
 import { writeEditorViewAuthority } from '../packages/@overeng/buck2-tools/src/editor-view-authority.ts'
 
 const fail = (message: string): never => {
@@ -42,7 +42,7 @@ try {
   const options = parseCli(process.argv.slice(2))
   const authority = await writeEditorViewAuthority({
     ...options,
-    requiredPackages: editorViewConsumerPackagePaths,
+    requiredPackages: typescriptAuthorityManifest.editorViewConsumerPackagePaths,
   })
   process.stdout.write(
     `wrote editor dependency authority for ${authority.ownedPackages.length} workspace packages\n`,

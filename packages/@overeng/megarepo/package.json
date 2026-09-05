@@ -4,9 +4,18 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/mod.ts",
-    "./buck2-manifest": "./src/buck2-manifest.ts",
-    "./cli": "./src/cli/mod.ts"
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
+    "./buck2-manifest": {
+      "types": "./dist/src/buck2-manifest.d.ts",
+      "default": "./src/buck2-manifest.ts"
+    },
+    "./cli": {
+      "types": "./dist/src/cli/mod.d.ts",
+      "default": "./src/cli/mod.ts"
+    }
   },
   "publishConfig": {
     "access": "public",

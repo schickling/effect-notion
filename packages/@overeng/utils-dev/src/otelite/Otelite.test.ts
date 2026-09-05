@@ -42,8 +42,21 @@ const captureSpanPayload = (name: string, service: string) =>
     ],
   })
 
-/** Real otelite binary (from `PATH`, see README) + Node platform layer. */
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+/** Real otelite binary (declared as `OTELITE_BIN`) + Node platform layer. */
 const TestLayer = Otelite.layer.pipe(Layer.provideMerge(NodeServices.layer))
+
+/** Child binaries the run tests spawn, each named by its declared tool env. */
+const trueBin = requireTool('TRUE_BIN')
+const falseBin = requireTool('FALSE_BIN')
+const bunBin = requireTool('BUN_BIN')
 
 const tracesFixture = new URL('./fixtures/traces.ndjson', import.meta.url).pathname
 const emitter = new URL('./emitter.ts', import.meta.url).pathname
@@ -52,10 +65,10 @@ describe('Otelite', () => {
   it.effect('run() yields a decoded otelite.summary/v1 for a successful child', () =>
     Effect.gen(function* () {
       const otelite = yield* Otelite
-      const summary = yield* otelite.run({ command: ['true'] })
+      const summary = yield* otelite.run({ command: [trueBin] })
 
       expect(summary.schema).toBe('otelite.summary/v1')
-      expect(summary.child).toEqual({ argv: ['true'], exit_code: 0 })
+      expect(summary.child).toEqual({ argv: [trueBin], exit_code: 0 })
       expect(summary.counts).toEqual({ spans: 0, metrics: 0, logs: 0 })
       expect(summary.out).toMatch(/otelite-/)
       expect(summary.endpoints.http).toMatch(/^http:\/\//)
@@ -65,10 +78,10 @@ describe('Otelite', () => {
   it.effect('a non-zero child surfaces as the tagged OteliteChildFailed error', () =>
     Effect.gen(function* () {
       const otelite = yield* Otelite
-      const exit = yield* otelite.run({ command: ['false'] }).pipe(Effect.exit)
+      const exit = yield* otelite.run({ command: [falseBin] }).pipe(Effect.exit)
 
       expect(Exit.isFailure(exit)).toBe(true)
-      const error = yield* otelite.run({ command: ['false'] }).pipe(Effect.flip)
+      const error = yield* otelite.run({ command: [falseBin] }).pipe(Effect.flip)
       expect(error).toBeInstanceOf(OteliteChildFailed)
       expect((error as OteliteChildFailed).exitCode).toBe(1)
     }).pipe(Effect.provide(TestLayer)),
@@ -80,7 +93,7 @@ describe('Otelite', () => {
       // Capture the minted dir from within a child scope; the finalizer removes
       // it when that inner scope closes.
       const out = yield* Effect.scoped(
-        otelite.run({ command: ['true'] }).pipe(Effect.map((s) => s.out)),
+        otelite.run({ command: [trueBin] }).pipe(Effect.map((s) => s.out)),
       )
       const exists = yield* Effect.promise(() =>
         access(out)
@@ -150,11 +163,11 @@ describe('Otelite', () => {
   it.effect('run(emitter) captures a live OTLP span that round-trips through typed inspect', () =>
     Effect.gen(function* () {
       const otelite = yield* Otelite
-      const summary = yield* otelite.run({ command: ['bun', emitter] })
+      const summary = yield* otelite.run({ command: [bunBin, emitter] })
 
       // The summary itself is the live receiver's count of what landed.
       expect(summary.schema).toBe('otelite.summary/v1')
-      expect(summary.child).toEqual({ argv: ['bun', emitter], exit_code: 0 })
+      expect(summary.child).toEqual({ argv: [bunBin, emitter], exit_code: 0 })
       expect(summary.counts.spans).toBe(1)
       // The `otelite.summary/v1` contract round-trips through `Schema`.
       expect(Schema.is(Summary)(summary)).toBe(true)
@@ -260,7 +273,7 @@ describe('Otelite.capture', () => {
       expect(exists).toBe(false)
 
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
-      const psOut = yield* spawner.string(ChildProcess.make('ps', ['-eo', 'args']))
+      const psOut = yield* spawner.string(ChildProcess.make(requireTool('PS_BIN'), ['-eo', 'args']))
       const orphaned = psOut
         .split('\n')
         .some((line) => line.includes('otelite') && line.includes(outDir))

@@ -44,7 +44,7 @@
     "composite": true,
     "rootDir": ".",
     "noEmit": true,
-    "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "types": ["node"]
   },
   "include": ["examples/**/*.ts"],

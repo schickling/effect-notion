@@ -1,6 +1,6 @@
 load("//.buck2/capabilities:defs.bzl", "CAPABILITIES", "GENERATION")
 load("//buck2/platforms:defs.bzl", "host_platform_label")
-load("//buck2/toolchains:defs.bzl", "bun_toolchain", "configured_rust_toolchain", "effect_tsgo_toolchain", "host_rust_target_triple", "nix_go_bootstrap_toolchain", "nix_python_bootstrap_toolchain")
+load("//buck2/toolchains:defs.bzl", "bun_toolchain", "configured_rust_toolchain", "effect_tsgo_toolchain", "host_rust_target_triple", "nix_go_bootstrap_toolchain", "nix_python_bootstrap_toolchain", "sandbox_platform_key_validation_test", "sandbox_toolchain", "unsandboxed_local_toolchain")
 load("//buck2/rust:toolchains.bzl", "native_rust_toolchains")
 load(":configured.bzl", "support_tool")
 load(":provider_identity_fixture.bzl", "cross_cell_product_identity")
@@ -18,6 +18,209 @@ support_tool(
     tool_id = "product",
     visibility = ["PUBLIC"],
 )
+
+# Deterministic test tools. A hermetic test may only launch an attested capability, because the
+# sandbox binds exactly the projected closure of what a rule declares; a bare `/nix/store` path
+# would be bound without the libraries it dynamically links against.
+support_tool(
+    name = "tool_coreutils_cp",
+    protocol = "gnu/coreutils/v9",
+    tool_id = "coreutils-cp",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_coreutils_false",
+    protocol = "gnu/coreutils/v9",
+    tool_id = "coreutils-false",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_coreutils_mv",
+    protocol = "gnu/coreutils/v9",
+    tool_id = "coreutils-mv",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_coreutils_env",
+    protocol = "gnu/coreutils/v9",
+    tool_id = "coreutils-env",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_coreutils_wc",
+    protocol = "gnu/coreutils/v9",
+    tool_id = "coreutils-wc",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_coreutils_stty",
+    protocol = "gnu/coreutils/v9",
+    tool_id = "coreutils-stty",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_coreutils_echo",
+    protocol = "gnu/coreutils/v9",
+    tool_id = "coreutils-echo",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_coreutils_printf",
+    protocol = "gnu/coreutils/v9",
+    tool_id = "coreutils-printf",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_coreutils_cat",
+    protocol = "gnu/coreutils/v9",
+    tool_id = "coreutils-cat",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_test_sh",
+    protocol = "gnu/bash/v5",
+    tool_id = "test-sh",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_coreutils_true",
+    protocol = "gnu/coreutils/v9",
+    tool_id = "coreutils-true",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_test_procps",
+    protocol = "procps/ps/v4",
+    tool_id = "test-procps",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_test_bash",
+    protocol = "gnu/bash/v5",
+    tool_id = "test-bash",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_test_git",
+    protocol = "git/cli/v2",
+    tool_id = "test-git",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_test_grep",
+    protocol = "gnu/grep/v3",
+    tool_id = "test-grep",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_test_nix",
+    protocol = "nixos/nix-cli/v2",
+    tool_id = "test-nix",
+    visibility = ["PUBLIC"],
+)
+
+# One capability for the devenv-module shell suite's whole GNU tool bundle. The declared
+# executable is the bundle's sentinel, so binding it also binds the bundle `bin` and the closure
+# of every joined package instead of a single tool.
+support_tool(
+    name = "tool_test_devenv_module_tools",
+    protocol = "effect-utils/devenv-module-tools/v1",
+    tool_id = "test-devenv-module-tools",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_test_ci_tools",
+    protocol = "effect-utils/ci-tools/v1",
+    tool_id = "test-ci-tools",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_test_genie",
+    protocol = "effect-utils/genie/v1",
+    tool_id = "test-genie",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_test_script",
+    protocol = "util-linux/script/v2",
+    tool_id = "test-script",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_test_rustfmt",
+    protocol = "rust-lang/rustfmt/v1",
+    tool_id = "test-rustfmt",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_test_otelite",
+    protocol = "effect-utils/otelite/v1",
+    tool_id = "test-otelite",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_test_otel_scrape",
+    protocol = "effect-utils/otel-scrape/v1",
+    tool_id = "test-otel-scrape",
+    visibility = ["PUBLIC"],
+)
+
+# The pinned Bun and Node realizations are the same capabilities the toolchains consume; a test
+# that spawns a runtime must name the identical attested executable rather than a PATH lookup.
+support_tool(
+    name = "tool_bun",
+    protocol = "effect-utils/buck2-bun/v1",
+    tool_id = "bun",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_node",
+    protocol = "nodejs/24",
+    tool_id = "node",
+    visibility = ["PUBLIC"],
+)
+
+# The same `effect-tsgo` realization `effect_tsgo_toolchain` compiles with, for suites whose
+# assertion *is* a TypeScript proof over their own sources; a test may not resolve `tsgo` from
+# PATH, and the sandbox binds this capability's whole closure.
+support_tool(
+    name = "tool_effect_tsgo",
+    protocol = "effect-utils/buck2-effect-tsgo/v1",
+    tool_id = "effect-tsgo",
+    visibility = ["PUBLIC"],
+)
+
+# `rustc` for generator suites that compile emitted Rust; the Buck Rust toolchain's own
+# compiler capability, not a second realization.
+support_tool(
+    name = "tool_rust_compiler",
+    protocol = "effect-utils/buck2-rust-tool/v1",
+    tool_id = "rust-compiler",
+    visibility = ["PUBLIC"],
+)
+
 native_rust_toolchains(
     capabilities = CAPABILITIES,
     generation = GENERATION,
@@ -65,6 +268,37 @@ effect_tsgo_toolchain(
     visibility = ["PUBLIC"],
 )
 
+# Platform-native containment for TypeScript actions. `active_platforms` names execution
+# platforms whose containment gate has passed against the *current* generated capability
+# projection. Every other platform resolves to `none` and keeps complete-input mutation hashing.
+#
+# Linux uses the projected `sandbox-bubblewrap` launcher and its exact per-architecture closure.
+# Darwin uses the fixed system Seatbelt launcher and is admitted only for kernel major 25. The
+# containment gate in `//buck2/sandbox-gate/...` must pass whenever a Linux projection changes
+# and must be re-run for every Darwin OS upgrade. Seatbelt's public interface is deprecated, so
+# an unproven kernel fails closed in the runner rather than silently weakening containment.
+sandbox_toolchain(
+    name = "typescript_sandbox",
+    active_platforms = ["x86_64-linux", "aarch64-linux", "aarch64-macos"],
+    capabilities = CAPABILITIES,
+    darwin_kernel_majors = ["25"],
+    generation = GENERATION,
+    visibility = ["PUBLIC"],
+)
+
+sandbox_platform_key_validation_test(
+    name = "sandbox_platform_key_validation_unit_test",
+)
+
+# The deliberate host-service executor. It is not a weaker sandbox: it is the explicit absence of
+# one, reachable only from a test lane that declares `execution_mode = "unsandboxed-local"`
+# together with a host-service capability (`network`, `loopback`, `nix-daemon`, `pty`) and
+# `cacheable = False`. Anything else keeps `:typescript_sandbox`.
+unsandboxed_local_toolchain(
+    name = "unsandboxed_local_executor",
+    visibility = ["PUBLIC"],
+)
+
 # Analysis-only fixture: the rule and platform live in the hub cell and must
 # consume the exact same ProductPlatformInfo identity.
 configured_rust_toolchain(
@@ -89,5 +323,20 @@ cross_cell_product_identity(
     name = "cross_cell_product_mismatch",
     executable_target_platform = "//buck2/platforms:macos_aarch64",
     target_platform = "//buck2/platforms:linux_x86_64",
+    visibility = ["PUBLIC"],
+)
+
+# Read as data, not loaded: the root Buck test target asserts over this package's own
+# generated Starlark text, and `@overeng/genie`'s CI contract test reads this BUCK file
+# to prove the workflow references the toolchain names it actually declares.
+export_file(
+    name = "BUCK",
+    src = "BUCK",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "configured.bzl",
+    src = "configured.bzl",
     visibility = ["PUBLIC"],
 )

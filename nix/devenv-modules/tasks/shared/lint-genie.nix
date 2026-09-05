@@ -1,48 +1,31 @@
 # Minimal lint tasks using only genie (no oxlint/oxfmt)
 #
-# Usage in devenv.nix:
-#   imports = [
-#     inputs.effect-utils.devenvModules.tasks.lint-genie
-#   ];
-#
-# Provides: lint:check, lint:check:genie, lint:fix
-{ lib, pkgs, ... }:
+# Requires an explicit packaged Genie product; it never resolves Genie or pnpm
+# from PATH and delegates lock freshness to the install-free pnpm lock task.
+{
+  geniePkg,
+  lockfileCheckTask ? "pnpm:check-lockfile",
+}:
+{ lib, ... }:
 let
   trace = import ../lib/trace.nix { inherit lib; };
-  cliGuard = import ../lib/cli-guard.nix { inherit pkgs; };
+  genieBin = "${geniePkg}/bin/genie";
   megarepoStoreEnv = builtins.getEnv "MEGAREPO_STORE";
   genieTaskEnv = lib.optionalAttrs (megarepoStoreEnv != "") {
     MEGAREPO_STORE = megarepoStoreEnv;
   };
 in
 {
-  tasks = cliGuard.stripGuards {
+  tasks = {
     "lint:check:genie" = {
       description = "Check generated files are up to date";
       after = [ "genie:prepare" ];
       env = genieTaskEnv;
-      exec = trace.exec "lint:check:genie" "genie --check";
+      exec = trace.exec "lint:check:genie" "${genieBin} --check";
     };
     "lint:check:lockfile" = {
-      description = "Verify pnpm-lock.yaml matches package.json specifiers";
-      after = [ "pnpm:install" ];
-      exec = trace.exec "lint:check:lockfile" ''
-        set -euo pipefail
-        store_dir="''${npm_config_store_dir:-''${PNPM_CONFIG_STORE_DIR:-''${PNPM_STORE_DIR:-$PWD/.devenv/pnpm-store}}}"
-        export PNPM_STORE_DIR="$store_dir"
-        export PNPM_CONFIG_STORE_DIR="$store_dir"
-        export npm_config_store_dir="$store_dir"
-        pnpm install \
-          --frozen-lockfile \
-          --ignore-scripts \
-          --config.confirmModulesPurge=false \
-          --config.side-effects-cache=false \
-          --config.verify-store-integrity=true \
-          --config.strict-store-pkg-content-check=true \
-          --config.package-import-method=clone-or-copy \
-          --pm-on-fail=ignore \
-          --config.store-dir="$store_dir"
-      '';
+      description = "Verify pnpm-lock.yaml matches package.json specifiers without realizing node_modules";
+      after = [ lockfileCheckTask ];
     };
     "lint:check" = {
       description = "Run all lint checks";

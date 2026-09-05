@@ -9,18 +9,34 @@
     "**/node_modules/**",
     "**/target",
     "**/target/**",
+    ".buck2/capability-gcroots",
     ".devenv",
+    ".editor-view",
     ".git",
     "buck-out",
+    "context/.editor-view",
     "node_modules",
     "packages/.editor-view",
+    "packages/@overeng/effect-rpc-tanstack/.editor-view",
     "target",
     "tmp"
   ],
   "distOverlays": [
     {
+      "target": "//context/effect/socket:dist",
+      "destination": "context/effect/socket/dist"
+    },
+    {
+      "target": "//context/opentui:dist",
+      "destination": "context/opentui/dist"
+    },
+    {
       "target": "//packages/@overeng/agent-session-ingest:dist",
       "destination": "packages/@overeng/agent-session-ingest/dist"
+    },
+    {
+      "target": "//packages/@overeng/buck2-tools:dist",
+      "destination": "packages/@overeng/buck2-tools/dist"
     },
     {
       "target": "//packages/@overeng/ci-tools:dist",
@@ -47,16 +63,36 @@
       "destination": "packages/@overeng/effect-react/dist"
     },
     {
+      "target": "//packages/@overeng/effect-rpc-tanstack/examples/basic:dist",
+      "destination": "packages/@overeng/effect-rpc-tanstack/examples/basic/dist"
+    },
+    {
       "target": "//packages/@overeng/effect-rpc-tanstack:dist",
       "destination": "packages/@overeng/effect-rpc-tanstack/dist"
+    },
+    {
+      "target": "//packages/@overeng/effect-schema-form-aria:dist",
+      "destination": "packages/@overeng/effect-schema-form-aria/dist"
     },
     {
       "target": "//packages/@overeng/effect-schema-form:dist",
       "destination": "packages/@overeng/effect-schema-form/dist"
     },
     {
+      "target": "//packages/@overeng/genie:dist",
+      "destination": "packages/@overeng/genie/dist"
+    },
+    {
+      "target": "//packages/@overeng/kdl-effect:dist",
+      "destination": "packages/@overeng/kdl-effect/dist"
+    },
+    {
       "target": "//packages/@overeng/kdl:dist",
       "destination": "packages/@overeng/kdl/dist"
+    },
+    {
+      "target": "//packages/@overeng/megarepo:dist",
+      "destination": "packages/@overeng/megarepo/dist"
     },
     {
       "target": "//packages/@overeng/notion-cli:dist",
@@ -127,6 +163,10 @@
       "destination": "packages/@overeng/tui-react/dist"
     },
     {
+      "target": "//packages/@overeng/tui-stories:dist",
+      "destination": "packages/@overeng/tui-stories/dist"
+    },
+    {
       "target": "//packages/@overeng/utils-dev:dist",
       "destination": "packages/@overeng/utils-dev/dist"
     },
@@ -147,6 +187,72 @@
       "protocol": "facebook/buck2-cli/2026-08-22",
       "flakePackage": "buck2",
       "executable": "bin/buck2"
+    },
+    {
+      "toolId": "coreutils-cat",
+      "protocol": "gnu/coreutils/v9",
+      "flakePackage": "buck2-coreutils",
+      "executable": "bin/cat"
+    },
+    {
+      "toolId": "coreutils-cp",
+      "protocol": "gnu/coreutils/v9",
+      "flakePackage": "buck2-coreutils",
+      "executable": "bin/cp"
+    },
+    {
+      "toolId": "coreutils-echo",
+      "protocol": "gnu/coreutils/v9",
+      "flakePackage": "buck2-coreutils",
+      "executable": "bin/echo"
+    },
+    {
+      "toolId": "coreutils-env",
+      "protocol": "gnu/coreutils/v9",
+      "flakePackage": "buck2-coreutils",
+      "executable": "bin/env"
+    },
+    {
+      "toolId": "coreutils-false",
+      "protocol": "gnu/coreutils/v9",
+      "flakePackage": "buck2-coreutils",
+      "executable": "bin/false"
+    },
+    {
+      "toolId": "coreutils-mv",
+      "protocol": "gnu/coreutils/v9",
+      "flakePackage": "buck2-coreutils",
+      "executable": "bin/mv"
+    },
+    {
+      "toolId": "coreutils-printf",
+      "protocol": "gnu/coreutils/v9",
+      "flakePackage": "buck2-coreutils",
+      "executable": "bin/printf"
+    },
+    {
+      "toolId": "coreutils-stty",
+      "protocol": "gnu/coreutils/v9",
+      "flakePackage": "buck2-coreutils",
+      "executable": "bin/stty"
+    },
+    {
+      "toolId": "coreutils-true",
+      "protocol": "gnu/coreutils/v9",
+      "flakePackage": "buck2-coreutils",
+      "executable": "bin/true"
+    },
+    {
+      "toolId": "coreutils-wc",
+      "protocol": "gnu/coreutils/v9",
+      "flakePackage": "buck2-coreutils",
+      "executable": "bin/wc"
+    },
+    {
+      "toolId": "node",
+      "protocol": "nodejs/24",
+      "flakePackage": "buck2-node",
+      "executable": "bin/node"
     },
     {
       "toolId": "product",
@@ -237,6 +343,91 @@
       "protocol": "effect-utils/buck2-rust-tool/v1",
       "flakePackage": "buck2-rust-strip",
       "executable": "bin/strip"
+    },
+    {
+      "toolId": "sandbox-bubblewrap",
+      "protocol": "containers/bubblewrap/v1",
+      "flakePackage": "buck2-bubblewrap",
+      "executable": "bin/bwrap",
+      "systems": ["aarch64-linux", "x86_64-linux"]
+    },
+    {
+      "toolId": "test-bash",
+      "protocol": "gnu/bash/v5",
+      "flakePackage": "buck2-bash",
+      "executable": "bin/bash"
+    },
+    {
+      "toolId": "test-ci-tools",
+      "protocol": "effect-utils/ci-tools/v1",
+      "flakePackage": "ci-tools",
+      "executable": "bin/ci-tools"
+    },
+    {
+      "toolId": "test-devenv-module-tools",
+      "protocol": "effect-utils/devenv-module-tools/v1",
+      "flakePackage": "buck2-devenv-module-tools",
+      "executable": "bin/devenv-module-tools"
+    },
+    {
+      "toolId": "test-genie",
+      "protocol": "effect-utils/genie/v1",
+      "flakePackage": "genie",
+      "executable": "bin/genie"
+    },
+    {
+      "toolId": "test-git",
+      "protocol": "git/cli/v2",
+      "flakePackage": "buck2-git",
+      "executable": "bin/git"
+    },
+    {
+      "toolId": "test-grep",
+      "protocol": "gnu/grep/v3",
+      "flakePackage": "buck2-gnugrep",
+      "executable": "bin/grep"
+    },
+    {
+      "toolId": "test-nix",
+      "protocol": "nixos/nix-cli/v2",
+      "flakePackage": "buck2-nix",
+      "executable": "bin/nix"
+    },
+    {
+      "toolId": "test-otel-scrape",
+      "protocol": "effect-utils/otel-scrape/v1",
+      "flakePackage": "otel-scrape",
+      "executable": "bin/otel-scrape"
+    },
+    {
+      "toolId": "test-otelite",
+      "protocol": "effect-utils/otelite/v1",
+      "flakePackage": "otelite",
+      "executable": "bin/otelite"
+    },
+    {
+      "toolId": "test-procps",
+      "protocol": "procps/ps/v4",
+      "flakePackage": "buck2-procps",
+      "executable": "bin/ps"
+    },
+    {
+      "toolId": "test-rustfmt",
+      "protocol": "rust-lang/rustfmt/v1",
+      "flakePackage": "buck2-rustfmt",
+      "executable": "bin/rustfmt"
+    },
+    {
+      "toolId": "test-script",
+      "protocol": "util-linux/script/v2",
+      "flakePackage": "buck2-util-linux",
+      "executable": "bin/script"
+    },
+    {
+      "toolId": "test-sh",
+      "protocol": "gnu/bash/v5",
+      "flakePackage": "buck2-bash",
+      "executable": "bin/sh"
     },
     {
       "_tag": "ToolchainAuthority",

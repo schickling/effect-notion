@@ -11,23 +11,14 @@
 let
   cfg = config.effectUtils.workflowReport;
   trace = import ../lib/trace.nix { inherit lib; };
-  root = ../../../..;
-  ciToolsPkg = import (root + "/packages/@overeng/ci-tools/nix/build.nix") {
-    inherit pkgs;
-    src = root;
-    dirty = true;
-  };
-  resolvedCiToolsBin =
-    if cfg.ciToolsBin == null then "${ciToolsPkg}/bin/ci-tools" else cfg.ciToolsBin;
+  resolvedCiToolsBin = cfg.ciToolsBin;
   ciTools = lib.escapeShellArg resolvedCiToolsBin;
   gh = if cfg.ghBin == null then "${pkgs.gh}/bin/gh" else cfg.ghBin;
 in
 {
   options.effectUtils.workflowReport = {
     ciToolsBin = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      internal = true;
+      type = lib.types.str;
       description = "Absolute ci-tools binary used by the shared workflow-report tasks.";
     };
 

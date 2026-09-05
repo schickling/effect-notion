@@ -1,0 +1,87 @@
+{
+  "schema": "effect-utils/tracked-buck-products-spec/v1",
+  "generator": "nix/buck2-products/products.json.genie.ts",
+  "regenerate": "devenv tasks run genie:run",
+  "products": [
+    {
+      "descriptorPath": "ci-tools/product.json",
+      "label": "//packages/@overeng/ci-tools:ci-tools-candidate",
+      "module": "ci-tools.js",
+      "productKind": "cli",
+      "productName": "ci-tools",
+      "runtimeKind": "node"
+    },
+    {
+      "descriptorPath": "genie/product.json",
+      "label": "//packages/@overeng/genie:genie-candidate",
+      "module": "genie.js",
+      "productKind": "cli",
+      "productName": "genie",
+      "runtimeKind": "bun"
+    },
+    {
+      "descriptorPath": "genie-bootstrap-closure-check/product.json",
+      "label": "//packages/@overeng/genie:genie-bootstrap-closure-check-candidate",
+      "module": "genie-bootstrap-closure-check.js",
+      "productKind": "cli",
+      "productName": "genie-bootstrap-closure-check",
+      "runtimeKind": "bun"
+    },
+    {
+      "descriptorPath": "megarepo/product.json",
+      "label": "//packages/@overeng/megarepo:megarepo-candidate",
+      "module": "mr.js",
+      "productKind": "cli",
+      "productName": "megarepo",
+      "runtimeKind": "node"
+    },
+    {
+      "descriptorPath": "notion-cli/product.json",
+      "label": "//packages/@overeng/notion-cli:notion-cli-candidate",
+      "module": "notion.js",
+      "productKind": "cli",
+      "productName": "notion-cli",
+      "runtimeKind": "node"
+    },
+    {
+      "descriptorPath": "notion-db-runtime/product.json",
+      "label": "//packages/@overeng/notion-cli:notion-db-candidate",
+      "module": "notion-db.js",
+      "productKind": "cli",
+      "productName": "notion-db-runtime",
+      "runtimeKind": "node"
+    },
+    {
+      "descriptorPath": "notion-md/product.json",
+      "label": "//packages/@overeng/notion-md:notion-md-candidate",
+      "module": "notion-md.js",
+      "productKind": "cli",
+      "productName": "notion-md",
+      "runtimeKind": "node"
+    },
+    {
+      "descriptorPath": "npm-release/product.json",
+      "label": "//packages/@overeng/npm-release:npm-release-candidate",
+      "module": "npm-release.js",
+      "productKind": "cli",
+      "productName": "npm-release",
+      "runtimeKind": "node"
+    },
+    {
+      "descriptorPath": "oxc-config/product.json",
+      "label": "//packages/@overeng/oxc-config:oxc-config-candidate",
+      "module": "oxc-config.js",
+      "productKind": "module",
+      "productName": "oxc-config",
+      "runtimeKind": "node"
+    },
+    {
+      "descriptorPath": "tui-stories/product.json",
+      "label": "//packages/@overeng/tui-stories:tui-stories-candidate",
+      "module": "tui-stories.js",
+      "productKind": "cli",
+      "productName": "tui-stories",
+      "runtimeKind": "node"
+    }
+  ]
+}

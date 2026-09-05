@@ -1,0 +1,117 @@
+# Generated file - DO NOT EDIT
+# Source: BUCK.genie.ts
+
+# Projection source: context/effect/socket/BUCK.genie.ts
+# Projection schema version: 5
+# Projection generator: effect-utils/genie/buck2-typescript-package-projection
+# Semantic fingerprint: sha256:cc80d0f3ca38455e95cb17301c70255528d66d0190b09c6b26bd8a3103fa9376
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, context/effect/socket/*.genie.ts, context/effect/socket/BUCK.genie.ts, context/effect/socket/BUCK.genie.ts, context/effect/socket/examples/**/*.cts, context/effect/socket/examples/**/*.js, context/effect/socket/examples/**/*.jsx, context/effect/socket/examples/**/*.mts, context/effect/socket/examples/**/*.ts, context/effect/socket/examples/**/*.tsx, context/effect/socket/package.json.genie.ts, context/effect/socket/tsconfig.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts
+# Regenerate: devenv tasks run genie:run
+
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
+
+export_file(
+    name = "package.json",
+    src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
+    visibility = ["PUBLIC"],
+)
+
+export_materialization_inputs([
+    "examples/http-ws-combined.ts",
+    "examples/rpc-schema.ts",
+    "examples/rpc-ws-client.ts",
+    "examples/rpc-ws-server.ts",
+    "examples/tcp-echo-client.ts",
+    "examples/tcp-echo-server.ts",
+    "examples/ws-broadcast-client.ts",
+    "examples/ws-broadcast-server.ts",
+    "examples/ws-echo-client.ts",
+    "examples/ws-echo-server.ts",
+    "examples/ws-json-client.ts",
+    "examples/ws-json-server.ts",
+])
+
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "examples/http-ws-combined.ts": "examples/http-ws-combined.ts",
+        "examples/rpc-schema.ts": "examples/rpc-schema.ts",
+        "examples/rpc-ws-client.ts": "examples/rpc-ws-client.ts",
+        "examples/rpc-ws-server.ts": "examples/rpc-ws-server.ts",
+        "examples/tcp-echo-client.ts": "examples/tcp-echo-client.ts",
+        "examples/tcp-echo-server.ts": "examples/tcp-echo-server.ts",
+        "examples/ws-broadcast-client.ts": "examples/ws-broadcast-client.ts",
+        "examples/ws-broadcast-server.ts": "examples/ws-broadcast-server.ts",
+        "examples/ws-echo-client.ts": "examples/ws-echo-client.ts",
+        "examples/ws-echo-server.ts": "examples/ws-echo-server.ts",
+        "examples/ws-json-client.ts": "examples/ws-json-client.ts",
+        "examples/ws-json-server.ts": "examples/ws-json-server.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    },
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "editor_inputs",
+    actual = "//buck2/dependencies:view_context_effect_socket_63f203470f7c",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "package_tree",
+    dependency_view = "//buck2/dependencies:view_context_effect_socket_63f203470f7c",
+    files = {
+        "examples/http-ws-combined.ts": "examples/http-ws-combined.ts",
+        "examples/rpc-schema.ts": "examples/rpc-schema.ts",
+        "examples/rpc-ws-client.ts": "examples/rpc-ws-client.ts",
+        "examples/rpc-ws-server.ts": "examples/rpc-ws-server.ts",
+        "examples/tcp-echo-client.ts": "examples/tcp-echo-client.ts",
+        "examples/tcp-echo-server.ts": "examples/tcp-echo-server.ts",
+        "examples/ws-broadcast-client.ts": "examples/ws-broadcast-client.ts",
+        "examples/ws-broadcast-server.ts": "examples/ws-broadcast-server.ts",
+        "examples/ws-echo-client.ts": "examples/ws-echo-client.ts",
+        "examples/ws-echo-server.ts": "examples/ws-echo-server.ts",
+        "examples/ws-json-client.ts": "examples/ws-json-client.ts",
+        "examples/ws-json-server.ts": "examples/ws-json-server.ts",
+        "package.json": "package.json",
+        "tsconfig.json": "tsconfig.json",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+tsgo_typecheck(
+    name = "typecheck",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+
+tsgo_emit(
+    name = "dist",
+    package_tree = ":package_tree",
+    declaration_sources = {
+    },
+    declaration_entrypoint = "examples/rpc-schema.d.ts",
+    visibility = ["PUBLIC"],
+)

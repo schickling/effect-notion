@@ -1,19 +1,27 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2:javascript.bzl", "vitest_test")
 # Projection source: packages/@overeng/kdl/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:772ef1ca183d7818425a8804b51c7767d4ecac6c7f1aaf3eee13b56b038162d1
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/kdl/BUCK.genie.ts, packages/@overeng/kdl/BUCK.genie.ts, packages/@overeng/kdl/package.json.genie.ts, packages/@overeng/kdl/src/**/*.cts, packages/@overeng/kdl/src/**/*.js, packages/@overeng/kdl/src/**/*.mts, packages/@overeng/kdl/src/**/*.ts, packages/@overeng/kdl/src/**/*.tsx, packages/@overeng/kdl/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
+# Semantic fingerprint: sha256:e94ce3a6f1cea35a0808ebabc66807352dd75ba4fd3784350e12065f3289252a
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/kdl/*.genie.ts, packages/@overeng/kdl/BUCK.genie.ts, packages/@overeng/kdl/BUCK.genie.ts, packages/@overeng/kdl/package.json.genie.ts, packages/@overeng/kdl/src/**/*.cts, packages/@overeng/kdl/src/**/*.js, packages/@overeng/kdl/src/**/*.jsx, packages/@overeng/kdl/src/**/*.mts, packages/@overeng/kdl/src/**/*.ts, packages/@overeng/kdl/src/**/*.tsx, packages/@overeng/kdl/test-fixtures/**/*.kdl, packages/@overeng/kdl/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
     name = "package.json",
     src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
     visibility = ["PUBLIC"],
 )
 
@@ -45,22 +53,63 @@ export_materialization_inputs([
     "src/upstream.test.ts",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_kdl_d22c24f7367b",
+# Declared test data: fixture bytes a test reads at runtime, admitted by glob so a
+# new fixture under a declared root is an action input without a projection rewrite.
+# An empty match fails the package instead of silently dropping a declared input.
+package_test_data = {
+    source: source
+    for source in glob(["test-fixtures/**/*.kdl"])
+} or fail("declared test data matched no file: packages/@overeng/kdl")
+
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/clear-format.ts": "src/clear-format.ts",
+        "src/error.ts": "src/error.ts",
+        "src/flags.ts": "src/flags.ts",
+        "src/format.ts": "src/format.ts",
+        "src/locations.ts": "src/locations.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/mod.unit.test.ts": "src/mod.unit.test.ts",
+        "src/model/document.ts": "src/model/document.ts",
+        "src/model/entry.ts": "src/model/entry.ts",
+        "src/model/identifier.ts": "src/model/identifier.ts",
+        "src/model/node.ts": "src/model/node.ts",
+        "src/model/tag.ts": "src/model/tag.ts",
+        "src/model/utils.ts": "src/model/utils.ts",
+        "src/model/value.ts": "src/model/value.ts",
+        "src/parse.ts": "src/parse.ts",
+        "src/parser/internal-error.ts": "src/parser/internal-error.ts",
+        "src/parser/parse-whitespace.ts": "src/parser/parse-whitespace.ts",
+        "src/parser/parse.ts": "src/parser/parse.ts",
+        "src/parser/token.ts": "src/parser/token.ts",
+        "src/parser/tokenize/context.ts": "src/parser/tokenize/context.ts",
+        "src/parser/tokenize/mod.ts": "src/parser/tokenize/mod.ts",
+        "src/parser/tokenize/tokenize.ts": "src/parser/tokenize/tokenize.ts",
+        "src/parser/tokenize/types.ts": "src/parser/tokenize/types.ts",
+        "src/string-utils.ts": "src/string-utils.ts",
+        "src/upstream.test.ts": "src/upstream.test.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    } | package_test_data,
     visibility = ["PUBLIC"],
 )
 
 alias(
     name = "editor_inputs",
-    actual = ":node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_kdl_d22c24f7367b",
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_kdl_d22c24f7367b",
     files = {
+        "vitest.config.ts": "vitest.config.ts",
         "package.json": "package.json",
         "src/clear-format.ts": "src/clear-format.ts",
         "src/error.ts": "src/error.ts",
@@ -88,18 +137,15 @@ package_tree(
         "src/string-utils.ts": "src/string-utils.ts",
         "src/upstream.test.ts": "src/upstream.test.ts",
         "tsconfig.json": "tsconfig.json",
-    },
+    } | package_test_data,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {
-        "@overeng/utils-dev": {
-            "files": {
-                "dist": "//packages/@overeng/utils-dev:dist",
-                "package.json": "//packages/@overeng/utils-dev:package.json",
-            },
-            "links": ["@overeng/utils-dev"],
-        },
-    },
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -109,11 +155,21 @@ tsgo_typecheck(
     visibility = ["PUBLIC"],
 )
 
+
 tsgo_emit(
     name = "dist",
     package_tree = ":package_tree",
     declaration_sources = {
     },
     declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
     visibility = ["PUBLIC"],
 )

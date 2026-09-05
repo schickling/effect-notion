@@ -8,8 +8,8 @@
  * the error channel. It never reimplements capture/inspect logic.
  *
  * Requires a `ChildProcessSpawner` + `FileSystem` in context (e.g.
- * `NodeServices.layer` from `@effect/platform-node`) and the `otelite` binary on
- * `PATH`, or an absolute binary path in `OTELITE_BIN`.
+ * `NodeServices.layer` from `@effect/platform-node`) and the absolute `otelite`
+ * binary path in `OTELITE_BIN` (no ambient `PATH` fallback).
  */
 export { Otelite } from './Otelite.ts'
 export type { CaptureHandle, CaptureOptions, RunOptions, Signal } from './Otelite.ts'

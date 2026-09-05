@@ -377,21 +377,71 @@ export const resolveLockedCompositionMembers = ({
     return values
   }).pipe(Effect.mapError(preserveCutoverError))
 
-/** Derive root cache policy before the first composition overlay can execute. */
+/**
+ * Derive root cache policy before the first composition overlay can execute.
+ *
+ * This is the only CI-reachable injection point: `[buck2_re_client]` is honored from a
+ * buckconfig FILE and never from a `-c` override, and no devenv shell (which is what
+ * materializes `.buckconfig.local` for developers) has been entered by the time the first
+ * overlay runs.
+ *
+ * Precedence is deliberate:
+ *   1. `BUCK2_NO_REMOTE_CACHE=1` wins and hard-disables lookup and upload.
+ *   2. An endpoint and an explicit instance name, supplied TOGETHER, enable a cache-only
+ *      client against exactly that named instance.
+ *   3. Nothing set keeps the shared-cache-free default.
+ *
+ * There is no default instance name. Half a pair is refused rather than completed, because
+ * an endpoint with an implied instance is precisely how a staged run writes production keys
+ * by accident.
+ */
 export const compositionCacheSections = (
   env: Readonly<Record<string, string | undefined>>,
-): CompositionApplyRequest['cacheSections'] =>
-  env['BUCK2_NO_REMOTE_CACHE'] === '1'
-    ? [
-        {
-          section: 'buck2',
-          entries: [
-            { key: 'remote_cache_enabled', value: 'false' },
-            { key: 'allow_cache_uploads', value: 'false' },
-          ],
-        },
-      ]
-    : []
+): CompositionApplyRequest['cacheSections'] => {
+  if (env['BUCK2_NO_REMOTE_CACHE'] === '1')
+    return [
+      {
+        section: 'buck2',
+        entries: [
+          { key: 'remote_cache_enabled', value: 'false' },
+          { key: 'allow_cache_uploads', value: 'false' },
+        ],
+      },
+    ]
+  const endpoint = (env['BUCK2_CACHE_ENDPOINT'] ?? '').trim()
+  const instanceName = (env['BUCK2_CACHE_INSTANCE_NAME'] ?? '').trim()
+  if (endpoint === '' && instanceName === '') return []
+  if (endpoint === '' || instanceName === '')
+    throw cutoverFailure({
+      reason: 'InvalidConfiguration',
+      message:
+        'BUCK2_CACHE_ENDPOINT and BUCK2_CACHE_INSTANCE_NAME must be set together; a shared-cache endpoint without an explicit instance name is refused',
+    })
+  return [
+    {
+      section: 'buck2',
+      entries: [
+        { key: 'digest_algorithms', value: 'SHA256' },
+        { key: 'default_allow_cache_upload', value: 'true' },
+      ],
+    },
+    {
+      section: 'buck2_re_client',
+      entries: [
+        { key: 'engine_address', value: endpoint },
+        { key: 'action_cache_address', value: endpoint },
+        { key: 'cas_address', value: endpoint },
+        { key: 'instance_name', value: instanceName },
+        { key: 'tls', value: 'false' },
+        // Explicit 4 MiB upload batch ceiling. Both gRPC peers default to a 4 MiB message
+        // limit, so an implicit batch that grows past it fails the upload at the transport
+        // instead of at a config boundary we control. Stated here rather than inherited so
+        // an upstream default change cannot silently move it.
+        { key: 'max_total_batch_size', value: '4194304' },
+      ],
+    },
+  ]
+}
 
 const compositionRequest = ({
   identity,

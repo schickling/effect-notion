@@ -6,7 +6,7 @@
 
 import { NodeServices } from '@effect/platform-node'
 import { describe, it } from '@effect/vitest'
-import { Effect, Exit, Option, Schema } from 'effect'
+import { Cause, Effect, Exit, Option, Schema } from 'effect'
 import * as FileSystem from 'effect/FileSystem'
 import * as Cli from 'effect/unstable/cli'
 import { expect } from 'vitest'
@@ -24,7 +24,6 @@ import {
   createWorkspaceWithLock,
   getWorktreeCommit,
 } from '../test-utils/store-setup.ts'
-import { Cwd } from './context.ts'
 import { mrCommand } from './mod.ts'
 
 const StoreGcJsonOutput = Schema.Struct({
@@ -78,9 +77,11 @@ const runMrCommand = ({
         }),
     )
 
-    const argv = [...command]
+    // `mrCommand` provides its own `Cwd` layer from the `--cwd` global flag, so an
+    // outer `Effect.provideService(Cwd, …)` is overridden and every command would
+    // silently run against the ambient process cwd. Drive the documented flag.
+    const argv = ['--cwd', cwd, ...command]
     const exit = yield* Cli.Command.runWith(mrCommand, { version: 'test' })(argv).pipe(
-      Effect.provideService(Cwd, cwd),
       Effect.provide(consoleLayer),
       Effect.exit,
     )
@@ -89,6 +90,7 @@ const runMrCommand = ({
     return {
       exitCode: Exit.isSuccess(exit) === true ? 0 : 1,
       stdout: (yield* getStdoutLines).join('\n'),
+      cause: Exit.isSuccess(exit) === true ? '' : Cause.pretty(exit.cause),
     }
   }).pipe(Effect.scoped)
 
@@ -294,7 +296,7 @@ describe('mr store gc', () => {
             command: ['status', '--output', 'json'],
             env,
           })
-          expect(statusB.exitCode).toBe(0)
+          expect(statusB.exitCode, statusB.cause).toBe(0)
 
           const gcA = yield* runMrCommand({
             cwd: workspaceA,

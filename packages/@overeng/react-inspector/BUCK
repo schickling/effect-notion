@@ -1,14 +1,18 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2:package_tools.bzl", "node_package_bin", "package_bin", "package_bin_artifact", "package_bin_build", "package_bin_check", "storybook_candidates")
+load("//buck2:products.bzl", "bun_cli_product", "cli_product", "module_product")
+load("//buck2:javascript.bzl", "vitest_test")
 # Projection source: packages/@overeng/react-inspector/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:609364c39a2edcb56a7b1fac4dabf2a0c4f43980ee4da0728ad68af11f89dda0
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/react-inspector/BUCK.genie.ts, packages/@overeng/react-inspector/BUCK.genie.ts, packages/@overeng/react-inspector/package.json.genie.ts, packages/@overeng/react-inspector/src/**/*.cts, packages/@overeng/react-inspector/src/**/*.js, packages/@overeng/react-inspector/src/**/*.mts, packages/@overeng/react-inspector/src/**/*.ts, packages/@overeng/react-inspector/src/**/*.tsx, packages/@overeng/react-inspector/tsconfig.json.genie.ts
+# Semantic fingerprint: sha256:c3c6956cfd8a29100df64de7fe64764dd1ebc8c1d5efecd876ad470609bf2268
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/react-inspector/*.genie.ts, packages/@overeng/react-inspector/.storybook/**/*.cts, packages/@overeng/react-inspector/.storybook/**/*.js, packages/@overeng/react-inspector/.storybook/**/*.jsx, packages/@overeng/react-inspector/.storybook/**/*.mts, packages/@overeng/react-inspector/.storybook/**/*.ts, packages/@overeng/react-inspector/.storybook/**/*.tsx, packages/@overeng/react-inspector/BUCK.genie.ts, packages/@overeng/react-inspector/BUCK.genie.ts, packages/@overeng/react-inspector/package.json.genie.ts, packages/@overeng/react-inspector/src/**/*.cts, packages/@overeng/react-inspector/src/**/*.js, packages/@overeng/react-inspector/src/**/*.jsx, packages/@overeng/react-inspector/src/**/*.mts, packages/@overeng/react-inspector/src/**/*.snap, packages/@overeng/react-inspector/src/**/*.ts, packages/@overeng/react-inspector/src/**/*.tsx, packages/@overeng/react-inspector/test-d/**/*.cts, packages/@overeng/react-inspector/test-d/**/*.js, packages/@overeng/react-inspector/test-d/**/*.jsx, packages/@overeng/react-inspector/test-d/**/*.mts, packages/@overeng/react-inspector/test-d/**/*.ts, packages/@overeng/react-inspector/test-d/**/*.tsx, packages/@overeng/react-inspector/tsconfig.json.genie.ts, packages/@overeng/react-inspector/tsconfig.strict-consumer.json.genie.ts, packages/@overeng/react-inspector/vitest.setup.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -17,16 +21,26 @@ export_file(
     visibility = ["PUBLIC"],
 )
 
+export_file(
+    name = "BUCK",
+    src = "BUCK",
+    visibility = ["PUBLIC"],
+)
+
 export_materialization_inputs([
+    ".storybook/main.ts",
     "src/dom-inspector/DOMInspector.tsx",
     "src/dom-inspector/DOMNodePreview.tsx",
     "src/dom-inspector/shouldInline.tsx",
     "src/index.tsx",
+    "src/object-inspector/ObjectInspector.spec.jsx",
     "src/object-inspector/ObjectInspector.tsx",
     "src/object-inspector/ObjectLabel.tsx",
     "src/object-inspector/ObjectPreview.tsx",
     "src/object-inspector/ObjectRootLabel.tsx",
+    "src/object/ObjectName.spec.jsx",
     "src/object/ObjectName.tsx",
+    "src/object/ObjectValue.spec.jsx",
     "src/object/ObjectValue.tsx",
     "src/schema/SchemaAwareNodeRenderer.tsx",
     "src/schema/SchemaAwareObjectPreview.tsx",
@@ -48,41 +62,47 @@ export_materialization_inputs([
     "src/table-inspector/HeaderContainer.tsx",
     "src/table-inspector/TH.tsx",
     "src/table-inspector/TableInspector.tsx",
+    "src/table-inspector/getHeaders.spec.jsx",
     "src/table-inspector/getHeaders.ts",
     "src/tree-view/ExpandedPathsContext.tsx",
     "src/tree-view/TreeNode.tsx",
     "src/tree-view/TreeView.tsx",
+    "src/tree-view/pathUtils.spec.jsx",
     "src/tree-view/pathUtils.ts",
     "src/utils/objectPrototype.tsx",
     "src/utils/propertyUtils.tsx",
+    "test-d/exact-optional-consumer.ts",
+    "vitest.setup.ts",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_react_inspector_57d1a5b765ed",
-    visibility = ["PUBLIC"],
-)
+# Declared test data: fixture bytes a test reads at runtime, admitted by glob so a
+# new fixture under a declared root is an action input without a projection rewrite.
+# An empty match fails the package instead of silently dropping a declared input.
+package_test_data = {
+    source: source
+    for source in glob(["src/**/*.snap"])
+} or fail("declared test data matched no file: packages/@overeng/react-inspector")
 
-alias(
-    name = "editor_inputs",
-    actual = ":node_modules",
-    visibility = ["PUBLIC"],
-)
-
-package_tree(
-    name = "package_tree",
-    node_modules = ":node_modules",
-    files = {
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        ".storybook/main.ts": ".storybook/main.ts",
+        "BUCK.genie.ts": "BUCK.genie.ts",
         "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
         "src/dom-inspector/DOMInspector.tsx": "src/dom-inspector/DOMInspector.tsx",
         "src/dom-inspector/DOMNodePreview.tsx": "src/dom-inspector/DOMNodePreview.tsx",
         "src/dom-inspector/shouldInline.tsx": "src/dom-inspector/shouldInline.tsx",
         "src/index.tsx": "src/index.tsx",
+        "src/object-inspector/ObjectInspector.spec.jsx": "src/object-inspector/ObjectInspector.spec.jsx",
         "src/object-inspector/ObjectInspector.tsx": "src/object-inspector/ObjectInspector.tsx",
         "src/object-inspector/ObjectLabel.tsx": "src/object-inspector/ObjectLabel.tsx",
         "src/object-inspector/ObjectPreview.tsx": "src/object-inspector/ObjectPreview.tsx",
         "src/object-inspector/ObjectRootLabel.tsx": "src/object-inspector/ObjectRootLabel.tsx",
+        "src/object/ObjectName.spec.jsx": "src/object/ObjectName.spec.jsx",
         "src/object/ObjectName.tsx": "src/object/ObjectName.tsx",
+        "src/object/ObjectValue.spec.jsx": "src/object/ObjectValue.spec.jsx",
         "src/object/ObjectValue.tsx": "src/object/ObjectValue.tsx",
         "src/schema/SchemaAwareNodeRenderer.tsx": "src/schema/SchemaAwareNodeRenderer.tsx",
         "src/schema/SchemaAwareObjectPreview.tsx": "src/schema/SchemaAwareObjectPreview.tsx",
@@ -104,18 +124,93 @@ package_tree(
         "src/table-inspector/HeaderContainer.tsx": "src/table-inspector/HeaderContainer.tsx",
         "src/table-inspector/TH.tsx": "src/table-inspector/TH.tsx",
         "src/table-inspector/TableInspector.tsx": "src/table-inspector/TableInspector.tsx",
+        "src/table-inspector/getHeaders.spec.jsx": "src/table-inspector/getHeaders.spec.jsx",
         "src/table-inspector/getHeaders.ts": "src/table-inspector/getHeaders.ts",
         "src/tree-view/ExpandedPathsContext.tsx": "src/tree-view/ExpandedPathsContext.tsx",
         "src/tree-view/TreeNode.tsx": "src/tree-view/TreeNode.tsx",
         "src/tree-view/TreeView.tsx": "src/tree-view/TreeView.tsx",
+        "src/tree-view/pathUtils.spec.jsx": "src/tree-view/pathUtils.spec.jsx",
         "src/tree-view/pathUtils.ts": "src/tree-view/pathUtils.ts",
         "src/utils/objectPrototype.tsx": "src/utils/objectPrototype.tsx",
         "src/utils/propertyUtils.tsx": "src/utils/propertyUtils.tsx",
+        "test-d/exact-optional-consumer.ts": "test-d/exact-optional-consumer.ts",
         "tsconfig.json": "tsconfig.json",
-    },
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+        "tsconfig.strict-consumer.json": "tsconfig.strict-consumer.json",
+        "tsconfig.strict-consumer.json.genie.ts": "tsconfig.strict-consumer.json.genie.ts",
+        "vitest.setup.ts": "vitest.setup.ts",
+    } | package_test_data,
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "editor_inputs",
+    actual = "//buck2/dependencies:view_packages_overeng_react_inspector_57d1a5b765ed",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_react_inspector_57d1a5b765ed",
+    files = {
+        "vitest.config.ts": "vitest.config.ts",
+        ".storybook/main.ts": ".storybook/main.ts",
+        "package.json": "package.json",
+        "src/dom-inspector/DOMInspector.tsx": "src/dom-inspector/DOMInspector.tsx",
+        "src/dom-inspector/DOMNodePreview.tsx": "src/dom-inspector/DOMNodePreview.tsx",
+        "src/dom-inspector/shouldInline.tsx": "src/dom-inspector/shouldInline.tsx",
+        "src/index.tsx": "src/index.tsx",
+        "src/object-inspector/ObjectInspector.spec.jsx": "src/object-inspector/ObjectInspector.spec.jsx",
+        "src/object-inspector/ObjectInspector.tsx": "src/object-inspector/ObjectInspector.tsx",
+        "src/object-inspector/ObjectLabel.tsx": "src/object-inspector/ObjectLabel.tsx",
+        "src/object-inspector/ObjectPreview.tsx": "src/object-inspector/ObjectPreview.tsx",
+        "src/object-inspector/ObjectRootLabel.tsx": "src/object-inspector/ObjectRootLabel.tsx",
+        "src/object/ObjectName.spec.jsx": "src/object/ObjectName.spec.jsx",
+        "src/object/ObjectName.tsx": "src/object/ObjectName.tsx",
+        "src/object/ObjectValue.spec.jsx": "src/object/ObjectValue.spec.jsx",
+        "src/object/ObjectValue.tsx": "src/object/ObjectValue.tsx",
+        "src/schema/SchemaAwareNodeRenderer.tsx": "src/schema/SchemaAwareNodeRenderer.tsx",
+        "src/schema/SchemaAwareObjectPreview.tsx": "src/schema/SchemaAwareObjectPreview.tsx",
+        "src/schema/SchemaAwareObjectValue.tsx": "src/schema/SchemaAwareObjectValue.tsx",
+        "src/schema/SchemaContext.tsx": "src/schema/SchemaContext.tsx",
+        "src/schema/SchemaTooltip.tsx": "src/schema/SchemaTooltip.tsx",
+        "src/schema/effect4.unit.test.tsx": "src/schema/effect4.unit.test.tsx",
+        "src/schema/effectSchema.tsx": "src/schema/effectSchema.tsx",
+        "src/schema/lineage.ts": "src/schema/lineage.ts",
+        "src/schema/mod.tsx": "src/schema/mod.tsx",
+        "src/styles/base.tsx": "src/styles/base.tsx",
+        "src/styles/index.tsx": "src/styles/index.tsx",
+        "src/styles/styles.tsx": "src/styles/styles.tsx",
+        "src/styles/themes/chromeDark.tsx": "src/styles/themes/chromeDark.tsx",
+        "src/styles/themes/chromeLight.tsx": "src/styles/themes/chromeLight.tsx",
+        "src/styles/themes/index.tsx": "src/styles/themes/index.tsx",
+        "src/styles/unselectable.tsx": "src/styles/unselectable.tsx",
+        "src/table-inspector/DataContainer.tsx": "src/table-inspector/DataContainer.tsx",
+        "src/table-inspector/HeaderContainer.tsx": "src/table-inspector/HeaderContainer.tsx",
+        "src/table-inspector/TH.tsx": "src/table-inspector/TH.tsx",
+        "src/table-inspector/TableInspector.tsx": "src/table-inspector/TableInspector.tsx",
+        "src/table-inspector/getHeaders.spec.jsx": "src/table-inspector/getHeaders.spec.jsx",
+        "src/table-inspector/getHeaders.ts": "src/table-inspector/getHeaders.ts",
+        "src/tree-view/ExpandedPathsContext.tsx": "src/tree-view/ExpandedPathsContext.tsx",
+        "src/tree-view/TreeNode.tsx": "src/tree-view/TreeNode.tsx",
+        "src/tree-view/TreeView.tsx": "src/tree-view/TreeView.tsx",
+        "src/tree-view/pathUtils.spec.jsx": "src/tree-view/pathUtils.spec.jsx",
+        "src/tree-view/pathUtils.ts": "src/tree-view/pathUtils.ts",
+        "src/utils/objectPrototype.tsx": "src/utils/objectPrototype.tsx",
+        "src/utils/propertyUtils.tsx": "src/utils/propertyUtils.tsx",
+        "test-d/exact-optional-consumer.ts": "test-d/exact-optional-consumer.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.strict-consumer.json": "tsconfig.strict-consumer.json",
+        "vitest.setup.ts": "vitest.setup.ts",
+    } | package_test_data,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {},
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -125,11 +220,34 @@ tsgo_typecheck(
     visibility = ["PUBLIC"],
 )
 
+tsgo_typecheck(
+    name = "typecheck_strict_consumer",
+    package_tree = ":package_tree",
+    project = "tsconfig.strict-consumer.json",
+    visibility = ["PUBLIC"],
+)
+
+
 tsgo_emit(
     name = "dist",
     package_tree = ":package_tree",
     declaration_sources = {
     },
-    declaration_entrypoint = "src/index.d.ts",
+    declaration_entrypoint = "index.d.ts",
     visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
+    visibility = ["PUBLIC"],
+)
+
+storybook_candidates(
+    name = "storybook",
+    package_tree = ":package_tree",
+    port = 6011,
 )

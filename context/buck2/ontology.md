@@ -44,6 +44,15 @@ hand-installed.
 dev3). **Cache Namespace** is the key space determined by composition shape,
 cell names, platform labels, and isolation dir; discipline keeps it singular.
 
+**Candidate Namespace** is an explicitly named cache namespace and isolation dir
+in which staged prerequisite work is built and measured before an authority
+flip. Its keys never overlap production keys, and a measurement taken in it is
+reported as a candidate measurement.
+
+**Development Loop** is the watch loop that turns a source edit into a rebuilt
+affected closure plus atomic republication of the editor snapshots whose view
+fingerprint changed. It is a caller of Buck, never a producer or an authority.
+
 **BuildProduct** is normalized Buck-produced payload bytes plus a portable
 descriptor of entrypoints, target-platform/runtime constraints, and semantic
 provenance. It contains no live-system state.
@@ -64,6 +73,7 @@ authored intent -> Semantic Operation -> Configured Operation
 Composition Root + Member Cells -> configured Buck graph
 Materialization -> action inputs + Editor Surface
 action + Shared Cache -> result + Native Evidence
+Development Loop -> affected closure + refreshed Editor Surface
 result -> BuildProduct -> Nix Import
 Admission -> Authority Transfer -> Deletion Ledger entry
 ```

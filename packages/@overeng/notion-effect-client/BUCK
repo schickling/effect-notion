@@ -1,19 +1,27 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2:javascript.bzl", "vitest_test")
 # Projection source: packages/@overeng/notion-effect-client/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:76b3eb2045df7a6d75598848b2e63327513dd58d693766fa6d262146a4547c19
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/content-address/BUCK.genie.ts, packages/@overeng/content-address/package.json.genie.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-client/src/**/*.cts, packages/@overeng/notion-effect-client/src/**/*.js, packages/@overeng/notion-effect-client/src/**/*.mts, packages/@overeng/notion-effect-client/src/**/*.ts, packages/@overeng/notion-effect-client/src/**/*.tsx, packages/@overeng/notion-effect-client/tsconfig.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:ca7f5f0a6554d233ef1188ce7f9531a71d125d805d732967197b847ce23ce742
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/content-address/BUCK.genie.ts, packages/@overeng/content-address/package.json.genie.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-effect-client/*.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-client/src/**/*.cts, packages/@overeng/notion-effect-client/src/**/*.js, packages/@overeng/notion-effect-client/src/**/*.jsx, packages/@overeng/notion-effect-client/src/**/*.mts, packages/@overeng/notion-effect-client/src/**/*.ts, packages/@overeng/notion-effect-client/src/**/*.tsx, packages/@overeng/notion-effect-client/tsconfig.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
     name = "package.json",
     src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
     visibility = ["PUBLIC"],
 )
 
@@ -75,22 +83,86 @@ export_materialization_inputs([
     "src/views.ts",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_notion_effect_client_6a05720e6f76",
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/blocks.span-catalog.unit.test.ts": "src/blocks.span-catalog.unit.test.ts",
+        "src/blocks.ts": "src/blocks.ts",
+        "src/body-evidence.ts": "src/body-evidence.ts",
+        "src/body-observation.ts": "src/body-observation.ts",
+        "src/body-observation.unit.test.ts": "src/body-observation.unit.test.ts",
+        "src/canonical-markdown.ts": "src/canonical-markdown.ts",
+        "src/canonical-markdown.unit.test.ts": "src/canonical-markdown.unit.test.ts",
+        "src/comments.ts": "src/comments.ts",
+        "src/config.ts": "src/config.ts",
+        "src/config.unit.test.ts": "src/config.unit.test.ts",
+        "src/custom-emojis.ts": "src/custom-emojis.ts",
+        "src/data-sources.ts": "src/data-sources.ts",
+        "src/databases.ts": "src/databases.ts",
+        "src/databases.unit.test.ts": "src/databases.unit.test.ts",
+        "src/error.ts": "src/error.ts",
+        "src/files.ts": "src/files.ts",
+        "src/internal/http.ts": "src/internal/http.ts",
+        "src/internal/http.unit.test.ts": "src/internal/http.unit.test.ts",
+        "src/internal/metrics.ts": "src/internal/metrics.ts",
+        "src/internal/otel.ts": "src/internal/otel.ts",
+        "src/internal/pagination.ts": "src/internal/pagination.ts",
+        "src/internal/pagination.unit.test.ts": "src/internal/pagination.unit.test.ts",
+        "src/internal/rate-limit-signals.e2e.test.ts": "src/internal/rate-limit-signals.e2e.test.ts",
+        "src/internal/throttle.ts": "src/internal/throttle.ts",
+        "src/internal/throttle.unit.test.ts": "src/internal/throttle.unit.test.ts",
+        "src/markdown-to-blocks.ts": "src/markdown-to-blocks.ts",
+        "src/markdown-to-blocks.unit.test.ts": "src/markdown-to-blocks.unit.test.ts",
+        "src/markdown.ts": "src/markdown.ts",
+        "src/markdown.unit.test.ts": "src/markdown.unit.test.ts",
+        "src/media-url.ts": "src/media-url.ts",
+        "src/media-url.unit.test.ts": "src/media-url.unit.test.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/nmd.ts": "src/nmd.ts",
+        "src/nmd.unit.test.ts": "src/nmd.unit.test.ts",
+        "src/notion-effect-client.contract.ts": "src/notion-effect-client.contract.ts",
+        "src/notion-markdown-processor.ts": "src/notion-markdown-processor.ts",
+        "src/pages.ts": "src/pages.ts",
+        "src/pages.unit.test.ts": "src/pages.unit.test.ts",
+        "src/schema-helpers.ts": "src/schema-helpers.ts",
+        "src/schema-helpers.unit.test.ts": "src/schema-helpers.unit.test.ts",
+        "src/search.ts": "src/search.ts",
+        "src/test/integration/blocks-nested.integration.test.ts": "src/test/integration/blocks-nested.integration.test.ts",
+        "src/test/integration/blocks.integration.test.ts": "src/test/integration/blocks.integration.test.ts",
+        "src/test/integration/databases.integration.test.ts": "src/test/integration/databases.integration.test.ts",
+        "src/test/integration/markdown.integration.test.ts": "src/test/integration/markdown.integration.test.ts",
+        "src/test/integration/pages.integration.test.ts": "src/test/integration/pages.integration.test.ts",
+        "src/test/integration/rich-text.integration.test.ts": "src/test/integration/rich-text.integration.test.ts",
+        "src/test/integration/search.integration.test.ts": "src/test/integration/search.integration.test.ts",
+        "src/test/integration/setup.ts": "src/test/integration/setup.ts",
+        "src/test/integration/users.integration.test.ts": "src/test/integration/users.integration.test.ts",
+        "src/test/otelite-span-shape.test.ts": "src/test/otelite-span-shape.test.ts",
+        "src/test/test-utils.ts": "src/test/test-utils.ts",
+        "src/typed-page.ts": "src/typed-page.ts",
+        "src/users.ts": "src/users.ts",
+        "src/views.ts": "src/views.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    },
     visibility = ["PUBLIC"],
 )
 
 alias(
     name = "editor_inputs",
-    actual = ":node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_notion_effect_client_6a05720e6f76",
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_notion_effect_client_6a05720e6f76",
     files = {
+        "vitest.config.ts": "vitest.config.ts",
+        "vitest.integration.config.ts": "vitest.integration.config.ts",
         "package.json": "package.json",
         "src/blocks.span-catalog.unit.test.ts": "src/blocks.span-catalog.unit.test.ts",
         "src/blocks.ts": "src/blocks.ts",
@@ -151,50 +223,12 @@ package_tree(
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {
-        "@overeng/content-address": {
-            "files": {
-                "dist": "//packages/@overeng/content-address:dist",
-                "package.json": "//packages/@overeng/content-address:package.json",
-            },
-            "links": ["@overeng/content-address"],
-        },
-        "@overeng/notion-core": {
-            "files": {
-                "dist": "//packages/@overeng/notion-core:dist",
-                "package.json": "//packages/@overeng/notion-core:package.json",
-            },
-            "links": ["@overeng/notion-core"],
-        },
-        "@overeng/notion-effect-schema": {
-            "files": {
-                "dist": "//packages/@overeng/notion-effect-schema:dist",
-                "package.json": "//packages/@overeng/notion-effect-schema:package.json",
-            },
-            "links": ["@overeng/notion-effect-schema"],
-        },
-        "@overeng/otel-contract": {
-            "files": {
-                "dist": "//packages/@overeng/otel-contract:dist",
-                "package.json": "//packages/@overeng/otel-contract:package.json",
-            },
-            "links": ["@overeng/otel-contract"],
-        },
-        "@overeng/utils": {
-            "files": {
-                "dist": "//packages/@overeng/utils:dist",
-                "package.json": "//packages/@overeng/utils:package.json",
-            },
-            "links": ["@overeng/utils"],
-        },
-        "@overeng/utils-dev": {
-            "files": {
-                "dist": "//packages/@overeng/utils-dev:dist",
-                "package.json": "//packages/@overeng/utils-dev:package.json",
-            },
-            "links": ["@overeng/utils-dev"],
-        },
-    },
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -204,11 +238,37 @@ tsgo_typecheck(
     visibility = ["PUBLIC"],
 )
 
+
 tsgo_emit(
     name = "dist",
     package_tree = ":package_tree",
     declaration_sources = {
     },
     declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
+    tools = {"OTELITE_BIN": "//buck2/toolchains:tool_test_otelite"},
+    capabilities = ["subprocess"],
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test_notion_live",
+    package_tree = ":package_tree",
+    config = "vitest.integration.config.ts",
+    hook_timeout_ms = 120000,
+    timeout_ms = 120000,
+    inherited_env = ["NOTION_API_TOKEN", "NOTION_TEST_PARENT_PAGE_ID"],
+    capabilities = ["network"],
+    execution_mode = "unsandboxed-local",
+    cacheable = False,
+    labels = ["local-only", "live", "network", "secret"],
     visibility = ["PUBLIC"],
 )

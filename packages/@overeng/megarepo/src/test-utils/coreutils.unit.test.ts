@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import * as NodePath from 'node:path'
 
@@ -22,7 +22,7 @@ const writeExecutable = async (path: string): Promise<void> => {
 }
 
 describe('resolvePinnedCoreutils', () => {
-  it('uses a complete exact cp/mv injection without consulting PATH', () =>
+  it('uses a complete exact cp/mv injection without consulting declared tools', () =>
     withFixture(async (root) => {
       const cpPath = NodePath.join(root, 'cp')
       const mvPath = NodePath.join(root, 'mv')
@@ -35,7 +35,6 @@ describe('resolvePinnedCoreutils', () => {
             [compositionRuntimeEnvironmentNames.cpPath]: cpPath,
             [compositionRuntimeEnvironmentNames.mvPath]: mvPath,
           },
-          searchPath: '',
         }),
       ).resolves.toEqual({ cpPath, mvPath })
     }))
@@ -48,20 +47,25 @@ describe('resolvePinnedCoreutils', () => {
       await expect(
         resolvePinnedCoreutils({
           env: { [compositionRuntimeEnvironmentNames.cpPath]: cpPath },
-          searchPath: process.env.PATH ?? '',
         }),
       ).rejects.toThrow('must provide both cp and mv')
     }))
 
-  it('rejects executable ambient tools that are not pinned Nix coreutils aliases', () =>
+  it('falls back to the Buck-declared cp/mv tool paths', () =>
     withFixture(async (root) => {
-      const bin = NodePath.join(root, 'bin')
-      await mkdir(bin)
-      await writeExecutable(NodePath.join(bin, 'cp'))
-      await writeExecutable(NodePath.join(bin, 'mv'))
+      const cpPath = NodePath.join(root, 'cp')
+      const mvPath = NodePath.join(root, 'mv')
+      await writeExecutable(cpPath)
+      await writeExecutable(mvPath)
 
-      await expect(resolvePinnedCoreutils({ env: {}, searchPath: bin })).rejects.toThrow(
-        'not pinned to a Nix coreutils store item',
-      )
+      await expect(
+        resolvePinnedCoreutils({ env: { CP_BIN: cpPath, MV_BIN: mvPath } }),
+      ).resolves.toEqual({ cpPath, mvPath })
     }))
+
+  it('fails loudly when a declared cp/mv tool is unavailable', async () => {
+    await expect(resolvePinnedCoreutils({ env: {} })).rejects.toThrow(
+      'declared test tool is unavailable: CP_BIN',
+    )
+  })
 })

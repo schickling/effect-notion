@@ -138,16 +138,16 @@ RENAME_EXCHANGE advance.
 
 ## Phase 3 — TypeScript surface widening
 
-- Remaining TS package checks/builds are admitted in dependency order, with one
-  PR per dependency layer rather than one PR per package. Within each layer,
-  every package retains its own authority flip, deletion-ledger entry, and
-  package-specific evidence; its devenv/pnpm build-path consumers are deleted
-  with that package's admission.
-- Workspace-sibling live links (symlink-back) are part of the standard rule.
-- The coverage-asserted registry in `genie/tsconfig-projects.ts` has 38 root
-  projects. Seven are admitted; 31 projects remain in both root solutions and
-  leave them one package-scoped deletion-ledger entry at a time, grouped by
-  dependency layer for review and landing.
+- The coverage-asserted registry in `genie/tsconfig-projects.ts` has exactly 38
+  root projects. The whole-repository cutover candidate admits all 38 and
+  leaves no staged blocker. It deletes both root TypeScript solutions, the root
+  install task and its task edges, and every legacy package-scoped TypeScript
+  check/build edge in the same atomic change.
+- **Sequencing superseded 2026-09-04** (decision 0030 Amendment 1). The seven
+  completed layer admissions below remain as recorded history. Issue #1212
+  showed that per-consumer closure cost made incremental widening economically
+  unusable, so the remaining 31 projects moved together through Phase 4 instead
+  of landing one dependency layer at a time.
 
 - Admission 2 transfers `@overeng/tui-react` typecheck and declaration emit to
   `//packages/@overeng/tui-react:typecheck` and
@@ -201,19 +201,52 @@ RENAME_EXCHANGE advance.
   cache budgets, hostile-environment proof, and deletion ledger are retained in
   [`2026-09-02-utils-authority-transfer.md`](./02-execution/.experiments/2026-09-02-utils-authority-transfer.md).
 
-## Phase 4 — dependency-surface authority transfer (gated)
+## Phase 4 — normalized store, sandboxes, and one whole-repository flip
 
-- End-state per [decision 0015](./.decisions/0015-buck-owned-dependency-surface.md)
-  (authority) and [decision 0022](./.decisions/0022-lockfile-derived-declared-closure.md)
-  (mechanism): Buck owns the editor surface; no hand-run `pnpm install`.
-- The prune/install keying gate of decision 0015 Amendment 1 is retired: bounded
-  fan-out is structural under the declared closure.
-- The tui-core real-editor soak and scoped publication mechanism pass. The
-  remaining gate is whole-required-consumer coverage: every editor/tool
-  consumer gets a Buck-owned view with staleness checks, real source/dist
-  sibling behavior is exercised, and test/Storybook/Genie/lint package-bin
-  consumers leave the root install. Delete the root install and its task edges
-  only with that final deletion-ledger proof.
+End-state per [decision 0030](./.decisions/0030-normalized-store-scc-and-atomic-cutover.md)
+and its Amendment 1 (issue #1212, Johannes q4: whole-repository migration with
+root-install deletion, and a Buck-watch development loop), with authority per
+[decision 0015](./.decisions/0015-buck-owned-dependency-surface.md) Amendment 4
+and mechanism per [decision 0022](./.decisions/0022-lockfile-derived-declared-closure.md).
+Phase 3's remaining per-package flips are absorbed here: the repository moves in
+one change rather than package layer by package layer, because the superseded
+producers (root install, both root TypeScript solutions) are repository-wide.
+
+The cutover candidate implements the four staged prerequisites in one reviewable
+change while preserving their separate gates:
+
+1. normalized store entries, platform-selected variants (a lockfile-derived set,
+   ten in the current complete lock), and all five SCC assemblies;
+2. platform sandboxes and exact tool closures — Bubblewrap on
+   `exec_linux_x86_64` and `exec_linux_aarch64`, Seatbelt on
+   `exec_macos_aarch64` — each with its own positive/negative/byte-identity
+   gate;
+3. byte-owned editor snapshots with bounded retention, plus the watch loop that
+   rebuilds the affected closure and republishes only changed snapshots
+   (BUCK-R17, DEPS-R12);
+4. package/consumer adoption: dist boundaries, admissions, and generators for
+   every consumed workspace package, with runtime exports still at source.
+
+The same candidate performs the atomic authority flip. Every consumer, editor,
+and tool surface — both root TypeScript solutions, package tasks,
+unit/integration and Storybook runners, Genie, lint and package-bin consumers,
+and editor configuration — moves to Buck. The root install, its task edges, the
+old TypeScript producers, remaining project references, legacy check/build
+edges, and source fallbacks are deleted together.
+
+Acceptance gates: all five repo-wide SCCs build; the three sandbox gates pass;
+editor snapshots survive backing-artifact deletion and refresh incrementally;
+strict JavaScript products are byte-identical across Linux x86_64, Linux ARM64,
+and Darwin ARM64; cache-only upload/restore succeeds from a CI runner (DQ1); and
+the full candidate namespace E2E fits an explicit numeric envelope for cold
+wall time, physical and logical disk, scratch, editor-snapshot retention,
+staging/action p95, memory headroom, and marginal admission slope (DQ4).
+Raising timeout or disk alone satisfies nothing.
+True remote execution (DQ3) is out of scope; `remote_enabled` stays false.
+
+- Retired from this phase: the prune/install keying gate of decision 0015
+  Amendment 1 (bounded fan-out is structural under the declared closure) and the
+  separate "editor cutover after per-package flips" sequencing.
 
 ## Phase 5 — Rust and products
 
@@ -228,9 +261,10 @@ RENAME_EXCHANGE advance.
   `rust/third-party/.cargo/config.toml` are deleted in the same change; the
   buckify gate pins a cargo home and asserts a byte-unchanged lock; the eight
   vendored-mode fixups are re-verified by building their crates.
-- Eight repository pnpm-deps FODs remain: ci-tools, Genie, mr, notion-cli,
-  notion-md, npm-release, oxc-config, and tui-stories. Each disappears only
-  after its real Buck product passes the independent Nix bridge (BUCK-R10).
+- The eight repository pnpm-deps FOD producers are replaced by ten tracked
+  strict JavaScript products. Each product has independently tracked descriptor
+  and module digests, exact external modules and capabilities, and a
+  fail-closed Nix import; no importer invokes Buck or repository source.
 
 ## Phase 6 — second consumer (dotfiles)
 
@@ -246,15 +280,19 @@ RENAME_EXCHANGE advance.
   normative depth (decision
   [0027](./.decisions/0027-composed-default-worktrees.md), MR-R11, agent
   workflow contract rev 4); stale experimental composition roots are GC'd.
-- Reflink-first assembly and the CoW filesystem split per decision
-  [0025](./.decisions/0025-cow-reflink-local-disk-economics.md): assembler
-  change spike-gated; fleet filesystem requirement lives in dotfiles; hygiene
-  pass (stale buck-out GC, contaminated store-commit purge + guard, orphaned
-  editor snapshots) is owed regardless of filesystem.
+- Reflink-first assembly is superseded by decision 0030 (see decision
+  [0025](./.decisions/0025-cow-reflink-local-disk-economics.md) Amendment 1):
+  the assembler change and its pre-flip spike are dropped, and the fleet
+  CoW-filesystem obligation is no longer a Buck-side gate. What survives is the
+  hygiene pass owed regardless of filesystem — stale buck-out GC, contaminated
+  store-commit purge plus guard, and orphaned editor-snapshot GC, which Phase 4
+  turns into the bounded snapshot retention of DEPS-R12.
 - Unit-test admission per decision
   [0026](./.decisions/0026-buck-owned-unit-tests.md): hermeticity spike, then
-  per-package test admissions after the first Phase-3 admissions;
-  integration/live lanes are explicitly legacy.
+  per-package test admissions; test runners are part of the Phase-4
+  whole-repository consumer coverage, so any still-legacy runner must either
+  move in that flip or keep an explicit non-Buck lane recorded there.
+  Integration/live lanes remain explicitly legacy.
 - CI Buck cache: tailnet read-only lane — bazel-remote alerting first, then
   an ephemeral-tailscale spike on a CI runner, then the lane with fail-open
   fallback (03-materialization DQ1 records the lane and its fallback).
@@ -266,13 +304,9 @@ RENAME_EXCHANGE advance.
 - OCI product distribution durability machinery: parked per
   [decision 0013](./.decisions/0013-shared-cache-foundation.md) partial
   supersession of decision 0008.
-- pnpm store consolidation on dev3 — **un-parked** (decision
-  [0025](./.decisions/0025-cow-reflink-local-disk-economics.md) hygiene):
-  measured 90% hardlink dedup where the store is shared versus zero on
-  private stores (~95 GB reclaim) makes the former "moot under 0022" parking
-  premature while 36 of 38 projects still require the root install.
-  Consolidation stays live until Phase 4 deletes the root install, then the
-  developer-time store leaves Buck scope again.
+- pnpm store consolidation on dev3 is closed by the Phase-4 root-install
+  deletion. The developer-time store no longer participates in Buck authority;
+  host-level cleanup belongs to normal workspace garbage collection.
 - pnpm 12: revisit when it is the `latest` dist-tag and packaged in nixpkgs;
   under decision 0022 pnpm runs only at developer resolution time.
 - Bun as installer: revisit only if a released Bun emits per-package

@@ -1,0 +1,90 @@
+# Generated file - DO NOT EDIT
+# Source: BUCK.genie.ts
+
+# Projection source: context/opentui/BUCK.genie.ts
+# Projection schema version: 5
+# Projection generator: effect-utils/genie/buck2-typescript-package-projection
+# Semantic fingerprint: sha256:612c1b407ab684b0e687a6e911746f081e0acff5b3a110c2927d412a1f17bd31
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, context/opentui/*.genie.ts, context/opentui/BUCK.genie.ts, context/opentui/BUCK.genie.ts, context/opentui/examples/**/*.cts, context/opentui/examples/**/*.js, context/opentui/examples/**/*.jsx, context/opentui/examples/**/*.mts, context/opentui/examples/**/*.ts, context/opentui/examples/**/*.tsx, context/opentui/package.json.genie.ts, context/opentui/tsconfig.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts
+# Regenerate: devenv tasks run genie:run
+
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
+
+export_file(
+    name = "package.json",
+    src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
+    visibility = ["PUBLIC"],
+)
+
+export_materialization_inputs([
+    "examples/dynamic-height.tsx",
+    "examples/effect-atoms-keyboard.tsx",
+    "examples/simple-counter.tsx",
+])
+
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "examples/dynamic-height.tsx": "examples/dynamic-height.tsx",
+        "examples/effect-atoms-keyboard.tsx": "examples/effect-atoms-keyboard.tsx",
+        "examples/simple-counter.tsx": "examples/simple-counter.tsx",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    },
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "editor_inputs",
+    actual = "//buck2/dependencies:view_context_opentui_be69c4c22aa3",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "package_tree",
+    dependency_view = "//buck2/dependencies:view_context_opentui_be69c4c22aa3",
+    files = {
+        "examples/dynamic-height.tsx": "examples/dynamic-height.tsx",
+        "examples/effect-atoms-keyboard.tsx": "examples/effect-atoms-keyboard.tsx",
+        "examples/simple-counter.tsx": "examples/simple-counter.tsx",
+        "package.json": "package.json",
+        "tsconfig.json": "tsconfig.json",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+tsgo_typecheck(
+    name = "typecheck",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+
+tsgo_emit(
+    name = "dist",
+    package_tree = ":package_tree",
+    declaration_sources = {
+    },
+    declaration_entrypoint = "examples/simple-counter.d.ts",
+    visibility = ["PUBLIC"],
+)

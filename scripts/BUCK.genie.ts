@@ -1,0 +1,52 @@
+import { createGenieOutput } from '../packages/@overeng/genie/src/runtime/core.ts'
+
+const buck = `load("//buck2:materialization.bzl", "empty_package_view")
+load("//buck2:package_tools.bzl", "package_bin")
+
+empty_package_view(
+    name = "orchestration_package_tree",
+    files = {
+        "genie/buck2/typescript-authority-manifest.json": "//genie/buck2:typescript-authority-manifest.json",
+        "packages/@overeng/buck2-tools/src/buck-watch.ts": "//packages/@overeng/buck2-tools:src/buck-watch.ts",
+        "packages/@overeng/buck2-tools/src/editor-view-authority.ts": "//packages/@overeng/buck2-tools:src/editor-view-authority.ts",
+        "packages/@overeng/buck2-tools/src/editor-view.ts": "//packages/@overeng/buck2-tools:src/editor-view.ts",
+        "packages/@overeng/buck2-tools/src/owned-files.ts": "//packages/@overeng/buck2-tools:src/owned-files.ts",
+        "packages/@overeng/buck2-tools/src/real-path.ts": "//packages/@overeng/buck2-tools:src/real-path.ts",
+        "scripts/buck-watch.ts": "buck-watch.ts",
+        "scripts/editor-view-authority.ts": "editor-view-authority.ts",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+
+package_bin(
+    name = "buck-watch",
+    entrypoint = "scripts/buck-watch.ts",
+    external_capabilities = ["buck2", "coreutils", "watchman"],
+    package_tree = ":orchestration_package_tree",
+    process_kind = "long-lived",
+    visibility = ["PUBLIC"],
+)
+
+package_bin(
+    name = "editor-view-authority",
+    entrypoint = "scripts/editor-view-authority.ts",
+    external_capabilities = ["buck2", "git"],
+    package_tree = ":orchestration_package_tree",
+    visibility = ["PUBLIC"],
+)
+
+package_bin(
+    name = "editor-view",
+    entrypoint = "packages/@overeng/buck2-tools/src/editor-view.ts",
+    external_capabilities = ["coreutils"],
+    package_tree = ":orchestration_package_tree",
+    visibility = ["PUBLIC"],
+)
+`
+
+export default createGenieOutput({
+  data: { schema: 'effect-utils/orchestration-buck-targets/v1' },
+  stringify: () => buck,
+})

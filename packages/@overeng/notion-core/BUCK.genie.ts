@@ -1,5 +1,8 @@
+import {
+  buck2JavaScriptPackageProjection,
+  javascriptTestPlanFor,
+} from '../../../genie/buck2/javascript-package-projection.ts'
 import type { Buck2TypeScriptAdmission } from '../../../genie/buck2/typescript-admissions.ts'
-import { buck2TypeScriptPackageProjection } from '../../../genie/buck2/typescript-package-projection.ts'
 
 export const buck2TypeScriptAdmission = {
   dependencyImporter: '//buck2/dependencies:importer_packages_overeng_notion_core_bbf3eb334469',
@@ -7,11 +10,13 @@ export const buck2TypeScriptAdmission = {
   packagePath: 'packages/@overeng/notion-core',
   projectionSource: 'packages/@overeng/notion-core/BUCK.genie.ts',
   sourceRoots: ['src'],
-  editorViewConsumer: false,
   authority: {
     declarationEntrypoint: 'src/mod.d.ts',
     projectFile: 'tsconfig.json',
   },
 } as const satisfies Buck2TypeScriptAdmission
 
-export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)
+export default buck2JavaScriptPackageProjection(
+  buck2TypeScriptAdmission,
+  javascriptTestPlanFor(buck2TypeScriptAdmission.packageName),
+)

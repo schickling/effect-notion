@@ -23,7 +23,7 @@
  * @module
  */
 
-import { Cause, Effect, Exit, Layer, Logger, Option } from 'effect'
+import { Cause, Effect, Exit, Layer, Logger, Option, Runtime } from 'effect'
 import { Flag } from 'effect/unstable/cli'
 
 import { createLogCapture } from './LogCapture.ts'
@@ -264,20 +264,28 @@ export interface TuiRuntime {
 }
 
 /**
- * Custom finalization so a signal-interrupted CLI (Ctrl-C) exits 130 — the shell
- * convention — instead of the default teardown's hardcoded 0. The `catchAllCause`
- * in {@link runTuiMainImpl} catches the interrupt, suppresses the stack, sets
- * `process.exitCode = 130`, and completes the fiber as a Success, so the
- * interrupt surfaces here only via `process.exitCode` — which we honor instead
- * of forcing 0. An uncaught failure still maps to 1, matching the default.
+ * Finalization for `runTuiMain`.
+ *
+ * The interrupt/failure code is derived from the fiber `Exit` alone —
+ * `Runtime.defaultTeardown` maps an interrupt-only cause (Ctrl-C) to **130**, the
+ * shell convention, and any other failure to its `Runtime.errorExitCode` marker
+ * or 1. Nothing about the run is smuggled through the mutable global
+ * `process.exitCode`: a stale ambient value (set by an earlier phase, or by a
+ * previous test in the same process) must never turn a clean success non-zero.
+ *
+ * On success the ambient `process.exitCode` IS honored, because that is the
+ * declared channel for app-level codes: `createTuiApp`'s `exitCode` mapper
+ * assigns it on unmount (e.g. `Error` state → 1) while the effect itself
+ * succeeds. Forwarding it here makes the runner exit explicitly instead of
+ * relying on the event loop draining.
  */
 // oxlint-disable-next-line overeng/named-args -- implements Effect's `Teardown` interface (fixed `(exit, onExit)` signature) passed to `NodeRuntime.runMain`
 const tuiTeardown = <E, A>(exit: Exit.Exit<E, A>, onExit: (code: number) => void): void => {
-  if (Exit.isFailure(exit) === true && Cause.hasInterruptsOnly(exit.cause) === false) {
-    onExit(1)
+  if (Exit.isSuccess(exit) === true) {
+    onExit(process.exitCode === undefined ? 0 : Number(process.exitCode))
     return
   }
-  onExit(process.exitCode === undefined ? 0 : Number(process.exitCode))
+  Runtime.defaultTeardown(exit, onExit)
 }
 
 /**
@@ -363,23 +371,18 @@ const runTuiMainImpl = <E, A>({
   const formatError = options?.formatError ?? defaultFormatError
 
   effect.pipe(
+    // Report the failure on stderr (stdout stays clean for JSON/result output) but
+    // keep the cause in the error channel: the Exit is the only channel the exit
+    // code is derived from, so an interrupt stays an interrupt all the way to
+    // {@link tuiTeardown}. Interrupts carry no diagnostic worth printing.
     Effect.catchCause((cause) =>
       Effect.sync(() => {
-        if (Cause.hasInterruptsOnly(cause) === true) {
-          process.exitCode = 130
-          return undefined
-        }
-
+        if (Cause.hasInterruptsOnly(cause) === true) return
         const formatted = formatError(cause)
         if (Option.isSome(formatted) === true) {
           process.stderr.write(formatted.value + '\n')
         }
-        return cause
-      }).pipe(
-        Effect.flatMap((handledCause) =>
-          handledCause === undefined ? Effect.void : Effect.failCause(handledCause),
-        ),
-      ),
+      }).pipe(Effect.flatMap(() => Effect.failCause(cause))),
     ),
     runtime.runMain({
       disableErrorReporting: true,

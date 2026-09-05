@@ -99,3 +99,106 @@ sandboxing, path independence, and output identity.
 - Vision criterion 9 still prescribes CoW assembly. Because `vision.md` is
   human-owned, the mismatch is recorded as an open root delta rather than
   silently editing the vision.
+
+## Amendment 1: Whole-Repository Cutover, Ten Variants, Watch Loop
+
+Date: 2026-09-04. Status: accepted. Ratified by Johannes while implementing
+issue #1212 after PRs #1209 and #1213 were integrated: q4 selected
+whole-repository migration with root-install deletion over a per-consumer
+migration, and selected a Buck-watch plus atomic editor-snapshot development
+loop over a manual refresh command. The original Decision is not rewritten; the
+following items supersede or extend it.
+
+### 1. Ten platform-selected entries, derived not asserted
+
+"Exactly nine entries with platform-selected edges" is superseded by ten. Nine
+was the count inside the 17-package #1209 closure that the 2026-09-04 probe
+built; it was never a whole-lock count. A recount over the complete
+`pnpm-lock.yaml` snapshot graph — every snapshot whose `dependencies` or
+`optionalDependencies` edges select a package carrying an `os`, `cpu`, or
+`libc` constraint — yields ten parents over 113 platform-constrained packages:
+`playwright@1.61.0`, `vite@8.0.16`, `esbuild@0.28.2`, `rolldown@1.0.3`,
+`lightningcss@1.33.0`, `msgpackr-extract@3.0.4`, `oxc-resolver@11.21.2`,
+`oxc-parser@0.127.0`, `@opentui/core@0.4.1`, and `oxlint-tsgolint@0.23.0`. The
+tenth is absent from the #1209 closure, which is why the probe did not see it.
+
+The count is lockfile-derived and not a constant: a lock change may change it.
+Admission recomputes the set from the lock and fails closed on a
+platform-varying entry that carries no configured variant; no rule, test, or
+document may hard-code the number as a correctness assertion.
+
+### 2. The final flip covers the whole repository
+
+The gate "all 17 #1209 packages are dist-servable" is a prerequisite subset,
+not the gate. The single final authority change covers every repository
+consumer of the superseded surface: all root-solution TypeScript projects, the
+package check/build tasks, unit/integration and Storybook runners, Genie, lint
+and other package-bin consumers, and every editor configuration. It deletes the
+root install and its task edges in the same change (retiring DEPS-T02), and no
+production consumer retains a source or package-manager fallback afterwards.
+
+### 3. Three staged sandbox gates before the consumer flip
+
+The Decision named "both platform sandbox gates". The staged gates are three,
+one per admitted execution platform label: `exec_linux_x86_64`,
+`exec_linux_aarch64`, and `exec_macos_aarch64`. Each passes its own in-Buck
+positive-access, explicit negative-probe, and byte-identity smoke gate before
+the consumer flip. Linux aarch64 uses the same Bubblewrap closure as x86_64 but
+is a distinct execution platform and does not inherit x86_64 evidence; Darwin
+arm64 additionally re-runs its gate on every supported macOS upgrade.
+
+### 4. Mutation hashing is retired per platform, not globally
+
+The pinned runner currently hashes the complete input tree before and after
+`tsgo` to prove write-freedom without a sandbox. That control remains in force
+on a platform until that platform's sandbox gate passes, and is deleted per
+platform in the change that admits its gate. At no point does a platform
+execute with neither the sandbox nor the hash control.
+
+### 5. The development loop is Buck watch plus atomic snapshot refresh
+
+Deleting the root install removes the pnpm inner loop, so the replacement loop
+is part of this decision. A persistent watch loop drives the Buck daemon's
+watchman-backed file watcher: a source change rebuilds exactly the affected
+admitted typecheck/dist closure, and each package whose view fingerprint
+changed gets its byte-owned editor snapshot republished through the existing
+atomic candidate-rename-pointer sequence. The loop is an ordinary caller of
+Buck — it interposes no launcher (decision 0011), holds no authority, and a
+failed build or refusal to take the publication lock leaves the previous
+pointer intact and fails loudly. Its steady-state latency is a BUCK-R07 budget,
+because it is the inner loop developers now live in. Task and shell wiring is
+deliberately outside this decision.
+
+### 6. Candidate namespace builds are explicit while staging
+
+Staged prerequisite PRs build the new store, sandbox, editor, and adoption
+targets in an explicitly named candidate cache namespace and isolation dir.
+Production namespace keys are untouched until the flip, and each staged PR's
+evidence names the namespace it measured. The full candidate namespace E2E that
+DQ4 requires runs in that same namespace.
+
+### 7. DQ4 additionally bounds editor snapshot disk and retention
+
+The byte-owned editor snapshot is a deliberate duplication boundary, so the
+numeric envelope includes per-package snapshot bytes, the whole-repository
+snapshot total, and the retained-generation count with its GC bound. An
+unbounded snapshot store is a capacity regression even when every action is a
+cache hit.
+
+### 8. Open questions at amendment time
+
+DQ1 (CI fetch without a warm `buck-out`) and DQ4 (numeric cold envelope) remain
+blocked and both still block the flip. DQ3 (true remote execution) is
+explicitly out of scope for this cutover: `remote_enabled` stays false and no
+staged PR may enable it.
+
+### Consequences of this amendment
+
+- The vision criterion 9 root delta and the normalized-store cutover delta stay
+  open; both now read "ten" and the whole-repository flip scope.
+- Decision 0015's editor-surface cutover gate widens from whole-required
+  consumer coverage on the dependency surface to the same single
+  whole-repository flip (0015 Amendment 4).
+- Phase 3 and Phase 4 of the roadmap converge into one staged sequence followed
+  by one flip, instead of package-layer flips followed by a separate editor
+  cutover.

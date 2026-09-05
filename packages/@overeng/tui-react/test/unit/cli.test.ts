@@ -2,37 +2,52 @@
  * Tests for CLI entrypoint helpers.
  */
 
-import { Effect, Exit } from 'effect'
+import { Cause, Effect, Exit } from 'effect'
 import { describe, expect, test } from 'vitest'
 
 import { outputModeLayer, runTuiMain, type TuiRuntime } from '../../src/effect/cli.tsx'
 
 describe('runTuiMain', () => {
-  test('sets exit code 130 for interrupt-only failures', async () => {
-    // The interrupt path is fully handled inside `runTuiMain` (interrupt-only
-    // cause → exitCode 130, completes as Success), so the effect handed to
-    // `runMain` carries no failure in its error channel.
+  test('reports exit code 130 for interrupt-only failures, leaving process.exitCode alone', async () => {
+    // The interrupt is NOT swallowed: it stays in the error channel, so the fiber
+    // Exit — the only channel the exit code is derived from — carries it into the
+    // teardown, which maps interrupts-only to 130. Nothing is written to the
+    // global `process.exitCode`, which would leak into later runs in-process.
     let captured: Effect.Effect<unknown, never> | undefined
+    let teardown:
+      | (<E, A>(exit: Exit.Exit<E, A>, onExit: (code: number) => void) => void)
+      | undefined
     const runtime: TuiRuntime = {
       runMain:
-        () =>
+        (options) =>
         <E, A>(effect: Effect.Effect<A, E>) => {
           captured = effect as Effect.Effect<unknown, never>
+          teardown = options?.teardown
         },
     }
     const previousExitCode = process.exitCode
-    process.exitCode = undefined
+    // Assigning `undefined` is a no-op on Bun; 0 is the equivalent clean baseline.
+    process.exitCode = 0
 
     try {
       runTuiMain(runtime, Effect.interrupt)
 
       expect(captured).toBeDefined()
+      expect(teardown).toBeDefined()
       const exit = await Effect.runPromiseExit(captured!)
 
-      expect(Exit.isSuccess(exit)).toBe(true)
-      expect(process.exitCode).toBe(130)
+      expect(Exit.isFailure(exit) === true && Cause.hasInterruptsOnly(exit.cause) === true).toBe(
+        true,
+      )
+
+      let code: number | undefined
+      teardown!(exit, (value) => {
+        code = value
+      })
+      expect(code).toBe(130)
+      expect(process.exitCode).toBe(0)
     } finally {
-      process.exitCode = previousExitCode
+      process.exitCode = previousExitCode ?? 0
     }
   })
 })

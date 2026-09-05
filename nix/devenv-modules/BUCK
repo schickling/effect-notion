@@ -1,0 +1,59 @@
+# Generated file - DO NOT EDIT
+# Source: BUCK.genie.ts
+
+load("//buck2:javascript.bzl", "shell_tests")
+load("//buck2:materialization.bzl", "export_materialization_inputs")
+
+# Read as data by @overeng/genie's CI-workflow contract tests, which assert that each
+# generated workflow step and its devenv task module agree on the same commands.
+export_materialization_inputs([
+    "tasks/shared/megarepo.nix",
+    "tasks/shared/netlify.nix",
+    "tasks/shared/vercel.nix",
+    "tasks/shared/workflow-report-module.nix",
+])
+
+# Every executable this lane launches is an attested capability, so each tool's whole Nix closure
+# is bound. Only the devenv module source stays a configured input: it is the checkout under test,
+# not a tool, and has no capability realization.
+#
+# The suite evaluates `builtins.getFlake` across nearly every script, so the Nix daemon socket and
+# the store's own write path are a declared host-service dependency, not an ambient fallback. That
+# is what puts this lane on the explicit no-containment executor, and why it is not cacheable: a
+# daemon-backed evaluation is not a function of the declared inputs alone.
+shell_tests(
+    name = "test",
+    package_tree = "//packages/@overeng/buck2-tools:package_tree",
+    # The activated-Devenv boundary, supplied by the activating task rather than `inherited_env`:
+    # Buck actions do not inherit daemon or client environment, so an inherited declaration here
+    # would be a contract the executor cannot honour. `DEVENV_MODULE_SOURCE` is the checkout under
+    # test and `DEVENV_BIN` the activated CLI; both are immutable store realizations, so they are
+    # declared inputs. None of them is a tool capability, and this boundary is exactly why the
+    # lane is not cacheable.
+    configured_external_inputs = {
+        "DEVENV_BIN": read_config("test_capabilities", "devenv-bin", ""),
+        "DEVENV_MODULE_SOURCE": read_config("test_capabilities", "devenv-module-source", ""),
+    },
+    # `DEVENV_ROOT` is the one value that is deliberately *not* a store path: the task-graph case
+    # asserts the graph of the live activated worktree, which `devenv.nix` requires to be a real
+    # git checkout. It is therefore an environment value, not a declared immutable input.
+    env = {
+        "CI": "true",
+        "DEVENV_ROOT": read_config("test_capabilities", "devenv-root", ""),
+    },
+    tools = {
+        "BASH_BIN": "//buck2/toolchains:tool_test_bash",
+        "BUN_BIN": "//buck2/toolchains:tool_bun",
+        "CI_TOOLS_BIN": "//buck2/toolchains:tool_test_ci_tools",
+        "DEVENV_MODULE_TOOLS_BIN": "//buck2/toolchains:tool_test_devenv_module_tools",
+        "GENIE_BIN": "//buck2/toolchains:tool_test_genie",
+        "NIX_BIN": "//buck2/toolchains:tool_test_nix",
+        "NODE_BIN": "//buck2/toolchains:tool_node",
+    },
+    capabilities = ["nix-daemon", "subprocess"],
+    execution_mode = "unsandboxed-local",
+    cacheable = False,
+    labels = ["local-only", "nix"],
+    timeout_ms = 300000,
+    visibility = ["PUBLIC"],
+)

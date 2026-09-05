@@ -14,6 +14,7 @@ import { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner
 import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
 
 import { MegarepoConfig } from '../core/config.ts'
+import { requireTool } from './require-tool.ts'
 
 // =============================================================================
 // Types
@@ -57,7 +58,7 @@ export interface WorkspaceResult {
 export const runGitCommand = (cwd: AbsoluteDirPath, ...args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const result = yield* ChildProcessSpawner.use((spawner) =>
-      spawner.string(Command.make('git', args, { cwd })),
+      spawner.string(Command.make(requireTool('GIT_BIN'), args, { cwd })),
     )
     return result.trim()
   })

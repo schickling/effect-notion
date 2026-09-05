@@ -45,21 +45,6 @@
             "context": "test-megarepo-cold-gc"
           },
           {
-            "context": "nix-check (namespace-profile-linux-x86-64)"
-          },
-          {
-            "context": "nix-check (namespace-profile-macos-arm64)"
-          },
-          {
-            "context": "nix-fod-check (namespace-profile-linux-x86-64)"
-          },
-          {
-            "context": "nix-fod-check (namespace-profile-macos-arm64)"
-          },
-          {
-            "context": "pnpm-builder-contract"
-          },
-          {
             "context": "pnpm-regression"
           },
           {

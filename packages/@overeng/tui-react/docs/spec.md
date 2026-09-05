@@ -829,8 +829,12 @@ completed, and never relies on a fixed timeout on the happy path. The contract:
 - **Ctrl-C bails fast.** The flush finalizer stays interruptible, so a signal
   during a slow or dead-collector flush escapes the cap in milliseconds.
 - **Exit codes.** A signal-interrupted run exits **130** (shell convention); an
-  uncaught failure exits 1; success exits 0. (`runTuiMain` provides a custom
-  `teardown` so a signal does not clobber 130 down to 0.)
+  uncaught failure exits 1; success exits 0. The code is derived from the fiber
+  `Exit` — `runTuiMain` leaves an interrupt in the error channel and its
+  `teardown` delegates to `Runtime.defaultTeardown` — never from the mutable
+  global `process.exitCode`, so a stale ambient value cannot turn a clean
+  success non-zero. On success the ambient `process.exitCode` IS forwarded,
+  because that is the declared channel for `createTuiApp`'s `exitCode` mapper.
 
 See `.decisions/0001-shutdown-flush-contract.md` for the competing-goals
 resolution and the regression test

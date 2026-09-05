@@ -237,7 +237,14 @@ const archiveUrl = ({ name, version }: { name: string; version: string }): strin
   return `https://registry.npmjs.org/${name}/-/${tarballName}-${version}.tgz`
 }
 
-const targetName = ({ prefix, identity }: { prefix: string; identity: string }): string => {
+/** Deterministic, collision-resistant Buck target name for one generated identity. */
+export const pnpmTargetName = ({
+  prefix,
+  identity,
+}: {
+  prefix: string
+  identity: string
+}): string => {
   const readable = identity
     .replaceAll(/[^A-Za-z0-9_]+/g, '_')
     .replaceAll(/^_+|_+$/g, '')
@@ -520,7 +527,7 @@ export const translatePnpmLock = ({
         name,
         os,
         resolution: 'workspace',
-        target: targetName({ prefix: 'workspace', identity: key }),
+        target: pnpmTargetName({ prefix: 'workspace', identity: key }),
         version,
         workspacePath: directory,
       }
@@ -543,7 +550,7 @@ export const translatePnpmLock = ({
       os,
       ...(patch === undefined ? {} : { patch }),
       resolution: 'registry',
-      target: targetName({ prefix: 'package', identity: key }),
+      target: pnpmTargetName({ prefix: 'package', identity: key }),
       url: archiveUrl({ name, version }),
       version,
     }
@@ -713,7 +720,7 @@ export const translatePnpmLock = ({
       dependencies: parseImporterDependencies('dependencies'),
       devDependencies: parseImporterDependencies('devDependencies'),
       optionalDependencies: parseImporterDependencies('optionalDependencies'),
-      target: targetName({ prefix: 'importer', identity: importer }),
+      target: pnpmTargetName({ prefix: 'importer', identity: importer }),
     }
   }
 

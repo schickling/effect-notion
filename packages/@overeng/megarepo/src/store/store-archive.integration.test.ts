@@ -25,6 +25,7 @@ import { expect } from 'vitest'
 import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
 
 import * as Git from '../core/git.ts'
+import { requireTool } from '../test-utils/require-tool.ts'
 import {
   createArchiveEntry,
   createStoreFixture,
@@ -33,10 +34,12 @@ import {
 } from '../test-utils/store-setup.ts'
 import { archiveWorktree, parseArchiveDirName, reapArchive, scanArchives } from './store-archive.ts'
 
+const gitBin = requireTool('GIT_BIN')
+
 const git = (cwd: string, ...args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     return (yield* ChildProcessSpawner.use((spawner) =>
-      spawner.string(Command.make('git', args, { cwd })),
+      spawner.string(Command.make(gitBin, args, { cwd })),
     )).trim()
   })
 

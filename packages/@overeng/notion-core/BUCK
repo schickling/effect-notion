@@ -1,19 +1,27 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2:javascript.bzl", "vitest_test")
 # Projection source: packages/@overeng/notion-core/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:9a253cbdd25db3f7fcee9e21b75bd1e9784b8ecb0032299ff3e3f5805228b2ff
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-core/src/**/*.cts, packages/@overeng/notion-core/src/**/*.js, packages/@overeng/notion-core/src/**/*.mts, packages/@overeng/notion-core/src/**/*.ts, packages/@overeng/notion-core/src/**/*.tsx, packages/@overeng/notion-core/tsconfig.json.genie.ts
+# Semantic fingerprint: sha256:fb77aa405032b94123a4d47cb3ca06a38665e9e2a714e413acc21e7784c0ce9d
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/notion-core/*.genie.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-core/src/**/*.cts, packages/@overeng/notion-core/src/**/*.js, packages/@overeng/notion-core/src/**/*.jsx, packages/@overeng/notion-core/src/**/*.mts, packages/@overeng/notion-core/src/**/*.ts, packages/@overeng/notion-core/src/**/*.tsx, packages/@overeng/notion-core/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
     name = "package.json",
     src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "BUCK",
+    src = "BUCK",
     visibility = ["PUBLIC"],
 )
 
@@ -33,22 +41,43 @@ export_materialization_inputs([
     "src/rich-text.unit.test.ts",
 ])
 
-alias(
-    name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_notion_core_bbf3eb334469",
+# Projection inputs this package owns, exported as one tree.
+filegroup(
+    name = "projection_inputs",
+    srcs = {
+        "BUCK.genie.ts": "BUCK.genie.ts",
+        "package.json": "package.json",
+        "package.json.genie.ts": "package.json.genie.ts",
+        "src/body-fidelity.ts": "src/body-fidelity.ts",
+        "src/body-fidelity.unit.test.ts": "src/body-fidelity.unit.test.ts",
+        "src/colors.ts": "src/colors.ts",
+        "src/colors.unit.test.ts": "src/colors.unit.test.ts",
+        "src/constants.ts": "src/constants.ts",
+        "src/constants.unit.test.ts": "src/constants.unit.test.ts",
+        "src/ids.ts": "src/ids.ts",
+        "src/ids.unit.test.ts": "src/ids.unit.test.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/properties.ts": "src/properties.ts",
+        "src/properties.unit.test.ts": "src/properties.unit.test.ts",
+        "src/rich-text.ts": "src/rich-text.ts",
+        "src/rich-text.unit.test.ts": "src/rich-text.unit.test.ts",
+        "tsconfig.json": "tsconfig.json",
+        "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
+    },
     visibility = ["PUBLIC"],
 )
 
 alias(
     name = "editor_inputs",
-    actual = ":node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_notion_core_bbf3eb334469",
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_notion_core_bbf3eb334469",
     files = {
+        "vitest.config.ts": "vitest.config.ts",
         "package.json": "package.json",
         "src/body-fidelity.ts": "src/body-fidelity.ts",
         "src/body-fidelity.unit.test.ts": "src/body-fidelity.unit.test.ts",
@@ -67,7 +96,12 @@ package_tree(
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {},
+    visibility = ["PUBLIC"],
+)
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
@@ -77,11 +111,21 @@ tsgo_typecheck(
     visibility = ["PUBLIC"],
 )
 
+
 tsgo_emit(
     name = "dist",
     package_tree = ":package_tree",
     declaration_sources = {
     },
     declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    hook_timeout_ms = 30000,
+    timeout_ms = 30000,
     visibility = ["PUBLIC"],
 )

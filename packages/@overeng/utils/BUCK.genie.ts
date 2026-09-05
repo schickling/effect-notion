@@ -1,5 +1,8 @@
+import {
+  buck2JavaScriptPackageProjection,
+  javascriptTestPlanFor,
+} from '../../../genie/buck2/javascript-package-projection.ts'
 import type { Buck2TypeScriptAdmission } from '../../../genie/buck2/typescript-admissions.ts'
-import { buck2TypeScriptPackageProjection } from '../../../genie/buck2/typescript-package-projection.ts'
 
 export const buck2TypeScriptAdmission = {
   dependencyImporter: '//buck2/dependencies:importer_packages_overeng_utils_07fe64e7b8ad',
@@ -7,6 +10,10 @@ export const buck2TypeScriptAdmission = {
   packagePath: 'packages/@overeng/utils',
   projectionSource: 'packages/@overeng/utils/BUCK.genie.ts',
   sourceRoots: ['src'],
+  // The pnpm lockfile names this patch through `patchedDependencies`, so the
+  // dependency-store projection and the suites that translate the real lockfile
+  // read it. Declaring it here exports it as one addressable input.
+  resourceFiles: ['patches/@myobie__pty@0.10.0.patch'],
   workspaceSiblings: [
     {
       packageName: '@overeng/effect-distributed-lock',
@@ -24,11 +31,13 @@ export const buck2TypeScriptAdmission = {
       distTarget: '//packages/@overeng/utils-dev:dist',
     },
   ],
-  editorViewConsumer: false,
   authority: {
     declarationEntrypoint: 'src/isomorphic/mod.d.ts',
     projectFile: 'tsconfig.json',
   },
 } as const satisfies Buck2TypeScriptAdmission
 
-export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)
+export default buck2JavaScriptPackageProjection(
+  buck2TypeScriptAdmission,
+  javascriptTestPlanFor(buck2TypeScriptAdmission.packageName),
+)

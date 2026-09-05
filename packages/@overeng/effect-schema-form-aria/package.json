@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/mod.ts",
+    ".": {
+      "types": "./dist/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
     "./styles.css": "./src/styles.css"
   },
   "publishConfig": {

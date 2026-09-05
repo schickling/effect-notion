@@ -48,6 +48,13 @@ let
     inherit pkgs oxlintNpm;
   };
   nodePtyNative = import ./nix/node-pty-native.nix { inherit pkgs; };
+  # Nested weaver flake realizations, needed as explicit capabilities by the
+  # non-cacheable Weaver live-check Buck lane.
+  weaverFlake = builtins.getFlake "path:${toString ./nix/weaver-flake}";
+  weaverPackages = weaverFlake.packages.${currentSystem};
+  # The activated Devenv CLI, handed to the devenv-module Buck lane as data: its task-graph case
+  # asserts the graph of *this* activation, which only the real CLI can enumerate.
+  devenvCli = "${inputs.devenv.packages.${currentSystem}.devenv}/bin/devenv";
   pnpmTaskHelpersScript = pkgs.writeText "pnpm-task-helpers.sh" (
     builtins.readFile ./nix/devenv-modules/tasks/shared/pnpm-task-helpers.sh
   );
@@ -70,7 +77,7 @@ let
   # Shared task modules (from shared/ directory)
   taskModules = {
     genie = ./nix/devenv-modules/tasks/shared/genie.nix;
-    ts = import ./nix/devenv-modules/tasks/shared/ts.nix;
+    buck-editor = import ./nix/devenv-modules/tasks/shared/buck-editor.nix;
     worktree-guard = import ./nix/devenv-modules/tasks/shared/worktree-guard.nix;
     setup = import ./nix/devenv-modules/tasks/shared/setup.nix;
     check = import ./nix/devenv-modules/tasks/shared/check.nix;
@@ -97,72 +104,30 @@ let
     devenv-module-tests = ./nix/devenv-modules/tasks/local/devenv-module-tests.nix;
     asset-import-type-reference = ./nix/devenv-modules/tasks/local/asset-import-type-reference.nix;
   };
-  # Use bun source entrypoints for in-repo CLIs in devenv (flake builds stay strict).
-  mkSourceCli = import ./nix/devenv-modules/lib/mk-source-cli.nix { inherit pkgs; };
+  # Repository CLIs are imported from the tracked Buck product boundary.
 
   # Real packages backing guarded command names. The cli-guards own bin/<name>
   # and exec these via absolute store path under passthrough, so they are passed
   # as `*Pkg` reals to the task modules instead of also being top-level profile
   # providers (which would collide with the guards in buildEnv). See cli-guard.nix.
-  effectTsgo = inputs.tsgo.packages.${currentSystem}.effect-tsgo;
-  pnpmPkg = import ./nix/pnpm.nix { inherit pkgs; };
-  genieSourceCli = mkSourceCli {
-    name = "genie";
-    entry = "packages/@overeng/genie/bin/genie.tsx";
-  };
-  mrSourceCli = mkSourceCli {
-    name = "mr";
-    entry = "packages/@overeng/megarepo/bin/mr.ts";
-  };
-  ciToolsSourceCli = mkSourceCli {
-    name = "ci-tools";
-    entry = "packages/@overeng/ci-tools/bin/ci-tools.ts";
-  };
+  # Constructor, not a built derivation: building it here would force this
+  # module's `pkgs` argument while devenv is still collecting `imports`
+  # (infinite recursion through `_module.args`). See pnpm.nix `mkPnpmPkg`.
+  mkPnpmPkg = import ./nix/pnpm.nix;
+  genieCli = repoFlake.packages.${currentSystem}.genie;
+  mrCli = repoFlake.packages.${currentSystem}.megarepo;
+  ciToolsCli = repoFlake.packages.${currentSystem}.ci-tools;
+  tuiStoriesCli = repoFlake.packages.${currentSystem}.tui-stories;
   buck2Machine = import ./nix/buck2.nix { pkgs = flakePkgs; };
   buck2Stage0Definition = import ./nix/buck2-stage0-tools.nix { inherit pkgs; };
-  # CLI packages built with Nix (for hash management)
+  # Remaining Nix-managed external npm plugin hash.
   nixCliPackages = [
-    {
-      name = "genie";
-      flakeRef = ".#genie";
-      hashSource = "packages/@overeng/genie/nix/build.nix";
-      lockfile = "pnpm-lock.yaml";
-      packageJson = "packages/@overeng/genie/package.json";
-    }
-    {
-      name = "megarepo";
-      flakeRef = ".#megarepo";
-      hashSource = "packages/@overeng/megarepo/nix/build.nix";
-      lockfile = "pnpm-lock.yaml";
-      packageJson = "packages/@overeng/megarepo/package.json";
-    }
-    {
-      name = "tui-stories";
-      flakeRef = ".#tui-stories";
-      hashSource = "packages/@overeng/tui-stories/nix/build.nix";
-      lockfile = "pnpm-lock.yaml";
-      packageJson = "packages/@overeng/tui-stories/package.json";
-    }
     {
       name = "oxlint-npm";
       flakeRef = ".#oxlint-npm";
-      hashSource = "nix/oxc-config-plugin.nix";
+      hashSource = "packages/@overeng/oxc-config/nix/build.nix";
       lockfile = "pnpm-lock.yaml";
       packageJson = "packages/@overeng/oxc-config/package.json";
-    }
-    {
-      name = "notion-cli";
-      flakeRef = ".#notion-cli";
-      hashSource = "packages/@overeng/notion-cli/nix/build.nix";
-      lockfile = "pnpm-lock.yaml";
-      packageJson = "packages/@overeng/notion-cli/package.json";
-    }
-    {
-      name = "notion-md";
-      flakeRef = ".#notion-md";
-      hashSource = "packages/@overeng/notion-md/nix/build.nix";
-      lockfile = "pnpm-lock.yaml";
-      packageJson = "packages/@overeng/notion-md/package.json";
     }
   ];
 
@@ -218,14 +183,9 @@ let
     else
       throw "packageTestQuarantine.${name} must include reason and issue"
   ) packageTestQuarantine;
-  packageTestOverrides = {
-    megarepo = {
-      vitestArgs = "--exclude src/cli/store-gc-cold.integration.test.ts";
-    };
-    pty-effect = {
-      after = [ "pnpm:link-native-node-packages" ];
-    };
-  };
+  # Buck targets own vitest selection and native inputs, so no per-package
+  # legacy vitest argument or install-order override remains.
+  packageTestOverrides = { };
   packagesRoot = ./. + "/packages/@overeng";
   hasTestFiles =
     root:
@@ -340,6 +300,70 @@ let
     }
   ];
   packagesWithNetlifyPreview = lib.filter (pkg: pkg.name != "tui-stories") packagesWithStorybook;
+
+  # Buck owns test execution. Ordinary package suites derive mechanically from
+  # the discovered package set; a lane that needs an executable capability
+  # declares it explicitly, and nothing resolves through a root node_modules.
+  # `@overeng/buck2-tools:test` needs `cp`, `mv`, and `false`, but declares them as attested
+  # capabilities in the Buck rule instead of here: containment binds a capability's whole Nix
+  # closure, which a bare `[test_capabilities]` executable path cannot carry.
+  packageTestCapabilities = {
+    pty-effect = {
+      "node-pty" = "${nodePtyNative}/node_modules/node-pty";
+    };
+  };
+  buckTestTargets =
+    map (pkg: {
+      inherit (pkg) name;
+      label = "effect_utils//${pkg.path}:test";
+      capabilities = packageTestCapabilities.${pkg.name} or { };
+    }) packagesWithTests
+    ++ [
+      {
+        name = "devenv-modules";
+        label = "effect_utils//nix/devenv-modules:test";
+        # `bash`, `nix`, and the GNU tool bundle are attested capabilities declared by the Buck
+        # rule, not bare paths: a capability binds its whole Nix closure, which a
+        # `[test_capabilities]` executable path cannot carry. What remains here is the
+        # activated-Devenv boundary, which is data rather than tooling: the checkout under test,
+        # plus the activated CLI and worktree the task-graph case asserts against (a task graph
+        # only exists in an activated worktree, and `devenv.nix` refuses to evaluate from an
+        # immutable snapshot). These are configured values and not `inherited_env` because Buck
+        # actions do not inherit daemon or client environment.
+        capabilities = {
+          "devenv-bin" = devenvCli;
+          "devenv-module-source" = "${repoFlake}";
+          "devenv-root" = config.devenv.root;
+        };
+      }
+      {
+        name = "genie-buck2";
+        label = "effect_utils//genie/buck2:test";
+        capabilities = { };
+      }
+      {
+        name = "megarepo-cold-gc";
+        label = "effect_utils//packages/@overeng/megarepo:test_megarepo_cold_gc";
+        capabilities.git = "${pkgs.git}/bin/git";
+      }
+      {
+        # Nix-daemon lane: the rule runs it on the explicit no-containment executor because
+        # GC-root registration needs the daemon socket and the store's own root registry. Every
+        # executable it launches is still an attested capability, so it declares no ambient path.
+        name = "megarepo-capability-gc-roots";
+        label = "effect_utils//packages/@overeng/megarepo:test_megarepo_capability_gc_roots";
+        capabilities = { };
+      }
+    ];
+  # Single source of truth for the Buck storybook publication target: the build
+  # task and the Netlify deploy both address this label, so the deploy resolves
+  # Buck's declared output instead of guessing a source-tree directory.
+  storybookBuildLabel = pkg: "effect_utils//${pkg.path}:storybook_build_candidate";
+  buckStorybookTargets = map (pkg: {
+    inherit (pkg) name port;
+    buildLabel = storybookBuildLabel pkg;
+    devLabel = "effect_utils//${pkg.path}:storybook_dev_candidate";
+  }) packagesWithStorybook;
   # Repository-specific semantic inputs read by Genie sources. The shared
   # Genie module already owns the direct and nested `.genie.ts` census; this
   # single list is composed into both its warm fingerprint and lint freshness.
@@ -387,7 +411,11 @@ let
   # cache hard-fails buck2 builds, so off-tailnet checkouts export
   # BUCK2_NO_REMOTE_CACHE=1 before shell entry (checked at entry only).
   # digest_algorithms pins what this Buck2 already produces by default —
-  # explicitness only, no key migration.
+  # explicitness only, no key migration. max_total_batch_size states the
+  # 4 MiB upload batch ceiling explicitly (same value as the composition
+  # config path): both gRPC peers default to a 4 MiB message limit, so an
+  # implicit batch that grows past it would fail at the transport instead of
+  # at a boundary we control.
   buck2CacheEndpoint = "grpc://dev3:41045";
   buck2LocalConfig = pkgs.writeText "buck2-buckconfig-local" ''
     [buck2]
@@ -400,6 +428,7 @@ let
     cas_address = ${buck2CacheEndpoint}
     instance_name = effect-utils
     tls = false
+    max_total_batch_size = 4194304
   '';
   buck2LocalConfigHook =
     let
@@ -453,9 +482,7 @@ in
           "mr:lock-sync-check"
           "mr:source-policy-check"
           "nix:flake:check"
-          "pnpm:install"
           "test:run"
-          "ts:check:strict"
           "weaver:check"
           "weaver:diff"
           "weaver:version-smoke"
@@ -470,8 +497,7 @@ in
     inputs.playwright.devenvModules.default
     # Shared task modules
     taskModules.genie
-    (taskModules.ts { tsBinPkg = effectTsgo; })
-    (taskModules.megarepo { mrPkg = mrSourceCli; })
+    (taskModules.megarepo { mrPkg = mrCli; })
     (taskModules.lint-nix { })
     (taskModules.check {
       extraChecks = [
@@ -479,7 +505,8 @@ in
         "workspace:check"
         "lint:nix"
       ];
-      checkAllTypecheckTask = "ts:check:strict";
+      checkQuickTypecheckTask = "buck2:check";
+      checkAllTypecheckTask = "buck2:check";
     })
     (taskModules.weaver { })
     # Wire the additive weaver gate into `check:all` only (not `check:quick`, which stays fast):
@@ -504,38 +531,40 @@ in
     # unlike the deterministic check/diff runs, this is a subprocess e2e (spawns otelite, binds an
     # ephemeral port, depends on export-flush timing), so it lives in CI rather than gating every
     # local `check:all` on capture reliability.
-    (taskModules.weaver-live-check { })
+    (taskModules.weaver-live-check {
+      target = "effect_utils//packages/@overeng/otel-contract:weaver_live_check";
+      weaverBin = "${weaverPackages.weaver}/bin/weaver";
+      semconvModel = weaverPackages.semconv-model;
+      registry = "${repoFlake}/genie/weaver-registry";
+    })
     # Version-pin consistency smoke (SC-DQ4): catches weaver/semconv pin drift the content
     # gate (weaver:check) silently degrades past (a bumped version with a stale FOD hash).
     (taskModules.weaver-version-smoke { })
     { tasks."check:all".after = [ "weaver:version-smoke" ]; }
     (taskModules.clean { packages = allPackages; })
-    # Repo-root pnpm install task
-    # NOTE: Using pnpm temporarily. See: context/workarounds/bun-issues.md
+    # Lock maintenance only: dependency realization belongs to Buck, so no live
+    # root node_modules is created, repaired, or depended on here.
     (taskModules.pnpm {
       packages = allPackages;
-      inherit pnpmPkg;
+      inherit mkPnpmPkg;
+      geniePkg = genieCli;
     })
-    # Self-contained test tasks: each package uses its own vitest from node_modules
+    # Buck-owned test execution over explicit generated targets.
     (taskModules.test {
-      packages = packagesWithTests;
-      extraTests = [
-        "devenv-modules:test"
-        "genie:buck2:test"
-      ];
-      packageConcurrency = 4;
-      retainVitestJson = true;
+      targets = buckTestTargets;
+      buckAfter = [ "genie:run" ];
     })
     (taskModules.storybook {
-      packages = packagesWithStorybook;
+      targets = buckStorybookTargets;
     })
     (taskModules.netlify {
       siteName = "overeng-utils";
       siteId = "462d2440-fb38-4e69-8023-9c425d1e2132";
-      ciToolsBin = "${ciToolsSourceCli}/bin/ci-tools";
+      ciToolsBin = "${ciToolsCli}/bin/ci-tools";
       deployments = map (pkg: {
         name = pkg.name;
-        staticDir = "${pkg.path}/storybook-static";
+        artifactLabel = storybookBuildLabel pkg;
+        packageJsonPath = "${pkg.path}/package.json";
         afterTask = "storybook:build:${pkg.name}";
         workspaceFilter = true;
       }) packagesWithNetlifyPreview;
@@ -543,9 +572,12 @@ in
     # Workflow reports run as standalone CI control-plane steps, including when
     # a deploy is skipped. Use the hermetic package instead of relying on an
     # ambient source-workspace node_modules projection.
-    (taskModules.workflow-report { })
+    (taskModules.workflow-report {
+      ciToolsBin = "${ciToolsCli}/bin/ci-tools";
+    })
     (taskModules.lint-oxc {
       oxlintPkg = oxlintWithPlugins;
+      geniePkg = genieCli;
       lintPaths = [
         "packages"
         "scripts"
@@ -584,7 +616,6 @@ in
       # Keep shell entry resilient (R12): optional tasks run via @complete.
       # Ordering ensures source CLIs have deps before use.
       optionalTasks = [
-        "pnpm:install"
         "genie:run"
         "mr:apply"
       ];
@@ -595,21 +626,43 @@ in
     })
     # Nix CLI build and hash management
     (taskModules.nix-cli { cliPackages = nixCliPackages; })
+    (taskModules.buck-editor { })
     (taskModules.secretspec { })
     # Local task: Validate allPackages matches filesystem packages (effect-utils specific)
     ./nix/devenv-modules/tasks/local/workspace-check.nix
     taskModules.devenv-module-tests
     taskModules.asset-import-type-reference
-    # Notion integration tests (requires NOTION_API_TOKEN)
-    ./nix/devenv-modules/tasks/local/notion-integration-test.nix
-    # Restate integration tests (native restate-server via RESTATE_SERVER_BIN)
-    ./nix/devenv-modules/tasks/local/restate-integration-test.nix
+    # Live Notion lanes: secrets are inherited by the target; no capability
+    # configs are required because the runtime closure is fully declared.
+    (import ./nix/devenv-modules/tasks/local/notion-integration-test.nix {
+      targets = [
+        {
+          name = "notion-datasource-sync";
+          label = "effect_utils//packages/@overeng/notion-datasource-sync:test_notion_live";
+        }
+        {
+          name = "notion-effect-client";
+          label = "effect_utils//packages/@overeng/notion-effect-client:test_notion_live";
+        }
+        {
+          name = "notion-md";
+          label = "effect_utils//packages/@overeng/notion-md:test_notion_live";
+        }
+        {
+          name = "notion-react";
+          label = "effect_utils//packages/@overeng/notion-react:test_notion_live";
+        }
+      ];
+    })
+    # Live Restate lane: the native server is an explicit Nix capability.
+    (import ./nix/devenv-modules/tasks/local/restate-integration-test.nix {
+      target = "effect_utils//packages/@overeng/restate-effect:test_restate_integration";
+      restateServerBin = "${restate}/bin/restate-server";
+    })
   ];
 
-  # The guarded `genie` command dispatches to the source-mode CLI in this repo;
-  # downstream consumers should normally set this to the packaged effect-utils
-  # Genie derivation.
-  effectUtils.genie.package = genieSourceCli;
+  # The guarded `genie` command dispatches to the tracked Buck product.
+  effectUtils.genie.package = genieCli;
 
   # Non-`.genie.ts` sources share one list with the lint freshness scheduler.
   effectUtils.genie.extraInputGlobs = genieExtraInputGlobs;
@@ -634,11 +687,8 @@ in
     buck2Machine
     buck2Stage0Definition.product
     cliBuildStamp.package
-    ciToolsSourceCli
-    (mkSourceCli {
-      name = "tui-stories";
-      entry = "packages/@overeng/tui-stories/bin/tui-stories.tsx";
-    })
+    ciToolsCli
+    tuiStoriesCli
     # Rust toolchain for the standalone Rust crates.
     # Nix builds use pkgs.rustPlatform; these give local dev + the cargo CI lane
     # cargo/clippy/rustfmt/rust-analyzer matching nixpkgs' stable rust.
@@ -669,54 +719,6 @@ in
   # reads RESTATE_SERVER_BIN to locate the native server, else falls back to $PATH).
   env.RESTATE_SERVER_BIN = "${restate}/bin/restate-server";
 
-  # Source-mode CLIs need pnpm install before running.
-  # (The shared modules don't assume this — they work with Nix packages too.)
-  tasks."genie:run".after = [ "pnpm:install" ];
-  tasks."genie:watch".after = [ "pnpm:install" ];
-  tasks."genie:check".after = [ "pnpm:install" ];
-  tasks."lint:check:genie".after = [ "pnpm:install" ];
-  tasks."mr:bootstrap".after = [ "pnpm:install" ];
-  tasks."mr:setup".after = [ "pnpm:install" ];
-  tasks."mr:fetch-apply".after = [ "pnpm:install" ];
-  tasks."mr:lock".after = [ "pnpm:install" ];
-  tasks."mr:apply".after = [ "pnpm:install" ];
-  tasks."mr:check".after = [ "pnpm:install" ];
-  tasks."mr:source-policy-check".after = [ "pnpm:install" ];
-
-  # buck2-tools executes inside pinned Bun actions and exercises Bun.YAML/Bun.which.
-  # Keep its package gate on that runtime rather than Vitest's Node process.
-  tasks."test:buck2-tools".description = lib.mkForce "Run buck2-tools tests under pinned Bun";
-  tasks."test:buck2-tools".exec = lib.mkForce (
-    trace.exec "test:buck2-tools" ''
-      set -euo pipefail
-      root="''${DEVENV_ROOT:-$PWD}"
-      cd "$root/packages/@overeng/buck2-tools"
-      exec ${pkgs.bun}/bin/bun test src/*.test.ts
-    ''
-  );
-
-  # The Buck2 genie projection suite lives outside packages/@overeng, so the
-  # per-package `test:<pkg>` tasks and the root Vitest projects list both miss
-  # it. Give it its own task and hang it off `test:run`, or the projection and
-  # staged-runtime guards never run. Like test:buck2-tools it runs under pinned
-  # Bun: the pnpm-lock projection it imports reads Bun.YAML.
-  tasks."genie:buck2:test" = {
-    description = "Run the Buck2 genie projection and staged-runtime guards under pinned Bun";
-    after = [ "pnpm:install" ];
-    exec = trace.exec "genie:buck2:test" ''
-      set -euo pipefail
-      cd "''${DEVENV_ROOT:-$PWD}"
-      # Directory, not a flat glob: genie/buck2/vitest.config.ts includes
-      # `**/*.unit.test.ts`, and Bun discovers recursively the same way.
-      exec ${pkgs.bun}/bin/bun test genie/buck2/
-    '';
-    execIfModified = [
-      "BUCK"
-      "genie/buck2/**/*.ts"
-      "packages/@overeng/buck2-tools/src/**/*.ts"
-    ];
-  };
-
   # NOTE (decision 0004): there is deliberately NO `genie:bootstrap`-before-`pnpm:install` edge.
   # An earlier form wired `pnpm:install.after = [ "genie:bootstrap" ]` so install would run
   # `genie --phase bootstrap` first. Verified during implementation that this does NOT arbitrate
@@ -726,70 +728,18 @@ in
   # and a new failure mode. Bootstrap-safety is instead demonstrated empirically by
   # `bootstrap:cold-proof` (R32, below), with `bootstrap-closure:check` as fast local feedback.
 
-  # bootstrap:cold-proof (R32) — the EMPIRICAL bootstrap-safety authority. In a fresh, no-node_modules
-  # tree of the committed source it runs the self-contained packaged Genie CLI
-  # (`.#genie`, deps baked into the store) with `--phase bootstrap`, then
-  # `pnpm install --frozen-lockfile`, asserting both succeed.
+  # bootstrap:cold-proof (R32) — the EMPIRICAL bootstrap-safety authority. In a fresh,
+  # no-node_modules tree of the committed source it builds the Buck Genie candidate, runs its
+  # bootstrap phase, and checks every committed projection without installing the workspace.
   # This exercises the exact pre-install path and turns bootstrap-safety from asserted into
-  # demonstrated. Heavy (nix build + full install) so it is a dedicated task/CI lane, NOT in
-  # `check:all`. Set GENIE_COLD_PROOF_BIN to reuse an already-built genie and skip the nix build.
+  # demonstrated. The dedicated task/CI lane stays outside `check:all` because it materializes a
+  # separate committed-source tree and rebuilds the product from the composed Buck graph.
   tasks."bootstrap:cold-proof" = {
-    description = "Prove bootstrap-phase genie + pnpm install run cold (no node_modules) — R32 authority";
+    description = "Prove the Buck Genie product handles bootstrap and projection checks without an install";
     exec = trace.exec "bootstrap:cold-proof" ''
       set -euo pipefail
       root="''${DEVENV_ROOT:-$PWD}"
-      exec bash "$root/genie/ci-scripts/bootstrap-cold-proof.sh"
-    '';
-  };
-
-  tasks."pnpm:link-native-node-packages" = {
-    after = [ "pnpm:install" ];
-    description = "Link Nix-built native Node packages into the pnpm projection";
-    exec = trace.exec "pnpm:link-native-node-packages" ''
-      set -euo pipefail
-      source ${lib.escapeShellArg pnpmTaskHelpersScript}
-
-      link_native_package() {
-        local package_name="$1"
-        local package_path="$2"
-        local rel_path="$package_name"
-        local search_roots=(node_modules)
-
-        if [[ "$package_name" == @*/* ]]; then
-          rel_path="$(dirname "$package_name")/$(basename "$package_name")"
-        fi
-
-        find "''${search_roots[@]}" \
-          -path "*/node_modules/$rel_path" \
-          -exec sh -c 'package_path="$1"; shift; for target do rm -rf "$target"; ln -s "$package_path" "$target"; done' sh "$package_path" {} +
-      }
-
-      link_native_package "node-pty" "${nodePtyNative}/node_modules/node-pty"
-    '';
-  };
-
-  tasks."test:megarepo-cold-gc" = {
-    after = [ "pnpm:install" ];
-    description = "Run isolated megarepo cold-GC integration tests";
-    cwd = "packages/@overeng/megarepo";
-    exec = trace.exec "test:megarepo-cold-gc" ''
-      set -euo pipefail
-      source ${lib.escapeShellArg pnpmTaskHelpersScript}
-      run_package_bin vitest vitest run src/cli/store-gc-cold.integration.test.ts --reporter verbose --testTimeout 240000
-    '';
-    execIfModified = [
-      "packages/@overeng/megarepo/src/**/*.ts"
-      "packages/@overeng/megarepo/src/**/*.tsx"
-      "packages/@overeng/megarepo/vitest.config.ts"
-    ];
-  };
-
-  tasks."bundle:smoke" = {
-    after = [ "pnpm:install" ];
-    description = "Bundle representative public entries with Vite/Rollup dependency resolution";
-    exec = trace.exec "bundle:smoke" ''
-      set -euo pipefail
-      DEVENV_TASK_PASSTHROUGH=1 pnpm --dir packages/@overeng/pty-effect run bundle:smoke
+      BUN=${pkgs.bun}/bin/bun exec ${pkgs.bash}/bin/bash "$root/genie/ci-scripts/bootstrap-cold-proof.sh"
     '';
   };
 
@@ -916,13 +866,94 @@ in
     '';
   };
 
+  # Tracked Buck product artifacts. `publish` rebuilds and rewrites the tracked
+  # tree; `check` is the freshness gate that fails when the tracked bytes no
+  # longer match what Buck produces.
+  tasks."buck2:products:publish" = {
+    description = "Rebuild and republish the tracked Buck product artifacts";
+    after = [ "mr:apply" ];
+    exec = trace.exec "buck2:products:publish" ''
+      set -euo pipefail
+      root="''${DEVENV_ROOT:-$PWD}"
+      BUCK2_BIN=${buck2Machine}/bin/buck2 \
+        JQ_BIN=${pkgs.jq}/bin/jq \
+        PRODUCTS_DIR="$root/nix/buck2-products" \
+        WORKSPACE_ROOT="$(${pkgs.coreutils}/bin/realpath "$root/../..")" \
+        exec ${pkgs.bash}/bin/bash "$root/nix/buck2-products/reconcile.sh" publish
+    '';
+  };
+
+  tasks."buck2:products:check" = {
+    description = "Check the tracked Buck product artifacts against current Buck output";
+    after = [ "mr:apply" ];
+    exec = trace.exec "buck2:products:check" ''
+      set -euo pipefail
+      root="''${DEVENV_ROOT:-$PWD}"
+      BUCK2_BIN=${buck2Machine}/bin/buck2 \
+        JQ_BIN=${pkgs.jq}/bin/jq \
+        PRODUCTS_DIR="$root/nix/buck2-products" \
+        WORKSPACE_ROOT="$(${pkgs.coreutils}/bin/realpath "$root/../..")" \
+        exec ${pkgs.bash}/bin/bash "$root/nix/buck2-products/reconcile.sh" check
+    '';
+  };
+
+  tasks."bundle:smoke" = {
+    description = "Bundle representative public entries through the Buck bundle smoke target";
+    after = [ "mr:apply" ];
+    exec = trace.exec "bundle:smoke" ''
+      set -euo pipefail
+      root="''${DEVENV_ROOT:-$PWD}"
+      workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
+      exec "$workspace_root/.megarepo/bin/buck2" build \
+        effect_utils//packages/@overeng/pty-effect:bundle_smoke_candidate
+    '';
+  };
+
   tasks."buck2:nix-bridge:check" = {
     description = "Check the strict build-product contract and fail-closed artifact importer";
     after = [ "mr:apply" ];
     exec = trace.exec "buck2:nix-bridge:check" ''
       set -euo pipefail
       ${pkgs.bash}/bin/bash nix/workspace-tools/lib/tests/buck2-build-product-contract.sh "$PWD"
+      ${pkgs.bash}/bin/bash nix/workspace-tools/lib/tests/javascript-product-import.sh "$PWD"
+      JQ_BIN=${pkgs.jq}/bin/jq \
+        ${pkgs.bash}/bin/bash nix/workspace-tools/lib/tests/tracked-buck-products.sh "$PWD"
       exec ${pkgs.bash}/bin/bash nix/workspace-tools/lib/tests/buck2-bridge.sh "$PWD"
+    '';
+  };
+
+  # Executor admission must observe the current host policy. A fresh isolation directory prevents
+  # Buck's local action cache from satisfying the gate, while --no-remote-cache prevents importing
+  # another executor's verdict. The raw pinned binary is intentional: the composition wrapper
+  # fixes the steady-state isolation directory and therefore cannot provide a fresh namespace.
+  tasks."buck2:sandbox-gate:fresh" = {
+    description = "Run TypeScript sandbox admission in a fresh executor-local cache namespace";
+    after = [ "mr:apply" ];
+    exec = trace.exec "buck2:sandbox-gate:fresh" ''
+      set -euo pipefail
+      root="''${DEVENV_ROOT:-$PWD}"
+      workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
+      isolation="sandbox-gate-$$-''${RANDOM}"
+      cleanup_sandbox_gate() {
+        status=$?
+        ${buck2Machine}/bin/buck2 --isolation-dir "$isolation" kill >/dev/null 2>&1 || true
+        ${pkgs.coreutils}/bin/rm -rf -- "$workspace_root/buck-out/$isolation"
+        trap - EXIT
+        exit "$status"
+      }
+      trap cleanup_sandbox_gate EXIT
+      cd "$workspace_root"
+      ${buck2Machine}/bin/buck2 \
+        --isolation-dir "$isolation" \
+        build \
+        --local-only \
+        --no-remote-cache \
+        effect_utils//buck2/sandbox-gate:denies_undeclared_host_read \
+        effect_utils//buck2/sandbox-gate:denies_undeclared_store_metadata \
+        effect_utils//buck2/sandbox-gate:denies_network \
+        effect_utils//buck2/sandbox-gate:denies_ambient_environment \
+        effect_utils//buck2/sandbox-gate:denies_undeclared_host_write \
+        effect_utils//buck2/sandbox-gate:denies_undeclared_process_exec
     '';
   };
 
@@ -936,7 +967,7 @@ in
       root="''${DEVENV_ROOT:-$PWD}"
       workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
       buck="$workspace_root/.megarepo/bin/buck2"
-      ${pkgs.bun}/bin/bun "$root/scripts/editor-view-authority.ts" \
+      "$buck" run effect_utils//scripts:editor-view-authority -- \
         --repo-root "$root" \
         --workspace-root "$workspace_root" \
         --cell effect_utils \
@@ -1038,33 +1069,28 @@ in
     after = [
       "mr:apply"
       "genie:run"
+      # Product freshness runs before declaration publication. Running both
+      # Buck commands in parallel makes Watchman rescan every published dist
+      # while the product graph is still synchronizing.
+      "buck2:products:check"
     ];
     exec = trace.exec "buck2:typescript:materialize-dist" ''
       set -euo pipefail
       root="''${DEVENV_ROOT:-$PWD}"
+      workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
+      buck="$workspace_root/.megarepo/bin/buck2"
       export PATH=${
         lib.makeBinPath [
           pkgs.coreutils
           pkgs.watchman
         ]
       }
-      if [ -f "$root/../../.megarepo-owned-worktree.json" ]; then
-        export TYPESCRIPT_DIST_MODE=publish
-        export WORKSPACE_ROOT="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
-        export BUCK2_BIN="$WORKSPACE_ROOT/.megarepo/bin/buck2"
-      else
-        export TYPESCRIPT_DIST_MODE=check
-        export TSGO_BIN=${effectTsgo}/bin/tsgo
-        export DIFF_BIN=${pkgs.diffutils}/bin/diff
-      fi
-      exec ${pkgs.bun}/bin/bun "$root/genie/buck2/typescript-authority-runtime.ts" \
+      export WORKSPACE_ROOT="$workspace_root"
+      export BUCK2_BIN="$buck"
+      exec "$buck" run effect_utils//genie/buck2:typescript-authority-runtime -- \
         materialize-dist "$root" ${pkgs.bash}/bin/bash
     '';
   };
-
-  tasks."ts:check".after = [ "buck2:typescript:materialize-dist" ];
-  tasks."ts:build".after = [ "buck2:typescript:materialize-dist" ];
-  tasks."ts:build-watch".after = [ "buck2:typescript:materialize-dist" ];
 
   tasks."buck2:task-guards:check" = {
     description = "Check TypeScript publication failure paths and evaluated task ordering";
@@ -1082,9 +1108,14 @@ in
     description = "Build admitted TypeScript checks and surviving archive/product Buck2 surface";
     after = [
       "mr:apply"
+      "buck2:sandbox-gate:fresh"
       "buck2:nix-bridge:check"
       "buck2:task-guards:check"
       "buck2:rust-deps:check"
+      "buck2:products:check"
+      # Declaration publication is Buck-owned and no longer has a root
+      # TypeScript consumer, so the aggregate carries it into check:quick/all.
+      "buck2:typescript:materialize-dist"
     ];
     exec = trace.exec "buck2:check" ''
       set -euo pipefail
@@ -1101,19 +1132,18 @@ in
         --target-platforms effect_utils//buck2/platforms:host_platform \
         effect_utils//buck2/toolchains:cross_cell_provider_identity \
         effect_utils//buck2/toolchains:cross_cell_product_identity
-      exec ${pkgs.bun}/bin/bun "$root/genie/buck2/typescript-authority-runtime.ts" \
+      exec "$buck" run effect_utils//genie/buck2:typescript-authority-runtime -- \
         build "$buck"
     '';
   };
 
-  tasks."check:all".after =
-    lib.optionals (currentSystem == "x86_64-linux") [
-      "buck2:check"
-    ]
-    ++ [
-      "cargo:check"
-      "dependency-materialization:evidence:check"
-    ];
+  # `buck2:check` is the typecheck authority for both aggregate gates
+  # (`checkQuickTypecheckTask`/`checkAllTypecheckTask`), so it is no longer
+  # listed here.
+  tasks."check:all".after = [
+    "cargo:check"
+    "dependency-materialization:evidence:check"
+  ];
 
   # `test:run` executes after its package-task dependencies, so the
   # baseline-collection gate sees the complete managed-test summary directory in CI.
@@ -1136,7 +1166,6 @@ in
 
   enterShell = ''
     export WORKSPACE_ROOT="$PWD"
-    export PATH="$WORKSPACE_ROOT/node_modules/.bin:$PATH"
     ${buck2LocalConfigHook}
     ${cliBuildStamp.shellHook}
   '';

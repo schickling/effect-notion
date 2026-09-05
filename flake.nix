@@ -75,121 +75,20 @@
               inherit pkgs;
               nixpkgsRevision = nixpkgs.rev;
             };
-        cliPackages = {
-          genie = import (rootPath + "/packages/@overeng/genie/nix/build.nix") {
-            inherit
-              pkgs
-              gitRev
-              commitTs
-              dirty
-              ;
-            src = self;
-            typeProofCompilerBin = "${tsgo.packages.${system}.tsgo}/bin/tsgo";
-          };
-          genie-bootstrap-closure-check =
-            import (rootPath + "/packages/@overeng/genie/nix/bootstrap-closure-check.nix")
-              {
-                inherit
-                  pkgs
-                  gitRev
-                  commitTs
-                  dirty
-                  ;
-                src = self;
-              };
-          ci-tools = import (rootPath + "/packages/@overeng/ci-tools/nix/build.nix") {
-            inherit
-              pkgs
-              gitRev
-              commitTs
-              dirty
-              ;
-            src = self;
-          };
-          megarepo = import (rootPath + "/packages/@overeng/megarepo/nix/build.nix") {
-            inherit
-              pkgs
-              gitRev
-              commitTs
-              dirty
-              ;
-            src = self;
-          };
-          tui-stories = import (rootPath + "/packages/@overeng/tui-stories/nix/build.nix") {
-            inherit
-              pkgs
-              gitRev
-              commitTs
-              dirty
-              ;
-            src = self;
-          };
-          notion-cli = import (rootPath + "/packages/@overeng/notion-cli/nix/build.nix") {
-            inherit
-              pkgs
-              gitRev
-              commitTs
-              dirty
-              ;
-            src = self;
-          };
-          notion-md = import (rootPath + "/packages/@overeng/notion-md/nix/build.nix") {
-            inherit
-              pkgs
-              gitRev
-              commitTs
-              dirty
-              ;
-            src = self;
-          };
-          npm-release = import (rootPath + "/packages/@overeng/npm-release/nix/build.nix") {
-            inherit
-              pkgs
-              gitRev
-              commitTs
-              dirty
-              ;
-            src = self;
-          };
+        # Buck is the sole repository-product producer. Nix imports only reviewed,
+        # content-addressed artifacts committed by the product publication gate.
+        trackedBuck2Products = import ./nix/buck2-products { inherit (pkgs) lib; };
+        buck2ProductCandidates = import ./nix/workspace-tools/lib/buck2-product-candidates.nix {
+          inherit
+            pkgs
+            gitRev
+            commitTs
+            dirty
+            ;
+          products = trackedBuck2Products.products;
+          typeProofCompilerBin = "${tsgo.packages.${system}.tsgo}/bin/tsgo";
         };
-        cliPackagesDirty = {
-          genie = import (rootPath + "/packages/@overeng/genie/nix/build.nix") {
-            inherit pkgs gitRev commitTs;
-            src = self;
-            dirty = true;
-            typeProofCompilerBin = "${tsgo.packages.${system}.tsgo}/bin/tsgo";
-          };
-          ci-tools = import (rootPath + "/packages/@overeng/ci-tools/nix/build.nix") {
-            inherit pkgs gitRev commitTs;
-            src = self;
-            dirty = true;
-          };
-          megarepo = import (rootPath + "/packages/@overeng/megarepo/nix/build.nix") {
-            inherit pkgs gitRev commitTs;
-            src = self;
-            dirty = true;
-          };
-          tui-stories = import (rootPath + "/packages/@overeng/tui-stories/nix/build.nix") {
-            inherit pkgs gitRev commitTs;
-            src = self;
-            dirty = true;
-          };
-          notion-cli = import (rootPath + "/packages/@overeng/notion-cli/nix/build.nix") {
-            inherit pkgs gitRev commitTs;
-            src = self;
-            dirty = true;
-          };
-          notion-md = import (rootPath + "/packages/@overeng/notion-md/nix/build.nix") {
-            inherit pkgs gitRev commitTs;
-            src = self;
-            dirty = true;
-          };
-          npm-release = import (rootPath + "/packages/@overeng/npm-release/nix/build.nix") {
-            inherit pkgs gitRev commitTs;
-            src = self;
-            dirty = true;
-          };
-        };
+        cliPackages = buck2ProductCandidates;
       in
       {
         packages =
@@ -203,6 +102,9 @@
               ;
             # Hub toolchain authority realization: the exact Bun every Buck JS/TS action uses.
             bun = pkgs.bun;
+            buck2-node = pkgs.writeShellScriptBin "node" ''
+              exec ${pkgs.nodejs_24 or pkgs.nodejs}/bin/node "$@"
+            '';
             # Hub toolchain authority realization: the exact Go distribution every
             # Buck Go action compiles with — the OFFICIAL release archive, not
             # `pkgs.go`, whose patched stdlib puts three absolute store paths into
@@ -215,6 +117,86 @@
               exec ${pkgs.python3}/bin/python3 "$@"
             '';
             buck2-archive-tool = buck2-stage0-tools.archive-tool;
+            # Test-tool capability realization: the exact GNU coreutils whose `cp`, `mv`, and
+            # `false` the editor-view suite drives. Declaring each as a capability is what gives a
+            # sandboxed test its complete `closureStorePaths`, not just the executable file.
+            # `singleBinary = false` is load-bearing: the capability resolver realpaths a declared
+            # executable, and the default multi-call build makes every `bin/<tool>` a symlink onto
+            # one `bin/coreutils`, which would collapse all three declarations onto one dispatcher.
+            buck2-coreutils = pkgs.coreutils.override { singleBinary = false; };
+            # One flake package per test-tool family. Each is the realization a `support_tool`
+            # capability attests, so a sandboxed test reads the tool's whole closure rather than
+            # one executable file, and its `bin` directory is the only PATH entry it gets.
+            buck2-bash = pkgs.bash;
+            buck2-git = pkgs.git;
+            buck2-gnugrep = pkgs.gnugrep;
+            # `pkgs.nix` publishes `bin/nix` as a symlink into a *different* store path, which the
+            # capability resolver rejects as uncontained. Wrap it like `buck2-node` so the declared
+            # executable is a real file inside this realization and the closure carries the CLI.
+            buck2-nix = pkgs.writeShellScriptBin "nix" ''
+              exec ${pkgs.nix}/bin/nix "$@"
+            '';
+            # `util-linux` is multi-output and the capability resolver realizes the default
+            # output, which carries no `bin/script`. Wrap the `bin` output like `buck2-nix` so
+            # the declared executable is a real file in a single-output realization.
+            buck2-util-linux = pkgs.writeShellScriptBin "script" ''
+              exec ${pkgs.util-linux.bin}/bin/script "$@"
+            '';
+            # `ps` for the otelite orphan-process assertion. Wrapped for the same reason as
+            # `buck2-nix`: `procps` publishes `bin/ps` outside a single-output realization.
+            buck2-procps = pkgs.writeShellScriptBin "ps" ''
+              exec ${pkgs.procps}/bin/ps "$@"
+            '';
+            # `rustfmt` is the one Rust tool the generator suites drive that the Buck Rust
+            # toolchain capability does not already realize. Wrapped like `buck2-nix` so the
+            # declared executable is a real file in this realization.
+            buck2-rustfmt = pkgs.writeShellScriptBin "rustfmt" ''
+              exec ${pkgs.rustfmt}/bin/rustfmt "$@"
+            '';
+            # The devenv-module shell suite drives a whole tool set, not one binary. One
+            # capability per tool would attest a dozen realizations and still leave the suite
+            # resolving them by name, so the bundle itself is the capability: a single
+            # `symlinkJoin` whose `bin` is the lane's PATH entry, and whose attested
+            # `closureStorePaths` carry every joined package. `bin/devenv-module-tools` is a real
+            # file installed into the join (not a symlink into another realization), which is what
+            # lets the resolver realpath the declared executable inside this realization.
+            #
+            # `nix` is joined for the CLI *aliases* the suite calls by name — `nix-instantiate`,
+            # `nix-build` — which the single-executable `buck2-nix` capability cannot publish.
+            # `pnpm` is the repo-pinned realization, so the suite's version assertion compares the
+            # same bytes the workspace itself installs. `gnutar`, `gzip`, and `perl` (which is what
+            # publishes `shasum`) are the remaining archivers and interpreters the suite shells out
+            # to by name. No interpreted-language runtime beyond that is joined: decision 0028
+            # admits exactly one hermetic bootstrap realization for that surface.
+            buck2-devenv-module-tools = pkgs.symlinkJoin {
+              name = "buck2-devenv-module-tools";
+              paths = [
+                pkgs.coreutils
+                pkgs.diffutils
+                pkgs.findutils
+                pkgs.gawk
+                pkgs.git
+                pkgs.gnugrep
+                pkgs.gnused
+                pkgs.gnutar
+                pkgs.gzip
+                pkgs.jq
+                pkgs.nix
+                pkgs.perl
+                # `bin` output: the default output publishes no `bin/flock`, which the pnpm
+                # store-lease case drives by name.
+                pkgs.util-linux.bin
+                (import ./nix/pnpm.nix { inherit pkgs; })
+              ];
+              postBuild = ''
+                install -m 0755 ${pkgs.writeShellScript "devenv-module-tools" ''
+                  # Sentinel executable of the devenv-module tool bundle: prints the bundle
+                  # `bin` directory the capability binds onto the sandbox PATH.
+                  cd -- "''${0%/*}" || exit 1
+                  pwd
+                ''} "$out/bin/devenv-module-tools"
+              '';
+            };
             buck2-product = buck2-stage0-tools.product;
             buck2-rust-compiler = buck2-rust-toolchain-capability.packages.rust-compiler;
             buck2-rust-rustdoc = buck2-rust-toolchain-capability.packages.rust-rustdoc;
@@ -232,29 +214,6 @@
             buck2-rust-shell = buck2-rust-toolchain-capability.packages.rust-shell;
             cli-build-stamp = cliBuildStamp.package;
             effect-tsgo = tsgo.packages.${system}.effect-tsgo;
-            genie-dirty = cliPackagesDirty.genie;
-            ci-tools = cliPackages.ci-tools;
-            ci-tools-dirty = cliPackagesDirty.ci-tools;
-            # Publish the FODs as first-class flake outputs so external tooling
-            # can refresh hashes against the actual cached boundary without
-            # rebuilding the full CLI package graph.
-            "genie-pnpm-deps" = cliPackages.genie.passthru.depsBuildsByInstallRoot.root;
-            "ci-tools-pnpm-deps" = cliPackages.ci-tools.passthru.depsBuildsByInstallRoot.root;
-            megarepo-dirty = cliPackagesDirty.megarepo;
-            "megarepo-pnpm-deps" = cliPackages.megarepo.passthru.depsBuildsByInstallRoot.root;
-            tui-stories-dirty = cliPackagesDirty.tui-stories;
-            "tui-stories-pnpm-deps" = cliPackages.tui-stories.passthru.depsBuildsByInstallRoot.root;
-            notion-cli = cliPackages.notion-cli;
-            notion-cli-dirty = cliPackagesDirty.notion-cli;
-            "notion-cli-pnpm-deps" = cliPackages.notion-cli.passthru.depsBuildsByInstallRoot.root;
-            notion-md = cliPackages.notion-md;
-            notion-md-dirty = cliPackagesDirty.notion-md;
-            "notion-md-pnpm-deps" = cliPackages.notion-md.passthru.depsBuildsByInstallRoot.root;
-            npm-release = cliPackages.npm-release;
-            npm-release-dirty = cliPackagesDirty.npm-release;
-            "npm-release-pnpm-deps" = cliPackages.npm-release.passthru.depsBuildsByInstallRoot.root;
-            oxc-config = oxlintNpm.pluginBundle;
-            "oxc-config-plugin-pnpm-deps" = oxlintNpm.pluginBundle.passthru.depsBuildsByInstallRoot.root;
             # npm oxlint with NAPI bindings + pre-bundled @overeng/oxc-config plugin
             oxlint-npm = oxlintNpm;
             # oxlint-npm wrapped with automatic @overeng/oxc-config plugin injection
@@ -262,6 +221,17 @@
               inherit pkgs oxlintNpm;
             };
             node-pty-native = nodePtyNative;
+          }
+          // pkgs.lib.mapAttrs' (name: package: {
+            name = "${name}-candidate";
+            value = package;
+          }) buck2ProductCandidates
+          // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+            # Hub containment capability: the exact Bubblewrap every Linux TypeScript action is
+            # launched through. Darwin containment is not a Nix capability — it is the fixed
+            # system `sandbox-exec` bound to the admitted macOS release — so this attribute is
+            # deliberately Linux-only and the manifest capability is system-scoped to match.
+            buck2-bubblewrap = pkgs.bubblewrap;
           }
           // pkgs.lib.optionalAttrs (system == "x86_64-linux") {
           };
@@ -273,14 +243,6 @@
           tui-stories = cliPackages.tui-stories.outPath;
           notion-cli = cliPackages.notion-cli.outPath;
           notion-md = cliPackages.notion-md.outPath;
-        };
-        cliOutPathsDirty = {
-          genie = cliPackagesDirty.genie.outPath;
-          ci-tools = cliPackagesDirty.ci-tools.outPath;
-          megarepo = cliPackagesDirty.megarepo.outPath;
-          tui-stories = cliPackagesDirty.tui-stories.outPath;
-          notion-cli = cliPackagesDirty.notion-cli.outPath;
-          notion-md = cliPackagesDirty.notion-md.outPath;
         };
 
         apps.update-bun-hashes = flake-utils.lib.mkApp {
@@ -307,6 +269,7 @@
           # Parameterized tasks (pass config)
           megarepo = import ./nix/devenv-modules/tasks/shared/megarepo.nix;
           ts = import ./nix/devenv-modules/tasks/shared/ts.nix;
+          buck-editor = import ./nix/devenv-modules/tasks/shared/buck-editor.nix;
           setup = import ./nix/devenv-modules/tasks/shared/setup.nix;
           check = import ./nix/devenv-modules/tasks/shared/check.nix;
           clean = import ./nix/devenv-modules/tasks/shared/clean.nix;
@@ -346,6 +309,19 @@
       # wrapping and later Home Manager/system activation.
       lib.mkBuck2ArtifactImport =
         { pkgs }: import ./nix/workspace-tools/lib/buck2-artifact-import.nix { inherit pkgs; };
+
+      # Import the typed Node CLI/module products emitted by package-local Buck
+      # targets, preserving each product's declared runtime capability boundary.
+      lib.mkBuck2JavaScriptProductImport =
+        { pkgs }: import ./nix/workspace-tools/lib/javascript-product-import.nix { inherit pkgs; };
+      lib.mkBuck2ProductCandidates =
+        args:
+        import ./nix/workspace-tools/lib/buck2-product-candidates.nix (
+          {
+            typeProofCompilerBin = "${tsgo.packages.${args.pkgs.stdenv.hostPlatform.system}.tsgo}/bin/tsgo";
+          }
+          // args
+        );
 
       # Shell helper for runtime CLI build stamps.
       lib.cliBuildStamp =
@@ -402,6 +378,10 @@
       # Pinned pnpm for the entire megarepo ecosystem.
       # Usage: effectUtils.lib.mkPnpm { inherit pkgs; }
       lib.mkPnpm = { pkgs }: import ./nix/pnpm.nix { inherit pkgs; };
+
+      # Tracked, content-addressed Buck product artifacts (pure: reads only
+      # committed bytes). Feed `.products` into lib.mkBuck2ProductCandidates.
+      lib.trackedBuck2Products = { lib }: import ./nix/buck2-products { inherit lib; };
 
       # Note: mkSourceCli is internal-only (not exported).
       # For consuming CLIs from other repos, use:

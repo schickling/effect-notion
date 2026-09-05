@@ -52,10 +52,12 @@ semantics for every language. It refines BUCK-R02 and BUCK-R04.
   `BUCK_SCRATCH_PATH` are writable; undeclared filesystem paths and network
   are unavailable; the environment is an explicit allowlist.
 - **EXEC-R07 Required native sandboxes:** TypeScript actions use Bubblewrap on
-  Linux and a parameterized Seatbelt profile on Darwin. Both implementations
-  must pass their platform smoke gate before the authority cutover. Seatbelt's
-  public interface is deprecated, so every supported macOS upgrade re-runs the
-  Darwin gate before that OS is admitted.
+  Linux and a parameterized Seatbelt profile on Darwin. Each admitted execution
+  platform — `exec_linux_x86_64`, `exec_linux_aarch64`, `exec_macos_aarch64` —
+  passes its own smoke gate before the consumer authority flip; one platform's
+  evidence never stands in for another's, even where the sandbox tool closure is
+  identical. Seatbelt's public interface is deprecated, so every supported macOS
+  upgrade re-runs the Darwin gate before that OS is admitted.
 - **EXEC-R08 Deterministic contract:** Equal configured input produces
   byte-identical JavaScript, declaration, and source-map outputs and an equal
   semantic verdict. TypeScript build-info is disabled or redirected to scratch;
@@ -75,6 +77,18 @@ semantics for every language. It refines BUCK-R02 and BUCK-R04.
 - **EXEC-R11 Parity at transfer:** Authority transfer for an operation tuple
   proves semantic parity, a representative failure, positive declared access,
   negative undeclared filesystem and network access, environment filtering,
-  relevant/irrelevant mutation controls, and byte-stable outputs on Linux and
-  Darwin (BUCK-R12). After transfer, normal developer and CI surfaces delegate
-  to Buck and the prior producer is deleted (BUCK-R09).
+  relevant/irrelevant mutation controls, and byte-stable outputs on every
+  admitted execution platform (BUCK-R12). The whole-repository TypeScript
+  transfer proves this for `exec_linux_x86_64`, `exec_linux_aarch64`, and
+  `exec_macos_aarch64`. After transfer, normal developer and CI surfaces
+  delegate to Buck — including the watch-driven development loop (BUCK-R17) —
+  and the prior producer is deleted (BUCK-R09).
+
+### Staged containment
+
+- **EXEC-R12 Staged mutation control:** Until a platform's EXEC-R07 gate passes,
+  actions on that platform prove write-freedom by hashing the complete declared
+  input tree before and after the tool and failing on any difference. The
+  control is removed per platform in the change that admits that platform's
+  sandbox — never globally in advance — so no platform ever runs with neither
+  the sandbox nor the hash control.

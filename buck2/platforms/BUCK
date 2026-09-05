@@ -1,4 +1,4 @@
-load("//buck2/platforms:defs.bzl", "host_execution_platform_label", "host_platform_label", "native_execution_platform", "product_platform")
+load("//buck2/platforms:defs.bzl", "host_execution_platform_label", "host_platform_label", "native_execution_platform", "portable_product_platform", "product_platform")
 
 native_execution_platform(
     name = "exec_linux_x86_64",
@@ -73,6 +73,53 @@ product_platform(
     visibility = ["PUBLIC"],
 )
 
+# The one platform-invariant JavaScript product identity. Every JavaScript
+# product is CONFIGURED for it, so a module's bytes and its descriptor are the
+# same on every admitted host.
+#
+# Its constraint settings are its own: prelude's cpu/os values all name a
+# concrete machine, and a constraint-free configuration would leave the
+# lockfile-derived store selects unresolvable. Declaring `any` explicitly keeps
+# the four-way platform select exhaustive without a catch-all default.
+constraint_setting(name = "portable_os")
+
+constraint_value(
+    name = "os_any",
+    constraint_setting = ":portable_os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_setting(name = "portable_cpu")
+
+constraint_value(
+    name = "cpu_any",
+    constraint_setting = ":portable_cpu",
+    visibility = ["PUBLIC"],
+)
+
+constraint_setting(name = "portable_abi")
+
+constraint_value(
+    name = "abi_any",
+    constraint_setting = ":portable_abi",
+    visibility = ["PUBLIC"],
+)
+
+portable_product_platform(
+    name = "javascript_portable",
+    os = "any",
+    architecture = "any",
+    abi = "any",
+    constraint_values = [
+        ":abi_any",
+        ":cpu_any",
+        ":os_any",
+    ],
+    runtime_contract = "javascript-esm",
+    runtime_contract_version = "v1",
+    visibility = ["PUBLIC"],
+)
+
 alias(
     name = "host_platform",
     actual = host_platform_label(),
@@ -82,5 +129,12 @@ alias(
 alias(
     name = "host_execution_platform",
     actual = host_execution_platform_label(),
+    visibility = ["PUBLIC"],
+)
+
+# Read as data by the root Buck test target's same-cell label assertions.
+export_file(
+    name = "defs.bzl",
+    src = "defs.bzl",
     visibility = ["PUBLIC"],
 )

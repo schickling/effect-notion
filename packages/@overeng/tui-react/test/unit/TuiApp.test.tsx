@@ -389,7 +389,10 @@ describe('createTuiApp', () => {
       type InterruptAction = typeof InterruptAction.Type
 
       const previousExitCode = process.exitCode
-      process.exitCode = undefined
+      // Assigning `undefined` is a no-op on Bun (which runs these workers under
+      // Buck); 0 is the equivalent "nothing to report" baseline, and restoring it
+      // keeps this app-level exit code from leaking into later tests in-process.
+      process.exitCode = 0
       const reducedStatuses: Array<InterruptState['status']> = []
 
       const InterruptApp = createTuiApp<InterruptState, InterruptAction>({
@@ -427,7 +430,7 @@ describe('createTuiApp', () => {
         expect(reducedStatuses).toContain('interrupted')
         expect(process.exitCode).toBe(130)
       } finally {
-        process.exitCode = previousExitCode
+        process.exitCode = previousExitCode ?? 0
       }
     })
   })

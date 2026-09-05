@@ -45,12 +45,8 @@
     "rootDir": ".",
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "types": ["node"],
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "noEmit": true
   },
-  "include": ["src/**/*", "test/**/*", "bin/**/*.ts", "bin/**/*.tsx"],
-  "references": [
-    {
-      "path": "../megarepo"
-    }
-  ]
+  "include": ["src/**/*", "test/**/*", "bin/**/*.ts", "bin/**/*.tsx"]
 }

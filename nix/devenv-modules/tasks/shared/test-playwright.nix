@@ -17,7 +17,9 @@
 #   - test:pw:run - Run all playwright tests
 #   - test:pw:<name> - Run playwright tests for specific package
 {
-  packages,
+  targets ? [ ],
+  packages ? [ ],
+  legacy ? false,
   installTask ? "pnpm:install",
   playwrightBin ? "playwright",
 }:
@@ -34,6 +36,18 @@ let
       after = [ installTask ];
     };
   };
+  mkBuckTestTask = target: {
+    "test:pw:${target.name}" = {
+      description = "Run Playwright tests for ${target.name} through Buck";
+      after = target.after or [ ];
+      exec = trace.exec "test:pw:${target.name}" ''
+        set -euo pipefail
+        root="''${DEVENV_ROOT:-$PWD}"
+        workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
+        exec "$workspace_root/.megarepo/bin/buck2" test ${lib.escapeShellArg target.label}
+      '';
+    };
+  };
 
   guardedTasks = {
     "test:pw:run" = {
@@ -44,10 +58,27 @@ let
   };
 
 in
-{
-  packages = cliGuard.fromTasks guardedTasks;
-
-  tasks = lib.mkMerge (
-    map (pkg: cliGuard.stripGuards (mkTestTask pkg)) packages ++ [ (cliGuard.stripGuards guardedTasks) ]
-  );
-}
+assert lib.assertMsg (
+  legacy || targets != [ ]
+) "test-playwright.nix Buck mode requires at least one explicit target";
+if legacy then
+  {
+    packages = cliGuard.fromTasks guardedTasks;
+    tasks = lib.mkMerge (
+      map (pkg: cliGuard.stripGuards (mkTestTask pkg)) packages ++ [ (cliGuard.stripGuards guardedTasks) ]
+    );
+  }
+else
+  {
+    tasks = lib.mkMerge (
+      (map mkBuckTestTask targets)
+      ++ [
+        {
+          "test:pw:run" = {
+            description = "Run all declared Buck-owned Playwright tests";
+            after = map (target: "test:pw:${target.name}") targets;
+          };
+        }
+      ]
+    );
+  }

@@ -9,6 +9,30 @@ import { PtyError } from './PtyError.ts'
 import { make } from './PtySession.ts'
 import { PtyName, PtySpec_ } from './PtySpec.ts'
 
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+/** POSIX shell the sessions run, from the target's declared `SHELL_BIN`. */
+const shell = (): string => requireTool('SHELL_BIN')
+
+/**
+ * A delay the shell performs itself.
+ *
+ * The action environment declares no `PATH`, so an external `sleep` is unreachable and its
+ * failure would end the script before the assertion ever samples the screen. `read -t` is a
+ * Bash builtin; nothing writes to these sessions' input, and discarding its timeout status
+ * keeps the script's own exit code 0.
+ */
+const pause = (seconds: number): string => `read -t ${seconds} || true`
+
+/** Clears screen and scrollback with the terminal's own control sequences, not `clear`. */
+const clearScreen = String.raw`printf '\033[2J\033[3J\033[H'`
+
 /**
  * Each test runs in its own `PTY_SESSION_DIR` so server-mode socket/pid/lock
  * files never collide across tests, processes, or developer machines. Spawn
@@ -55,7 +79,7 @@ describe('PtySession (spawn mode)', () => {
     withIsolatedDir(
       Effect.gen(function* () {
         const session = yield* make(
-          PtySpec_.spawn({ command: 'sh', args: ['-c', 'echo hello-world; sleep 1'] }),
+          PtySpec_.spawn({ command: shell(), args: ['-c', `echo hello-world; ${pause(1)}`] }),
         )
         const ss = yield* session.waitForText({ needle: 'hello-world', schedule: fastSchedule })
         expect(ss.text).toContain('hello-world')
@@ -66,7 +90,7 @@ describe('PtySession (spawn mode)', () => {
   it.live('waitForText composes with Effect.timeout', () =>
     withIsolatedDir(
       Effect.gen(function* () {
-        const session = yield* make(PtySpec_.spawn({ command: 'sh', args: ['-c', 'sleep 5'] }))
+        const session = yield* make(PtySpec_.spawn({ command: shell(), args: ['-c', pause(5)] }))
         const exit = yield* session
           .waitForText({ needle: 'NEVER_APPEARS', schedule: fastSchedule })
           .pipe(Effect.timeout('200 millis'), Effect.exit)
@@ -79,7 +103,10 @@ describe('PtySession (spawn mode)', () => {
     withIsolatedDir(
       Effect.gen(function* () {
         const session = yield* make(
-          PtySpec_.spawn({ command: 'sh', args: ['-c', 'sleep 0.05; echo READY; sleep 1'] }),
+          PtySpec_.spawn({
+            command: shell(),
+            args: ['-c', `${pause(0.05)}; echo READY; ${pause(1)}`],
+          }),
         )
         const exponential = Schedule.min([
           Schedule.exponential('5 millis'),
@@ -95,7 +122,7 @@ describe('PtySession (spawn mode)', () => {
     withIsolatedDir(
       Effect.gen(function* () {
         // `cat` echoes its stdin to stdout — perfect for verifying write/press.
-        const session = yield* make(PtySpec_.spawn({ command: 'cat' }))
+        const session = yield* make(PtySpec_.spawn({ command: requireTool('CAT_BIN') }))
         yield* session.write({ data: 'ping-' })
         yield* session.type({ text: 'pong' })
         yield* session.press({ key: 'return' as never })
@@ -109,7 +136,7 @@ describe('PtySession (spawn mode)', () => {
     withIsolatedDir(
       Effect.gen(function* () {
         const session = yield* make(
-          PtySpec_.spawn({ command: 'sh', args: ['-c', 'echo tick; sleep 5'] }),
+          PtySpec_.spawn({ command: shell(), args: ['-c', `echo tick; ${pause(5)}`] }),
         )
         // Wait until the child has actually written before slicing the
         // screenshot stream. xterm-headless processes node-pty's onData
@@ -133,7 +160,7 @@ describe('PtySession (spawn mode)', () => {
   it.live('resize fails with ResizeFailed in spawn mode', () =>
     withIsolatedDir(
       Effect.gen(function* () {
-        const session = yield* make(PtySpec_.spawn({ command: 'cat' }))
+        const session = yield* make(PtySpec_.spawn({ command: requireTool('CAT_BIN') }))
         const exit = yield* session.resize({ rows: 40, cols: 120 }).pipe(Effect.exit)
         expect(Exit.isFailure(exit)).toBe(true)
       }),
@@ -143,12 +170,12 @@ describe('PtySession (spawn mode)', () => {
   it.live('waitForAbsent succeeds when text disappears (clear screen)', () =>
     withIsolatedDir(
       Effect.gen(function* () {
-        // Print marker, then clear screen with `clear`. The xterm-headless
-        // buffer reflects the cleared state once `clear` runs.
+        // Print marker, then clear the screen with the terminal's own control
+        // sequences. The xterm-headless buffer reflects the cleared state.
         const session = yield* make(
           PtySpec_.spawn({
-            command: 'sh',
-            args: ['-c', 'echo MARKER; sleep 0.1; clear; sleep 1'],
+            command: shell(),
+            args: ['-c', `echo MARKER; ${pause(0.1)}; ${clearScreen}; ${pause(1)}`],
           }),
         )
         yield* session.waitForText({ needle: 'MARKER', schedule: fastSchedule })
@@ -162,7 +189,7 @@ describe('PtySession (spawn mode)', () => {
     withIsolatedDir(
       Effect.gen(function* () {
         const session = yield* make(
-          PtySpec_.spawn({ command: 'sh', args: ['-c', 'echo answer=42; sleep 1'] }),
+          PtySpec_.spawn({ command: shell(), args: ['-c', `echo answer=42; ${pause(1)}`] }),
         )
         const value = yield* session.waitFor({
           predicate: (ss) => {
@@ -184,7 +211,7 @@ describe('PtySession scope finalization', () => {
       Effect.gen(function* () {
         // Just verifies acquire/release runs without throwing across many specs.
         const session = yield* make(
-          PtySpec_.spawn({ command: 'sh', args: ['-c', 'echo done; sleep 5'] }),
+          PtySpec_.spawn({ command: shell(), args: ['-c', `echo done; ${pause(5)}`] }),
         )
         yield* session.waitForText({ needle: 'done', schedule: fastSchedule })
       }),
@@ -201,7 +228,7 @@ describe('PtySession scope finalization', () => {
           const exit = yield* Effect.scoped(
             Effect.gen(function* () {
               const session = yield* make(
-                PtySpec_.spawn({ command: 'sh', args: ['-c', 'sleep 30'] }),
+                PtySpec_.spawn({ command: shell(), args: ['-c', pause(30)] }),
               )
               return yield* session
                 .waitForText({ needle: 'NEVER', schedule: fastSchedule })
@@ -222,7 +249,10 @@ describe('PtySession (server mode)', () => {
     withIsolatedDir(
       Effect.gen(function* () {
         const session = yield* make(
-          PtySpec_.server({ command: 'sh', args: ['-c', 'sleep 0.1; echo server-ok; sleep 5'] }),
+          PtySpec_.server({
+            command: shell(),
+            args: ['-c', `${pause(0.1)}; echo server-ok; ${pause(5)}`],
+          }),
         )
         yield* session.attach
         const ss = yield* session.waitForText({ needle: 'server-ok', schedule: fastSchedule })
@@ -234,7 +264,7 @@ describe('PtySession (server mode)', () => {
   it.live('resize works in server mode', () =>
     withIsolatedDir(
       Effect.gen(function* () {
-        const session = yield* make(PtySpec_.server({ command: 'sh', args: ['-c', 'sleep 5'] }))
+        const session = yield* make(PtySpec_.server({ command: shell(), args: ['-c', pause(5)] }))
         yield* session.attach
         yield* session.resize({ rows: 40, cols: 120 })
       }),
@@ -251,10 +281,10 @@ describe('PtySession (server mode)', () => {
           Effect.gen(function* () {
             const session = yield* make(
               PtySpec_.server({
-                command: 'sh',
+                command: shell(),
                 args: [
                   '-c',
-                  'echo before-reconnect; i=0; while [ "$i" -lt 100 ]; do i=$((i + 1)); echo tick-$i; sleep 0.2; done; sleep 5',
+                  `echo before-reconnect; i=0; while [ "$i" -lt 100 ]; do i=$((i + 1)); echo tick-$i; ${pause(0.2)}; done; ${pause(5)}`,
                 ],
               }),
             )

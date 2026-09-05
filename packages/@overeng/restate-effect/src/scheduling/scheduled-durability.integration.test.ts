@@ -8,9 +8,9 @@
  * the server manually here with a PERSISTENT base dir + fixed ports across a
  * kill+restart (durable state + timers persist). The SDK endpoint stays up
  * in-process the whole time. Productizes `tmp/restate-spike-pollloop-compose/
- * durability.integration.test.ts`. Gracefully skips without a native server.
+ * durability.integration.test.ts`. Skips when no native server is DECLARED.
  */
-import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
+import { type ChildProcess, spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -35,15 +35,21 @@ import {
 } from '../clients/Client.ts'
 import { BoundEndpoint, layerWithBoundEndpoint } from '../endpoint/Endpoint.ts'
 
-const serverBin = (): string => process.env['RESTATE_SERVER_BIN'] ?? 'restate-server'
-const serverAvailable = (() => {
-  try {
-    execFileSync(serverBin(), ['--version'], { stdio: 'ignore' })
-    return true
-  } catch {
-    return false
-  }
-})()
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+/**
+ * The capability-gated live lane runs only when the `restate-server` tool is
+ * DECLARED (`test_capabilities.restate-server`, empty when unprojected). The
+ * binary itself is never probed and never resolved through `PATH`: once the
+ * declaration exists, {@link requireTool} names the exact nix-store path.
+ */
+const serverAvailable = (process.env['RESTATE_SERVER_BIN'] ?? '').trim() !== ''
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
@@ -60,7 +66,7 @@ interface Ports {
 }
 
 const spawnServer = (baseDir: string, ports: Ports): ChildProcess => {
-  const child = spawn(serverBin(), ['--base-dir', baseDir], {
+  const child = spawn(requireTool('RESTATE_SERVER_BIN'), ['--base-dir', baseDir], {
     env: {
       ...process.env,
       RESTATE_INGRESS__BIND_ADDRESS: `0.0.0.0:${ports.ingress}`,

@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { execFile, type ExecFileOptions } from 'node:child_process'
 import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -85,6 +85,30 @@ const execFileAsync = promisify(execFile)
 const packageDir = fileURLToPath(new URL('../..', import.meta.url))
 const cliPath = join(packageDir, 'src/cli/main.ts')
 const cliTestTimeoutMs = 30_000
+
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+const nodeBin = requireTool('NODE_BIN')
+
+interface CliRun {
+  readonly stdout: string
+  readonly stderr: string
+}
+
+/**
+ * Launches the source CLI entry on the attested Node runtime its shebang names. Containment binds
+ * only declared roots, so `/usr/bin/env` does not exist inside the sandbox and the shebang cannot
+ * dispatch; the shebang contract itself is asserted separately against the file's first line.
+ */
+const runCli = (args: readonly string[], options: ExecFileOptions): Promise<CliRun> =>
+  execFileAsync(nodeBin, [cliPath, ...args], { ...options, encoding: 'utf8' })
+
 const workspaceRoot = decode({ schema: AbsolutePath, value: '/tmp/notion-ds-sync-cli' })
 const webhookPathPattern = /^\/notion-datasource-sync\/webhook\/notion\/[0-9a-f-]{36}$/
 const webhookSetPathPattern =
@@ -384,7 +408,7 @@ const establishTrackedWorkspace = async ({
 
 describe('CLI command surface', () => {
   it('prints db runtime version from the shared CLI build stamp contract', async () => {
-    const { stdout, stderr } = await execFileAsync(cliPath, ['--version'], {
+    const { stdout, stderr } = await runCli(['--version'], {
       cwd: packageDir,
       env: {
         ...process.env,
@@ -404,7 +428,7 @@ describe('CLI command surface', () => {
   })
 
   it('prints db runtime help without opening a store', async () => {
-    const { stdout, stderr } = await execFileAsync(cliPath, ['--help'], {
+    const { stdout, stderr } = await runCli(['--help'], {
       cwd: packageDir,
       timeout: cliTestTimeoutMs,
     })
@@ -417,7 +441,7 @@ describe('CLI command surface', () => {
   })
 
   it('prints shell completions from the import-safe Effect command tree', async () => {
-    const { stdout } = await execFileAsync(cliPath, ['--completions', 'bash'], {
+    const { stdout } = await runCli(['--completions', 'bash'], {
       cwd: packageDir,
       timeout: cliTestTimeoutMs,
     })
@@ -437,14 +461,16 @@ describe('CLI command surface', () => {
   })
 
   it(
-    'runs the source CLI through its shebang runtime with node:sqlite available',
+    'runs the source CLI entry on the Node runtime its shebang names, with node:sqlite available',
     async () => {
       const dir = await mkdtemp(join(tmpdir(), 'notion-ds-sync-cli-'))
       try {
         const sqlitePath = join(dir, 'store.sqlite')
         await createBoundSqlite({ path: sqlitePath })
-        const { stdout } = await execFileAsync(
-          cliPath,
+        // The entry still declares Node as its runtime for an ambient shell; the run below
+        // exercises that same runtime through the attested tool containment does admit.
+        expect((await readFile(cliPath, 'utf8')).split('\n', 1)[0]).toBe('#!/usr/bin/env node')
+        const { stdout } = await runCli(
           [
             'status',
             '--sqlite',
@@ -609,8 +635,7 @@ describe('CLI command surface', () => {
       const dir = await mkdtemp(join(tmpdir(), 'notion-ds-sync-cli-'))
       try {
         await expect(
-          execFileAsync(
-            cliPath,
+          runCli(
             [
               'sync',
               '--watch',
@@ -634,8 +659,7 @@ describe('CLI command surface', () => {
         })
 
         await expect(
-          execFileAsync(
-            cliPath,
+          runCli(
             [
               'status',
               '--sqlite',
@@ -656,22 +680,17 @@ describe('CLI command surface', () => {
         })
 
         await expect(
-          execFileAsync(
-            cliPath,
-            ['sync', '--watch', '--state', '/tmp/watch.json', '--max-cycles', 'NaN'],
-            {
-              cwd: packageDir,
-              timeout: cliTestTimeoutMs,
-            },
-          ),
+          runCli(['sync', '--watch', '--state', '/tmp/watch.json', '--max-cycles', 'NaN'], {
+            cwd: packageDir,
+            timeout: cliTestTimeoutMs,
+          }),
         ).rejects.toMatchObject({
           code: 1,
           stderr: expect.stringContaining('CliErrorEnvelope'),
         })
 
         await expect(
-          execFileAsync(
-            cliPath,
+          runCli(
             [
               'sync',
               '--watch',
@@ -1185,8 +1204,7 @@ describe('CLI command surface', () => {
       try {
         await createBoundSqlite({ path: storePath })
         await expect(
-          execFileAsync(
-            cliPath,
+          runCli(
             [
               ...argv,
               '--sqlite',
@@ -1236,8 +1254,7 @@ describe('CLI command surface', () => {
       try {
         await createBoundSqlite({ path: storePath })
         await expect(
-          execFileAsync(
-            cliPath,
+          runCli(
             [
               ...argv,
               '--sqlite',
@@ -1269,8 +1286,7 @@ describe('CLI command surface', () => {
       try {
         const sqlitePath = join(dir, 'store.sqlite')
         await createBoundSqlite({ path: sqlitePath })
-        const { stdout } = await execFileAsync(
-          cliPath,
+        const { stdout } = await runCli(
           [
             'status',
             '--sqlite',

@@ -1,4 +1,5 @@
 load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
+load("//buck2:root_test_layout.bzl", "declare_root_test_sources")
 
 # Conventional prelude toolchain targets, owned by the platform hub.
 #
@@ -41,33 +42,39 @@ system_genrule_toolchain(
     visibility = ["PUBLIC"],
 )
 
-# The package-tree runner and its complete relative-import closure, staged side
-# by side in one directory so the runner's sibling imports resolve inside the
-# action. A Buck action sees only declared inputs: a module missing here fails
-# closed at run time instead of silently reaching into the source tree.
-# Declared in genie/buck2/runtime-modules.ts and gated by
-# genie/buck2/buck2-runtime-closure.unit.test.ts.
-filegroup(
+# Stable root labels retained for generated callers; the owning rules live in
+# the buck2-tools package alongside their source files.
+alias(
     name = "package_tree_runtime",
-    srcs = {
-        "package-tree.ts": "packages/@overeng/buck2-tools/src/package-tree.ts",
-        "real-path.ts": "packages/@overeng/buck2-tools/src/real-path.ts",
-    },
+    actual = "//packages/@overeng/buck2-tools:package_tree_runtime",
     visibility = ["PUBLIC"],
 )
 
-# Hermetic TypeScript actions execute this source with their pinned Bun runtime.
-# Single-file staging: this runner must import nothing relative.
-export_file(
+alias(
     name = "packages/@overeng/buck2-tools/src/typescript-runner.ts",
-    src = "packages/@overeng/buck2-tools/src/typescript-runner.ts",
+    actual = "//packages/@overeng/buck2-tools:src/typescript-runner.ts",
     visibility = ["PUBLIC"],
 )
 
-# Stateless completeness gate: Git supplies candidates and Buck remains the sole owner matcher.
-# Single-file staging: this runner must import nothing relative.
-export_file(
+alias(
     name = "packages/@overeng/buck2-tools/src/owned-files.ts",
-    src = "packages/@overeng/buck2-tools/src/owned-files.ts",
+    actual = "//packages/@overeng/buck2-tools:src/owned-files.ts",
     visibility = ["PUBLIC"],
 )
+
+# Generated pnpm dependency rules name every lockfile patch by its repository-root label
+# (`buck2/dependencies/pnpm-lock.ts`), while the file itself is an input of the package that
+# owns it. The alias is the stable root label; the source stays exported once.
+alias(
+    name = "packages/@overeng/utils/patches/@myobie__pty@0.10.0.patch",
+    actual = "//packages/@overeng/utils:patches/@myobie__pty@0.10.0.patch",
+    visibility = ["PUBLIC"],
+)
+
+# Root-package generator sources the repository-root Vitest suite imports.
+#
+# The census is derived from that suite's relative-import closure
+# (`genie/buck2/root-test-layout.ts`) and generated into
+# `buck2/root_test_layout.bzl`, so a new import is a declared input after
+# `genie:run` instead of a `Cannot find module` inside the test action.
+declare_root_test_sources()

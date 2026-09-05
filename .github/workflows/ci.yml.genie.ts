@@ -2,6 +2,10 @@ import {
   RUNNER_PROFILES,
   type RunnerProfile,
   bashShellDefaults,
+  buck2CapacityEvidenceArtifactStep,
+  buck2SharedCacheLaneStep,
+  buck2SharedCachePreflightStep,
+  buck2SharedCacheProvenanceArtifactStep,
   cachixCliBuildStep,
   cachixStep,
   checkoutStep,
@@ -9,8 +13,6 @@ import {
   prepareCiScriptsStep,
   prepareEffectUtilsCompositionStep,
   notifyAlignmentJob,
-  evictCachedPnpmDepsStep,
-  pnpmBuilderContractStep,
   preparePinnedDevenvStep,
   installNixStep,
   runDevenvTasksBefore,
@@ -29,17 +31,17 @@ import {
   namespaceRunner,
   nixClosureMeasurementSteps,
   sourceShapeMeasurementStep,
-  validateColdPnpmDepsStep,
   nixDiagnosticsArtifactStep,
   workflowReportCommentBodyStep,
   workflowReportCollectorStep,
   workflowReportPublisherStep,
   deployPreviewWorkflowReportPathOutputName,
   netlifyDeployStep,
-  nixCacheSetupStep,
   validateNixStoreStep,
   withCiSourceRoot,
   defaultRefPolicyCheckJob,
+  tailnetEphemeralConnectStep,
+  tailnetEphemeralDisconnectStep,
 } from '../../genie/ci-workflow.ts'
 import { type CoreCIJobName, perfLaneLabel } from '../../genie/ci.ts'
 import { type GitHubWorkflowArgs } from '../../packages/@overeng/genie/src/runtime/mod.ts'
@@ -65,10 +67,6 @@ const baseSteps = [
   prepareCiScriptsStep,
   preparePinnedDevenvStep,
   validateNixStoreStep,
-  evictCachedPnpmDepsStep({
-    flakeRef: '.#oxlint-npm',
-    name: 'Evict cached pnpm deps for oxlint-npm',
-  }),
   /**
    * Temporary debug switch for #272 to validate failure-path diagnostics without waiting for a real flake.
    * Remove once #201/#272 are root-caused and diagnostics instrumentation is removed.
@@ -101,6 +99,14 @@ const failureReminderStep = {
   ].join('\n'),
 } as const
 
+/** Execute only the Buck binary belonging to the prepared composition. */
+const runBuck2 = (...args: readonly string[]) =>
+  [
+    'workspace="${EFFECT_UTILS_WORKSPACE_ROOT:?EFFECT_UTILS_WORKSPACE_ROOT not set}"',
+    'buck2="$workspace/.megarepo/bin/buck2"',
+    'test -x "$buck2"',
+    `cd "$workspace" && "$buck2" ${args.join(' ')}`,
+  ].join('\n')
 const liveNetlifyCiToolsPreflightStep = {
   id: 'live-netlify-preflight',
   name: 'Check live Netlify ci-tools E2E secrets',
@@ -139,20 +145,16 @@ const onlyWhenLiveNetlifyCiTools = <Step extends Record<string, unknown>>(step: 
 })
 
 const liveNetlifyCiToolsE2EStep = {
-  name: 'Live Netlify ci-tools E2E',
+  name: 'Live Netlify ci-tools Buck E2E',
   shell: 'bash',
   env: {
     CI_TOOLS_NETLIFY_LIVE: '1',
     NETLIFY_AUTH_TOKEN: '${{ secrets.NETLIFY_AUTH_TOKEN }}',
     NETLIFY_SITE_ID: '${{ secrets.NETLIFY_SITE_ID }}',
   },
-  run: withCiSourceRoot(
-    [
-      'netlify_pkg="$(nix build --no-link --print-out-paths .#netlify-cli)"',
-      'export CI_TOOLS_LIVE_NETLIFY_BIN="$netlify_pkg/bin/netlify"',
-      'DEVENV_TASK_PASSTHROUGH=1 DEVENV_TUI=false "${DEVENV_BIN:?DEVENV_BIN not set}" tasks run pnpm:install',
-      'DEVENV_TUI=false "${DEVENV_BIN:?DEVENV_BIN not set}" shell --no-reload -- bun test packages/@overeng/ci-tools/src/deploy-netlify.live.e2e.test.ts',
-    ].join('\n'),
+  run: runBuck2(
+    'test',
+    'effect_utils//packages/@overeng/ci-tools:test_netlify_live',
   ),
 } as const
 
@@ -196,24 +198,18 @@ const onlyWhenLiveVercelCiTools = <Step extends Record<string, unknown>>(step: S
 })
 
 const liveVercelCiToolsE2EStep = {
-  name: 'Live Vercel ci-tools E2E',
+  name: 'Live Vercel ci-tools Buck E2E',
   shell: 'bash',
   env: {
     CI_TOOLS_VERCEL_LIVE: '1',
     VERCEL_TOKEN: '${{ secrets.VERCEL_TOKEN }}',
     VERCEL_PROJECT_ID: '${{ secrets.VERCEL_PROJECT_ID }}',
     VERCEL_ORG_ID: '${{ secrets.VERCEL_ORG_ID }}',
-    VERCEL_TEAM_ID: '${{ secrets.VERCEL_TEAM_ID }}',
     VERCEL_SCOPE: '${{ secrets.VERCEL_SCOPE }}',
-    VERCEL_AUTOMATION_BYPASS_SECRET: '${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}',
   },
-  run: withCiSourceRoot(
-    [
-      'vercel_pkg="$(nix build --no-link --print-out-paths .#vercel-cli)"',
-      'export CI_TOOLS_LIVE_VERCEL_BIN="$vercel_pkg/bin/vercel"',
-      'DEVENV_TASK_PASSTHROUGH=1 DEVENV_TUI=false "${DEVENV_BIN:?DEVENV_BIN not set}" tasks run pnpm:install',
-      'DEVENV_TUI=false "${DEVENV_BIN:?DEVENV_BIN not set}" shell --no-reload -- bun test packages/@overeng/ci-tools/src/deploy-vercel.live.e2e.test.ts',
-    ].join('\n'),
+  run: runBuck2(
+    'test',
+    'effect_utils//packages/@overeng/ci-tools:test_vercel_live',
   ),
 } as const
 
@@ -389,41 +385,6 @@ const multiPlatformJob = (step: { name: string; run: string }) => ({
   ],
 })
 
-// Checkout exemption inventory: nix-fod-check is a strict flake/FOD lane. It
-// deliberately runs no devenv task, Buck command, or composition-dependent helper.
-const strictNixJobBaseSteps = [
-  checkoutStep(),
-  installNixStep(),
-  ciMeasurementBaselineCheckoutStep,
-  nixCacheSetupStep,
-  cachixCliBuildStep,
-  cachixStep({ name: 'overeng-effect-utils' }),
-  prepareCiScriptsStep,
-] as const
-
-const multiPlatformStrictNixJob = (step: ReturnType<typeof validateColdPnpmDepsStep>) => ({
-  if: normalCiIf,
-  strategy: {
-    'fail-fast': false,
-    matrix: {
-      runner: [...RUNNER_PROFILES],
-    },
-  },
-  'runs-on': namespaceRunner({
-    profile: '${{ matrix.runner }}' as RunnerProfile,
-    runId: '${{ github.run_id }}',
-  }),
-  'timeout-minutes': jobTimeoutMinutes,
-  defaults: bashShellDefaults,
-  env: standardCIEnv,
-  steps: [
-    ...strictNixJobBaseSteps,
-    step,
-    nixDiagnosticsSummaryStep,
-    nixDiagnosticsArtifactStep(),
-    failureReminderStep,
-  ],
-})
 
 /**
  * Audit the native npm dependency policy against the lockfile (issue #807).
@@ -433,93 +394,52 @@ const nativeDepPolicyAuditStep = {
   name: 'Audit native dependency policy',
   shell: 'bash',
   run: withCiSourceRoot(
-    [
-      'set -euo pipefail',
-      'audit=genie/ci-scripts/native-dep-policy-audit.ts',
-      'if command -v bun >/dev/null 2>&1; then',
-      '  bun "$audit"',
-      'else',
-      '  nix run nixpkgs#bun -- "$audit"',
-      'fi',
-    ].join('\n'),
+    'nix run nixpkgs#bun -- genie/ci-scripts/native-dep-policy-audit.ts',
   ),
 } as const
 
 // Core product jobs keyed by the shared Genie CI source of truth.
-const jobs: Record<CoreCIJobName, ReturnType<typeof job> | ReturnType<typeof multiPlatformJob>> = {
+const jobs = {
   typecheck: job({
     step: {
-      name: 'Type check',
-      run: runDevenvTasksBefore('ts:check:strict'),
+      name: 'Type check Buck package products',
+      run: runBuck2('build', "'filter(\":typecheck$\", effect_utils//...)'"),
     },
     extraSteps: [verifyOtelShellEntryStep],
   }),
   lint: job({
     step: {
-      name: 'Format + lint',
-      // Keep generated-file freshness authoritative in CI. The lint task's
-      // execIfModified filter remains only a local fast path.
-      run: runDevenvTasksBefore('genie:check', 'lint:check'),
+      name: 'Generated freshness + format + lint',
+      run: runDevenvTasksBefore('lint:check'),
     },
   }),
   test: multiPlatformJob({
-    name: 'Unit tests',
-    run: runDevenvTasksBefore('test:run'),
+    name: 'Sandbox admission and Buck unit tests',
+    run: runDevenvTasksBefore('buck2:sandbox-gate:fresh', 'test:run'),
   }),
   'test-megarepo-cold-gc': job({
     step: {
-      name: 'Megarepo cold-GC tests',
-      run: runDevenvTasksBefore('test:megarepo-cold-gc'),
-    },
-  }),
-  // Verify Nix hashes are up-to-date (pnpmDepsHash + localDeps)
-  // This catches stale hashes before they break downstream consumers
-  'nix-check': multiPlatformJob({
-    name: 'Nix hash check',
-    run: runDevenvTasksBefore('nix:check'),
-  }),
-  // Force a fresh local rebuild of every exported pnpm FOD to catch stale
-  // hashes that normal CI can otherwise mask via store/substituter reuse.
-  'nix-fod-check': multiPlatformStrictNixJob(
-    validateColdPnpmDepsStep({
-      flakeRefs: [
-        '.#genie-pnpm-deps',
-        '.#ci-tools-pnpm-deps',
-        '.#megarepo-pnpm-deps',
-        '.#oxc-config-plugin-pnpm-deps',
-        '.#tui-stories-pnpm-deps',
-        '.#notion-cli-pnpm-deps',
-        '.#notion-md-pnpm-deps',
-      ],
-      substituters: ['https://cache.nixos.org'],
-    }),
-  ),
-  'pnpm-builder-contract': job({
-    step: pnpmBuilderContractStep({
-      builderFile: 'nix/workspace-tools/lib/mk-pnpm-deps.nix',
-    }),
-    // Audit the native npm dependency policy (issue #807) in the same lane that
-    // guards the pnpm builder contract. Runs install-free against the lockfile
-    // and the genie policy source, both present here without node_modules.
-    extraSteps: [nativeDepPolicyAuditStep],
-  }),
-  'pnpm-regression': job({
-    step: {
-      name: 'pnpm regression suite',
-      run: withCiSourceRoot(
-        [
-          'bash genie/ci-scripts/nix-gc-race-retry.test.sh',
-          'bash genie/ci-scripts/ci-measurement-comparison.test.sh',
-          'bash genie/ci-scripts/native-dep-policy-audit.test.sh',
-          'bash nix/workspace-tools/lib/mk-pnpm-cli/tests/run.sh --skip-genie --skip-megarepo --skip-devenv-shell --skip-downstream-megarepo',
-        ].join('\n'),
+      name: 'Megarepo cold-GC Buck test',
+      run: runBuck2(
+        'test',
+        'effect_utils//packages/@overeng/megarepo:test_megarepo_cold_gc',
       ),
     },
   }),
+  'pnpm-regression': job({
+    step: {
+      name: 'Install-free lock maintenance validation',
+      run: runDevenvTasksBefore('pnpm:check-lockfile'),
+    },
+    extraSteps: [nativeDepPolicyAuditStep],
+  }),
   'bundle-smoke': job({
     step: {
-      name: 'Bundle smoke tests',
-      run: runDevenvTasksBefore('bundle:smoke'),
+      name: 'Buck candidate and pty-effect bundle smoke tests',
+      run: runBuck2(
+        'test',
+        "'filter(\"candidate-smoke$\", effect_utils//packages/@overeng/...)' effect_utils//packages/@overeng/pty-effect:bundle_smoke_candidate",
+      ),
     },
   }),
   buck2: job({
@@ -563,7 +483,7 @@ const jobs: Record<CoreCIJobName, ReturnType<typeof job> | ReturnType<typeof mul
       run: runDevenvTasksBefore('weaver:check', 'weaver:diff', 'weaver:live-check'),
     },
   }),
-}
+} satisfies Record<CoreCIJobName, unknown>
 
 // Source-shape/report aggregation intentionally use actions-checkout paths. Producers that
 // execute source commands write artifacts below the synthesized owned member instead.
@@ -645,19 +565,215 @@ const nixClosureMeasurementTargets = [
   },
 ] as const
 
+// =============================================================================
+// Shared-Buck-cache evidence lane (03-materialization DQ1)
+// =============================================================================
+//
+// Three jobs, because the question has three independent legs and one job cannot
+// answer them:
+//
+//   buck2-cache-publish  builds the COMPLETE candidate graph against the named candidate
+//                        instance, then creates exactly ONE dispatch-unique probe action
+//                        from a run-id/run-attempt nonce and requires that probe to
+//                        execute locally AND upload. The graph build itself asserts no
+//                        local work: a graph that is already cached is a correct state,
+//                        and requiring fresh local work there would make the lane fail
+//                        on every dispatch after the first.
+//   buck2-cache-restore  lands on a DIFFERENT ephemeral runner with an empty buck-out
+//                        and a different absolute composition prefix (the prepare script
+//                        keys `store_root` on `${GITHUB_JOB}`), so it doubles as the
+//                        REUSE-R02 relocation clause. It restores the complete candidate
+//                        graph with ZERO local commands, then reproduces the SAME
+//                        dispatch-unique probe and requires it to be a pure cache hit:
+//                        that hit is the cross-job transfer proof. A second, distinct
+//                        nonce then proves a genuinely NEW miss uploads and comes back.
+//   buck2-cache-outage   composes with the remote cache DISABLED and enables the
+//                        unroutable endpoint only for the one step whose failure is the
+//                        assertion, so the leg observes Buck refusing to proceed instead
+//                        of dying in the composition overlay.
+//
+// Cache identity reaches Buck only through buckconfig FILES: the generated root
+// buckconfig written by `compositionCacheSections` during the composition overlay, and —
+// for the outage step alone — a root `.buckconfig.local` the lane writes and removes.
+// `-c buck2_re_client.*` is NOT an option: CLI overrides never reach the RE client.
+
+/**
+ * Explicitly named candidate instance. It is a generator constant, not an input, so no
+ * dispatch or repository variable can point this lane at the production namespace.
+ *
+ * This buys attribution, NOT isolation. One unmangled cache server is shared with the
+ * trusted CI lane: CAS bytes are digest-verified and cannot be forged by another writer,
+ * while the ActionCache mapping is mutable and last-writer-wins. What the name gives is
+ * "this lane writes no production-namespace action keys", never "this lane cannot read or
+ * be affected by production bytes" (REUSE-R06).
+ */
+const buck2CacheCandidateInstance = 'effect-utils-dq1-candidate'
+
+/** Endpoint is repository configuration. No tailnet host or port is committed here. */
+const buck2CacheEndpointExpression = '${{ vars.BUCK2_CACHE_ENDPOINT }}'
+
+/**
+ * RFC 2606 reserves `.invalid`, so this endpoint can never resolve to a real cache and
+ * the outage leg cannot accidentally pass by reaching something. It names no real host.
+ */
+const buck2CacheOutageEndpoint = 'grpc://buck2-cache-outage.invalid:1'
+
+/**
+ * The complete Buck candidate graph reaches the lane as the generated
+ * `genie/ci-scripts/buck2-candidate-graph.txt` (127 labels: 39 typecheck, 38 dist,
+ * 38 editor_view_inputs, 10 products, 2 support tools), read from the COMPOSED member so
+ * the graph under proof always belongs to the revision being built.
+ */
+const buck2CandidateGraphFile = 'genie/ci-scripts/buck2-candidate-graph.txt'
+
+/**
+ * Nonce carrier for both probes: the smallest declared candidate closure in the manifest.
+ * A probe appends a nonce comment, builds the one label, and reverts the file.
+ */
+const buck2CacheNonceCarrier = 'packages/@overeng/oxc-config/src/mod.ts'
+const buck2CacheNonceLabel = 'effect_utils//packages/@overeng/oxc-config:oxc-config-candidate'
+
+/**
+ * ONE dispatch-stable nonce shared by publish and restore. Stable so both jobs derive the
+ * same action key, and unique per dispatch (run id plus attempt) so publish always has
+ * exactly one new action to execute and upload without depending on cache state.
+ */
+const buck2CacheProbeNonce = '${{ github.run_id }}-${{ github.run_attempt }}'
+
+/**
+ * The independent miss leg needs a nonce the transfer probe has never published, or its
+ * "miss" would just be the probe's hit. The script refuses the two being equal.
+ */
+const buck2CacheMissNonce = 'miss-${{ github.run_id }}-${{ github.run_attempt }}'
+
+/**
+ * Operator-dispatched only, and dispatchable on any branch of THIS repository.
+ *
+ * `workflow_dispatch` is itself the authorization boundary: triggering it requires write
+ * access and a ref that exists in this repository, so a fork can never reach it and no
+ * fork-controlled code ever mints a tailnet-capable OIDC token. Restricting the lane to
+ * `refs/heads/main` on top of that would be circular — DQ1 has to pass BEFORE the change
+ * that carries the lane can merge, and a main-only guard makes the lane unrunnable until
+ * after the thing it gates has already landed. `push`, `pull_request`, and `schedule` are
+ * deliberately absent, so the lane still never runs on a pull request or on every commit.
+ */
+const buck2CacheLaneIf = `\${{ github.event_name == 'workflow_dispatch' && (inputs.run_buck2_cache_probe == true || inputs.run_buck2_cache_probe == 'true') }}`
+const buck2CapacityLaneIf = `\${{ github.event_name == 'workflow_dispatch' && (inputs.run_buck2_capacity_probe == true || inputs.run_buck2_capacity_probe == 'true') }}`
+const buck2CapacityRunnerProfile: RunnerProfile = 'namespace-profile-linux-x86-64'
+const buck2CapacityTimeoutMinutes = 240
+const buck2CapacityJobConcurrency = 1
+const buck2CapacityLaneEnv = {
+  ...standardCIEnv,
+  BUCK2_CAPACITY_RUNNER_PROFILE: buck2CapacityRunnerProfile,
+  BUCK2_CAPACITY_TIMEOUT_MINUTES: String(buck2CapacityTimeoutMinutes),
+  BUCK2_CAPACITY_JOB_CONCURRENCY: String(buck2CapacityJobConcurrency),
+}
+
+/**
+ * The only place in this repository that clears the CI-wide `BUCK2_NO_REMOTE_CACHE=1`.
+ * The endpoint and the instance name are always supplied together; `mr apply` refuses
+ * half a pair rather than defaulting the other half.
+ *
+ * The provenance directory is deliberately NOT set here. Job-level `env` cannot read the
+ * `runner` context, so `${{ runner.temp }}` would not expand; the lane script defaults to
+ * `$RUNNER_TEMP/buck2-cache-provenance`, which is the same directory
+ * `buck2SharedCacheProvenanceDir` names for the upload step, where the context IS legal.
+ */
+const buck2CacheLaneEnv = (endpoint: string) => ({
+  ...standardCIEnv,
+  BUCK2_NO_REMOTE_CACHE: '',
+  BUCK2_CACHE_ENDPOINT: endpoint,
+  BUCK2_CACHE_INSTANCE_NAME: buck2CacheCandidateInstance,
+})
+
+/**
+ * Outage leg job env: the repo-wide disable STAYS on, so the composition overlay runs
+ * pure-local and cannot fail against the unroutable endpoint. The endpoint is supplied by
+ * the assertion step alone.
+ */
+const buck2CacheOutageJobEnv = {
+  ...standardCIEnv,
+  BUCK2_CACHE_INSTANCE_NAME: buck2CacheCandidateInstance,
+}
+
+/**
+ * Non-secret federated-identity configuration. The client id and audience identify the
+ * Tailscale federated identity that trusts this repository's GitHub OIDC issuer; the
+ * credential itself is the per-job OIDC token, which never exists at rest.
+ */
+const tailscaleFederatedClientIdExpression = '${{ vars.TS_FEDERATED_CLIENT_ID }}'
+const tailscaleFederatedAudienceExpression = '${{ vars.TS_FEDERATED_AUDIENCE }}'
+
+const buck2CacheLaneJob = ({
+  env,
+  tailnet,
+  timeoutMinutes,
+  laneSteps,
+  needs,
+  condition = buck2CacheLaneIf,
+  runnerProfile = 'namespace-profile-linux-x86-64',
+}: {
+  readonly env: Record<string, string>
+  readonly tailnet: boolean
+  readonly timeoutMinutes: number
+  readonly laneSteps: readonly Record<string, unknown>[]
+  readonly needs?: readonly string[]
+  readonly condition?: string
+  readonly runnerProfile?: RunnerProfile
+}) => ({
+  if: condition,
+  ...(needs === undefined ? {} : { needs: [...needs] }),
+  'runs-on': namespaceRunner({
+    profile: runnerProfile,
+    runId: '${{ github.run_id }}',
+  }),
+  'timeout-minutes': timeoutMinutes,
+  defaults: bashShellDefaults,
+  // `id-token: write` is granted per job and only where it is actually spent: minting the
+  // GitHub OIDC token that authenticates the tailnet join. The outage leg never joins the
+  // tailnet, so it stays read-only.
+  permissions: tailnet
+    ? ({ contents: 'read', 'id-token': 'write' } as const)
+    : ({ contents: 'read' } as const),
+  env,
+  steps: [
+    checkoutStep(),
+    installNixStep(),
+    // Route first: the composition overlay's first Buck invocation already needs the
+    // cache reachable, and the preflight has to fail before that config is written.
+    ...(tailnet
+      ? [
+          tailnetEphemeralConnectStep({
+            clientId: tailscaleFederatedClientIdExpression,
+            audience: tailscaleFederatedAudienceExpression,
+            tags: 'tag:ci-buck2-cache',
+          }),
+          buck2SharedCachePreflightStep,
+        ]
+      : []),
+    prepareEffectUtilsCompositionStep,
+    cachixCliBuildStep,
+    trustedCachixStep,
+    ...laneSteps,
+    ...(tailnet ? [tailnetEphemeralDisconnectStep] : []),
+    failureReminderStep,
+  ],
+})
+
 // Non-core jobs are kept outside the typed product-job block but still tracked
 // in genie/ci.ts for required-check policy.
 const extraJobs: Record<string, any> = {
-  // bootstrap:cold-proof (R32) — the empirical authority for the bootstrap-safe import-closure
-  // contract (issue #884). In a fresh, no-node_modules tree of the committed source it runs the
-  // self-contained nix genie (`.#genie`, a cachix cache hit here) with `--phase bootstrap`, then
-  // `pnpm install --frozen-lockfile` against the registry, asserting both
-  // succeed. This exercises the exact pre-install path; `bootstrap-closure:check` (in `check:all`) is
-  // the static fast-feedback pre-check. Separate lane because it is heavier than the product checks.
+  // Empirical install-free authority: build the declared Buck Genie product,
+  // run its bootstrap phase in a no-node_modules committed tree, then use the
+  // same product to check lock-derived projections without pnpm or registry IO.
   'bootstrap-cold-proof': job({
     step: {
       name: 'Bootstrap cold-proof (R32)',
-      run: runDevenvTasksBefore('bootstrap:cold-proof'),
+      run: [
+        'BUN="$("${DEVENV_BIN:?DEVENV_BIN not set}" shell --no-reload -- printenv DEVENV_PROFILE)/bin/bun"',
+        'export BUN',
+        runDevenvTasksBefore('bootstrap:cold-proof'),
+      ].join('\n'),
     },
   }),
   'devenv-perf': {
@@ -710,18 +826,10 @@ const extraJobs: Record<string, any> = {
       setupSteps: baseSteps,
       taskProbes: [
         {
-          task: 'pnpm:install',
-          label: 'pnpm install task',
-          group: 'workspace setup',
-          description: 'Runs the cached pnpm install devenv task.',
-          warmupRepetitions: 1,
-          repetitions: 5,
-        },
-        {
           task: 'genie:run',
-          label: 'Genie run task',
+          label: 'Buck Genie product generation',
           group: 'genie',
-          description: 'Runs the normal devenv genie:run task including its declared dependencies.',
+          description: 'Runs generation through the declared Buck Genie candidate product.',
           warmupRepetitions: 1,
           repetitions: 5,
         },
@@ -760,9 +868,9 @@ const extraJobs: Record<string, any> = {
       probes: [
         {
           id: 'genie_check_task',
-          label: 'Genie check task',
+          label: 'Buck Genie product freshness',
           group: 'genie',
-          description: 'Runs the supported Genie check task without shell-entry overhead.',
+          description: 'Checks generated files through the declared Buck Genie candidate product.',
           warmupRepetitions: 1,
           repetitions: 5,
           command: ['$DEVENV_BIN', 'tasks', 'run', 'genie:check'],
@@ -1031,6 +1139,77 @@ const extraJobs: Record<string, any> = {
       failureReminderStep,
     ],
   },
+  'buck2-cache-publish': buck2CacheLaneJob({
+    env: buck2CacheLaneEnv(buck2CacheEndpointExpression),
+    tailnet: true,
+    timeoutMinutes: 90,
+    laneSteps: [
+      buck2SharedCacheLaneStep({
+        name: 'Populate the candidate cache instance',
+        mode: 'publish',
+        args: [buck2CandidateGraphFile, buck2CacheNonceCarrier, buck2CacheNonceLabel],
+        env: { BUCK2_CACHE_NONCE: buck2CacheProbeNonce },
+      }),
+      buck2SharedCacheProvenanceArtifactStep,
+    ],
+  }),
+  'buck2-cache-restore': buck2CacheLaneJob({
+    env: buck2CacheLaneEnv(buck2CacheEndpointExpression),
+    tailnet: true,
+    timeoutMinutes: 90,
+    needs: ['buck2-cache-publish'],
+    laneSteps: [
+      buck2SharedCacheLaneStep({
+        name: 'Restore the complete candidate graph and the published probe',
+        mode: 'restore',
+        args: [buck2CandidateGraphFile, buck2CacheNonceCarrier, buck2CacheNonceLabel],
+        env: { BUCK2_CACHE_NONCE: buck2CacheProbeNonce },
+      }),
+      buck2SharedCacheLaneStep({
+        name: 'Upload and restore a deliberate miss',
+        mode: 'miss',
+        args: [buck2CacheNonceCarrier, buck2CacheNonceLabel],
+        env: { BUCK2_CACHE_MISS_NONCE: buck2CacheMissNonce },
+      }),
+      buck2SharedCacheProvenanceArtifactStep,
+    ],
+  }),
+  'buck2-cache-outage': buck2CacheLaneJob({
+    // The job composes with the repo-wide `BUCK2_NO_REMOTE_CACHE=1` still in force, so
+    // the overlay never talks to the unroutable endpoint; only the assertion step below
+    // clears it and supplies the endpoint.
+    env: buck2CacheOutageJobEnv,
+    // No tailnet and no preflight on purpose: the preflight would short-circuit before
+    // Buck ever ran, and this leg exists to observe Buck itself refusing to proceed.
+    tailnet: false,
+    timeoutMinutes: 30,
+    laneSteps: [
+      buck2SharedCacheLaneStep({
+        name: 'Assert a hard failure against an unreachable cache',
+        mode: 'outage',
+        args: [buck2CacheNonceLabel],
+        env: {
+          BUCK2_NO_REMOTE_CACHE: '',
+          BUCK2_CACHE_ENDPOINT: buck2CacheOutageEndpoint,
+        },
+      }),
+    ],
+  }),
+  'buck2-capacity': buck2CacheLaneJob({
+    condition: buck2CapacityLaneIf,
+    env: buck2CapacityLaneEnv,
+    runnerProfile: buck2CapacityRunnerProfile,
+    tailnet: false,
+    timeoutMinutes: buck2CapacityTimeoutMinutes,
+    laneSteps: [
+      buck2SharedCacheLaneStep({
+        name: 'Measure cache-disabled Buck2 candidate capacity',
+        mode: 'capacity',
+        args: [buck2CandidateGraphFile],
+      }),
+      buck2CapacityEvidenceArtifactStep,
+    ],
+  }),
 }
 
 const deployJobs: Record<string, any> = {
@@ -1119,6 +1298,20 @@ export default ciWorkflow({
         run_datasource_sync_demo: {
           description:
             'Run the credentialed notion-datasource-sync demo showcase in the Notion integration lane. Requires NOTION_DATASOURCE_SYNC_DEMO_PAGE_ID.',
+          required: false,
+          default: false,
+          type: 'boolean',
+        },
+        run_buck2_cache_probe: {
+          description:
+            'Run the opt-in shared-Buck-cache probe lanes (03-materialization DQ1): publish, restore + deliberate miss, and the fail-closed outage leg. Requires vars.BUCK2_CACHE_ENDPOINT plus the vars.TS_FEDERATED_CLIENT_ID / vars.TS_FEDERATED_AUDIENCE tailnet federated identity (no Tailscale secret exists); the outage leg deliberately fails its Buck build and still reports success.',
+          required: false,
+          default: false,
+          type: 'boolean',
+        },
+        run_buck2_capacity_probe: {
+          description:
+            'Run the opt-in cache-disabled DQ4 capacity probe on the Namespace Linux x86_64 candidate runner. Emits measurements only; it applies no pass thresholds.',
           required: false,
           default: false,
           type: 'boolean',

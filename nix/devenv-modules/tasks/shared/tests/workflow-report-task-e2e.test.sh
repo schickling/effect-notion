@@ -84,7 +84,7 @@ cat > "$tmpdir/ci-tools-wrapper" <<EOF
 set -euo pipefail
 printf '%q ' "\$@" >> "\${FAKE_CI_TOOLS_LOG:?}"
 printf '\n' >> "\${FAKE_CI_TOOLS_LOG:?}"
-exec bun "$ROOT/packages/@overeng/ci-tools/bin/ci-tools.ts" "\$@"
+exec "${CI_TOOLS_BIN:?}" "\$@"
 EOF
 chmod +x "$tmpdir/ci-tools-wrapper"
 

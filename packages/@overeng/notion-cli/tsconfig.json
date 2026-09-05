@@ -48,9 +48,5 @@
     "noEmit": true
   },
   "include": ["src/**/*", "bin/**/*.ts"],
-  "references": [
-    {
-      "path": "../effect-path"
-    }
-  ]
+  "references": []
 }

@@ -54,6 +54,9 @@
   # oxlint wrapper). When set, the guard owns `bin/oxlint` and exec's this by
   # absolute path under passthrough (see cli-guard.nix).
   oxlintPkg ? null,
+  # Explicit packaged Genie product and install-free lockfile task.
+  geniePkg,
+  lockfileCheckTask ? "pnpm:check-lockfile",
 }:
 { lib, pkgs, ... }:
 let
@@ -63,6 +66,7 @@ let
   genieTaskEnv = lib.optionalAttrs (megarepoStoreEnv != "") {
     MEGAREPO_STORE = megarepoStoreEnv;
   };
+  genieBin = "${geniePkg}/bin/genie";
   git = "${pkgs.git}/bin/git";
   scanDirsSetup = builtins.concatStringsSep "\n" (
     map (dir: "scan_dir_args+=(${builtins.toJSON dir})") genieCoverageDirs
@@ -260,9 +264,6 @@ let
         instrName = "lint:check:oxlint";
       });
       execIfModified = [ ];
-    }
-    // lib.optionalAttrs (tsconfig != null) {
-      after = [ "pnpm:install" ];
     };
     "lint:fix:format" = {
       guard = "oxfmt";
@@ -287,7 +288,7 @@ let
       description = "Check generated files are up to date";
       after = [ "genie:prepare" ];
       env = genieTaskEnv;
-      exec = trace.exec "lint:check:genie" "genie --check";
+      exec = trace.exec "lint:check:genie" "${genieBin} --check";
       execIfModified = geniePatterns;
     };
     "lint:check:genie:coverage" = {
@@ -333,25 +334,8 @@ let
       # what this task exists to detect.
     };
     "lint:check:lockfile" = {
-      description = "Verify pnpm-lock.yaml matches package.json specifiers";
-      after = [ "pnpm:install" ];
-      exec = trace.exec "lint:check:lockfile" ''
-        set -euo pipefail
-        store_dir="''${npm_config_store_dir:-''${PNPM_CONFIG_STORE_DIR:-''${PNPM_STORE_DIR:-$PWD/.devenv/pnpm-store}}}"
-        export PNPM_STORE_DIR="$store_dir"
-        export PNPM_CONFIG_STORE_DIR="$store_dir"
-        export npm_config_store_dir="$store_dir"
-        pnpm install \
-          --frozen-lockfile \
-          --ignore-scripts \
-          --config.confirmModulesPurge=false \
-          --config.side-effects-cache=false \
-          --config.verify-store-integrity=true \
-          --config.strict-store-pkg-content-check=true \
-          --config.package-import-method=clone-or-copy \
-          --pm-on-fail=ignore \
-          --config.store-dir="$store_dir"
-      '';
+      description = "Verify pnpm-lock.yaml matches package.json specifiers without realizing node_modules";
+      after = [ lockfileCheckTask ];
     };
     "lint:check" = {
       description = "Run all lint checks";

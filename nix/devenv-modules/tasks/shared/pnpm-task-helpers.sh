@@ -368,6 +368,11 @@ purge_node_modules() {
 }
 
 resolve_package_bin() {
+  if [ "${PNPM_LEGACY_NODE_MODULES:-0}" != "1" ]; then
+    echo "[pnpm] package-bin lookup through node_modules is legacy-only; use an explicit Buck/Nix product" >&2
+    return 64
+  fi
+
   local package_name="$1"
   local bin_name="${2:-$1}"
   local cwd="${3:-$PWD}"

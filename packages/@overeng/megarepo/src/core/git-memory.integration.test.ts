@@ -29,6 +29,12 @@ import * as Command from 'effect/unstable/process/ChildProcess'
 import { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 import { expect } from 'vitest'
 
+import { requireTool } from '../test-utils/require-tool.ts'
+
+const gitBin = requireTool('GIT_BIN')
+const bashBin = requireTool('BASH_BIN')
+const bunBin = requireTool('BUN_BIN')
+
 /** Files in the untracked tree. Large enough that the old O(n²) concat balloons
  *  RSS, small enough that fixture creation stays fast (~10s). */
 const UNTRACKED_FILE_COUNT = 80_000
@@ -49,9 +55,9 @@ const probeScript = fileURLToPath(new URL('../test-utils/memory-probe.ts', impor
  *  faster here than per-file Effect FS calls). */
 const buildUntrackedWorktree = (): string => {
   const dir = mkdtempSync(join('/tmp', 'gc-mem-regression-'))
-  execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir })
-  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir })
-  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: dir })
+  execFileSync(gitBin, ['init', '-q', '-b', 'main'], { cwd: dir })
+  execFileSync(gitBin, ['config', 'user.email', 'test@example.com'], { cwd: dir })
+  execFileSync(gitBin, ['config', 'user.name', 'Test User'], { cwd: dir })
   for (let s = 0; s < SUBDIR_COUNT; s++) {
     mkdirSync(join(dir, `untracked_directory_level_one_${s}`), { recursive: true })
   }
@@ -85,9 +91,10 @@ describe('git memory regression', () => {
         // resident growth) is the real bound, not this limit.
         const stdout = yield* ChildProcessSpawner.use((spawner) =>
           spawner.string(
-            Command.make('bash', [
+            Command.make(bashBin, [
               '-c',
-              'ulimit -v 16777216; exec bun "$0" "$1"',
+              'ulimit -v 16777216; exec "$0" "$1" "$2"',
+              bunBin,
               probeScript,
               worktreePath,
             ]),

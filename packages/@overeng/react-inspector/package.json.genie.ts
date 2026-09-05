@@ -79,8 +79,10 @@ export default packageJson(
     license: 'MIT',
     type: 'module',
     exports: {
+      // `rootDir` is `src`, so the emitted declaration is `dist/index.d.ts` —
+      // the same flat layout `publishConfig.exports` names below.
       '.': exportEntry(
-        { types: './dist/src/index.d.ts', default: './src/index.tsx' },
+        { types: './dist/index.d.ts', default: './src/index.tsx' },
         { environment: 'browser' },
       ),
     },

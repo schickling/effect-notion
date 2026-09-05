@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 
+import { requireTool } from '../../test-utils/require-tool.ts'
 import { generateCompositionRoot, type CompositionRootInput } from './composition-root.ts'
 
 const makeInput = (resolvedBuckExecutable: string): CompositionRootInput => ({
@@ -28,7 +29,7 @@ const makeInput = (resolvedBuckExecutable: string): CompositionRootInput => ({
   resolvedBuckExecutable,
 })
 
-const fakeBuckSource = `#!/bin/sh
+const fakeBuckSource = `#!${requireTool('BASH_BIN')}
 if [ "\${FAKE_MODE:-argv}" = signal ]; then
   trap 'exit 23' TERM
   printf 'ready\\n'
@@ -37,6 +38,15 @@ fi
 printf '%s\\n' "$@" > "$ARGV_FILE"
 exit "\${FAKE_EXIT:-0}"
 `
+
+/**
+ * The generated wrapper is POSIX `#!/bin/sh` on purpose: it lands in a real workspace, where
+ * `/bin/sh` is the one interpreter every host has. A contained test action binds only declared
+ * Nix closures and has no `/bin`, so the suite launches the wrapper through the declared shell
+ * instead of relying on the shebang. What is under test is the wrapper's argv and exec
+ * behavior, which is identical either way.
+ */
+const wrapperShell = requireTool('BASH_BIN')
 
 const withWrapperFixture = async <T>(
   run: (fixture: {
@@ -80,10 +90,14 @@ const withWrapperFixture = async <T>(
 describe('generated Buck wrapper', () => {
   it('execs the exact resolved executable with fixed isolation and unchanged user argv', () =>
     withWrapperFixture(async ({ wrapper, argvFile, env }) => {
-      const result = spawnSync(wrapper, ['build', 'alpha//:target with space', '--verbose'], {
-        env,
-        encoding: 'utf8',
-      })
+      const result = spawnSync(
+        wrapperShell,
+        [wrapper, 'build', 'alpha//:target with space', '--verbose'],
+        {
+          env,
+          encoding: 'utf8',
+        },
+      )
       expect(result.error).toBeUndefined()
       expect(result.status).toBe(0)
       expect(await readFile(argvFile, 'utf8')).toBe(
@@ -101,7 +115,7 @@ describe('generated Buck wrapper', () => {
       await symlink('../../.megarepo/bin/buck2', join(nestedDirectory, 'buck2'))
       const lockPath = join(workspaceRoot, '.megarepo', 'workspace-update.lock')
       await writeFile(lockPath, '{malformed-but-present}\n')
-      const result = spawnSync(externalWrapper, ['build', 'alpha//:target'], {
+      const result = spawnSync(wrapperShell, [externalWrapper, 'build', 'alpha//:target'], {
         cwd: tmpdir(),
         env,
         encoding: 'utf8',
@@ -114,7 +128,7 @@ describe('generated Buck wrapper', () => {
 
   it('passes through the exact Buck exit status', () =>
     withWrapperFixture(({ wrapper, env }) => {
-      const result = spawnSync(wrapper, ['targets', 'alpha//...'], {
+      const result = spawnSync(wrapperShell, [wrapper, 'targets', 'alpha//...'], {
         env: { ...env, FAKE_EXIT: '37' },
         encoding: 'utf8',
       })
@@ -128,7 +142,7 @@ describe('generated Buck wrapper', () => {
     ['after command', ['build', '--isolation-dir=other', 'alpha//:target']],
   ])('rejects user isolation flags in %s before Buck runs', (_name, args) =>
     withWrapperFixture(async ({ wrapper, argvFile, env }) => {
-      const result = spawnSync(wrapper, args, { env, encoding: 'utf8' })
+      const result = spawnSync(wrapperShell, [wrapper, ...args], { env, encoding: 'utf8' })
       expect(result.status).toBe(64)
       expect(result.stderr).toBe('megarepo buck2 wrapper: --isolation-dir is fixed to megarepo\n')
       await expect(readFile(argvFile, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
@@ -139,7 +153,7 @@ describe('generated Buck wrapper', () => {
     withWrapperFixture(
       ({ wrapper, env }) =>
         new Promise<void>((resolve, reject) => {
-          const child = spawn(wrapper, ['build', 'alpha//:target'], {
+          const child = spawn(wrapperShell, [wrapper, 'build', 'alpha//:target'], {
             env: { ...env, FAKE_MODE: 'signal' },
             stdio: ['ignore', 'pipe', 'pipe'],
           })

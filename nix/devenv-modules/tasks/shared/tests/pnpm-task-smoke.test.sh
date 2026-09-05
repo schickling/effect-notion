@@ -70,7 +70,17 @@ extract_task_script() {
           };
         };
       };
-      module = (import $ROOT/nix/devenv-modules/tasks/shared/pnpm.nix { ${module_args} }) {
+      # The install/doctor/repair/clean family is retired by default and only
+      # reachable through the explicit legacy opt-in, so the shell-behavior
+      # extractions below enable it. Ambient pnpm resolves the CLI from PATH,
+      # which is what these extractions shim. genie and the lock mutator are
+      # likewise shimmed. Per-call module args override these defaults.
+      moduleArgs = {
+        enableLegacyInstall = true;
+        legacyAmbientPnpm = true;
+        geniePkg = \"$tmpdir/fake-genie-pkg\";
+      } // { ${module_args} };
+      module = (import $ROOT/nix/devenv-modules/tasks/shared/pnpm.nix moduleArgs) {
         pkgs = pkgsForTest;
         lib = pkgs.lib;
         config = { devenv.root = \"$workspace_root\"; };
@@ -87,7 +97,7 @@ eval_pnpm_package_count() {
       pkgs = import flake.inputs.nixpkgs { system = builtins.currentSystem; };
       module = (import $ROOT/nix/devenv-modules/tasks/shared/pnpm.nix {
         packages = [ ];
-        pnpmPkg = pkgs.writeShellScriptBin \"pnpm\" \"exit 0\";
+        mkPnpmPkg = { pkgs }: pkgs.writeShellScriptBin \"pnpm\" \"exit 0\";
       }) {
         pkgs = pkgs;
         lib = pkgs.lib;
@@ -95,6 +105,53 @@ eval_pnpm_package_count() {
       };
     in builtins.toString (builtins.length module.packages)
   "
+}
+
+# The repo pin is the SSOT for the pnpm CLI version, and the guard must exec it
+# by absolute store path (see cli-guard.nix ownership notes). This proves the
+# constructor contract end to end: the module builds the pinned package from
+# its own pkgs and renders that exact executable.
+eval_pnpm_guard_real_exec() {
+  nix eval --impure --raw --expr "
+    let
+      flake = builtins.getFlake \"$NIX_FLAKE_REF\";
+      pkgs = import flake.inputs.nixpkgs { system = builtins.currentSystem; };
+      module = (import $ROOT/nix/devenv-modules/tasks/shared/pnpm.nix {
+        packages = [ ];
+        mkPnpmPkg = import $ROOT/nix/pnpm.nix;
+      }) {
+        pkgs = pkgs;
+        lib = pkgs.lib;
+        config = { devenv.root = \"$workspace\"; };
+      };
+      lines = builtins.filter (line:
+        builtins.isString line && builtins.match \".*exec /nix/store/.*/bin/pnpm .*\" line != null
+      ) (builtins.split \"\n\" (builtins.head module.packages).text);
+    in builtins.concatStringsSep \"|\" lines
+  "
+}
+
+# Evaluation regression guard: devenv resolves this module's `pkgs` argument
+# through `_module.args`, which is only available after the module list is
+# collected. Forcing the module attrset (what devenv does while collecting
+# `imports`) must therefore never force `pkgs` — otherwise evaluation recurses
+# (`error: infinite recursion`, see devenv.nix `mkPnpmPkg`). A throwing `pkgs`
+# makes any such force a hard, legible failure.
+eval_module_attrs_with_poisoned_pkgs() {
+  nix-instantiate --eval --json --expr "
+    let
+      flake = builtins.getFlake \"$NIX_FLAKE_REF\";
+      pkgs = import flake.inputs.nixpkgs { system = builtins.currentSystem; };
+      module = (import $ROOT/nix/devenv-modules/tasks/shared/pnpm.nix {
+        packages = [ ];
+        mkPnpmPkg = { pkgs }: pkgs.writeShellScriptBin \"pnpm\" \"exit 0\";
+      }) {
+        pkgs = throw \"pnpm.nix forced its pkgs module argument during module collection\";
+        lib = pkgs.lib;
+        config = { devenv.root = \"$workspace\"; };
+      };
+    in builtins.attrNames module
+  " | jq -r 'sort | join(",")'
 }
 
 eval_versioned_lock_mutator() {
@@ -136,48 +193,6 @@ eval_unversioned_lock_mutator() {
   "
 }
 
-extract_shared_task_script() {
-  local module_path="$1"
-  local task_name="$2"
-  local package_path="$3"
-  local package_name="$4"
-  local output_path="$5"
-
-  nix-instantiate --eval --strict --json --expr "
-    let
-      flake = builtins.getFlake \"$NIX_FLAKE_REF\";
-      pkgs = import flake.inputs.nixpkgs { system = builtins.currentSystem; };
-      pkgsForTest = pkgs // {
-        writeText = name: text: builtins.toFile name text;
-      };
-      lib = pkgs.lib;
-      evaluated = lib.evalModules {
-        modules = [
-          ({ ... }: {
-            options.tasks = lib.mkOption { type = lib.types.attrsOf lib.types.anything; default = { }; };
-            options.processes = lib.mkOption { type = lib.types.attrsOf lib.types.anything; default = { }; };
-            options.packages = lib.mkOption { type = lib.types.listOf lib.types.anything; default = [ ]; };
-          })
-          ((import $ROOT/${module_path} {
-            packages = [
-              {
-                path = \"$package_path\";
-                name = \"$package_name\";
-                port = 6006;
-              }
-            ];
-          }) {
-            pkgs = pkgsForTest;
-            lib = lib;
-            config = { };
-          })
-        ];
-      };
-    in evaluated.config.tasks.\"${task_name}\".exec
-  " | jq -r . > "$output_path"
-  chmod +x "$output_path"
-}
-
 rewrite_unrealized_tool_paths() {
   local script_path="$1"
 
@@ -204,8 +219,19 @@ trap 'if [ "${KEEP_PNPM_SMOKE_TMP:-0}" = "1" ]; then echo "pnpm smoke tmp: $tmpd
 workspace="$tmpdir/workspace"
 mkdir -p "$workspace/.devenv/task-cache" "$workspace/.pnpm-home-a/store/v11" "$workspace/.pnpm-home-b/store/v11" "$tmpdir/bin" "$workspace/packages/demo/node_modules/.bin" "$workspace/nested/pkg"
 
-echo "Preflight: pnpmPkg is exec-only guard backing, not a profile package"
+echo "Preflight: module collection does not force the pkgs module argument"
+assert_eq "enterShell,packages,tasks" "$(eval_module_attrs_with_poisoned_pkgs)" "pnpm module attrset must be forceable without pkgs"
+
+echo "Preflight: mkPnpmPkg backs an exec-only guard, not a profile package"
 assert_eq 1 "$(eval_pnpm_package_count)" "pnpm module packages should contain the pnpm guard only"
+
+echo "Preflight: the guard execs the repo-pinned pnpm by absolute store path"
+guard_exec="$(eval_pnpm_guard_real_exec)"
+grep -qE '^  exec /nix/store/[^ ]*-pnpm-11\.8\.0/bin/pnpm "\$@"$' <<< "$guard_exec" || {
+  echo "FAIL: pnpm guard should exec the pinned pnpm 11.8.0"
+  echo "  actual: $guard_exec"
+  exit 1
+}
 
 cat > "$workspace/package.json" <<'EOF'
 {"name":"smoke-workspace","private":true}
@@ -344,6 +370,11 @@ exit 0
 EOF
 chmod +x "$tmpdir/bin/genie"
 
+# The module renders genie by absolute path from geniePkg, so expose the shim
+# through a package-shaped directory instead of relying on PATH.
+mkdir -p "$tmpdir/fake-genie-pkg/bin"
+ln -sf "$tmpdir/bin/genie" "$tmpdir/fake-genie-pkg/bin/genie"
+
 cat > "$tmpdir/bin/flock" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -410,18 +441,6 @@ extract_task_script "$workspace" "exec" "$tmpdir/pnpm-install-impure-pm-on-fail.
 extract_task_script "$workspace" "exec" "$tmpdir/pnpm-install-impure-ignore-scripts.exec.sh" 'packages = [ "." ]; installFlags = [ "--config.ignore-scripts=false" ];' "pnpm:install"
 extract_task_script "$workspace" "exec" "$tmpdir/pnpm-install-impure-ignore-dep-scripts.exec.sh" 'packages = [ "." ]; installFlags = [ "--config.ignore-dep-scripts=false" ];' "pnpm:install"
 extract_task_script "$workspace" "exec" "$tmpdir/pnpm-install-impure-gvs.exec.sh" 'packages = [ "." ]; installFlags = [ "--config.enable-global-virtual-store=true" ];' "pnpm:install"
-extract_shared_task_script \
-  "nix/devenv-modules/tasks/shared/test.nix" \
-  "test:demo" \
-  "packages/demo" \
-  "demo" \
-  "$tmpdir/test-demo.exec.sh"
-extract_shared_task_script \
-  "nix/devenv-modules/tasks/shared/storybook.nix" \
-  "storybook:build:demo" \
-  "packages/demo" \
-  "demo" \
-  "$tmpdir/storybook-demo.exec.sh"
 rewrite_unrealized_tool_paths "$tmpdir/pnpm-install.exec.sh"
 rewrite_unrealized_tool_paths "$tmpdir/pnpm-install.status.sh"
 rewrite_unrealized_tool_paths "$tmpdir/pnpm-doctor.exec.sh"
@@ -446,8 +465,6 @@ rewrite_unrealized_tool_paths "$tmpdir/pnpm-install-impure-pm-on-fail.exec.sh"
 rewrite_unrealized_tool_paths "$tmpdir/pnpm-install-impure-ignore-scripts.exec.sh"
 rewrite_unrealized_tool_paths "$tmpdir/pnpm-install-impure-ignore-dep-scripts.exec.sh"
 rewrite_unrealized_tool_paths "$tmpdir/pnpm-install-impure-gvs.exec.sh"
-rewrite_unrealized_tool_paths "$tmpdir/test-demo.exec.sh"
-rewrite_unrealized_tool_paths "$tmpdir/storybook-demo.exec.sh"
 
 export PATH="$tmpdir/bin:$PATH"
 export TEST_PNPM_LOG="$tmpdir/pnpm.log"
@@ -521,7 +538,7 @@ echo "Test 2b: exec replaces a read-only cached generated contract snapshot"
   test -w "$workspace/.devenv/task-cache/pnpm-install/pnpm-install-contract.json"
 )
 
-echo "Test 2c: lockfile mutation entrypoints preserve the live topology policy"
+echo "Test 2c: lockfile mutation entrypoints stay lockfile-only, never realizing a topology"
 (
   cd "$workspace"
   export HOME="$tmpdir/home"
@@ -531,9 +548,16 @@ echo "Test 2c: lockfile mutation entrypoints preserve the live topology policy"
   : > "$tmpdir/flock.log"
   bash "$tmpdir/pnpm-update.exec.sh"
   bash "$tmpdir/pnpm-dedupe.exec.sh"
-  policy_flags="--config.confirmModulesPurge=false --ignore-scripts --config.side-effects-cache=false --config.verify-store-integrity=true --config.strict-store-pkg-content-check=true --child-concurrency=1 --network-concurrency=4 --config.enable-global-virtual-store=false --config.virtual-store-dir=node_modules/.pnpm --pm-on-fail=ignore"
-  grep -qxF "install --fix-lockfile $policy_flags --config.package-import-method=auto --config.store-dir=$tmpdir/home/.local/share/pnpm/store-shared-v1" "$tmpdir/pnpm-mutator.log"
-  grep -qxF "dedupe $policy_flags --config.package-import-method=auto --config.store-dir=$tmpdir/home/.local/share/pnpm/store-shared-v1" "$tmpdir/pnpm.log"
+  # Lock maintenance mutates pnpm-lock.yaml only: dependency realization
+  # belongs to Buck, so no live-topology flags (virtual store, import method)
+  # are passed and every mutation runs --lockfile-only.
+  policy_flags="--config.confirmModulesPurge=false --ignore-scripts --config.side-effects-cache=false --config.verify-store-integrity=true --config.strict-store-pkg-content-check=true --child-concurrency=1 --network-concurrency=4 --pm-on-fail=ignore"
+  grep -qxF "install --fix-lockfile --lockfile-only $policy_flags --config.store-dir=$tmpdir/home/.local/share/pnpm/store-shared-v1" "$tmpdir/pnpm-mutator.log"
+  grep -qxF "dedupe --lockfile-only $policy_flags --config.store-dir=$tmpdir/home/.local/share/pnpm/store-shared-v1" "$tmpdir/pnpm.log"
+  ! grep -qF -- "--config.package-import-method" "$tmpdir/pnpm-mutator.log"
+  ! grep -qF -- "--config.virtual-store-dir" "$tmpdir/pnpm-mutator.log"
+  ! grep -qF -- "--config.package-import-method" "$tmpdir/pnpm.log"
+  ! grep -qF -- "--config.virtual-store-dir" "$tmpdir/pnpm.log"
   test "$(grep -cFx 'flock -w 600 200' "$tmpdir/flock.log")" -eq 2
   test "$(grep -cFx 'flock -w 600 201' "$tmpdir/flock.log")" -eq 2
   test "$(grep -cFx 'flock --shared -w 600 202' "$tmpdir/flock.log")" -eq 2
@@ -1029,29 +1053,6 @@ echo "Test 27: Darwin CI install rejects SIGKILL even after apparent materializa
   test ! -f "$workspace/.devenv/task-cache/pnpm-install/install-state.hash"
 )
 
-echo "Test 28: generated test task runs vitest without pnpm exec"
-(
-  cd "$workspace/packages/demo"
-  # This asserts the resolve_package_bin path (vitest run directly, not `pnpm
-  # exec`), which is orthogonal to the otel-scrape command instrumentation
-  # (decision 0018). With otel-scrape on PATH the vitest adapter would wrap the
-  # bin and inject its `--reporter=json` side-channel (decision 0017), changing
-  # the shim's echoed argv. OTEL_SCRAPE_ENABLED=0 collapses trace.instr's arrays
-  # to empty, so this also proves the shared-module transparency contract: with
-  # instrumentation disabled the concrete command runs completely unchanged
-  # (the fixed `--testTimeout`/`--hookTimeout` flags are part of the base vitest
-  # invocation, not instrumentation, so they still appear).
-  output="$(OTEL_SCRAPE_ENABLED=0 bash "$tmpdir/test-demo.exec.sh")"
-  [ "$output" = "vitest-shim:run --testTimeout 30000 --hookTimeout 30000" ]
-)
-
-echo "Test 29: generated storybook task runs storybook without pnpm exec"
-(
-  cd "$workspace/packages/demo"
-  output="$(bash "$tmpdir/storybook-demo.exec.sh")"
-  [ "$output" = "storybook-shim:build" ]
-)
-
 echo "Test 30: clean removes only root-owned topology and leaves shared content intact"
 (
   cd "$workspace"
@@ -1111,8 +1112,8 @@ EOF
   bash "$tmpdir/pnpm-update.exec.sh"
   grep -qxF -- "--defer-validation" "$tmpdir/genie.log"
   grep -qxF -- "--check" "$tmpdir/genie.log"
-  policy_flags="--config.confirmModulesPurge=false --ignore-scripts --config.side-effects-cache=false --config.verify-store-integrity=true --config.strict-store-pkg-content-check=true --child-concurrency=1 --network-concurrency=4 --config.enable-global-virtual-store=false --config.virtual-store-dir=node_modules/.pnpm --pm-on-fail=ignore"
-  grep -qxF "install --fix-lockfile $policy_flags --config.package-import-method=auto --config.store-dir=$tmpdir/home/.local/share/pnpm/store-shared-v1" "$tmpdir/pnpm-mutator.log"
+  policy_flags="--config.confirmModulesPurge=false --ignore-scripts --config.side-effects-cache=false --config.verify-store-integrity=true --config.strict-store-pkg-content-check=true --child-concurrency=1 --network-concurrency=4 --pm-on-fail=ignore"
+  grep -qxF "install --fix-lockfile --lockfile-only $policy_flags --config.store-dir=$tmpdir/home/.local/share/pnpm/store-shared-v1" "$tmpdir/pnpm-mutator.log"
   grep -qF "hasBin: true" pnpm-lock.yaml
 )
 

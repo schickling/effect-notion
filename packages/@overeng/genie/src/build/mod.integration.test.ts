@@ -79,9 +79,20 @@ const decodeChunks = (chunks: ReadonlyArray<Uint8Array>): string => {
   return new TextDecoder().decode(merged)
 }
 
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+const bunBin = requireTool('BUN_BIN')
+const gitBin = requireTool('GIT_BIN')
+
 const runGenie = Effect.fnUntraced(function* (env: TestEnv, args: ReadonlyArray<string>) {
   const cliPath = new URL('../../bin/genie.tsx', import.meta.url).pathname
-  const command = Command.make('bun', [cliPath, '--cwd', env.root, ...args], {
+  const command = Command.make(bunBin, [cliPath, '--cwd', env.root, ...args], {
     cwd: env.root,
     stdout: 'pipe',
     stderr: 'pipe',
@@ -444,7 +455,7 @@ export default {
             // Run genie with --cwd pointing to the SYMLINK path
             // This is the scenario that previously caused the bug
             const cliPath = new URL('./mod.ts', import.meta.url).pathname
-            const command = Command.make('bun', [cliPath, '--cwd', symlinkPath], {
+            const command = Command.make(bunBin, [cliPath, '--cwd', symlinkPath], {
               cwd: symlinkPath,
               stdout: 'pipe',
               stderr: 'pipe',
@@ -511,7 +522,7 @@ export default {
 export default { data: {}, stringify: () => '{}' }`,
             })
 
-            const init = Command.make('git', ['init', '-q'], {
+            const init = Command.make(gitBin, ['init', '-q'], {
               cwd: env.root,
               stdout: 'pipe',
               stderr: 'pipe',
@@ -619,7 +630,7 @@ export default {
 
             const outerRoot = pathSvc.join(env.root, 'outer')
             const cliPath = new URL('./mod.ts', import.meta.url).pathname
-            const command = Command.make('bun', [cliPath, '--cwd', outerRoot], {
+            const command = Command.make(bunBin, [cliPath, '--cwd', outerRoot], {
               cwd: outerRoot,
               stdout: 'pipe',
               stderr: 'pipe',

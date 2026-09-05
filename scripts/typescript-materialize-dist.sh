@@ -10,10 +10,10 @@ root="$(cd "$1" && pwd -P)"
 package_path="$2"
 target="$3"
 declaration_entrypoint="$4"
-project="$5"
+# $5 (PROJECT) is retained for the manifest-driven invocation arity; Buck owns
+# the declaration emit, so this script never runs a compiler itself.
 package_dir="$root/$package_path"
 dist="$package_dir/dist"
-mode="${TYPESCRIPT_DIST_MODE:?TYPESCRIPT_DIST_MODE must be publish or check}"
 staging_root="$(mktemp -d "$package_dir/.dist-buck2.XXXXXX")"
 staging="$staging_root/dist"
 cleanup_staging() {
@@ -40,43 +40,13 @@ validate_dist() {
   fi
 }
 
-case "$mode" in
-  publish)
-    : "${BUCK2_BIN:?BUCK2_BIN must name the Buck2 executable}"
-    : "${WORKSPACE_ROOT:?WORKSPACE_ROOT must name the synthesized composition root}"
-    (
-      cd "$WORKSPACE_ROOT"
-      "$BUCK2_BIN" build "$target" --out "$staging"
-    )
-    validate_dist "$staging" "Buck target $target"
-    ;;
-  check)
-    : "${TSGO_BIN:?TSGO_BIN must name the tsgo executable}"
-    : "${DIFF_BIN:?DIFF_BIN must name the diff executable}"
-    (
-      cd "$package_dir"
-      "$TSGO_BIN" \
-        --project "$project" \
-        --outDir "$staging" \
-        --noEmit false \
-        --composite false \
-        --incremental false \
-        --pretty false
-    )
-    validate_dist "$staging" "Standalone declaration check for $package_path"
-    validate_dist "$dist" "Published $package_path dist"
-    if ! "$DIFF_BIN" --no-dereference --recursive --brief \
-      --exclude='*.js' --exclude='*.map' --exclude=tsconfig.tsbuildinfo "$staging" "$dist"; then
-      echo "Published $package_path dist is stale; materialize it from a synthesized composition root" >&2
-      exit 1
-    fi
-    exit 0
-    ;;
-  *)
-    echo "TYPESCRIPT_DIST_MODE must be publish or check, got: $mode" >&2
-    exit 2
-    ;;
-esac
+: "${BUCK2_BIN:?BUCK2_BIN must name the Buck2 executable}"
+: "${WORKSPACE_ROOT:?WORKSPACE_ROOT must name the synthesized composition root}"
+(
+  cd "$WORKSPACE_ROOT"
+  "$BUCK2_BIN" build "$target" --out "$staging"
+)
+validate_dist "$staging" "Buck target $target"
 
 had_dist=false
 if [ -e "$dist" ] || [ -L "$dist" ]; then

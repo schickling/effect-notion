@@ -59,6 +59,34 @@ describe('normalizeCliOutput', () => {
     })
   })
 
+  describe('modulePaths', () => {
+    it('masks a pnpm virtual-store install prefix down to the package-relative path', () => {
+      const input =
+        'at <anonymous> (/repo/node_modules/.pnpm/effect@4.0.0/node_modules/effect/dist/cli.js:10:3)'
+      expect(normalizeCliOutput({ input, modulePaths: true })).toBe(
+        'at <anonymous> (<node_modules>/effect/dist/cli.js:10:3)',
+      )
+    })
+
+    it('masks a build-system dependency view to the same package-relative path', () => {
+      const input =
+        'at <anonymous> (/out/deps/__entry_effect_4_0_0_abcdef__/entry/node_modules/effect/dist/cli.js:10:3)'
+      expect(normalizeCliOutput({ input, modulePaths: true })).toBe(
+        'at <anonymous> (<node_modules>/effect/dist/cli.js:10:3)',
+      )
+    })
+
+    it('leaves paths outside a dependency install untouched when enabled', () => {
+      const input = 'at /repo/packages/x/src/a.ts:1:2'
+      expect(normalizeCliOutput({ input, modulePaths: true })).toBe(input)
+    })
+
+    it('preserves dependency install prefixes when disabled', () => {
+      const input = 'at /repo/node_modules/effect/dist/cli.js:10:3'
+      expect(normalizeCliOutput({ input })).toBe(input)
+    })
+  })
+
   describe('local-source suffix', () => {
     it('is masked unconditionally, including under an empty policy', () => {
       const input = 'genie v4.0.0 — running from local source (/repo/packages/@overeng/genie)'

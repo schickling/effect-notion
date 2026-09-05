@@ -25,10 +25,10 @@
 #   The port specified in the package config is the base port; if unavailable,
 #   devenv will automatically find the next available port.
 {
+  targets ? [ ],
   packages ? [ ],
+  legacy ? false,
   installTask ? "pnpm:install",
-  # Additional install tasks that must complete before storybook builds
-  # (e.g. cross-repo workspace deps: [ "pnpm:install:effect-utils" ])
   extraInstallTasks ? [ ],
 }:
 {
@@ -44,12 +44,18 @@ let
     builtins.readFile ./pnpm-task-helpers.sh
   );
   hasPackages = packages != [ ];
+  buckCommand = label: ''
+    root="''${DEVENV_ROOT:-$PWD}"
+    workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
+    "$workspace_root/.megarepo/bin/buck2" ${label}
+  '';
 
   mkBuildTask = pkg: {
     "storybook:build:${pkg.name}" = {
       description = "Build storybook for ${pkg.name}";
       exec = trace.exec "storybook:build:${pkg.name}" ''
         set -euo pipefail
+        export PNPM_LEGACY_NODE_MODULES=1
         source ${lib.escapeShellArg pnpmTaskHelpersScript}
         run_package_bin storybook storybook build
       '';
@@ -76,6 +82,7 @@ let
       ports.http.allocate = pkg.port;
       exec = trace.exec "process:${processName pkg}" ''
         export DEVENV_TASK_PASSTHROUGH=1
+        export PNPM_LEGACY_NODE_MODULES=1
         _host="''${TS_HOSTNAME:-localhost}"
         echo "[storybook] ${pkg.name}: http://$_host:${toString (getAllocatedPort pkg)}"
         source ${lib.escapeShellArg pnpmTaskHelpersScript}
@@ -85,20 +92,61 @@ let
     };
   };
 
+  mkBuckBuildTask = target: {
+    "storybook:build:${target.name}" = {
+      description = "Build storybook for ${target.name} through Buck";
+      after = target.after or [ ];
+      exec = trace.exec "storybook:build:${target.name}" ''
+        set -euo pipefail
+        ${buckCommand "build ${lib.escapeShellArg target.buildLabel}"}
+      '';
+    };
+  };
+  mkBuckProcess = target: {
+    "${processName target}" = {
+      ports.http.allocate = target.port;
+      exec = trace.exec "process:${processName target}" ''
+        set -euo pipefail
+        _host="''${TS_HOSTNAME:-localhost}"
+        _port=${toString (getAllocatedPort target)}
+        echo "[storybook] ${target.name}: http://$_host:$_port"
+        ${buckCommand "run ${lib.escapeShellArg target.devLabel} -- --port \"$_port\" --host 0.0.0.0 --no-open --ci --exact-port"}
+      '';
+    };
+  };
 in
+assert lib.assertMsg (
+  legacy || targets != [ ]
+) "storybook.nix Buck mode requires at least one explicit target";
 {
-  tasks = lib.mkMerge (
-    (if hasPackages then map (pkg: cliGuard.stripGuards (mkBuildTask pkg)) packages else [ ])
-    ++ [
-      (cliGuard.stripGuards {
-        "storybook:build" = {
-          description = "Build all storybooks";
-          exec = null;
-          after = if hasPackages then map (pkg: "storybook:build:${pkg.name}") packages else [ ];
-        };
-      })
-    ]
-  );
+  tasks =
+    if legacy then
+      lib.mkMerge (
+        (if hasPackages then map (pkg: cliGuard.stripGuards (mkBuildTask pkg)) packages else [ ])
+        ++ [
+          (cliGuard.stripGuards {
+            "storybook:build" = {
+              description = "Build all storybooks";
+              exec = null;
+              after = if hasPackages then map (pkg: "storybook:build:${pkg.name}") packages else [ ];
+            };
+          })
+        ]
+      )
+    else
+      lib.mkMerge (
+        (map mkBuckBuildTask targets)
+        ++ [
+          {
+            "storybook:build" = {
+              description = "Build all Buck-owned storybooks";
+              after = map (target: "storybook:build:${target.name}") targets;
+            };
+          }
+        ]
+      );
 
-  processes = lib.mkMerge (if hasPackages then map mkProcess packages else [ ]);
+  processes = lib.mkMerge (
+    if legacy then (if hasPackages then map mkProcess packages else [ ]) else map mkBuckProcess targets
+  );
 }

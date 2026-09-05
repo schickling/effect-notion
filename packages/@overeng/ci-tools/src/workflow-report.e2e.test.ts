@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
@@ -12,12 +13,24 @@ import {
   type WorkflowReportRecord,
 } from './mod.ts'
 
-const repoRoot = resolve(import.meta.dirname, '../../../..')
-const workflowReportBin = join(repoRoot, 'packages/@overeng/ci-tools/bin/ci-tools.ts')
+/* The CLI under test and its working directory are this package, resolved relative to this test
+ * module so both hold in a checkout and in a Buck package view alike. */
+const packageRoot = fileURLToPath(new URL('..', import.meta.url))
+const workflowReportBin = fileURLToPath(new URL('../bin/ci-tools.ts', import.meta.url))
+
+/** Reads one Buck-declared immutable tool path; nothing resolves through an ambient PATH. */
+const requireTool = (name: string): string => {
+  const tool = process.env[name]
+  if (tool === undefined || tool === '')
+    throw new Error(`declared test tool is unavailable: ${name}`)
+  return tool
+}
+
+const bunBin = requireTool('BUN_BIN')
 
 const runWorkflowReport = (args: readonly string[]) => {
-  const result = spawnSync('bun', [workflowReportBin, 'workflow-report', ...args], {
-    cwd: repoRoot,
+  const result = spawnSync(bunBin, [workflowReportBin, 'workflow-report', ...args], {
+    cwd: packageRoot,
     encoding: 'utf8',
     env: {
       ...process.env,

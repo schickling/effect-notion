@@ -47,6 +47,25 @@ assert_json_field() {
   assert_eq "$expected" "$actual" "$label"
 }
 
+# `flock` is not part of the declared shell-test tool PATH, and the Store Cache
+# lease helper takes the binary as an explicit argument exactly like pnpm.nix
+# passes `${pkgs.flock}/bin/flock`. Resolve the same pinned product here instead
+# of assuming an ambient one.
+resolve_flock_bin() {
+  if command -v flock >/dev/null 2>&1; then
+    command -v flock
+    return 0
+  fi
+
+  local flake_ref="${NIX_FLAKE_REF:-path:$ROOT}"
+  printf '%s/bin/flock\n' "$(nix build --no-link --print-out-paths --impure --expr "
+    (import (builtins.getFlake \"$flake_ref\").inputs.nixpkgs {
+      system = builtins.currentSystem;
+    }).flock
+  ")"
+}
+
+
 make_projection_fixture() {
   local root="$1"
   local with_dep="$2"
@@ -429,9 +448,28 @@ exit_code=$?
 set -e
 assert_exit_code 1 "$exit_code" "missing section hash should fail"
 
-echo "Test 17: resolve_package_bin prefers package-local .bin shims"
+echo "Test 17: resolve_package_bin refuses node_modules lookup without the legacy opt-in"
 bin_fixture="$test_dir/bin-fixture"
 make_bin_fixture "$bin_fixture"
+set +e
+refusal="$(PNPM_LEGACY_NODE_MODULES=0 resolve_package_bin fake-tool fake-tool "$bin_fixture" 2>&1 >/dev/null)"
+exit_code=$?
+set -e
+assert_exit_code 64 "$exit_code" "non-legacy package-bin lookup should fail with exit 64"
+case "$refusal" in
+  *"package-bin lookup through node_modules is legacy-only"*) ;;
+  *)
+    echo "FAIL: non-legacy package-bin lookup should explain the legacy-only contract"
+    echo "  actual: $refusal"
+    exit 1
+    ;;
+esac
+
+echo "Test 17b: resolve_package_bin prefers package-local .bin shims under the legacy opt-in"
+# Legacy node_modules bin resolution is opt-in only (managed tasks export this
+# exactly like test.nix's vitest exec does); the lookup contract below is what
+# those legacy consumers rely on.
+export PNPM_LEGACY_NODE_MODULES=1
 resolved_bin="$(resolve_package_bin fake-tool fake-tool "$bin_fixture")"
 expected_bin="$bin_fixture/node_modules/.bin/fake-tool"
 assert_eq \
@@ -455,6 +493,7 @@ assert_eq \
   "$expected_fallback_bin" \
   "$resolved_fallback_bin" \
   "resolve_package_bin falls back to the package bin file"
+unset PNPM_LEGACY_NODE_MODULES
 
 echo "Test 20: Projection health passes when symlinked package can resolve deps"
 healthy_dir="$test_dir/healthy"
@@ -689,7 +728,7 @@ echo "Test 34e: recognized legacy files bridge migrates in place under the stabl
   printf 'historical\n' > "$historical_pool/sentinel"
   printf 'stale\n' > "$shared_store/v11/index.db"
   ln -s "$historical_pool" "$shared_store/v11/files"
-  acquire_pnpm_store_cache_lease flock exclusive "$shared_store" 10
+  acquire_pnpm_store_cache_lease "$(resolve_flock_bin)" exclusive "$shared_store" 10
   lock_inode_before="$(stat -c %i "$shared_store/.effect-utils-pnpm-store-cache-maintenance.lock")"
   migrate_legacy_pnpm_store_cache "$shared_store" "$historical_pool"
   lock_inode_after="$(stat -c %i "$shared_store/.effect-utils-pnpm-store-cache-maintenance.lock")"

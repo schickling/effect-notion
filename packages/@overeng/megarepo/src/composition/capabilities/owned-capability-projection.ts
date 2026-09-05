@@ -11,6 +11,14 @@ import type {
   CompositionOwnedCapabilityProjectionPlan,
   CompositionOwnedCapabilityProjectionResult,
 } from '../apply/composition-apply-schema.ts'
+import {
+  assertCapabilityGcRoots,
+  capabilityGcRootsPath,
+  installCapabilityGcRoots,
+  reconcileCapabilityGcRoots,
+  removeCapabilityGcRootGeneration,
+  type CapabilityGcRootRuntime,
+} from './capability-gc-roots.ts'
 
 const execFile = promisify(execFileCallback)
 const generationPattern = /^[0-9a-f]{64}$/u
@@ -19,7 +27,13 @@ const generationPattern = /^[0-9a-f]{64}$/u
 export class OwnedCapabilityProjectionError extends Schema.TaggedError<OwnedCapabilityProjectionError>()(
   'OwnedCapabilityProjectionError',
   {
-    reason: Schema.Literals(['InvalidInput', 'CopyFailed', 'VerificationFailed', 'PublishFailed']),
+    reason: Schema.Literals([
+      'InvalidInput',
+      'CopyFailed',
+      'VerificationFailed',
+      'PublishFailed',
+      'GcRootFailed',
+    ]),
     path: Schema.String,
     message: Schema.String,
     cause: Schema.optional(Schema.Defect()),
@@ -30,6 +44,8 @@ export class OwnedCapabilityProjectionError extends Schema.TaggedError<OwnedCapa
 export interface OwnedCapabilityProjectionRuntime {
   readonly cpPath: string
   readonly mvPath: string
+  /** Pinned Nix identity used to register durable indirect GC roots for the installed outputs. */
+  readonly capabilityGcRoots: CapabilityGcRootRuntime
   readonly nonce?: () => string
   /** Deterministic race seam; production runtimes must not provide it. */
   readonly beforeCopy?: (capabilityParent: string) => Promise<void>
@@ -345,8 +361,56 @@ export const installOwnedCapabilityProjection = async ({
     }
   }
 
+  // Root the candidate's realizations before publishing. The installed generation keeps its own
+  // roots until the exchange succeeds, so a failed replacement can never strand the projection
+  // that stays installed. Re-running for an unchanged generation re-registers and re-verifies it.
+  const gcRootsPath = capabilityGcRootsPath({ ownedMemberPath })
+  try {
+    await installCapabilityGcRoots({
+      projectionPath: stage,
+      generation: projectionDigest,
+      gcRootsPath,
+      runtime: runtime.capabilityGcRoots,
+    })
+  } catch (cause) {
+    try {
+      if (currentGeneration !== projectionDigest) {
+        await removeCapabilityGcRootGeneration({ gcRootsPath, generation: projectionDigest })
+      }
+      await removeStage()
+    } catch {
+      // Never clean through a replaced parent path, and never drop the installed generation.
+    }
+    throw failure({
+      reason: 'GcRootFailed',
+      path: gcRootsPath,
+      message: 'Could not register durable Nix GC roots for the capability candidate',
+      cause,
+    })
+  }
+
+  const assertInstalledRoots = async (): Promise<void> => {
+    try {
+      await assertCapabilityGcRoots({
+        projectionPath: destination,
+        generation: projectionDigest,
+        gcRootsPath,
+        runtime: runtime.capabilityGcRoots,
+      })
+    } catch (cause) {
+      throw failure({
+        reason: 'GcRootFailed',
+        path: destination,
+        message: 'Installed owned capability projection is not durably rooted',
+        cause,
+      })
+    }
+  }
+
   if (currentGeneration === projectionDigest) {
     await removeStage()
+    await assertInstalledRoots()
+    await reconcileCapabilityGcRoots({ gcRootsPath, keepGeneration: projectionDigest })
     return { memberKey, projectionPath: destination, projectionDigest, changed: false }
   }
 
@@ -386,6 +450,15 @@ export const installOwnedCapabilityProjection = async ({
         // Preserve both trees for explicit recovery when rollback cannot be proven.
       }
     }
+    try {
+      const installedGeneration = await readGeneration({
+        projectionPath: destination,
+        expectedParent: capabilityParentIdentity.realpath,
+      })
+      await reconcileCapabilityGcRoots({ gcRootsPath, keepGeneration: installedGeneration })
+    } catch {
+      // Keep every candidate root when the installed generation cannot be proven.
+    }
     throw failure({
       reason: 'PublishFailed',
       path: destination,
@@ -395,5 +468,7 @@ export const installOwnedCapabilityProjection = async ({
   }
 
   await removeStage()
+  await assertInstalledRoots()
+  await reconcileCapabilityGcRoots({ gcRootsPath, keepGeneration: projectionDigest })
   return { memberKey, projectionPath: destination, projectionDigest, changed: true }
 }

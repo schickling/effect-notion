@@ -58,6 +58,57 @@ Runtime is a tagged union whose fields and inspection contract depend on
 `kind`; acceptance of a descriptor kind does not imply an importer exists for
 it.
 
+## Strict JavaScript Specialization
+
+`effect-utils/javascript-product/v2` is the strict platform-invariant
+JavaScript specialization of this boundary. It carries one bundled module
+instead of a tar payload. Its exact fields are:
+
+```json
+{
+  "schema": "effect-utils/javascript-product/v2",
+  "productName": "fixture-tool",
+  "productKind": "cli",
+  "modulePath": "fixture-tool.js",
+  "sizeBytes": 123,
+  "integrity": "sha256-...=",
+  "platform": { "os": "any", "architecture": "any", "abi": "any" },
+  "runtimeKind": "node",
+  "runtimeContract": "javascript-esm",
+  "runtimeContractVersion": "v1",
+  "externalModules": [],
+  "externalCapabilities": [],
+  "target": "//fixtures:fixture-tool-candidate",
+  "provenance": {
+    "configuredTarget": "...",
+    "dependencyClosureIdentity": "...",
+    "module": "..."
+  }
+}
+```
+
+The `any` platform tuple is a positive claim of platform invariance. Acceptance
+requires the same module and descriptor SHA-256 digests from Linux x86_64,
+Linux ARM64, and Darwin ARM64 builds. A real Buck
+`javascript_portable` target platform selects this tuple; the producer does not
+substitute the host platform or omit platform configuration.
+
+The independently tracked import expectation contains the descriptor SHA-256,
+module SHA-256, product name, product kind, runtime contract, runtime contract
+version, and exact external module and capability sets. Nix verifies all of
+these fields, module size, module integrity, and a safe relative module path
+before it produces the store result. Producer store paths and configured-target
+hashes are provenance only and do not authorize import.
+
+The producer leaves a platform-gated native package external. Nix grafts a
+native package only when its package name and capability are present in both
+the descriptor and the consumer's independent exact expectation. The importer
+never invokes Buck or falls back to repository source.
+
+The JavaScript module is copied read-only into the Nix result. The wrapper uses
+only the declared runtime, exact native package links, explicit environment,
+and explicit `PATH` packages.
+
 ## Import Sequence
 
 1. Validate the exact descriptor schema and canonical descriptor digest.
@@ -80,3 +131,10 @@ The contract suite must include successful canonicalization/import and negative
 mutations for unknown and missing fields, alternate digest encodings, unsafe
 paths and archives, byte-size and digest mismatch, platform mismatch, runtime
 descriptor mismatch, unsupported runtime kind, and inspector failure.
+
+The JavaScript specialization additionally proves checkout- and scratch-path
+independence, target-aware runtime builtins, realpath-closed hardlink
+materialization, exact external module and capability sets, hostile module
+paths, descriptor and module digest mismatch, size and integrity mismatch,
+portable-platform enforcement, native-package exclusion, and byte identity on
+all three supported platform triples.

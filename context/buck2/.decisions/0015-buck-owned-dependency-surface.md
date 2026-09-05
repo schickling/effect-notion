@@ -128,3 +128,24 @@ lockfile-derived declared closure. Amendment 1's cutover gate items (1) and (2)
 are moot under the new mechanism; item (3), the real-editor soak, stands. The
 Consequences line requiring an explicit same-filesystem `--store-dir` no longer
 applies: there is no ambient store.
+
+## Amendment 4
+
+Date: 2026-09-04. The editor-surface cutover is absorbed into the single
+whole-repository authority flip of
+[decision 0030](./0030-normalized-store-scc-and-atomic-cutover.md) Amendment 1.
+Amendment 1's item (3), the real-editor soak, has passed; the remaining
+condition is no longer "whole-required-consumer coverage of the dependency
+surface" as a separate Phase-4 event but whole-repository consumer, editor, and
+tool coverage flipped at once, with the root install and its task edges deleted
+in that change. The authority claim of the Decision is unchanged.
+
+The inner-loop parity argument that motivated the symlink forest is now
+discharged by a mechanism rather than by the root install: a Buck watch loop
+rebuilds the affected admitted closure and republishes the affected byte-owned
+editor snapshots atomically (decision 0030 Amendment 1 item 5). The Decision's
+reason for local placement is retired — decision 0022 removed the ambient store
+and Amendment 2 falsified the non-portability premise — but placement stays
+local because true remote execution is unproven: `remote_enabled` remains false
+pending 03-materialization DQ3, which decision 0030 Amendment 1 puts out of
+scope for this cutover.

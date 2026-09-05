@@ -16,10 +16,23 @@ import { fileURLToPath } from 'node:url'
 
 import { canonicalizePath } from './real-path.ts'
 
+/**
+ * How one package view obtains its `node_modules` boundary.
+ *
+ * `copy` is the legacy per-importer closure projection: every dependency byte
+ * is duplicated into the package tree. `link` is the normalized-store form: the
+ * view owns only package sources and workspace dist boundaries and reaches its
+ * dependencies through one relative link to a metadata-only importer view.
+ */
+export type PackageTreeDependencies =
+  | { readonly kind: 'empty' }
+  | { readonly kind: 'copy'; readonly path: string }
+  | { readonly kind: 'link'; readonly path: string }
+
 /** Explicit inputs and destination for one immutable Buck package-tree projection. */
 export type PackageTreeOptions = {
   readonly output: string
-  readonly nodeModules: string
+  readonly dependencies: PackageTreeDependencies
   readonly files: ReadonlyMap<string, string>
   readonly workspaceFiles: ReadonlyMap<string, string>
   readonly workspaceLinks: ReadonlyMap<string, string>
@@ -76,7 +89,7 @@ const setUnique = ({
 
 const parseOptions = (args: readonly string[]): PackageTreeOptions => {
   let output: string | undefined
-  let nodeModules: string | undefined
+  let dependencies: PackageTreeDependencies | undefined
   const files = new Map<string, string>()
   const workspaceFiles = new Map<string, string>()
   const workspaceLinks = new Map<string, string>()
@@ -98,13 +111,22 @@ const parseOptions = (args: readonly string[]): PackageTreeOptions => {
     }
     const value = requireValue({ args, index: index + 1, flag })
     if (flag === '--output' && output === undefined) output = value
-    else if (flag === '--node-modules' && nodeModules === undefined) nodeModules = value
+    else if (flag === '--empty-node-modules' && dependencies === undefined && value === 'true')
+      dependencies = { kind: 'empty' }
+    else if (flag === '--node-modules' && dependencies === undefined)
+      dependencies = { kind: 'copy', path: value }
+    else if (flag === '--dependency-view' && dependencies === undefined)
+      dependencies = { kind: 'link', path: value }
     else invalidArguments(`unexpected argument: ${flag}`)
     index += 2
   }
   return {
-    output: output ?? invalidArguments('missing --output or --node-modules'),
-    nodeModules: nodeModules ?? invalidArguments('missing --output or --node-modules'),
+    output: output ?? invalidArguments('missing --output'),
+    dependencies:
+      dependencies ??
+      invalidArguments(
+        'missing exactly one --empty-node-modules, --node-modules, or --dependency-view',
+      ),
     files,
     workspaceFiles,
     workspaceLinks,
@@ -127,7 +149,13 @@ const pathIsInside = ({
   )
 }
 
-const assertContainedSymlinks = (root: string): void => {
+const assertContainedSymlinks = ({
+  allow,
+  root,
+}: {
+  readonly allow: ReadonlySet<string>
+  readonly root: string
+}): void => {
   // Lexical targets are built from `root`, so they are compared against `root`;
   // `realpathSync` answers in the canonical namespace, so resolved targets are
   // compared against the canonical root. Comparing either against the other
@@ -149,6 +177,12 @@ const assertContainedSymlinks = (root: string): void => {
       if (isAbsolute(target) === true) {
         throw new Error(`package tree: unsafe symlink ${displayPath}: absolute target ${target}`)
       }
+      if (allow.has(path) === true) {
+        // A declared cross-artifact boundary: it must be relative and live, but
+        // it is meant to leave this tree, so containment does not apply.
+        statSync(path)
+        continue
+      }
       const lexicalDestination = resolve(dirname(path), target)
       if (pathIsInside({ root, candidate: lexicalDestination }) === false) {
         throw new Error(`package tree: unsafe symlink ${displayPath}: target escapes tree`)
@@ -158,14 +192,17 @@ const assertContainedSymlinks = (root: string): void => {
       try {
         resolvedDestination = realpathSync(path)
       } catch (error) {
-        if (
-          error instanceof Error &&
-          'code' in error &&
-          (error.code === 'ENOENT' || error.code === 'ENOTDIR' || error.code === 'ELOOP')
-        ) {
-          throw new Error(`package tree: unsafe symlink ${displayPath}: target is dangling`, {
-            cause: error,
-          })
+        if (error instanceof Error && 'code' in error) {
+          if (error.code === 'ELOOP') {
+            throw new Error(`package tree: unsafe symlink ${displayPath}: target is cyclic`, {
+              cause: error,
+            })
+          }
+          if (error.code === 'ENOENT' || error.code === 'ENOTDIR') {
+            throw new Error(`package tree: unsafe symlink ${displayPath}: target is dangling`, {
+              cause: error,
+            })
+          }
         }
         throw error
       }
@@ -229,7 +266,25 @@ export const assemblePackageTree = (options: PackageTreeOptions): void => {
   rmSync(output, { recursive: true, force: true })
   mkdirSync(output, { recursive: true })
   try {
-    cloneTree({ source: options.nodeModules, destination: join(output, 'node_modules') })
+    if (options.dependencies.kind === 'empty') {
+      mkdirSync(join(output, 'node_modules'))
+    } else if (options.dependencies.kind === 'copy') {
+      cloneTree({ source: options.dependencies.path, destination: join(output, 'node_modules') })
+    } else {
+      // The dependency view is a separate declared artifact, so this first hop
+      // deliberately leaves the package tree. It is the only outward link the
+      // containment check accepts, and it is relative so the pair relocates
+      // together.
+      const link = join(output, 'node_modules')
+      const relativeTarget = relative(output, resolve(options.dependencies.path))
+      if (isAbsolute(relativeTarget) === true || relativeTarget.length === 0) {
+        invalidArguments(
+          `dependency view cannot be represented as a relative path: ${options.dependencies.path}`,
+        )
+      }
+      symlinkSync(relativeTarget, link)
+      statSync(link)
+    }
     for (const [destination, source] of [...options.files, ...options.workspaceFiles]) {
       cloneTree({
         source,
@@ -250,7 +305,13 @@ export const assemblePackageTree = (options: PackageTreeOptions): void => {
       symlinkSync(relativeTarget, link)
       statSync(link)
     }
-    assertContainedSymlinks(output)
+    assertContainedSymlinks({
+      allow:
+        options.dependencies.kind === 'link'
+          ? new Set([join(output, 'node_modules')])
+          : new Set<string>(),
+      root: output,
+    })
   } catch (error) {
     rmSync(output, { recursive: true, force: true })
     throw error

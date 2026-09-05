@@ -23,6 +23,7 @@ const workspaceDeps = catalog.compose({
         ...peerDepNames,
         '@storybook/react',
         '@storybook/react-vite',
+        '@types/node',
         '@types/react',
         '@types/react-dom',
         '@vitejs/plugin-react',

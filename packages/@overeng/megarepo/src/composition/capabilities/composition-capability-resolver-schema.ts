@@ -43,12 +43,29 @@ export const CompositionCapabilityCommandSchema = Schema.Struct({
 }).annotate({ identifier: 'Megarepo.CompositionCapabilityCommand' })
 export type CompositionCapabilityCommand = typeof CompositionCapabilityCommandSchema.Type
 
-/** Manifest capability plus its exact Nix realization and executable identity. */
+/**
+ * Manifest capability plus its exact Nix realization, executable identity, and complete
+ * immutable runtime closure.
+ *
+ * `closureStorePaths` is the transitive `/nix/store` requisite set of the realization: exactly
+ * the paths a sandboxed action may read, sorted and including `nixOutputPath` itself.
+ */
 export const ResolvedCompositionCapabilitySchema = Schema.Struct({
   capability: BuckMemberCapabilitySchema,
   nixOutputPath: AbsolutePath,
   executablePath: AbsolutePath,
   executableDigest: Sha256Digest,
+  closureStorePaths: Schema.Array(AbsolutePath).check(
+    Schema.makeFilter<ReadonlyArray<string>>((value) =>
+      value.length === 0
+        ? 'Expected at least one closure store path'
+        : value.every((path) => /^\/nix\/store\/[^/]+(?:\/.*)?$/u.test(path)) === false
+          ? 'Expected every closure path below /nix/store'
+          : value.every((path, index) => index === 0 || path > value[index - 1]!) === false
+            ? 'Expected strictly sorted unique closure store paths'
+            : undefined,
+    ),
+  ),
 }).annotate({ identifier: 'Megarepo.ResolvedCompositionCapability' })
 export type ResolvedCompositionCapability = typeof ResolvedCompositionCapabilitySchema.Type
 

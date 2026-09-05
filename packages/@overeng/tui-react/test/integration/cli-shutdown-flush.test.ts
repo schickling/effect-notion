@@ -89,14 +89,17 @@ const program = (args: { baseUrl: string; capMs: number; onWorkDone: () => void 
     yield* Effect.sync(args.onWorkDone)
   }).pipe(Effect.scoped)
 
-// The interrupt branch mutates the global `process.exitCode`; isolate it.
+// `runTuiMain` forwards an app-level `process.exitCode` (the channel
+// `createTuiApp`'s `exitCode` mapper writes) on the success path, so pin a clean
+// baseline. Assigning `undefined` is a no-op on Bun — which runs these workers
+// under Buck — so use 0, the equivalent "nothing to report" value.
 let savedExitCode: typeof process.exitCode
 beforeEach(() => {
   savedExitCode = process.exitCode
-  process.exitCode = undefined
+  process.exitCode = 0
 })
 afterEach(() => {
-  process.exitCode = savedExitCode
+  process.exitCode = savedExitCode ?? 0
 })
 
 describe('runTuiMain shutdown-flush + exit-code contract', () => {
@@ -121,16 +124,18 @@ describe('runTuiMain shutdown-flush + exit-code contract', () => {
 
   it('a signal-interrupted CLI exits 130, not 0 (and bails fast)', async () => {
     // `Effect.interrupt` produces a pure interrupt cause deterministically — the
-    // same shape platform-node raises on SIGINT — so the wrapper's interrupt
-    // branch sets `process.exitCode = 130` and the custom teardown honors it
-    // (the default teardown would force 0). Interruptibility of the flush itself
-    // is the exporter's concern, covered by the @overeng/utils / @overeng/megarepo
-    // otel tests against the real OTLP exporter.
+    // same shape platform-node raises on SIGINT — so the wrapper leaves it in the
+    // fiber Exit and the teardown maps interrupts-only to 130. Interruptibility of
+    // the flush itself is the exporter's concern, covered by the @overeng/utils /
+    // @overeng/megarepo otel tests against the real OTLP exporter.
     const { runtime, exited, getExitCode } = makeFakeRuntime()
     const start = performance.now()
     runTuiMain(runtime, Effect.interrupt)
     await exited
     expect(getExitCode()).toBe(130)
+    // The 130 comes from the Exit, not from a global side effect — a mutated
+    // `process.exitCode` would leak into every later run in this process.
+    expect(process.exitCode).toBe(0)
     expect(performance.now() - start).toBeLessThan(1000)
   })
 

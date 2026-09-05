@@ -4,11 +4,26 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/runtime/mod.ts",
-    "./cli": "./src/build/mod.tsx",
-    "./composition": "./src/runtime/composition/mod.ts",
-    "./node": "./src/runtime/node/mod.ts",
-    "./sdk": "./src/sdk/mod.ts"
+    ".": {
+      "types": "./dist/src/runtime/mod.d.ts",
+      "default": "./src/runtime/mod.ts"
+    },
+    "./cli": {
+      "types": "./dist/src/build/mod.d.ts",
+      "default": "./src/build/mod.tsx"
+    },
+    "./composition": {
+      "types": "./dist/src/runtime/composition/mod.d.ts",
+      "default": "./src/runtime/composition/mod.ts"
+    },
+    "./node": {
+      "types": "./dist/src/runtime/node/mod.d.ts",
+      "default": "./src/runtime/node/mod.ts"
+    },
+    "./sdk": {
+      "types": "./dist/src/sdk/mod.d.ts",
+      "default": "./src/sdk/mod.ts"
+    }
   },
   "publishConfig": {
     "access": "public",

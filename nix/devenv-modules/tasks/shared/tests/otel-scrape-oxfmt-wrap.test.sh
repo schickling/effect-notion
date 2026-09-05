@@ -111,6 +111,9 @@ extract_format_exec() {
       flake = builtins.getFlake \"$NIX_FLAKE_REF\";
       pkgs = import flake.inputs.nixpkgs { system = builtins.currentSystem; };
       oxfmtPkg = builtins.getEnv \"TEST_FAKE_OXFMT_PKG\";
+      # lint-oxc.nix requires an explicit packaged Genie product; the format exec
+      # never touches it, so a stub keeps this test hermetic.
+      geniePkg = pkgs.writeShellScriptBin \"genie\" \"exit 0\";
       evaluated = pkgs.lib.evalModules {
         modules = [
           ({ ... }: {
@@ -123,6 +126,7 @@ extract_format_exec() {
             geniePatterns = [ ];
             genieCoverageDirs = [ \".\" ];
             oxfmtPkg = oxfmtPkg;
+            geniePkg = geniePkg;
           }) {
             pkgs = pkgs;
             lib = pkgs.lib;

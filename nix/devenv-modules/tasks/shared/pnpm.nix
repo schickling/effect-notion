@@ -1,14 +1,13 @@
-# pnpm install tasks
+# pnpm lock maintenance tasks
 #
-# effect-utils now uses a repo-root pnpm workspace for dev installs.
-# The repo-root pnpm-lock.yaml is the only authoritative lockfile for this
-# live-worktree model.
+# The authoritative pnpm-lock.yaml remains developer-maintained, while runtime
+# dependency realization belongs to Buck. The old live node_modules tasks are
+# available only through enableLegacyInstall for downstream migrations.
 #
-# Provides:
-# - pnpm:install
+# Provides by default:
+# - pnpm:check-lockfile
 # - pnpm:update
 # - pnpm:dedupe
-# - pnpm:clean
 # - pnpm:reset-lock-files
 {
   packages,
@@ -18,27 +17,33 @@
   globalCache ? true,
   frozenInCi ? true,
   installFlags ? [ ],
+  # The live root node_modules realization is retired by default. Downstream
+  # repositories that have not admitted their consumers to Buck must opt in.
+  enableLegacyInstall ? false,
+  legacyAmbientPnpm ? false,
   # Canonical package-source directories consumed from outside this
   # Materialization Root. Each path is staged once under root-owned `.devenv`
   # state before pnpm realizes Package Instances from it.
   sourceInputPaths ? [ ],
   preInstall ? "",
-  # Root-owned immutable projections that must be part of the authoritative
-  # materialized topology. Runs after pnpm and its base health oracle, before
-  # the projection digest is committed.
   postInstallProjection ? "",
   installAfter ? [ ],
   updateAfter ? [ ],
   dedupeAfter ? [ ],
   cleanAfter ? [ ],
   resetLockFilesAfter ? [ ],
-  # Real derivation/path backing the `pnpm` guard. When set, the guard owns
-  # `bin/pnpm` and exec's this by absolute path under passthrough (see
-  # cli-guard.nix).
-  pnpmPkg ? null,
-  # Dedicated binary allowed to rewrite pnpm-lock.yaml. The default is pinned
-  # independently from the current runtime pnpm because affected pnpm 11
-  # releases strip executable metadata under --fix-lockfile.
+  # Explicit package-manager and generated-file CLI products.
+  #
+  # `mkPnpmPkg` is a *constructor* (`{ pkgs }: derivation`), not a built
+  # derivation. Callers are devenv modules whose own `pkgs` is only available
+  # through `_module.args`; building the package in the caller's `let` and
+  # passing the derivation would force `_module.args.pkgs` while devenv is
+  # still collecting module `imports`, which is an evaluation recursion.
+  # Passing the constructor keeps the pinned package construction inside this
+  # module, where it is applied to this module's own `pkgs` lazily.
+  mkPnpmPkg ? null,
+  geniePkg ? null,
+  # Dedicated binary allowed to rewrite pnpm-lock.yaml.
   pnpmLockMutatorPkg ? null,
 }:
 {
@@ -50,6 +55,9 @@
 let
   trace = import ../lib/trace.nix { inherit lib; };
   cliGuard = import ../lib/cli-guard.nix { inherit pkgs; };
+  # Applied with this module's own `pkgs`; only forced when `packages` is
+  # evaluated, never while the enclosing module list is being collected.
+  pnpmPkg = if mkPnpmPkg == null then null else mkPnpmPkg { inherit pkgs; };
   cache = import ../lib/cache.nix { inherit config; };
   workspaceCacheName =
     if workspaceRoot == "." then
@@ -82,6 +90,11 @@ let
     if taskSuffix == null then "${taskNamePrefix}:update" else "${taskNamePrefix}:update:${taskSuffix}";
   dedupeTaskName =
     if taskSuffix == null then "${taskNamePrefix}:dedupe" else "${taskNamePrefix}:dedupe:${taskSuffix}";
+  checkLockTaskName =
+    if taskSuffix == null then
+      "${taskNamePrefix}:check-lockfile"
+    else
+      "${taskNamePrefix}:check-lockfile:${taskSuffix}";
   cleanTaskName =
     if taskSuffix == null then "${taskNamePrefix}:clean" else "${taskNamePrefix}:clean:${taskSuffix}";
   doctorTaskName =
@@ -122,11 +135,26 @@ let
     if pnpmLockMutatorPkg == null then "11.5.1" else pnpmLockMutatorPkg.version or "unknown";
   pnpmLockMutatorOverrideIsSupported =
     pnpmLockMutatorPkg == null || pnpmLockMutatorOverrideVersion == "11.5.1";
+  genieBin =
+    if geniePkg != null then
+      "${geniePkg}/bin/genie"
+    else
+      throw "pnpm.nix requires geniePkg for repo-root lock maintenance";
 
   flock = "${pkgs.flock}/bin/flock";
   installFlagsString = lib.escapeShellArgs installFlags;
   liveRealizationPolicyFlags = installFlags ++ pnpmInstallPolicy.liveInstallPolicyFlags;
   liveRealizationPolicyFlagsString = lib.escapeShellArgs liveRealizationPolicyFlags;
+  lockMaintenancePolicyFlagsString = lib.escapeShellArgs [
+    "--config.confirmModulesPurge=false"
+    "--ignore-scripts"
+    "--config.side-effects-cache=false"
+    "--config.verify-store-integrity=true"
+    "--config.strict-store-pkg-content-check=true"
+    "--child-concurrency=1"
+    "--network-concurrency=4"
+    "--pm-on-fail=ignore"
+  ];
   pureInstallFlags =
     installFlags
     ++ [
@@ -507,9 +535,8 @@ let
       fi
 
       set +e
-      ${lib.escapeShellArg "${effectivePnpmLockMutatorPkg}/bin/pnpm"} install --fix-lockfile \
-        ${liveRealizationPolicyFlagsString} \
-        --config.package-import-method="$PNPM_PACKAGE_IMPORT_METHOD" \
+      ${lib.escapeShellArg "${effectivePnpmLockMutatorPkg}/bin/pnpm"} install --fix-lockfile --lockfile-only \
+        ${lockMaintenancePolicyFlagsString} \
         --config.store-dir="$npm_config_store_dir"
       status=$?
       set -e
@@ -719,11 +746,11 @@ let
           # Projection can change the catalog that the lockfile must satisfy.
           # Defer cross-file validation only until the safe mutator has repaired
           # that lock; the final check below is mandatory.
-          genie --defer-validation
+          ${genieBin} --defer-validation
         ''}
         run_pnpm_lock_mutator
         ${lib.optionalString (workspaceRoot == ".") ''
-          genie --check
+          ${genieBin} --check
         ''}
         ${gcSourceInputs}
         echo "Repo-root lockfile updated. Refresh Nix FOD hashes with the repo workflow."
@@ -732,10 +759,6 @@ let
 
     "${dedupeTaskName}" = {
       guard = "pnpm";
-      # Remediation counterpart to the catalog duplicate-version gate (genie:check):
-      # collapse in-range duplicate versions onto the newest satisfying release.
-      # Upstream-locked duplicates that cannot be collapsed stay and must be
-      # acknowledged via catalogDuplicateExceptions.
       description = "Collapse in-range duplicate versions in the pnpm lockfile at ${workspaceRoot}";
       after = (if workspaceRoot == "." then [ "genie:run" ] else [ ]) ++ dedupeAfter;
       exec = trace.exec dedupeTaskName ''
@@ -743,11 +766,24 @@ let
         cd ${lib.escapeShellArg workspaceRootAbs}
         ${managedPnpmMutationPrologue}
         ${stageSourceInputs}
-        pnpm dedupe ${liveRealizationPolicyFlagsString} \
-          --config.package-import-method="$PNPM_PACKAGE_IMPORT_METHOD" \
+        pnpm dedupe --lockfile-only ${lockMaintenancePolicyFlagsString} \
           --config.store-dir="$npm_config_store_dir"
         ${gcSourceInputs}
         echo "Lockfile deduped. Re-run genie:check to verify the catalog duplicate gate; bless any upstream-locked residuals via catalogDuplicateExceptions."
+      '';
+    };
+
+    "${checkLockTaskName}" = {
+      guard = "pnpm";
+      description = "Verify package manifests match the authoritative pnpm lockfile without realizing node_modules";
+      exec = trace.exec checkLockTaskName ''
+        set -euo pipefail
+        cd ${lib.escapeShellArg workspaceRootAbs}
+        ${managedPnpmMutationPrologue}
+        pnpm install --lockfile-only --frozen-lockfile --ignore-scripts \
+          --config.confirmModulesPurge=false \
+          --config.side-effects-cache=false \
+          --config.store-dir="$npm_config_store_dir"
       '';
     };
 
@@ -831,6 +867,17 @@ let
       '';
     };
   };
+  enabledTasks =
+    if enableLegacyInstall then
+      allTasks
+    else
+      builtins.removeAttrs allTasks [
+        installTaskName
+        cleanTaskName
+        doctorTaskName
+        repairTaskName
+        migrateLegacyStoreTaskName
+      ];
 
 in
 assert lib.assertMsg pnpmLockMutatorOverrideIsSupported ''
@@ -839,10 +886,18 @@ assert lib.assertMsg pnpmLockMutatorOverrideIsSupported ''
   other versions require explicit verification and an allowlist change.
 '';
 assert lib.assertMsg (!sourceInputPathsOverlap) "sourceInputPaths entries must not overlap";
+# Checked against the constructor, never the built derivation: forcing the
+# derivation here would force this module's `pkgs` argument during import
+# collection and recurse through `_module.args`.
+assert lib.assertMsg (mkPnpmPkg != null || legacyAmbientPnpm) ''
+  pnpm.nix requires mkPnpmPkg ({ pkgs }: derivation); set legacyAmbientPnpm =
+  true only for an explicitly legacy downstream shell that intentionally
+  resolves pnpm from PATH.
+'';
 {
   packages = cliGuard.fromTasks {
-    tasks = allTasks;
-    reals = lib.optionalAttrs (pnpmPkg != null) { pnpm = pnpmPkg; };
+    tasks = enabledTasks;
+    reals = lib.optionalAttrs (mkPnpmPkg != null) { pnpm = pnpmPkg; };
   };
 
   enterShell = lib.mkIf (globalCache && workspaceRoot == ".") ''
@@ -853,5 +908,5 @@ assert lib.assertMsg (!sourceInputPathsOverlap) "sourceInputPaths entries must n
     export npm_config_pm_on_fail=ignore
   '';
 
-  tasks = cliGuard.stripGuards allTasks;
+  tasks = cliGuard.stripGuards enabledTasks;
 }

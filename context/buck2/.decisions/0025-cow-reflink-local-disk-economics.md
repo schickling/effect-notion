@@ -43,10 +43,10 @@ placement between this repository and the fleet.
 
 ## Options
 
-| Decision              | Selected                                            | Alternatives rejected                                                                                                         |
-| --------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Local-disk strategy   | Reflink-first CoW assembly                          | Accept per-root duplication (bounded by GC); machine-level shared extract store (reintroduces the ambient state 0022 deletes) |
-| Requirement placement | DEPS-R04 rewrite + fleet-VRS filesystem requirement | Top-level BUCK-R17 (binds an actor outside repo authority); non-normative note only (intent evaporates at refresh time)       |
+| Decision              | Selected                                            | Alternatives rejected                                                                                                                                                                                                                 |
+| --------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local-disk strategy   | Reflink-first CoW assembly                          | Accept per-root duplication (bounded by GC); machine-level shared extract store (reintroduces the ambient state 0022 deletes)                                                                                                         |
+| Requirement placement | DEPS-R04 rewrite + fleet-VRS filesystem requirement | A new top-level fleet-filesystem requirement (binds an actor outside repo authority; the ID sketched here was never created and BUCK-R17 now names the development loop); non-normative note only (intent evaporates at refresh time) |
 
 ## Decision
 
@@ -92,8 +92,10 @@ Issue #1212 proved that reflink-first assembly optimizes an avoidable copy but
 still permits one closure-sized tree per consumer and degrades to full copies
 on filesystems without CoW. The stronger invariant is independent of storage
 primitives: each normalized entry owns one package-tree copy shared by every
-consumer; the nine entries with platform-selected edges own one such copy per
-distinct configured variant, while archive/extract bytes remain shared.
+consumer; the entries with platform-selected edges own one such copy per
+distinct configured variant, while archive/extract bytes remain shared. (This
+amendment said "nine" such entries, the count inside the 17-package closure;
+the complete-lock count is ten per decision 0030 Amendment 1.)
 Dependency edges and importer views are metadata-only. Workspace/dist entries
 and package execution views copy only their small owned boundary, never a
 dependency closure. Consequently, the

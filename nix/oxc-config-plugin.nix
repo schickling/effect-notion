@@ -232,7 +232,7 @@ pkgs.stdenv.mkDerivation {
     ];
     evergreen.fodGraph.v1 =
       let
-        packageAttr = ".#packages.${pkgs.stdenv.hostPlatform.system}.oxc-config";
+        packageAttr = ".#packages.${pkgs.stdenv.hostPlatform.system}.oxlint-npm";
         boundaryAttr = "${packageAttr}.passthru.depsBuildsByInstallRoot.root";
       in
       {

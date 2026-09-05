@@ -104,6 +104,69 @@ describe('compositionCacheSections', () => {
     expect(compositionCacheSections({})).toEqual([])
     expect(compositionCacheSections({ BUCK2_NO_REMOTE_CACHE: '0' })).toEqual([])
   })
+
+  it('renders the cache-only client contract for an explicitly named instance', () => {
+    expect(
+      compositionCacheSections({
+        BUCK2_CACHE_ENDPOINT: 'grpc://cache.example:41045',
+        BUCK2_CACHE_INSTANCE_NAME: 'effect-utils-dq1-candidate',
+      }),
+    ).toEqual([
+      {
+        section: 'buck2',
+        entries: [
+          { key: 'digest_algorithms', value: 'SHA256' },
+          { key: 'default_allow_cache_upload', value: 'true' },
+        ],
+      },
+      {
+        section: 'buck2_re_client',
+        entries: [
+          { key: 'engine_address', value: 'grpc://cache.example:41045' },
+          { key: 'action_cache_address', value: 'grpc://cache.example:41045' },
+          { key: 'cas_address', value: 'grpc://cache.example:41045' },
+          { key: 'instance_name', value: 'effect-utils-dq1-candidate' },
+          { key: 'tls', value: 'false' },
+          // Bounded and explicit: a batch above the 4 MiB gRPC message limit would fail
+          // the upload at the transport rather than at a boundary this generator owns.
+          { key: 'max_total_batch_size', value: '4194304' },
+        ],
+      },
+    ])
+  })
+
+  it('lets BUCK2_NO_REMOTE_CACHE=1 win over a fully configured endpoint', () => {
+    expect(
+      compositionCacheSections({
+        BUCK2_NO_REMOTE_CACHE: '1',
+        BUCK2_CACHE_ENDPOINT: 'grpc://cache.example:41045',
+        BUCK2_CACHE_INSTANCE_NAME: 'effect-utils-dq1-candidate',
+      }),
+    ).toEqual([
+      {
+        section: 'buck2',
+        entries: [
+          { key: 'remote_cache_enabled', value: 'false' },
+          { key: 'allow_cache_uploads', value: 'false' },
+        ],
+      },
+    ])
+  })
+
+  it('refuses half a pair instead of defaulting the other half', () => {
+    expect(() =>
+      compositionCacheSections({ BUCK2_CACHE_ENDPOINT: 'grpc://cache.example:41045' }),
+    ).toThrow(CompositionCutoverError)
+    expect(() =>
+      compositionCacheSections({ BUCK2_CACHE_INSTANCE_NAME: 'effect-utils-dq1-candidate' }),
+    ).toThrow(CompositionCutoverError)
+    expect(() =>
+      compositionCacheSections({
+        BUCK2_CACHE_ENDPOINT: '   ',
+        BUCK2_CACHE_INSTANCE_NAME: 'effect-utils-dq1-candidate',
+      }),
+    ).toThrow(CompositionCutoverError)
+  })
 })
 
 const admit = (fixture: Fixture) =>

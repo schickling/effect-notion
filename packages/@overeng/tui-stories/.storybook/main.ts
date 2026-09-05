@@ -8,7 +8,7 @@ const config = createTuiStorybookConfig({
 
 /* Resolve megarepo internal imports used by _megarepo-renders.ts.
    Vite alias ensures the imports work in both dev and production builds. */
-const megarepoSrc = resolve(import.meta.dirname, '../../megarepo/src')
+const megarepoSrc = resolve(import.meta.dirname, '../node_modules/@overeng/megarepo/src')
 
 export default {
   ...config,
