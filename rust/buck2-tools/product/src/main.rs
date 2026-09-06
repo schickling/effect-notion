@@ -705,9 +705,12 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{io::Read, path::Path};
+    #[cfg(target_os = "linux")]
+    use std::io::Read;
+    use std::path::Path;
     use tempfile::tempdir;
 
+    #[cfg(target_os = "linux")]
     fn clean_elf_fixture(root: &Path) -> PathBuf {
         let mut bytes = fs::read(std::env::current_exe().unwrap()).unwrap();
         let endian = match bytes[5] {
@@ -759,6 +762,7 @@ mod tests {
         }
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn packages_a_canonical_descriptor_from_the_inspected_executable() {
         let temporary = tempdir().unwrap();
@@ -829,6 +833,7 @@ mod tests {
         assert!(!temporary.path().join("artifact.tar").exists());
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn runtime_contract_must_match_the_native_executable() {
         let temporary = tempdir().unwrap();
