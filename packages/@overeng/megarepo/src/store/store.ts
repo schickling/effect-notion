@@ -92,14 +92,6 @@ export interface MegarepoStore {
     }>,
     PlatformError
   >
-
-  // === Legacy compatibility (deprecated) ===
-
-  /** @deprecated Use getRepoBasePath instead */
-  readonly getRepoPath: (source: MemberSource) => AbsoluteDirPath
-
-  /** @deprecated Use hasBareRepo instead */
-  readonly hasRepo: (source: MemberSource) => Effect.Effect<boolean, PlatformError>
 }
 
 /** Store service tag */
@@ -259,9 +251,6 @@ const make = ({
     getBareRepoPath,
     getWorktreePath,
 
-    // Legacy compatibility
-    getRepoPath: getRepoBasePath,
-
     hasBareRepo: (source) => fs.exists(getBareRepoPath(source)),
 
     hasWorktree: (args) => {
@@ -269,9 +258,6 @@ const make = ({
       const gitFilePath = `${worktreePath}.git`.replace(/\/\.git$/, '/.git')
       return fs.exists(gitFilePath)
     },
-
-    // Legacy compatibility
-    hasRepo: (source) => fs.exists(getBareRepoPath(source)),
 
     listRepos: Effect.gen(function* () {
       const exists = yield* fs.exists(basePath)

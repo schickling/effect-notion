@@ -71,8 +71,6 @@ const makeFixture = Effect.gen(function* () {
     hasWorktree: () => Effect.succeed(true),
     listRepos: Effect.succeed([]),
     listWorktrees: () => Effect.succeed([]),
-    getRepoPath: () => repoBase,
-    hasRepo: () => Effect.succeed(true),
   }
   const lockFile = new LockFile({
     version: 1,

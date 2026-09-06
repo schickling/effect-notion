@@ -196,10 +196,10 @@ export const createTuiStorybookConfig: CreateTuiStorybookConfig = <TConfig exten
         target: 'esnext',
         rolldownOptions: {
           ...typedConfig.build?.rolldownOptions,
-          // eslint-disable-next-line overeng/named-args -- Rollup API callback signature
-          onwarn: (warning, warn) => {
-            if (warning.code === 'MODULE_LEVEL_DIRECTIVE') return
-            warn(warning)
+          // eslint-disable-next-line overeng/named-args -- Rolldown API callback signature
+          onLog: (level, log, defaultHandler) => {
+            if (log.code === 'MODULE_LEVEL_DIRECTIVE') return
+            defaultHandler(level, log)
           },
         },
       }
