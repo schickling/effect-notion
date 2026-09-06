@@ -1,21 +1,32 @@
 {
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/effect-path",
+      "packages/@overeng/notion-cli",
+      "packages/@overeng/notion-core",
+      "packages/@overeng/notion-datasource-sync",
+      "packages/@overeng/notion-effect-client",
+      "packages/@overeng/notion-effect-schema",
+      "packages/@overeng/notion-md",
+      "packages/@overeng/notion-property-write",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/tui-core",
+      "packages/@overeng/tui-react",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
+  },
   "name": "@overeng/notion-cli",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "private": true,
   "exports": {
     ".": "./src/mod.ts",
     "./config": "./src/config-def.ts"
-  },
-  "publishConfig": {
-    "access": "public",
-    "bin": {
-      "notion": "./dist/cli.js"
-    },
-    "exports": {
-      ".": "./dist/mod.js",
-      "./config": "./dist/config-def.js"
-    }
   },
   "scripts": {
     "storybook": "storybook dev -p 6012",
@@ -47,6 +58,11 @@
     "react-reconciler": "0.33.0",
     "vitest": "4.1.9"
   },
+  "dependenciesMeta": {
+    "@overeng/tui-react": {
+      "injected": true
+    }
+  },
   "devDependencies": {
     "@effect/atom-react": "4.0.0-rc.111",
     "@effect/vitest": "4.0.0-rc.111",
@@ -60,11 +76,6 @@
     "typescript": "6.0.3",
     "vite": "8.0.16",
     "vitest": "4.1.9"
-  },
-  "dependenciesMeta": {
-    "@overeng/tui-react": {
-      "injected": true
-    }
   },
   "peerDependencies": {
     "@effect/atom-react": "^4.0.0-rc.111",
@@ -81,25 +92,14 @@
     "react-dom": "^19.2.7",
     "react-reconciler": "^0.33.0"
   },
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/effect-path",
-      "packages/@overeng/notion-cli",
-      "packages/@overeng/notion-core",
-      "packages/@overeng/notion-datasource-sync",
-      "packages/@overeng/notion-effect-client",
-      "packages/@overeng/notion-effect-schema",
-      "packages/@overeng/notion-md",
-      "packages/@overeng/notion-property-write",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/tui-core",
-      "packages/@overeng/tui-react",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
+  "publishConfig": {
+    "access": "public",
+    "bin": {
+      "notion": "./dist/cli.js"
+    },
+    "exports": {
+      ".": "./dist/mod.js",
+      "./config": "./dist/config-def.js"
+    }
   }
 }

@@ -3,7 +3,10 @@
 {
   "compilerOptions": {
     "target": "ES2024",
-    "lib": ["ES2023", "DOM"],
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "allowImportingTsExtensions": true,
@@ -48,6 +51,8 @@
     "noImplicitAny": false,
     "strictNullChecks": false
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*"
+  ],
   "references": []
 }

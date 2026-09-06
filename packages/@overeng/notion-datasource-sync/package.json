@@ -1,8 +1,27 @@
 {
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/notion-core",
+      "packages/@overeng/notion-datasource-sync",
+      "packages/@overeng/notion-effect-client",
+      "packages/@overeng/notion-effect-schema",
+      "packages/@overeng/notion-md",
+      "packages/@overeng/notion-property-write",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/tui-core",
+      "packages/@overeng/tui-react",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
+  },
   "name": "@overeng/notion-datasource-sync",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "private": true,
   "exports": {
     ".": "./src/mod.ts",
     "./body": "./src/body/adapter.ts",
@@ -24,6 +43,55 @@
     "./sync/observation": "./src/sync/observation.ts",
     "./testing/*": "./src/testing/*.ts",
     "./webhook": "./src/webhook/mod.ts"
+  },
+  "scripts": {
+    "demo:verify": "NOTION_DATASOURCE_SYNC_LIVE=1 vitest run src/e2e/live-demo-replica.e2e.test.ts --config vitest.config.ts",
+    "demo:verify:full": "NOTION_DATASOURCE_SYNC_LIVE=1 NOTION_DATASOURCE_SYNC_FULL_DEMO=1 vitest run src/e2e/live-demo-replica.e2e.test.ts --config vitest.config.ts",
+    "demo:provision": "NOTION_DATASOURCE_SYNC_LIVE=1 NOTION_DATASOURCE_SYNC_REQUIRED_CAPABILITIES=data_source_retrieve,data_source_query,data_source_metadata_update,page_retrieve,page_property_paginate,page_create vitest run src/e2e/live-notion.e2e.test.ts --config vitest.config.ts -t \"credentialed automated demo showcase\""
+  },
+  "dependencies": {
+    "@overeng/content-address": "workspace:^",
+    "@overeng/notion-core": "workspace:^",
+    "@overeng/notion-effect-client": "workspace:^",
+    "@overeng/notion-effect-schema": "workspace:^",
+    "@overeng/notion-md": "workspace:^",
+    "@overeng/notion-property-write": "workspace:^",
+    "@overeng/otel-contract": "workspace:^",
+    "@overeng/tui-react": "workspace:^",
+    "@overeng/utils": "workspace:^",
+    "react": "19.2.7"
+  },
+  "dependenciesMeta": {
+    "@overeng/tui-react": {
+      "injected": true
+    }
+  },
+  "devDependencies": {
+    "@effect/atom-react": "4.0.0-rc.111",
+    "@effect/opentelemetry": "4.0.0-rc.111",
+    "@effect/platform-node": "4.0.0-rc.111",
+    "@effect/vitest": "4.0.0-rc.111",
+    "@opentui/core": "0.4.1",
+    "@opentui/react": "0.4.1",
+    "@playwright/test": "1.61.0",
+    "@storybook/react": "10.5.10",
+    "@types/node": "26.0.0",
+    "@types/react": "19.2.17",
+    "@types/react-reconciler": "0.33.0",
+    "effect": "4.0.0-rc.111",
+    "react-dom": "19.2.7",
+    "react-reconciler": "0.33.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.9"
+  },
+  "peerDependencies": {
+    "@effect/opentelemetry": "^4.0.0-rc.111",
+    "@effect/platform-node": "^4.0.0-rc.111",
+    "@playwright/test": "^1.61.0",
+    "effect": "^4.0.0-rc.111"
+  },
+  "engines": {
+    "node": ">=24.0.0"
   },
   "publishConfig": {
     "access": "public",
@@ -49,73 +117,5 @@
       "./testing/*": "./dist/src/testing/*.js",
       "./webhook": "./dist/src/webhook/mod.js"
     }
-  },
-  "scripts": {
-    "demo:verify": "NOTION_DATASOURCE_SYNC_LIVE=1 vitest run src/e2e/live-demo-replica.e2e.test.ts --config vitest.config.ts",
-    "demo:verify:full": "NOTION_DATASOURCE_SYNC_LIVE=1 NOTION_DATASOURCE_SYNC_FULL_DEMO=1 vitest run src/e2e/live-demo-replica.e2e.test.ts --config vitest.config.ts",
-    "demo:provision": "NOTION_DATASOURCE_SYNC_LIVE=1 NOTION_DATASOURCE_SYNC_REQUIRED_CAPABILITIES=data_source_retrieve,data_source_query,data_source_metadata_update,page_retrieve,page_property_paginate,page_create vitest run src/e2e/live-notion.e2e.test.ts --config vitest.config.ts -t \"credentialed automated demo showcase\""
-  },
-  "dependencies": {
-    "@overeng/content-address": "workspace:^",
-    "@overeng/notion-core": "workspace:^",
-    "@overeng/notion-effect-client": "workspace:^",
-    "@overeng/notion-effect-schema": "workspace:^",
-    "@overeng/notion-md": "workspace:^",
-    "@overeng/notion-property-write": "workspace:^",
-    "@overeng/otel-contract": "workspace:^",
-    "@overeng/tui-react": "workspace:^",
-    "@overeng/utils": "workspace:^",
-    "react": "19.2.7"
-  },
-  "devDependencies": {
-    "@effect/atom-react": "4.0.0-rc.111",
-    "@effect/opentelemetry": "4.0.0-rc.111",
-    "@effect/platform-node": "4.0.0-rc.111",
-    "@effect/vitest": "4.0.0-rc.111",
-    "@opentui/core": "0.4.1",
-    "@opentui/react": "0.4.1",
-    "@playwright/test": "1.61.0",
-    "@storybook/react": "10.5.10",
-    "@types/node": "26.0.0",
-    "@types/react": "19.2.17",
-    "@types/react-reconciler": "0.33.0",
-    "effect": "4.0.0-rc.111",
-    "react-dom": "19.2.7",
-    "react-reconciler": "0.33.0",
-    "typescript": "6.0.3",
-    "vitest": "4.1.9"
-  },
-  "dependenciesMeta": {
-    "@overeng/tui-react": {
-      "injected": true
-    }
-  },
-  "peerDependencies": {
-    "@effect/opentelemetry": "^4.0.0-rc.111",
-    "@effect/platform-node": "^4.0.0-rc.111",
-    "@playwright/test": "^1.61.0",
-    "effect": "^4.0.0-rc.111"
-  },
-  "engines": {
-    "node": ">=24.0.0"
-  },
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/notion-core",
-      "packages/@overeng/notion-datasource-sync",
-      "packages/@overeng/notion-effect-client",
-      "packages/@overeng/notion-effect-schema",
-      "packages/@overeng/notion-md",
-      "packages/@overeng/notion-property-write",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/tui-core",
-      "packages/@overeng/tui-react",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
   }
 }

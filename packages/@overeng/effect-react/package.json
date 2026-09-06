@@ -1,18 +1,23 @@
 {
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/effect-react",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
+  },
   "name": "@overeng/effect-react",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "private": true,
   "exports": {
     ".": "./src/mod.ts",
     "./react-aria": "./src/react-aria/mod.ts"
-  },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js",
-      "./react-aria": "./dist/react-aria/mod.js"
-    }
   },
   "scripts": {
     "storybook": "storybook dev -p 6009",
@@ -43,16 +48,11 @@
     "react-aria-components": "^1.19.0",
     "react-dom": "^19.2.7"
   },
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/effect-react",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js",
+      "./react-aria": "./dist/react-aria/mod.js"
+    }
   }
 }

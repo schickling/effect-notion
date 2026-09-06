@@ -1,8 +1,17 @@
 {
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/utils-dev"
+    ]
+  },
   "name": "@overeng/otel-contract",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "private": true,
   "exports": {
     ".": {
       "types": "./dist/src/mod.d.ts",
@@ -11,13 +20,6 @@
     "./registry": {
       "types": "./dist/src/registry.d.ts",
       "default": "./src/registry.ts"
-    }
-  },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js",
-      "./registry": "./dist/registry.js"
     }
   },
   "dependencies": {
@@ -33,13 +35,11 @@
   "peerDependencies": {
     "effect": "^4.0.0-rc.111"
   },
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/utils-dev"
-    ]
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js",
+      "./registry": "./dist/registry.js"
+    }
   }
 }
