@@ -141,10 +141,94 @@ describe('codegen', () => {
 
       expect(code).not.toContain(`typeof TestDatabasePageWrite.Type`)
       expect(code).toContain(`export const create = (properties: TestDatabasePageWrite) =>`)
-      expect(code).toContain(`  properties: Partial<TestDatabasePageWrite>,`)
+      expect(code).toContain(
+        `export const update = (pageId: string, properties: Partial<TestDatabasePageWrite>) =>`,
+      )
       expect(code).toContain(
         `    properties: encodeTestDatabaseWrite(properties as TestDatabasePageWrite),`,
       )
+    })
+
+    it('imports the write type with a type-only specifier', () => {
+      const dbInfo: DatabaseInfo = {
+        id: 'pdf-db-id',
+        name: 'PDF Document',
+        url: 'https://notion.so/pdf-document',
+        properties: (
+          [{ id: 'title-prop', name: 'Name', type: 'title' }] satisfies Array<
+            Omit<PropertyInfo, 'schema'>
+          >
+        ).map(makeProperty),
+      }
+
+      const code = generateApiCode({
+        dbInfo,
+        schemaName: 'PDF Document',
+        schemaFileName: 'pdf-document.gen.ts',
+        options: { includeWrite: true },
+      })
+
+      // `PdfDocumentPageWrite` only ever appears in type positions, so it must be
+      // imported with a `type` specifier (verbatimModuleSyntax / consistent-type-imports).
+      expect(code).toContain(`import { Effect, Stream } from 'effect'
+
+import { NotionDatabases, NotionPages, type TypedPage } from '@overeng/notion-effect-client'
+
+import {
+  PdfDocumentPageProperties,
+  type PdfDocumentPageWrite,
+  encodePdfDocumentWrite,
+} from './pdf-document.gen.ts'`)
+      expect(code).toContain(
+        `export const queryAll = (options?: QueryOptions) => query(options).pipe(Stream.runCollect)`,
+      )
+      expect(code).toContain(
+        `export const update = (pageId: string, properties: Partial<PdfDocumentPageWrite>) =>`,
+      )
+      expect(code).toContain(
+        `export const archive = (pageId: string) => NotionPages.archive({ pageId })`,
+      )
+      // Schemas and encoders stay value imports.
+      expect(code).toContain(`schema: PdfDocumentPageProperties,`)
+      expect(code).toContain(`properties: encodePdfDocumentWrite(properties),`)
+    })
+    it('selects generated layouts that match the shared 100-column print width', () => {
+      const dbInfo: DatabaseInfo = {
+        id: 'test-db-id',
+        name: 'Test',
+        url: 'https://notion.so/test',
+        properties: (
+          [{ id: 'title-prop', name: 'Name', type: 'title' }] satisfies Array<
+            Omit<PropertyInfo, 'schema'>
+          >
+        ).map(makeProperty),
+      }
+
+      const shortCode = generateApiCode({
+        dbInfo,
+        schemaName: 'Test',
+        schemaFileName: 'test.gen.ts',
+        options: { includeWrite: true },
+      })
+      const longCode = generateApiCode({
+        dbInfo,
+        schemaName: 'Engineering Onboarding Checklist',
+        schemaFileName: 'engineering-onboarding-checklist.gen.ts',
+        options: { includeWrite: true },
+      })
+
+      expect(shortCode).toContain(
+        `import { TestPageProperties, type TestPageWrite, encodeTestWrite } from './test.gen.ts'`,
+      )
+      expect(longCode).toContain(`export const update = (
+  pageId: string,
+  properties: Partial<EngineeringOnboardingChecklistPageWrite>,
+) =>`)
+      expect(longCode).toContain(`export type EngineeringOnboardingChecklistPage =
+  TypedPage<EngineeringOnboardingChecklistPageProperties>`)
+      expect(longCode).toContain(`    properties: encodeEngineeringOnboardingChecklistWrite(
+      properties as EngineeringOnboardingChecklistPageWrite,
+    ),`)
     })
   })
 
