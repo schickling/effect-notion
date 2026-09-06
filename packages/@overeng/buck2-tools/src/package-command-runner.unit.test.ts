@@ -21,6 +21,7 @@ import {
   bareSpecifierPackage,
   createEntryOverridePlugin,
   parsePackageCommand,
+  normalizePortableCommonJsGlobals,
   projectProductDescriptor,
   requireNormalizedRelativePath,
   verifyExternalSurface,
@@ -91,9 +92,9 @@ const createViewFixture = (
   mkdirSync(join(right, 'right'), { recursive: true })
   writeFileSync(
     join(right, 'right', 'package.json'),
-    '{"name":"right","version":"1.0.0","main":"index.js"}\n',
+    '{"name":"right","version":"1.0.0","main":"index.cjs"}\n',
   )
-  writeFileSync(join(right, 'right', 'index.js'), "export const right = 'right'\n")
+  writeFileSync(join(right, 'right', 'index.cjs'), 'module.exports = { right: __dirname }\n')
   symlinkSync('../../../__entry_left__/entry/node_modules/left', join(right, 'left'))
 
   mkdirSync(join(gated, '@scope', 'gated-linux-x64'), { recursive: true })
@@ -145,7 +146,9 @@ describe('the realpath-closed hardlink farm', () => {
     // and both realpaths must land inside the farm.
     const inside = `${realpathSync(farm)}/`
     const leftImage = realpathSync(join(farm, 'node_modules', 'left', 'index.js'))
-    const rightViaLeft = realpathSync(join(farm, 'node_modules', 'left', '..', 'right', 'index.js'))
+    const rightViaLeft = realpathSync(
+      join(farm, 'node_modules', 'left', '..', 'right', 'index.cjs'),
+    )
     expect(leftImage.startsWith(inside)).toBe(true)
     expect(rightViaLeft.startsWith(inside)).toBe(true)
   })
@@ -273,6 +276,7 @@ describe('a bundled portable product', () => {
 
     expect(() => assertPortableModuleComments(bytes)).not.toThrow()
     expect(bytes).not.toContain('__require.main')
+    expect(bytes).toContain('import.meta.dirname')
     expect(bytes).toContain('.closure/cell/deps/entry_left/entry/node_modules/left/index.js')
   })
 
@@ -354,6 +358,35 @@ describe('post-build portability assertions', () => {
     expect(() =>
       assertPortableModuleComments('// src/cli.ts\n// node_modules/left/index.js\n'),
     ).not.toThrow()
+  })
+
+  it('rewrites Bun CommonJS source paths to runtime bundle paths', () => {
+    const root = join('/tmp', 'portable-root')
+    const bundle =
+      `var __dirname = ${JSON.stringify(join(root, 'dependency'))}, ` +
+      `__filename = ${JSON.stringify(join(root, 'dependency', 'index.cjs'))};`
+
+    expect(normalizePortableCommonJsGlobals({ bundle, root })).toBe(
+      'var __dirname = import.meta.dirname, __filename = import.meta.filename;',
+    )
+  })
+
+  it('rejects a Bun CommonJS source path outside the build root', () => {
+    expect(() =>
+      normalizePortableCommonJsGlobals({
+        bundle: 'var __dirname = "/foreign/dependency";',
+        root: '/tmp/portable-root',
+      }),
+    ).toThrow('__dirname path escapes the build root')
+  })
+
+  it('rejects an unclassified absolute build-root occurrence', () => {
+    expect(() =>
+      normalizePortableCommonJsGlobals({
+        bundle: 'const leaked = "/tmp/portable-root/source.ts";',
+        root: '/tmp/portable-root',
+      }),
+    ).toThrow('outside a CommonJS path declaration')
   })
 
   it('rejects a CLI payload carrying Bun unbound import.meta.main lowering', () => {
@@ -504,7 +537,10 @@ describe('the product descriptor projection', () => {
     moduleDescriptor: '/out/module.json',
     productKind: 'cli' as const,
     productName: 'tool',
-    provenance: { configuredTarget: 'cell//p:tool (cell//pl:linux_x86_64#deadbeef)' },
+    provenance: {
+      configuredTarget: 'cell//p:tool (cell//pl:javascript_portable#deadbeef)',
+      dependencyClosureIdentity: 'runtime=node;package_tree=cell//p:package_tree',
+    },
     targetIdentity: 'cell//p:tool',
   }
 
@@ -524,9 +560,25 @@ describe('the product descriptor projection', () => {
     const descriptor = projectProductDescriptor({ command, module: moduleDescriptor })
 
     expect(descriptor['provenance']).toStrictEqual({
-      configuredTarget: 'cell//p:tool (cell//pl:linux_x86_64#deadbeef)',
+      configuredTarget: 'cell//p:tool (cell//pl:javascript_portable#deadbeef)',
+      dependencyClosureIdentity: 'runtime=node;package_tree=cell//p:package_tree',
       module: 'cell//p:tool-module',
     })
+  })
+
+  it('rejects host-specific Nix store paths in portable product provenance', () => {
+    expect(() =>
+      projectProductDescriptor({
+        command: {
+          ...command,
+          provenance: {
+            ...command.provenance,
+            dependencyClosureIdentity: '/nix/store/producer/bin/bun;cell//p:package_tree',
+          },
+        },
+        module: moduleDescriptor,
+      }),
+    ).toThrow('contains a host-specific Nix store path')
   })
 
   it('rejects a module descriptor of an unsupported schema', () => {

@@ -74,9 +74,11 @@ assert_member_symlinks_stay_inside_workspace() {
         exit 1
         ;;
     esac
-    # `-e` on purpose: a dangling tracked link is a refusal, not a pass, because there is
-    # nothing whose provenance could be checked.
-    if ! resolved="$(realpath -e "$member/$link" 2>/dev/null)"; then
+    # `test -e` on purpose: a dangling tracked link is a refusal, not a pass,
+    # because there is nothing whose provenance could be checked. Use portable
+    # `realpath` only after the existence proof; Darwin does not support GNU's
+    # `realpath -e`.
+    if [ ! -e "$member/$link" ] || ! resolved="$(realpath "$member/$link" 2>/dev/null)"; then
       echo "::error::tracked member symlink does not resolve: $link -> $target" >&2
       exit 1
     fi

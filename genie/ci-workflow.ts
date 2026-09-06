@@ -185,6 +185,7 @@ export {
   cachixCliBuildStep,
   cachixStep,
   checkoutStep,
+  credentialBearingActionPins,
   cleanupEffectUtilsCompositionStep,
   ciDiagnosticsArtifactStep,
   ciDiagnosticsSetupStep,

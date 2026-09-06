@@ -85,3 +85,13 @@ The VRS client template intentionally redacts the endpoint. The tracked
 `devenv.nix` owns the public fleet-default operational endpoint, while generated
 `.buckconfig.local` is untracked and overrideable. A service move updates the
 fleet trait and that tracked default together.
+
+## Amendment 3
+
+This service and the Nix binary cache are evictable reuse planes. A capped,
+LRU-governed action cache and a garbage-collected binary cache make builds
+fast; neither is a durability claim, and losing either loses no product. Durable
+product authority is tracked Git content in the product's own repository
+([0031](./0031-git-product-authority-and-release-tripwires.md)). The parked
+distribution-durability machinery stays parked: nothing in this cache plane
+takes it over.

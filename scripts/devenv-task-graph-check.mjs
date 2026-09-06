@@ -110,6 +110,8 @@ for (const name of [
   'buck2:typescript:materialize-dist',
   'buck2:tui-core:publish-editor',
   'buck2:tui-core:check-editor',
+  'genie:prepare',
+  'buck2:typescript:publish-editor-views',
 ])
   requireTask(name)
 
@@ -164,6 +166,36 @@ for (const name of [
   ok({
     condition: reaches({ start: name, target: 'mr:apply' }),
     name: `${name} waits for workspace reconciliation and the capability projection`,
+  })
+}
+
+// Genie executes `.genie.ts` sources from the working tree, so its imports
+// resolve through the Buck-published editor dependency views. A cold host with
+// no `packages/@overeng/genie/node_modules` and no `packages/.editor-view`
+// fails generation itself, so publication is a PREREQUISITE of every genie
+// invocation — reached through the shared `genie:prepare` hook.
+const editorViews = 'buck2:typescript:publish-editor-views'
+ok({
+  condition: reaches({ start: 'genie:prepare', target: editorViews }),
+  name: `genie:prepare waits for ${editorViews}`,
+})
+for (const name of ['check:quick', 'check:all', 'lint:check:genie', 'genie:run', 'genie:check']) {
+  ok({
+    condition: reaches({ start: name, target: editorViews }),
+    name: `${name} reaches the published editor dependency views`,
+  })
+}
+// The other direction is the cycle: publication builds from the committed BUCK
+// projections and must never wait for the generator it feeds.
+ok({
+  condition: reaches({ start: editorViews, target: 'genie:run' }) === false,
+  name: `${editorViews} does not depend on genie:run`,
+})
+// Freshness against regenerated projections still belongs to the check/watch side.
+for (const name of ['buck2:typescript:check-editor-views', 'buck2:typescript:watch']) {
+  ok({
+    condition: reaches({ start: name, target: 'genie:run' }),
+    name: `${name} compares against regenerated Genie projections`,
   })
 }
 
@@ -247,6 +279,19 @@ ok({
     sandboxGateSource.includes('buck2Machine') === true &&
     sandboxGateSource.includes('sandbox-gate:denies_undeclared_store_metadata') === true,
   name: 'sandbox admission uses a fresh local cache namespace and every controlled gate',
+})
+// The importer fixture computes an SRI digest, so the gate must carry its own
+// OpenSSL instead of assuming a host that happens to have one on PATH.
+const nixBridgeSource = taskSource('buck2:nix-bridge:check')
+const productImportScriptSource = readFileSync(
+  `${root}/nix/workspace-tools/lib/tests/javascript-product-import.sh`,
+  'utf8',
+)
+ok({
+  condition:
+    nixBridgeSource.includes('OPENSSL_BIN=${pkgs.openssl}/bin/openssl') === true &&
+    productImportScriptSource.includes('${OPENSSL_BIN:-openssl}') === true,
+  name: 'buck2:nix-bridge:check declares OpenSSL for the product importer fixture',
 })
 const buckToolchainSource = readFileSync(`${root}/buck2/toolchains/BUCK`, 'utf8')
 ok({

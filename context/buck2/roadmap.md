@@ -303,7 +303,21 @@ True remote execution (DQ3) is out of scope; `remote_enabled` stays false.
   scope; cache swap is cheap because CAS state is disposable).
 - OCI product distribution durability machinery: parked per
   [decision 0013](./.decisions/0013-shared-cache-foundation.md) partial
-  supersession of decision 0008.
+  supersession of decision 0008. Durable product authority is tracked Git per
+  [decision 0031](./.decisions/0031-git-product-authority-and-release-tripwires.md);
+  the same-repository per-product immutable Release landing zone and its
+  dormant secure K-of-K publication relay stay unbuilt until one of the five
+  tripwires fires; the cutover is forward-only, and relay dormancy is verified
+  as a precondition immediately before it.
+- Source-native Nix product realization is a stage-zero exception only, kept
+  for bootstrap providers and never widened into the normal product boundary.
+- Cold Buck-inside-Nix is rejected as the normal product boundary for
+  consumers. A measured cold run took 67.6 s, transferred 148.74 MiB of
+  registry bytes, produced a 252.9 MB dependency FOD, a 129.7 MB binary, and
+  an 852 MB runtime closure — and its output was not byte-identical to Buck's,
+  so it fails the product identity contract as well as the cost one. Numbers
+  and their measurement definitions live in
+  [2026-09-06-product-boundary-benchmarks.md](./.experiments/2026-09-06-product-boundary-benchmarks.md).
 - pnpm store consolidation on dev3 is closed by the Phase-4 root-install
   deletion. The developer-time store no longer participates in Buck authority;
   host-level cleanup belongs to normal workspace garbage collection.

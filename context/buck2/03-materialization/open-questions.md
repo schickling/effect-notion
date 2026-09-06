@@ -7,8 +7,10 @@
 - Resolution signal: an ephemeral-tailnet namespace runner restores the complete
   candidate graph from the cache, uploads a deliberate miss, and exercises the
   documented outage path without weakening correctness.
-- Blocker: the ephemeral-tailnet namespace-runner connectivity/fallback probe
-  has not run. Local cache round trips (163/163 and 416/416 hits) prove action
+- Blocker: run `33985481130` reached the trusted cache writer, but the
+  Namespace runner received an empty GitHub OIDC identity because the dotfiles
+  tailnet federation and reviewed cache-endpoint repository variable are not
+  deployed. Local cache round trips (163/163 and 416/416 hits) prove action
   portability and cache transport, not CI runner reachability.
 - Fallback: if the runner probe fails, use a GH-artifact fetch/extract-subtree
   cache keyed by the integrity-sidecar digest with a single fail-closed
@@ -36,7 +38,11 @@
   byte-owned editor-snapshot disk with its retained-generation count, staging/
   action p95, and marginal time/disk/action-count slope, and an explicit numeric
   envelope covering all of those is accepted before the flip.
-- Blocker: the full candidate namespace E2E has not run. Raising a timeout or
-  runner disk without changing and measuring the marginal curve does not
-  satisfy this question, and an unbounded snapshot store fails it even with a
-  fully warm cache.
+- Blocker: run `33985481130` selected the required
+  `namespace-profile-linux-x86-64` runner, but composition preparation had to
+  build `coreutils-9.11` locally after Namespace disabled Nix sandboxing. The
+  upstream `tests/ls/getxattr-speedup.sh` check then failed before the capacity
+  probe started, so the run produced no measurements. Raising a timeout or
+  runner disk without fixing the runner and measuring the marginal curve does
+  not satisfy this question, and an unbounded snapshot store fails it even with
+  a fully warm cache.

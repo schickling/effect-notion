@@ -626,7 +626,15 @@ in
     })
     # Nix CLI build and hash management
     (taskModules.nix-cli { cliPackages = nixCliPackages; })
-    (taskModules.buck-editor { })
+    # The editor dependency views are Genie's OWN dependency surface: `genie`
+    # executes the repository's `.genie.ts` sources, and those imports resolve
+    # through the Buck-published per-package views (`packages/@overeng/*/node_modules`,
+    # `packages/.editor-view`) because this repository has no root node_modules.
+    # So the publication task must NOT wait for `genie:run` (that is the cycle);
+    # it builds from the committed BUCK projections, and `genie:prepare` below
+    # waits for it instead. Freshness after regeneration stays with the
+    # check/watch tasks, which keep their `genie:run` edge (re-added below).
+    (taskModules.buck-editor { after = [ "mr:apply" ]; })
     (taskModules.secretspec { })
     # Local task: Validate allPackages matches filesystem packages (effect-utils specific)
     ./nix/devenv-modules/tasks/local/workspace-check.nix
@@ -666,6 +674,22 @@ in
 
   # Non-`.genie.ts` sources share one list with the lint freshness scheduler.
   effectUtils.genie.extraInputGlobs = genieExtraInputGlobs;
+
+  # Genie generators are executed from source, so every `genie` invocation needs
+  # the Buck-published editor dependency views on disk first: without them,
+  # `.genie.ts` sources fail to resolve their own imports on a cold host
+  # (observed on dev4: `Cannot find module '@overeng/otel-contract'` and a
+  # `Schema.makeFilter is not a function` mismatch against a stale/absent view).
+  # `genie:prepare` is the shared module's designated prerequisite hook, so this
+  # single edge covers genie:run, genie:check, genie:watch and lint:check:genie
+  # without reintroducing a root node_modules tree.
+  tasks."genie:prepare".after = [ "buck2:typescript:publish-editor-views" ];
+
+  # Publication itself is deliberately genie-independent (see the buck-editor
+  # import above); the freshness-checking and watch tasks keep the `genie:run`
+  # edge so they compare views against regenerated BUCK projections.
+  tasks."buck2:typescript:check-editor-views".after = [ "genie:run" ];
+  tasks."buck2:typescript:watch".after = [ "genie:run" ];
 
   packages = [
     buck2Stage0Definition.archive-tool
@@ -915,7 +939,11 @@ in
     exec = trace.exec "buck2:nix-bridge:check" ''
       set -euo pipefail
       ${pkgs.bash}/bin/bash nix/workspace-tools/lib/tests/buck2-build-product-contract.sh "$PWD"
-      ${pkgs.bash}/bin/bash nix/workspace-tools/lib/tests/javascript-product-import.sh "$PWD"
+      # The importer fixture derives an SRI integrity string, so OpenSSL is a
+      # declared tool of this task rather than an ambient host binary: a cold
+      # host without `openssl` on PATH otherwise fails the whole gate.
+      OPENSSL_BIN=${pkgs.openssl}/bin/openssl \
+        ${pkgs.bash}/bin/bash nix/workspace-tools/lib/tests/javascript-product-import.sh "$PWD"
       JQ_BIN=${pkgs.jq}/bin/jq \
         ${pkgs.bash}/bin/bash nix/workspace-tools/lib/tests/tracked-buck-products.sh "$PWD"
       exec ${pkgs.bash}/bin/bash nix/workspace-tools/lib/tests/buck2-bridge.sh "$PWD"

@@ -90879,6 +90879,23 @@ function generateApiCode(opts) {
   } = parseGenerateOptions(options2);
   const pascalName = toTopLevelIdentifier(schemaName);
   const schemaImportPath = `./${schemaFileName}`;
+  const generatedCodePrintWidth = 100;
+  const writeImport = `import { ${pascalName}PageProperties, type ${pascalName}PageWrite, encode${pascalName}Write } from '${schemaImportPath}'`;
+  const writeImportLines = writeImport.length <= generatedCodePrintWidth ? [writeImport] : [
+    `import {`,
+    `  ${pascalName}PageProperties,`,
+    `  type ${pascalName}PageWrite,`,
+    `  encode${pascalName}Write,`,
+    `} from '${schemaImportPath}'`
+  ];
+  const pageType = `export type ${pascalName}Page = TypedPage<${pascalName}PageProperties>`;
+  const pageTypeLines = pageType.length <= generatedCodePrintWidth ? [pageType] : [`export type ${pascalName}Page =`, `  TypedPage<${pascalName}PageProperties>`];
+  const encodeCall = `    properties: encode${pascalName}Write(properties as ${pascalName}PageWrite),`;
+  const encodeCallLines = encodeCall.length <= generatedCodePrintWidth ? [encodeCall] : [
+    `    properties: encode${pascalName}Write(`,
+    `      properties as ${pascalName}PageWrite,`,
+    `    ),`
+  ];
   const configComment = generateConfigComment({
     includeWrite,
     typedOptions,
@@ -90896,8 +90913,10 @@ function generateApiCode(opts) {
     ...configComment !== "" ? [configComment] : [],
     ``,
     `import { Effect, Stream } from 'effect'`,
+    ``,
     `import { NotionDatabases, NotionPages, type TypedPage } from '@overeng/notion-effect-client'`,
-    `import { ${pascalName}PageProperties${includeWrite === true ? `, ${pascalName}PageWrite, encode${pascalName}Write` : ""} } from '${schemaImportPath}'`,
+    ``,
+    ...includeWrite === true ? writeImportLines : [`import { ${pascalName}PageProperties } from '${schemaImportPath}'`],
     ``,
     `/** Database ID for ${dbInfo.name} */`,
     `const DATABASE_ID = '${dbInfo.id}'`,
@@ -90938,8 +90957,7 @@ function generateApiCode(opts) {
     `/**`,
     ` * Query pages and collect all results.`,
     ` */`,
-    `export const queryAll = (options?: QueryOptions) =>`,
-    `  query(options).pipe(Stream.runCollect)`,
+    `export const queryAll = (options?: QueryOptions) => query(options).pipe(Stream.runCollect)`,
     ``,
     `// -----------------------------------------------------------------------------`,
     `// Get`,
@@ -90954,7 +90972,7 @@ function generateApiCode(opts) {
     `    schema: ${pascalName}PageProperties,`,
     `  })`,
     ``,
-    `export type ${pascalName}Page = TypedPage<${pascalName}PageProperties>`
+    ...pageTypeLines
   ];
   if (includeWrite === true) {
     lines2.push(``);
@@ -90978,13 +90996,18 @@ function generateApiCode(opts) {
     lines2.push(`/**`);
     lines2.push(` * Update an existing page.`);
     lines2.push(` */`);
-    lines2.push(`export const update = (`);
-    lines2.push(`  pageId: string,`);
-    lines2.push(`  properties: Partial<${pascalName}PageWrite>,`);
-    lines2.push(`) =>`);
+    const updateSignature = `export const update = (pageId: string, properties: Partial<${pascalName}PageWrite>) =>`;
+    if (updateSignature.length <= generatedCodePrintWidth) {
+      lines2.push(updateSignature);
+    } else {
+      lines2.push(`export const update = (`);
+      lines2.push(`  pageId: string,`);
+      lines2.push(`  properties: Partial<${pascalName}PageWrite>,`);
+      lines2.push(`) =>`);
+    }
     lines2.push(`  NotionPages.update({`);
     lines2.push(`    pageId,`);
-    lines2.push(`    properties: encode${pascalName}Write(properties as ${pascalName}PageWrite),`);
+    lines2.push(...encodeCallLines);
     lines2.push(`  })`);
   }
   lines2.push(``);
@@ -90995,8 +91018,7 @@ function generateApiCode(opts) {
   lines2.push(`/**`);
   lines2.push(` * Archive (soft-delete) a page.`);
   lines2.push(` */`);
-  lines2.push(`export const archive = (pageId: string) =>`);
-  lines2.push(`  NotionPages.archive({ pageId })`);
+  lines2.push(`export const archive = (pageId: string) => NotionPages.archive({ pageId })`);
   lines2.push(``);
   return lines2.join(`
 `);

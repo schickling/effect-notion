@@ -7,8 +7,8 @@
 # so an unreachable or unconfigured cache fails the job and prints the documented
 # one-line recovery instead.
 #
-# The endpoint is repository configuration (`vars.BUCK2_CACHE_ENDPOINT`); no host,
-# port, or tailnet name is committed here.
+# The endpoint arrives as `BUCK2_CACHE_ENDPOINT` from reviewed infrastructure.
+# This script commits no host, port, or tailnet name.
 set -euo pipefail
 
 endpoint="${BUCK2_CACHE_ENDPOINT:-}"
@@ -26,7 +26,7 @@ if [ "${BUCK2_NO_REMOTE_CACHE:-}" = "1" ]; then
 fi
 
 if [ -z "$endpoint" ]; then
-  fail 'vars.BUCK2_CACHE_ENDPOINT is not configured for this repository, so the shared-cache lane has no endpoint to prove.'
+  fail 'BUCK2_CACHE_ENDPOINT is empty, so the shared-cache lane has no endpoint to prove.'
 fi
 if [ -z "$instance" ]; then
   fail 'BUCK2_CACHE_INSTANCE_NAME is empty, so the lane cannot name its candidate cache instance.'

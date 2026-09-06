@@ -108,10 +108,38 @@ export const namespaceRunner = ({
 // Step Atoms
 // =============================================================================
 
-/** Checkout repository via actions/checkout@v6 */
-export const checkoutStep = (opts?: { repository?: string; ref?: string; path?: string }) => ({
-  uses: 'actions/checkout@v6' as const,
-  with: { 'persist-credentials': false, ...opts },
+/** Node-24-safe major of the shared checkout action. */
+export const defaultCheckoutActionRef = 'actions/checkout@v6'
+
+/**
+ * Immutable commit pins of the SAME action majors the defaults name, for jobs that
+ * hold a credential while a third-party action is on the critical path.
+ *
+ * A floating major tag is mutable: whoever can move `v6` can run new code inside a job
+ * that mints a tailnet-capable OIDC token. Only credential-bearing jobs pay the pinning
+ * cost (a pinned action never picks up upstream fixes until someone repins it), so the
+ * ordinary lanes deliberately keep their major tags.
+ */
+export const credentialBearingActionPins = {
+  checkout: 'actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803',
+  determinateNix:
+    'DeterminateSystems/determinate-nix-action@021c8a1bd3570eb21f5c20a054812b0c4d9ca614',
+  cachix: 'cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866',
+} as const
+
+/** Checkout repository via actions/checkout, by floating major unless `actionRef` pins it. */
+export const checkoutStep = ({
+  actionRef = defaultCheckoutActionRef,
+  ...checkoutWith
+}: {
+  repository?: string
+  ref?: string
+  path?: string
+  /** Immutable `owner/repo@sha` pin; required for credential-bearing jobs. */
+  actionRef?: string
+} = {}) => ({
+  uses: actionRef,
+  with: { 'persist-credentials': false, ...checkoutWith },
 })
 
 /**
@@ -136,6 +164,12 @@ export const cleanupEffectUtilsCompositionStep = {
   run: 'bash "$GITHUB_WORKSPACE/genie/ci-scripts/cleanup-effect-utils-composition.sh"',
 } as const
 
+/** Immutable v4 pin of the Tailscale join action. */
+export const tailscaleActionRef = 'tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8'
+
+/** Explicit Tailscale client version installed by the pinned action. */
+export const tailscaleClientVersion = '1.94.2'
+
 /**
  * Join an ephemeral tailnet node for the duration of one job, authenticating with the
  * job's GitHub OIDC token instead of a stored Tailscale secret.
@@ -147,6 +181,11 @@ export const cleanupEffectUtilsCompositionStep = {
  * The client id and audience are non-secret repository configuration, so they travel as
  * `vars.*` rather than `secrets.*`. The job must carry `permissions: id-token: write` for
  * the action to be able to mint the OIDC token at all.
+ *
+ * The action itself is pinned by commit, not by tag: this is the step that spends the
+ * OIDC token, so a mutable `v4` would let whoever can move the tag run code next to the
+ * credential. The Tailscale client version is likewise explicit rather than `latest`, so
+ * a job cannot silently change which tailnet client joined the cache lane.
  */
 export const tailnetEphemeralConnectStep = ({
   clientId,
@@ -162,12 +201,13 @@ export const tailnetEphemeralConnectStep = ({
   readonly name?: string
 }) => ({
   name,
-  uses: 'tailscale/github-action@v3' as const,
+  // v4 (306e68a486fd2350f2bfc3b19fcd143891a4a2d8)
+  uses: tailscaleActionRef,
   with: {
     'oauth-client-id': clientId,
     audience,
     tags,
-    version: 'latest',
+    version: tailscaleClientVersion,
   },
 })
 
@@ -432,21 +472,28 @@ export const appendGitHubAccessTokenToNixConfigStep = (opts: {
   ].join('\n'),
 })
 
+/** Node-24-safe major of the Determinate Nix installer action. */
+export const defaultInstallNixActionRef = 'DeterminateSystems/determinate-nix-action@v3'
+
 /**
- * Install Nix via DeterminateSystems/determinate-nix-action@v3.
+ * Install Nix via DeterminateSystems/determinate-nix-action.
  * Includes shared binary caches and github.com access-tokens
  * by default. On self-hosted where Nix is pre-installed, this action is a no-op
  * and extra-conf is silently skipped — the runner's nix wrapper handles
  * access-tokens there by reading GITHUB_TOKEN from the environment.
+ *
+ * `actionRef` exists so credential-bearing jobs can pin the installer by commit
+ * (`credentialBearingActionPins.determinateNix`) instead of a movable major tag.
  */
 export const installNixStep = (opts?: {
   binaryCaches?: readonly NixBinaryCache[]
   extraConf?: string
   githubAccessTokenExpression?: string
   summarize?: boolean
+  actionRef?: string
 }) => ({
   name: 'Install Nix',
-  uses: 'DeterminateSystems/determinate-nix-action@v3' as const,
+  uses: opts?.actionRef ?? defaultInstallNixActionRef,
   with: {
     'extra-conf': [
       /**
@@ -483,10 +530,18 @@ export const cachixCliBuildStep = {
   ].join('\n'),
 } as const
 
-/** Enable a Cachix binary cache. Requires `cachixCliBuildStep` earlier in the job. */
-export const cachixStep = (opts: { name: string; authToken?: string }) => ({
+/** Node-24-safe major of the Cachix action. */
+export const defaultCachixActionRef = 'cachix/cachix-action@v17'
+
+/**
+ * Enable a Cachix binary cache. Requires `cachixCliBuildStep` earlier in the job.
+ *
+ * `actionRef` lets credential-bearing jobs pin the action by commit
+ * (`credentialBearingActionPins.cachix`) instead of a movable major tag.
+ */
+export const cachixStep = (opts: { name: string; authToken?: string; actionRef?: string }) => ({
   name: 'Enable Cachix cache',
-  uses: 'cachix/cachix-action@v17' as const,
+  uses: opts.actionRef ?? defaultCachixActionRef,
   with: {
     name: opts.name,
     ...(opts.authToken !== undefined ? { authToken: opts.authToken } : {}),
