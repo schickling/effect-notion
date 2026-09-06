@@ -97,8 +97,12 @@ The independently tracked import expectation contains the descriptor SHA-256,
 module SHA-256, product name, product kind, runtime contract, runtime contract
 version, and exact external module and capability sets. Nix verifies all of
 these fields, module size, module integrity, and a safe relative module path
-before it produces the store result. Producer store paths and configured-target
-hashes are provenance only and do not authorize import.
+before it produces the store result. Portable provenance contains only logical
+runtime-contract, dependency-closure, module, and configured-target identities.
+These identities are provenance only: they describe what was built and never
+authorize import, which is authorized solely by the independently tracked
+expectation. Producer store paths are excluded so that the descriptor bytes
+themselves are host-independent and byte-identical across hosts.
 
 The producer leaves a platform-gated native package external. Nix grafts a
 native package only when its package name and capability are present in both
@@ -138,3 +142,10 @@ materialization, exact external module and capability sets, hostile module
 paths, descriptor and module digest mismatch, size and integrity mismatch,
 portable-platform enforcement, native-package exclusion, and byte identity on
 all three supported platform triples.
+
+Byte identity on the three platform triples is proved on dev3 (x86_64 Linux),
+dev4 (ARM64 Linux), and mbp2021 (ARM64 Darwin), once at admission and
+periodically thereafter (BRIDGE-R12). A hosted ARM runner does not substitute
+for either of the two ARM hosts. Both proofs execute only already-merged
+content — admission follows merge — because pull-request code never runs on a
+tailnet fleet host.

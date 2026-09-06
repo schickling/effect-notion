@@ -52,24 +52,32 @@ Reuse claims come from Buck-native command and cache-hit classes:
 4. repeat from a different absolute prefix and directory depth;
 5. validate every relative link and compare declared output digests.
 
-The 2026-09-04 probe used isolated instance
-`storegraph-spike-throwaway`. Its subset population ran 163 local commands and
+The 2026-09-04 probe used the separately named instance
+`storegraph-spike-throwaway`. An instance name buys ATTRIBUTION, not isolation:
+the cache server does not mangle instance names, so one ActionCache and one CAS
+are shared with every other writer (BUCK-A05, REUSE-R06). CAS bytes are
+digest-verified, while ActionCache mappings are mutable and last-writer-wins.
+Its subset population ran 163 local commands and
 uploaded 28 MiB including an SCC group; after clean, both the same path and a
 different prefix/depth restored 163/163 hits and 0 local commands. Separately,
 the full 17-package graph restored 416/416 hits, 0 local commands, and 736 MiB:
 378 archive extracts, four cached artifacts for the four SCCs present,
 17 typechecks, and 17 emits. The fifth repo-wide SCC was lock-analyzed only and
 must build before the final flip. These are closure-scoped probe facts, not
-repository-wide proof: the whole-repository candidate namespace E2E required by
-03-materialization DQ4 has not run, and the flip covers every consumer, editor,
-and tool surface rather than the 17 measured packages. The probe admits cache
-uploads but leaves DQ1 open until a CI runner proves connectivity and fallback.
+repository-wide proof: run `33985481130` selected the required candidate runner
+but failed in composition preparation before the DQ4 probe could measure the
+whole-repository graph. The flip covers every consumer, editor, and tool surface
+rather than the 17 measured packages. The probe admits cache uploads but leaves
+DQ1 open until the tailnet federation is deployed and a CI runner proves
+connectivity and fallback.
 It does not admit true remote execution.
 
-Staged prerequisite work runs in an explicitly named candidate cache namespace
-and isolation dir. A candidate-namespace measurement is never reported as a
-production-namespace reuse claim, and the flip is the first change that writes
-production keys for the new actions.
+Staged prerequisite work runs under an explicitly named candidate cache
+namespace and its own isolation dir. The name is what keeps a candidate
+measurement from being reported as a production-namespace reuse claim; it does
+not shield the candidate from production bytes, because the instance names are
+not mangled server-side. The flip is the first change that writes production
+keys for the new actions.
 
 ## Capacity Verification
 

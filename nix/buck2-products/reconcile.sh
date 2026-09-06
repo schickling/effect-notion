@@ -26,15 +26,32 @@ spec="$PRODUCTS_DIR/products.json"
 staging="$(mktemp -d)"
 trap 'rm -rf "$staging"' EXIT
 
-build_one() {
-  # Buck prints the absolute declared output path and no label with this mode.
-  "$BUCK2_BIN" build --show-full-simple-output "$1" | tail -n 1
-}
-
 manifest_entries="$staging/entries.json"
 echo '{}' >"$manifest_entries"
 
 count="$("$JQ_BIN" '.products | length' "$spec")"
+targets=()
+for index in $(seq 0 $((count - 1))); do
+  label="$("$JQ_BIN" -r ".products[$index].label" "$spec")"
+  targets+=("${cell}${label}" "${cell}${label}[descriptor]")
+done
+
+outputs="$staging/outputs.json"
+cd "$WORKSPACE_ROOT"
+"$BUCK2_BIN" build --no-remote-cache --show-json-output "${targets[@]}" >"$outputs"
+
+output_for() {
+  local label="$1"
+  local path
+  path="$("$JQ_BIN" -er --arg label "$label" '.[$label]' "$outputs")"
+  case "$path" in
+  buck-out/*) printf '%s/%s\n' "$WORKSPACE_ROOT" "$path" ;;
+  *)
+    echo "reconcile.sh: Buck returned a non-workspace output for $label: $path" >&2
+    exit 1
+    ;;
+  esac
+}
 for index in $(seq 0 $((count - 1))); do
   product="$("$JQ_BIN" -c ".products[$index]" "$spec")"
   name="$("$JQ_BIN" -r '.productName' <<<"$product")"
@@ -42,9 +59,8 @@ for index in $(seq 0 $((count - 1))); do
   module="$("$JQ_BIN" -r '.module' <<<"$product")"
   descriptor_path="$("$JQ_BIN" -r '.descriptorPath' <<<"$product")"
 
-  cd "$WORKSPACE_ROOT"
-  module_output="$(build_one "${cell}${label}")"
-  descriptor_output="$(build_one "${cell}${label}[descriptor]")"
+  module_output="$(output_for "${cell}${label}")"
+  descriptor_output="$(output_for "${cell}${label}[descriptor]")"
 
   digest="$(sha256sum "$module_output" | cut -d ' ' -f 1)"
   descriptor_digest="$(sha256sum "$descriptor_output" | cut -d ' ' -f 1)"

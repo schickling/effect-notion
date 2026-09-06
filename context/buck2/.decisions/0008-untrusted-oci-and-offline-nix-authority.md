@@ -59,3 +59,23 @@ retention, observability, and verdicts.
 - A registry replica is not called a backup without an independent restore.
 - Public contracts contain no fleet topology, endpoints, or credentials.
 - Collection begins conservatively with deletion disabled.
+
+## Amendment 1
+
+Distribution is not where product durability lives at the fleet's measured
+scale. Durable product authority is tracked Git content in the product's own
+repository ([0031](./0031-git-product-authority-and-release-tripwires.md)). An
+OCI registry is at most an optional mirror of bytes Git already carries: it is
+never a publication boundary, and no consumer reads it to obtain durability.
+Where product bytes do move, this decision's core stands unchanged —
+digest-addressed identity, the reviewed exact platform child-manifest pin, the
+sealed admission root, and network-free activation and rollback.
+
+The exception is measured, not permanent. Any one of the five tripwires listed
+normatively in
+[0031](./0031-git-product-authority-and-release-tripwires.md) — with its
+thresholds, its acceptance baselines, and its explicit exclusion of marginal
+clone cost and refresh pack growth — retires Git-carried product authority and
+moves the durable boundary to the same-repository per-product immutable Release
+landing zone of that decision. This decision restates none of them; 0031 is the
+single place they are defined.

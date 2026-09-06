@@ -125,6 +125,9 @@ const currentTarget = (fixture: Fixture): string =>
 const recordPath = (fixture: Fixture, target = currentTarget(fixture)): string =>
   join(fixture.editorRoot, target, 'editor-view.json')
 
+/** Store-relative snapshot directory name carried by a record's `snapshot` pointer. */
+const storeName = (snapshot: string): string => snapshot.slice('.store/'.length)
+
 const ownedSnapshots = (fixture: Fixture): readonly string[] =>
   readdirSync(join(fixture.editorRoot, '.store')).filter((name) =>
     name.startsWith(`${fixture.options.viewName}-`),
@@ -187,9 +190,10 @@ describe('editor view publisher', () => {
       expect(readlinkSync(join(fixture.packageDir, 'node_modules'))).toBe(
         '../../.editor-view/tui-core/node_modules',
       )
-      expect(readlinkSync(join(fixture.editorRoot, 'tui-core'))).toBe(
-        `.store/tui-core-${record.editorInputsFingerprint}`,
-      )
+      // The pointer names the snapshot by its combined store identity, not by the
+      // editor-inputs fingerprint alone.
+      expect(readlinkSync(join(fixture.editorRoot, 'tui-core'))).toBe(record.snapshot)
+      expect(record.snapshot).toMatch(/^\.store\/tui-core-[0-9a-f]{64}$/u)
       expect(record.byteSnapshotDigest).toBe(record.normalizedStoreDigest)
       expect(record.selectedViewDigest).not.toBe(record.normalizedStoreDigest)
       const snapshotRoot = join(fixture.editorRoot, record.snapshot)
@@ -317,7 +321,7 @@ describe('editor view publisher', () => {
       const snapshots = ownedSnapshots(fixture)
       expect(snapshots).toHaveLength(2)
       expect(snapshots).toContain(currentTarget(fixture).replace('.store/', ''))
-      expect(snapshots).not.toContain(`tui-core-${oldest.editorInputsFingerprint}`)
+      expect(snapshots).not.toContain(storeName(oldest.snapshot))
       expect(statSync(inFlight).isDirectory()).toBe(true)
       const retention = JSON.parse(
         readFileSync(
@@ -411,6 +415,48 @@ describe('editor view publisher', () => {
       )
     } finally {
       cleanup(residual)
+    }
+  })
+
+  it('republishes a distinct snapshot when only declared backing-root bytes change', async () => {
+    const fixture = makeFixture()
+    try {
+      const backingRoot = join(fixture.root, 'inputs', 'store-entry')
+      mkdirSync(join(backingRoot, 'dep'), { recursive: true })
+      writeFileSync(join(backingRoot, 'dep', 'index.js'), 'export default "first"\n')
+      const linkedView = join(fixture.root, 'inputs', 'node_modules-linked')
+      mkdirSync(linkedView)
+      symlinkSync(join(backingRoot, 'dep'), join(linkedView, 'dep'))
+      const options = { ...fixture.options, nodeModules: linkedView, backingRoots: [backingRoot] }
+
+      const first = await publishEditorView(options)
+      // The admitted view reaches its bytes through the declared root, so moving those
+      // bytes leaves BOTH the editor-inputs fingerprint and the admitted view digest
+      // unchanged. Only the normalized store digest moves, and the store key has to
+      // cover it or the second publication collides with the first immutable snapshot.
+      makeWritable(backingRoot)
+      writeFileSync(join(backingRoot, 'dep', 'index.js'), 'export default "second"\n')
+      const second = await publishEditorView(options)
+
+      expect(second.editorInputsFingerprint).toBe(first.editorInputsFingerprint)
+      expect(second.selectedViewDigest).toBe(first.selectedViewDigest)
+      expect(second.normalizedStoreDigest).not.toBe(first.normalizedStoreDigest)
+      expect(second.snapshot).not.toBe(first.snapshot)
+      expect(currentTarget(fixture)).toBe(second.snapshot)
+      // Retention keeps the superseded snapshot, and it still holds its own bytes.
+      expect(ownedSnapshots(fixture).toSorted()).toEqual(
+        [storeName(first.snapshot), storeName(second.snapshot)].toSorted(),
+      )
+      const dependency = (record: { snapshot: string }): string =>
+        readFileSync(
+          join(fixture.editorRoot, record.snapshot, 'node_modules', 'dep', 'index.js'),
+          'utf8',
+        )
+      expect(dependency(first)).toBe('export default "first"\n')
+      expect(dependency(second)).toBe('export default "second"\n')
+      await expect(checkEditorView(options)).resolves.toEqual(second)
+    } finally {
+      cleanup(fixture)
     }
   })
 
@@ -627,10 +673,8 @@ describe('editor view publisher', () => {
       expect(readlinkSync(join(fixture.packageDir, 'node_modules'))).toBe(
         '../../.editor-view/tui-react/node_modules',
       )
-      expect(readlinkSync(join(fixture.editorRoot, 'tui-react'))).toBe(
-        `.store/tui-react-${record.editorInputsFingerprint}`,
-      )
-      expect(record.snapshot).toBe(`.store/tui-react-${record.editorInputsFingerprint}`)
+      expect(readlinkSync(join(fixture.editorRoot, 'tui-react'))).toBe(record.snapshot)
+      expect(record.snapshot).toMatch(/^\.store\/tui-react-[0-9a-f]{64}$/u)
       await expect(checkEditorView(fixture.options)).resolves.toEqual(record)
       await expect(
         publishEditorView({
@@ -663,18 +707,12 @@ describe('editor view publisher', () => {
     try {
       const record = await publishEditorView(dangling.options)
       rmSync(join(dangling.editorRoot, 'tui-core'))
-      symlinkSync(
-        `.store/tui-core-${record.editorInputsFingerprint}`,
-        join(dangling.editorRoot, 'tui-core'),
-      )
-      makeWritable(
-        join(dangling.editorRoot, '.store', `tui-core-${record.editorInputsFingerprint}`),
-      )
-      rmSync(join(dangling.editorRoot, '.store', `tui-core-${record.editorInputsFingerprint}`), {
-        recursive: true,
-      })
+      symlinkSync(record.snapshot, join(dangling.editorRoot, 'tui-core'))
+      makeWritable(join(dangling.editorRoot, record.snapshot))
+      rmSync(join(dangling.editorRoot, record.snapshot), { recursive: true })
+      const identity = storeName(record.snapshot).slice('tui-core-'.length)
       await expect(checkEditorView(dangling.options)).rejects.toThrow(
-        `recorded fingerprint=${record.editorInputsFingerprint}; current fingerprint=${record.editorInputsFingerprint}`,
+        `recorded fingerprint=${identity}; current fingerprint=${record.editorInputsFingerprint}`,
       )
     } finally {
       cleanup(dangling)

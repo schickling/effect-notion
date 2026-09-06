@@ -21,6 +21,7 @@ import {
   DARWIN_SEATBELT_OS_METADATA_PATHS,
   DARWIN_SEATBELT_OS_READ_PATHS,
   DARWIN_SEATBELT_OS_WRITE_PATHS,
+  DARWIN_SEATBELT_SYSCTL_NAMES,
   darwinOsMetadataLinks,
   hashDeclaredInputRoots,
   parseEmitOptions,
@@ -381,15 +382,25 @@ describe('platform sandbox contract', () => {
     expect(profile).toContain('(allow process-exec ')
     expect(profile).toContain('(allow file-read-metadata ')
 
-    // The runtime opens these, so metadata alone is not enough; every canonical
-    // spelling of a declared metadata path is admitted the same way.
+    // Bun inspects the root directory entry during startup, and opens the
+    // remaining paths. The root uses `literal`, never `subpath`.
     expect(profile).toContain(
-      '(allow file-read* (literal "/dev/random") (literal "/dev/urandom") (literal "/etc/localtime") (literal (param "META_LINK_0")) (literal (param "META_LINK_1")))',
+      '(allow file-read* (literal "/") (literal "/dev/random") (literal "/dev/urandom") (literal "/etc/localtime") (literal (param "META_LINK_0")) (literal (param "META_LINK_1")))',
     )
     // Exactly one writable OS path, and only its data: no create, unlink, or chmod.
     expect(profile).toContain('(allow file-write-data (literal "/dev/null"))')
-    expect(DARWIN_SEATBELT_OS_READ_PATHS).toEqual(['/dev/random', '/dev/urandom', '/etc/localtime'])
+    expect(DARWIN_SEATBELT_OS_READ_PATHS).toEqual([
+      '/',
+      '/dev/random',
+      '/dev/urandom',
+      '/etc/localtime',
+    ])
     expect(DARWIN_SEATBELT_OS_WRITE_PATHS).toEqual(['/dev/null'])
+    expect(DARWIN_SEATBELT_SYSCTL_NAMES).toContain('security.mac.lockdown_mode_state')
+    for (const name of DARWIN_SEATBELT_SYSCTL_NAMES) {
+      expect(profile).toContain(`(sysctl-name ${JSON.stringify(name)})`)
+    }
+    expect(profile).not.toContain('(allow mach')
     // The probed-only path never becomes readable, and no OS path becomes
     // writable beyond its data.
     expect(profile).not.toContain(
@@ -474,6 +485,8 @@ describe('platform sandbox contract', () => {
     expect(denied).toContain('policyDenialCodes')
     expect(denied).toContain('unrelated probe error')
     expect(denied).toContain('ConnectionRefused: true')
+    expect(denied).toContain('FailedToOpenSocket: true')
+    expect(() => new Bun.Transpiler({ loader: 'tsx' }).transformSync(denied)).not.toThrow()
     expect(
       probeScriptSource({ expect: 'denied', kind: 'stat', target: '/etc/hostname' }),
     ).toContain('await stat("/etc/hostname")')

@@ -117,13 +117,26 @@
               exec ${pkgs.python3}/bin/python3 "$@"
             '';
             buck2-archive-tool = buck2-stage0-tools.archive-tool;
-            # Test-tool capability realization: the exact GNU coreutils whose `cp`, `mv`, and
-            # `false` the editor-view suite drives. Declaring each as a capability is what gives a
-            # sandboxed test its complete `closureStorePaths`, not just the executable file.
-            # `singleBinary = false` is load-bearing: the capability resolver realpaths a declared
-            # executable, and the default multi-call build makes every `bin/<tool>` a symlink onto
-            # one `bin/coreutils`, which would collapse all three declarations onto one dispatcher.
-            buck2-coreutils = pkgs.coreutils.override { singleBinary = false; };
+            # Test-tool capability realization for every `gnu/coreutils/v9` executable
+            # `buck2-member.json` declares against this flake package: cat, cp, echo, env,
+            # false, mv, printf, stty, true, wc. The list is exhaustive on purpose — a
+            # declared executable missing from this realization fails capability
+            # resolution, which is exactly how the short cp/mv/false loop broke.
+            # Each declared executable must be a real file here: the default multi-call
+            # coreutils package exposes symlinks that would collapse every declaration
+            # onto one dispatcher. Thin wrappers preserve separate capability identities
+            # without rebuilding coreutils, which keeps the bootstrap closure
+            # substitutable on ephemeral CI hosts.
+            buck2-coreutils = pkgs.runCommand "buck2-coreutils-capability" { } ''
+              mkdir -p "$out/bin"
+              for tool in cat cp echo env false mv printf stty true wc; do
+                cat > "$out/bin/$tool" <<EOF
+              #!${pkgs.runtimeShell}
+              exec ${pkgs.coreutils}/bin/$tool "\$@"
+              EOF
+                chmod +x "$out/bin/$tool"
+              done
+            '';
             # One flake package per test-tool family. Each is the realization a `support_tool`
             # capability attests, so a sandboxed test reads the tool's whole closure rather than
             # one executable file, and its `bin` directory is the only PATH entry it gets.

@@ -31,7 +31,7 @@ on:
         default: false
         type: boolean
       run_buck2_cache_probe:
-        description: 'Run the opt-in shared-Buck-cache probe lanes (03-materialization DQ1): publish, restore + deliberate miss, and the fail-closed outage leg. Requires vars.BUCK2_CACHE_ENDPOINT plus the vars.TS_FEDERATED_CLIENT_ID / vars.TS_FEDERATED_AUDIENCE tailnet federated identity (no Tailscale secret exists); the outage leg deliberately fails its Buck build and still reports success.'
+        description: 'Run the opt-in shared-Buck-cache probe lanes (03-materialization DQ1): publish, restore + deliberate miss, and the fail-closed outage leg. Requires vars.BUCK2_CACHE_ENDPOINT plus the vars.TS_FEDERATED_CLIENT_ID / vars.TS_FEDERATED_AUDIENCE tailnet federated identity (no Tailscale secret exists). The outage leg deliberately fails its Buck build and still reports success.'
         required: false
         default: false
         type: boolean
@@ -6703,11 +6703,11 @@ jobs:
       BUCK2_CACHE_ENDPOINT: ${{ vars.BUCK2_CACHE_ENDPOINT }}
       BUCK2_CACHE_INSTANCE_NAME: effect-utils-dq1-candidate
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
       - name: Install Nix
-        uses: DeterminateSystems/determinate-nix-action@v3
+        uses: DeterminateSystems/determinate-nix-action@021c8a1bd3570eb21f5c20a054812b0c4d9ca614
         with:
           extra-conf: |
             experimental-features = nix-command flakes
@@ -6717,12 +6717,12 @@ jobs:
             access-tokens = github.com=${{ github.token }}
           summarize: true
       - name: Join ephemeral tailnet
-        uses: tailscale/github-action@v3
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8
         with:
           oauth-client-id: ${{ vars.TS_FEDERATED_CLIENT_ID }}
           audience: ${{ vars.TS_FEDERATED_AUDIENCE }}
           tags: 'tag:ci-buck2-cache'
-          version: latest
+          version: 1.94.2
       - name: Preflight shared Buck cache
         run: bash "$GITHUB_WORKSPACE/genie/ci-scripts/buck2-cache-preflight.sh"
       - name: Prepare effect-utils composition
@@ -6734,7 +6734,7 @@ jobs:
           out=$(nix build --no-link --print-out-paths nixpkgs#cachix)
           echo "$out/bin" >> "$GITHUB_PATH"
       - name: Enable Cachix cache
-        uses: cachix/cachix-action@v17
+        uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866
         with:
           name: overeng-effect-utils
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
@@ -6790,11 +6790,11 @@ jobs:
       BUCK2_CACHE_ENDPOINT: ${{ vars.BUCK2_CACHE_ENDPOINT }}
       BUCK2_CACHE_INSTANCE_NAME: effect-utils-dq1-candidate
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
       - name: Install Nix
-        uses: DeterminateSystems/determinate-nix-action@v3
+        uses: DeterminateSystems/determinate-nix-action@021c8a1bd3570eb21f5c20a054812b0c4d9ca614
         with:
           extra-conf: |
             experimental-features = nix-command flakes
@@ -6804,12 +6804,12 @@ jobs:
             access-tokens = github.com=${{ github.token }}
           summarize: true
       - name: Join ephemeral tailnet
-        uses: tailscale/github-action@v3
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8
         with:
           oauth-client-id: ${{ vars.TS_FEDERATED_CLIENT_ID }}
           audience: ${{ vars.TS_FEDERATED_AUDIENCE }}
           tags: 'tag:ci-buck2-cache'
-          version: latest
+          version: 1.94.2
       - name: Preflight shared Buck cache
         run: bash "$GITHUB_WORKSPACE/genie/ci-scripts/buck2-cache-preflight.sh"
       - name: Prepare effect-utils composition
@@ -6821,7 +6821,7 @@ jobs:
           out=$(nix build --no-link --print-out-paths nixpkgs#cachix)
           echo "$out/bin" >> "$GITHUB_PATH"
       - name: Enable Cachix cache
-        uses: cachix/cachix-action@v17
+        uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866
         with:
           name: overeng-effect-utils
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
@@ -6959,6 +6959,7 @@ jobs:
             extra-substituters = https://devenv.cachix.org
             extra-trusted-public-keys = devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=
             access-tokens = github.com=${{ github.token }}
+            sandbox = true
           summarize: true
       - name: Prepare effect-utils composition
         run: bash "$GITHUB_WORKSPACE/genie/ci-scripts/prepare-effect-utils-composition.sh"

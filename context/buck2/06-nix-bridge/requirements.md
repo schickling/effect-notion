@@ -35,8 +35,8 @@ This subsystem owns the only shared Buck-to-system boundary: a portable
   binds target OS, architecture, ABI, tagged runtime contract, toolchain,
   recipe, and Buck target. A strict platform-invariant JavaScript descriptor
   binds the portable `any` tuple defined by BRIDGE-A03, runtime kind, runtime
-  contract, configured Buck target, module target, and dependency-closure
-  provenance.
+  contract, configured Buck target, module target, and logical
+  dependency-closure provenance with no producer path.
 - **BRIDGE-R04 No live state:** The descriptor contains no registry,
   deployment, activation, rollback, health, fleet, or secret state.
 
@@ -65,4 +65,11 @@ This subsystem owns the only shared Buck-to-system boundary: a portable
   exact independently declared external modules and capabilities.
 - **BRIDGE-R12 Cross-platform proof:** Acceptance of a portable JavaScript
   product requires byte-identical module and descriptor output on Linux
-  x86_64, Linux ARM64, and Darwin ARM64.
+  x86_64, Linux ARM64, and Darwin ARM64. The proof is executed on the three
+  named fleet hosts — dev3 (x86_64 Linux), dev4 (ARM64 Linux), and mbp2021
+  (ARM64 Darwin) — once at admission and periodically thereafter, because a
+  one-time result cannot detect later platform divergence. No pull-request code
+  executes on a tailnet fleet host: both the admission proof and the periodic
+  proof run only already-merged content, so admission follows merge rather than
+  gating it. A hosted ARM runner is not an admissible substitute for either of
+  the two ARM hosts.

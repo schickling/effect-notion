@@ -147,6 +147,31 @@ const frame = (value: string): readonly [Buffer, Buffer] => {
   return [u64(BigInt(encoded.byteLength)), encoded]
 }
 
+const snapshotIdentitySchema = 'effect-utils/editor-view-snapshot-identity/v1' as const
+
+/**
+ * Immutable store key of one snapshot: a framed hash over BOTH admitted identities.
+ *
+ * The editor-inputs fingerprint alone does not address the snapshot's bytes. A view that
+ * reaches its dependencies through declared backing roots keeps identical editor inputs
+ * while those roots move, and a fingerprint-only key then names an already published,
+ * read-only directory whose recorded normalized-store digest no longer matches what was
+ * admitted — publication can neither reuse it nor replace it. Hashing both digests keeps
+ * the key one path component instead of two concatenated 64-hex segments.
+ */
+const snapshotIdentity = ({
+  editorInputsFingerprint,
+  normalizedStoreDigest,
+}: {
+  editorInputsFingerprint: string
+  normalizedStoreDigest: string
+}): string => {
+  const hash = createHash('sha256')
+  for (const value of [snapshotIdentitySchema, editorInputsFingerprint, normalizedStoreDigest])
+    for (const part of frame(value)) hash.update(part)
+  return hash.digest('hex')
+}
+
 const pathExists = (path: string): boolean => {
   try {
     lstatSync(path)
@@ -667,17 +692,23 @@ const expectedRecord = ({
   normalizedStoreDigest: string
   selectedViewDigest: string
   byteSnapshotDigest?: string
-}): EditorViewRecord => ({
-  schema: editorViewSchema,
-  package: options.package,
-  cell: options.cell,
-  target: options.target,
-  editorInputsFingerprint: fingerprint,
-  snapshot: `.store/${options.viewName}-${fingerprint}`,
-  normalizedStoreDigest,
-  selectedViewDigest,
-  byteSnapshotDigest,
-})
+}): EditorViewRecord => {
+  const identity = snapshotIdentity({
+    editorInputsFingerprint: fingerprint,
+    normalizedStoreDigest,
+  })
+  return {
+    schema: editorViewSchema,
+    package: options.package,
+    cell: options.cell,
+    target: options.target,
+    editorInputsFingerprint: fingerprint,
+    snapshot: `.store/${options.viewName}-${identity}`,
+    normalizedStoreDigest,
+    selectedViewDigest,
+    byteSnapshotDigest,
+  }
+}
 
 const recordsEqual = ({
   left,
@@ -1125,9 +1156,9 @@ const listOwnedSnapshots = ({
     compareBytes({ left, right }),
   )) {
     if (name.startsWith('.candidate-') === true) continue
-    const fingerprint = pattern.exec(name)?.[1]
+    const owned = pattern.test(name)
     const snapshotDir = join(paths.storeDir, name)
-    if (fingerprint === undefined) {
+    if (owned === false) {
       const foreign = /^([A-Za-z0-9][A-Za-z0-9_-]*)-([0-9a-f]{64})$/.exec(name)
       if (foreign === null)
         fail(`snapshot store contains an ambiguously owned entry: ${snapshotDir}`)
@@ -1140,14 +1171,22 @@ const listOwnedSnapshots = ({
     }
     requireDirectory({ path: snapshotDir, field: 'retained snapshot' })
     const record = readRecord(join(snapshotDir, 'editor-view.json'))
+    // Ownership is the record's own identity plus self-address: the entry must claim
+    // exactly the directory it occupies. A snapshot published before the store key
+    // covered the normalized store digest is addressed by its editor-inputs fingerprint
+    // alone, and it is still ours — retain it under its own name so ordinary retention
+    // ages it out instead of failing the whole store.
     const expected = expectedRecord({
       options,
-      fingerprint,
+      fingerprint: record.editorInputsFingerprint,
       normalizedStoreDigest: record.normalizedStoreDigest,
       selectedViewDigest: record.selectedViewDigest,
       byteSnapshotDigest: record.byteSnapshotDigest,
     })
-    if (recordsEqual({ left: record, right: expected }) === false)
+    if (
+      record.snapshot !== `.store/${name}` ||
+      recordsEqual({ left: record, right: { ...expected, snapshot: `.store/${name}` } }) === false
+    )
       fail(`retained snapshot ownership mismatch: ${snapshotDir}`)
     requireReadOnlySnapshot(snapshotDir)
     snapshots.push(name)
@@ -1364,14 +1403,14 @@ const validateSnapshot = async ({
 
 const publishCurrentPointer = ({
   paths,
-  fingerprint,
+  identity,
   token,
 }: {
   paths: ViewPaths
-  fingerprint: string
+  identity: string
   token: string
 }): void => {
-  const linkTarget = `.store/${paths.viewName}-${fingerprint}`
+  const linkTarget = `.store/${paths.viewName}-${identity}`
   if (pathExists(paths.current) === true && lstatSync(paths.current).isSymbolicLink() === false)
     fail(`current view path is not a symlink: ${paths.current}`)
   const candidate = join(paths.editorRoot, `.${paths.viewName}.candidate-${token}`)
@@ -1506,7 +1545,12 @@ export const publishEditorView = async (options: EditorViewOptions): Promise<Edi
       finite === true
         ? await fingerprintDeclaredRoots(roots)
         : await canonicalTreeFingerprint({ tree: options.nodeModules, dereference: true })
-    const snapshotDir = join(paths.storeDir, `${paths.viewName}-${fingerprint}`)
+    const identity = snapshotIdentity({
+      editorInputsFingerprint: fingerprint,
+      normalizedStoreDigest,
+    })
+    const snapshotName = `${paths.viewName}-${identity}`
+    const snapshotDir = join(paths.storeDir, snapshotName)
     let record: EditorViewRecord
     if (existsSync(snapshotDir) === true) {
       const existing = readRecord(join(snapshotDir, 'editor-view.json'))
@@ -1566,14 +1610,14 @@ export const publishEditorView = async (options: EditorViewOptions): Promise<Edi
     }
     hardenSnapshot(snapshotDir)
     requireReadOnlySnapshot(snapshotDir)
-    const snapshotName = `${paths.viewName}-${fingerprint}`
+    // `snapshotName` is derived above from the same identity the record carries.
     const retention = prepareSnapshotRetention({
       paths,
       options,
       current: snapshotName,
       token,
     })
-    publishCurrentPointer({ paths, fingerprint, token })
+    publishCurrentPointer({ paths, identity, token })
     adoptFirstHop({ paths, mv: options.mv, token })
     signalEditorResolution({ paths, token })
     await checkEditorView(options)
@@ -1676,7 +1720,15 @@ const validatePublishedView = async ({
     selectedViewDigest: record.selectedViewDigest,
     byteSnapshotDigest: record.byteSnapshotDigest,
   })
-  if (recordsEqual({ left: record, right: expected }) === false)
+  // Self-address, not re-derived naming: the record must claim exactly the directory the
+  // pointer resolves to. A snapshot published before the store key covered the normalized
+  // store digest is named by its editor-inputs fingerprint alone and still checks green
+  // until the next publication supersedes it; freshness is enforced by the digest
+  // comparisons in `checkEditorView`, not by the directory name.
+  if (
+    record.snapshot !== pointer ||
+    recordsEqual({ left: record, right: { ...expected, snapshot: pointer } }) === false
+  )
     return failCheck({ message: 'record package/cell/target/snapshot fields are invalid', context })
   try {
     requireReadOnlySnapshot(snapshotDir)

@@ -914,8 +914,31 @@ describe('ci workflow shared auth helpers', () => {
   })
 
   it('pins the shared CI actions to the Node-24-safe majors', () => {
-    expect(ciWorkflowSource).toContain("uses: 'actions/checkout@v6' as const")
-    expect(ciWorkflowSource).toContain("uses: 'cachix/cachix-action@v17' as const")
+    expect(ciWorkflowSource).toContain(
+      "export const defaultCheckoutActionRef = 'actions/checkout@v6'",
+    )
+    expect(ciWorkflowSource).toContain(
+      "export const defaultCachixActionRef = 'cachix/cachix-action@v17'",
+    )
+    expect(ciWorkflowSource).toContain(
+      "export const defaultInstallNixActionRef = 'DeterminateSystems/determinate-nix-action@v3'",
+    )
+  })
+
+  it('offers immutable commit pins of those same majors for credential-bearing jobs', () => {
+    // A floating major is mutable, so the jobs that hold a credential while a
+    // third-party action runs take the digest instead. Only those jobs pay the
+    // repinning cost, which is why the defaults above stay on major tags.
+    expect(ciWorkflowSource).toContain('export const credentialBearingActionPins')
+    expect(ciWorkflowSource).toContain(
+      "checkout: 'actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803'",
+    )
+    expect(ciWorkflowSource).toContain(
+      "'DeterminateSystems/determinate-nix-action@021c8a1bd3570eb21f5c20a054812b0c4d9ca614'",
+    )
+    expect(ciWorkflowSource).toContain(
+      "cachix: 'cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866'",
+    )
   })
 
   it('provides cachix CLI from /nix/store on PATH instead of mutating the runner nix profile', () => {
@@ -1532,6 +1555,23 @@ describe('effect-utils CI composition workspace', () => {
     }
   }, 20_000)
 
+  it('refuses a dangling tracked member symlink before any Buck upload', async () => {
+    const fixture = makeFixture('Linux')
+    try {
+      // Nothing to resolve means nothing whose provenance could be checked, so a
+      // dangling tracked link is a refusal rather than a pass. Asserted by running
+      // the script, because the guard's `test -e` precedes portable `realpath`.
+      commitCheckoutSymlink(fixture.checkout, 'dangling-link', 'missing-target')
+      const result = await runComposition(fixture)
+      expect(result.status).not.toBe(0)
+      expect(result.stderr).toContain('tracked member symlink does not resolve')
+      expect(readFileSync(fixture.envFile, 'utf8')).not.toContain('EFFECT_UTILS_MEMBER_ROOT')
+      await cleanupComposition(fixture)
+    } finally {
+      rmSync(fixture.root, { force: true, recursive: true, maxRetries: 10, retryDelay: 20 })
+    }
+  }, 20_000)
+
   it('refuses a composed member that is not clean, since tracked scope assumes it', async () => {
     const fixture = makeFixture('Linux')
     try {
@@ -1690,16 +1730,18 @@ describe('effect-utils shared Buck cache lane (03-materialization DQ1)', () => {
     expect(generatedCiWorkflowYamlSource).toContain('run_buck2_cache_probe:')
   })
 
-  it('keeps the endpoint external and commits no host, port, or key material', () => {
-    expect(publish).toContain('BUCK2_CACHE_ENDPOINT: ${{ vars.BUCK2_CACHE_ENDPOINT }}')
-    expect(restore).toContain('BUCK2_CACHE_ENDPOINT: ${{ vars.BUCK2_CACHE_ENDPOINT }}')
-    // The endpoint is the only address the lane may resolve, so no literal grpc:// target
-    // may appear in the jobs that talk to the real cache.
-    expect(publish).not.toContain('grpc://')
-    expect(restore).not.toContain('grpc://')
+  it('reads the operational endpoint from repository configuration and commits no key material', () => {
+    for (const [name, block] of [
+      ['buck2-cache-publish', publish],
+      ['buck2-cache-restore', restore],
+    ] as const) {
+      expect(block, name).toContain('BUCK2_CACHE_ENDPOINT: ${{ vars.BUCK2_CACHE_ENDPOINT }}')
+      expect(block, name).not.toMatch(/BUCK2_CACHE_ENDPOINT: '?grpc:\/\/[a-z0-9]/u)
+    }
     expect(publish).toContain('oauth-client-id: ${{ vars.TS_FEDERATED_CLIENT_ID }}')
     expect(publish).toContain('audience: ${{ vars.TS_FEDERATED_AUDIENCE }}')
     expect(publish).toContain("tags: 'tag:ci-buck2-cache'")
+    // The scripts stay address-free: they read the endpoint from the environment.
     expect(cachePreflightScriptSource).not.toMatch(/grpc:\/\/[a-z0-9]/u)
     expect(cacheLaneScriptSource).not.toMatch(/grpc:\/\//u)
   })
@@ -1711,7 +1753,23 @@ describe('effect-utils shared Buck cache lane (03-materialization DQ1)', () => {
       ['buck2-cache-publish', publish],
       ['buck2-cache-restore', restore],
     ] as const) {
-      expect(block, name).toContain('uses: tailscale/github-action@v3')
+      // Pinned by commit, not by a movable `v4` tag: this step spends the OIDC token.
+      expect(block, name).toContain(
+        'uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8',
+      )
+      expect(block, name).toMatch(/version: '?1\.94\.2'?/u)
+      expect(block, name).not.toContain('version: latest')
+      // Every third-party action in a credential-bearing job is digest-pinned.
+      expect(block, name).toContain(
+        'uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803',
+      )
+      expect(block, name).toContain(
+        'uses: DeterminateSystems/determinate-nix-action@021c8a1bd3570eb21f5c20a054812b0c4d9ca614',
+      )
+      expect(block, name).toContain(
+        'uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866',
+      )
+      expect(block, name).not.toContain('uses: actions/checkout@v6')
       expect(block, name).toContain('oauth-client-id: ${{ vars.TS_FEDERATED_CLIENT_ID }}')
       expect(block, name).toContain('audience: ${{ vars.TS_FEDERATED_AUDIENCE }}')
       // The token has to be mintable in the job that spends it, and nowhere else.
@@ -1946,7 +2004,8 @@ describe('effect-utils shared Buck cache lane (03-materialization DQ1)', () => {
     expect(script).toContain('tracked member symlink is absolute')
     expect(script).toContain('tracked member symlink escapes the composed workspace')
     expect(script).toContain('tracked member symlink does not resolve')
-    expect(script).toContain('realpath -e "$member/$link"')
+    expect(script).toContain('! -e "$member/$link"')
+    expect(script).toContain('realpath "$member/$link"')
     // Tracked-only scope is sound only if the member carries nothing else, so that premise
     // is asserted rather than assumed.
     expect(script).toContain(
@@ -2077,6 +2136,12 @@ describe('effect-utils shared Buck cache lane (03-materialization DQ1)', () => {
     expect(capacity).toContain("BUCK2_NO_REMOTE_CACHE: '1'")
     expect(capacity).not.toContain('BUCK2_CACHE_ENDPOINT')
     expect(capacity).not.toContain('tailscale/github-action')
+    // The Namespace image installs Nix with sandboxing off, and the composition overlay
+    // builds the declared Coreutils wrappers: without this the lane cannot compose at all.
+    expect(capacity).toContain('sandbox = true')
+    // Only credential-bearing jobs carry digest pins, so this leg keeps the majors.
+    expect(capacity).toContain('uses: actions/checkout@v6')
+    expect(capacity).not.toContain('actions/checkout@d23441a4')
     // Publication is a direct Buck invocation, so this lane needs no Devenv at all.
     expect(capacity).not.toContain('name: Resolve devenv')
     expect(capacity).not.toContain('DEVENV_BIN')

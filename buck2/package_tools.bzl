@@ -198,7 +198,7 @@ def _package_bundle_impl(ctx):
     gated = ctx.attrs._platform_gated_packages[PnpmPlatformGatedPackagesInfo]
     artifact = ctx.actions.declare_output(ctx.attrs.output)
     descriptor = ctx.actions.declare_output("module.json")
-    closure_identity = "{};{}".format(toolchain.identity, ctx.attrs.package_tree.label)
+    closure_identity = "runtime={};package_tree={}".format(ctx.attrs.target, ctx.attrs.package_tree.label)
     args = cmd_args([
         toolchain.executable,
         ctx.attrs._runner,

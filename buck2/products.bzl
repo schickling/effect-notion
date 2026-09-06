@@ -2,9 +2,8 @@
 
 A product's identity is semantic and platform-invariant: what it is, which
 runtime contract it satisfies, which bytes it is, and which capabilities its
-host must supply. The producer's Nix store paths and configured target are
-recorded as provenance and are never compared by a consumer, because they are
-facts about the machine that built the product rather than about the product.
+host must supply. Provenance uses configured target and logical runtime/package
+tree identities. It never records host-specific producer paths.
 """
 
 load("//buck2:package_tools.bzl", "JavaScriptModuleInfo", "NodeLaunchInfo")

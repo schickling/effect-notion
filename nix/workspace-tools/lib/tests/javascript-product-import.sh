@@ -7,7 +7,10 @@ trap 'rm -rf "$tmp"' EXIT
 
 printf '%s\n' 'process.stdout.write("candidate-ok\n")' > "$tmp/tool.js"
 digest="$(sha256sum "$tmp/tool.js" | cut -d ' ' -f 1)"
-integrity="sha256-$(openssl dgst -sha256 -binary "$tmp/tool.js" | openssl base64 -A)"
+# `OPENSSL_BIN` is supplied by the invoking devenv task; the PATH fallback keeps
+# the script runnable by hand inside a shell that already has openssl.
+openssl_bin="${OPENSSL_BIN:-openssl}"
+integrity="sha256-$("$openssl_bin" dgst -sha256 -binary "$tmp/tool.js" | "$openssl_bin" base64 -A)"
 size="$(stat --format=%s "$tmp/tool.js")"
 
 # One v2 descriptor generator so every case differs only in the field under test.

@@ -10,6 +10,7 @@ import {
   cachixStep,
   checkoutStep,
   cleanupEffectUtilsCompositionStep,
+  credentialBearingActionPins,
   prepareCiScriptsStep,
   prepareEffectUtilsCompositionStep,
   notifyAlignmentJob,
@@ -49,13 +50,21 @@ import { type GitHubWorkflowArgs } from '../../packages/@overeng/genie/src/runti
 const workflowReportFlakeRef =
   "github:${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}/${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}#ci-tools"
 
-const trustedCachixStep = {
-  ...cachixStep({
-    name: 'overeng-effect-utils',
-    authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}',
-  }),
-  if: "github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')",
-} as const
+/**
+ * Push/dispatch-only Cachix write auth. `actionRef` pins the action by commit for
+ * credential-bearing jobs; every other lane keeps the shared major.
+ */
+const trustedCachixStepWith = (actionRef?: string) =>
+  ({
+    ...cachixStep({
+      name: 'overeng-effect-utils',
+      authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}',
+      ...(actionRef === undefined ? {} : { actionRef }),
+    }),
+    if: "github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')",
+  }) as const
+
+const trustedCachixStep = trustedCachixStepWith()
 
 const baseSteps = [
   checkoutStep(),
@@ -152,10 +161,7 @@ const liveNetlifyCiToolsE2EStep = {
     NETLIFY_AUTH_TOKEN: '${{ secrets.NETLIFY_AUTH_TOKEN }}',
     NETLIFY_SITE_ID: '${{ secrets.NETLIFY_SITE_ID }}',
   },
-  run: runBuck2(
-    'test',
-    'effect_utils//packages/@overeng/ci-tools:test_netlify_live',
-  ),
+  run: runBuck2('test', 'effect_utils//packages/@overeng/ci-tools:test_netlify_live'),
 } as const
 
 const liveVercelCiToolsPreflightStep = {
@@ -207,10 +213,7 @@ const liveVercelCiToolsE2EStep = {
     VERCEL_ORG_ID: '${{ secrets.VERCEL_ORG_ID }}',
     VERCEL_SCOPE: '${{ secrets.VERCEL_SCOPE }}',
   },
-  run: runBuck2(
-    'test',
-    'effect_utils//packages/@overeng/ci-tools:test_vercel_live',
-  ),
+  run: runBuck2('test', 'effect_utils//packages/@overeng/ci-tools:test_vercel_live'),
 } as const
 
 const storybookPreviewBundlePath =
@@ -385,7 +388,6 @@ const multiPlatformJob = (step: { name: string; run: string }) => ({
   ],
 })
 
-
 /**
  * Audit the native npm dependency policy against the lockfile (issue #807).
  * Install-free: depends only on `pnpm-lock.yaml` and the genie policy source.
@@ -393,9 +395,7 @@ const multiPlatformJob = (step: { name: string; run: string }) => ({
 const nativeDepPolicyAuditStep = {
   name: 'Audit native dependency policy',
   shell: 'bash',
-  run: withCiSourceRoot(
-    'nix run nixpkgs#bun -- genie/ci-scripts/native-dep-policy-audit.ts',
-  ),
+  run: withCiSourceRoot('nix run nixpkgs#bun -- genie/ci-scripts/native-dep-policy-audit.ts'),
 } as const
 
 // Core product jobs keyed by the shared Genie CI source of truth.
@@ -403,7 +403,7 @@ const jobs = {
   typecheck: job({
     step: {
       name: 'Type check Buck package products',
-      run: runBuck2('build', "'filter(\":typecheck$\", effect_utils//...)'"),
+      run: runBuck2('build', '\'filter(":typecheck$", effect_utils//...)\''),
     },
     extraSteps: [verifyOtelShellEntryStep],
   }),
@@ -420,10 +420,7 @@ const jobs = {
   'test-megarepo-cold-gc': job({
     step: {
       name: 'Megarepo cold-GC Buck test',
-      run: runBuck2(
-        'test',
-        'effect_utils//packages/@overeng/megarepo:test_megarepo_cold_gc',
-      ),
+      run: runBuck2('test', 'effect_utils//packages/@overeng/megarepo:test_megarepo_cold_gc'),
     },
   }),
   'pnpm-regression': job({
@@ -438,7 +435,7 @@ const jobs = {
       name: 'Buck candidate and pty-effect bundle smoke tests',
       run: runBuck2(
         'test',
-        "'filter(\"candidate-smoke$\", effect_utils//packages/@overeng/...)' effect_utils//packages/@overeng/pty-effect:bundle_smoke_candidate",
+        '\'filter("candidate-smoke$", effect_utils//packages/@overeng/...)\' effect_utils//packages/@overeng/pty-effect:bundle_smoke_candidate',
       ),
     },
   }),
@@ -511,9 +508,7 @@ const downloadCurrentMeasurementArtifactStep = ({
 }) =>
   ({
     name: `Download current measurement artifact: ${artifactName}`,
-    ...(producedBy === undefined
-      ? {}
-      : { if: `\${{ needs.${producedBy}.result == 'success' }}` }),
+    ...(producedBy === undefined ? {} : { if: `\${{ needs.${producedBy}.result == 'success' }}` }),
     uses: 'actions/download-artifact@v4',
     with: {
       name: artifactName,
@@ -609,8 +604,11 @@ const nixClosureMeasurementTargets = [
  */
 const buck2CacheCandidateInstance = 'effect-utils-dq1-candidate'
 
-/** Endpoint is repository configuration. No tailnet host or port is committed here. */
-const buck2CacheEndpointExpression = '${{ vars.BUCK2_CACHE_ENDPOINT }}'
+/**
+ * The cache endpoint is operational configuration, not product behavior. The
+ * preflight validates its shape before any cache client starts.
+ */
+const buck2CacheEndpoint = '${{ vars.BUCK2_CACHE_ENDPOINT }}'
 
 /**
  * RFC 2606 reserves `.invalid`, so this endpoint can never resolve to a real cache and
@@ -670,9 +668,22 @@ const buck2CapacityLaneEnv = {
 }
 
 /**
+ * Nix sandboxing for the capacity lane's own installer. Namespace disabled sandboxing on
+ * the candidate runner, so run `33985481130` fell back to building `coreutils-9.11` from
+ * source during composition preparation and died in the upstream
+ * `tests/ls/getxattr-speedup.sh` check before the probe ever started. With the sandbox
+ * on, the declared Coreutils wrappers resolve from the cache or build cleanly.
+ */
+const buck2CapacityNixExtraConf = 'sandbox = true'
+
+/**
  * The only place in this repository that clears the CI-wide `BUCK2_NO_REMOTE_CACHE=1`.
- * The endpoint and the instance name are always supplied together; `mr apply` refuses
- * half a pair rather than defaulting the other half.
+ * Endpoint and instance name are always supplied together; `mr apply` refuses half a
+ * pair rather than defaulting the other half. Both halves are now committed generator
+ * constants, so a lane can no longer be repointed without a reviewable diff. The
+ * instance name is ATTRIBUTION ONLY — one unmangled cache server is shared with the
+ * trusted lane (REUSE-R06 / BUCK-A05), so naming buys "writes no production action
+ * keys", never isolation from production bytes.
  *
  * The provenance directory is deliberately NOT set here. Job-level `env` cannot read the
  * `runner` context, so `${{ runner.temp }}` would not expand; the lane script defaults to
@@ -704,6 +715,12 @@ const buck2CacheOutageJobEnv = {
 const tailscaleFederatedClientIdExpression = '${{ vars.TS_FEDERATED_CLIENT_ID }}'
 const tailscaleFederatedAudienceExpression = '${{ vars.TS_FEDERATED_AUDIENCE }}'
 
+/**
+ * A lane is credential-bearing exactly when it joins the tailnet, because that is the
+ * job that mints and spends the OIDC token. Those two jobs pin EVERY third-party action
+ * by commit; the cache-less legs keep the shared major tags, so no unrelated job pays
+ * the repinning cost.
+ */
 const buck2CacheLaneJob = ({
   env,
   tailnet,
@@ -712,6 +729,7 @@ const buck2CacheLaneJob = ({
   needs,
   condition = buck2CacheLaneIf,
   runnerProfile = 'namespace-profile-linux-x86-64',
+  nixExtraConf,
 }: {
   readonly env: Record<string, string>
   readonly tailnet: boolean
@@ -720,6 +738,8 @@ const buck2CacheLaneJob = ({
   readonly needs?: readonly string[]
   readonly condition?: string
   readonly runnerProfile?: RunnerProfile
+  /** Extra `nix.conf` lines this lane needs from the installer. */
+  readonly nixExtraConf?: string
 }) => ({
   if: condition,
   ...(needs === undefined ? {} : { needs: [...needs] }),
@@ -732,16 +752,22 @@ const buck2CacheLaneJob = ({
   // `id-token: write` is granted per job and only where it is actually spent: minting the
   // GitHub OIDC token that authenticates the tailnet join. The outage leg never joins the
   // tailnet, so it stays read-only.
-  permissions: tailnet
-    ? ({ contents: 'read', 'id-token': 'write' } as const)
-    : ({ contents: 'read' } as const),
+  permissions:
+    tailnet === true
+      ? ({ contents: 'read', 'id-token': 'write' } as const)
+      : ({ contents: 'read' } as const),
   env,
   steps: [
-    checkoutStep(),
-    installNixStep(),
+    checkoutStep(
+      tailnet === true ? { actionRef: credentialBearingActionPins.checkout } : undefined,
+    ),
+    installNixStep({
+      ...(tailnet === true ? { actionRef: credentialBearingActionPins.determinateNix } : {}),
+      ...(nixExtraConf === undefined ? {} : { extraConf: nixExtraConf }),
+    }),
     // Route first: the composition overlay's first Buck invocation already needs the
     // cache reachable, and the preflight has to fail before that config is written.
-    ...(tailnet
+    ...(tailnet === true
       ? [
           tailnetEphemeralConnectStep({
             clientId: tailscaleFederatedClientIdExpression,
@@ -753,9 +779,11 @@ const buck2CacheLaneJob = ({
       : []),
     prepareEffectUtilsCompositionStep,
     cachixCliBuildStep,
-    trustedCachixStep,
+    tailnet === true
+      ? trustedCachixStepWith(credentialBearingActionPins.cachix)
+      : trustedCachixStep,
     ...laneSteps,
-    ...(tailnet ? [tailnetEphemeralDisconnectStep] : []),
+    ...(tailnet === true ? [tailnetEphemeralDisconnectStep] : []),
     failureReminderStep,
   ],
 })
@@ -1140,7 +1168,7 @@ const extraJobs: Record<string, any> = {
     ],
   },
   'buck2-cache-publish': buck2CacheLaneJob({
-    env: buck2CacheLaneEnv(buck2CacheEndpointExpression),
+    env: buck2CacheLaneEnv(buck2CacheEndpoint),
     tailnet: true,
     timeoutMinutes: 90,
     laneSteps: [
@@ -1154,7 +1182,7 @@ const extraJobs: Record<string, any> = {
     ],
   }),
   'buck2-cache-restore': buck2CacheLaneJob({
-    env: buck2CacheLaneEnv(buck2CacheEndpointExpression),
+    env: buck2CacheLaneEnv(buck2CacheEndpoint),
     tailnet: true,
     timeoutMinutes: 90,
     needs: ['buck2-cache-publish'],
@@ -1201,6 +1229,9 @@ const extraJobs: Record<string, any> = {
     runnerProfile: buck2CapacityRunnerProfile,
     tailnet: false,
     timeoutMinutes: buck2CapacityTimeoutMinutes,
+    // Composition preparation cannot build the declared Coreutils wrappers on a runner
+    // with Nix sandboxing disabled; see `buck2CapacityNixExtraConf`.
+    nixExtraConf: buck2CapacityNixExtraConf,
     laneSteps: [
       buck2SharedCacheLaneStep({
         name: 'Measure cache-disabled Buck2 candidate capacity',
@@ -1304,7 +1335,7 @@ export default ciWorkflow({
         },
         run_buck2_cache_probe: {
           description:
-            'Run the opt-in shared-Buck-cache probe lanes (03-materialization DQ1): publish, restore + deliberate miss, and the fail-closed outage leg. Requires vars.BUCK2_CACHE_ENDPOINT plus the vars.TS_FEDERATED_CLIENT_ID / vars.TS_FEDERATED_AUDIENCE tailnet federated identity (no Tailscale secret exists); the outage leg deliberately fails its Buck build and still reports success.',
+            'Run the opt-in shared-Buck-cache probe lanes (03-materialization DQ1): publish, restore + deliberate miss, and the fail-closed outage leg. Requires vars.BUCK2_CACHE_ENDPOINT plus the vars.TS_FEDERATED_CLIENT_ID / vars.TS_FEDERATED_AUDIENCE tailnet federated identity (no Tailscale secret exists). The outage leg deliberately fails its Buck build and still reports success.',
           required: false,
           default: false,
           type: 'boolean',

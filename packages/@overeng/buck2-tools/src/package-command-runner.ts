@@ -674,6 +674,81 @@ export const assertPortableModuleComments = (bundle: string): void => {
   }
 }
 
+/**
+ * Rewrites Bun's build-host paths for CommonJS globals to their runtime ESM
+ * equivalents.
+ *
+ * A bundled CommonJS module has no separate runtime file to name. Bun therefore
+ * lowers `__dirname` and `__filename` to the module's absolute source path,
+ * which makes otherwise identical bundles host-dependent and leaves a path
+ * that does not exist after the build. The bundle location is the only durable
+ * runtime location, and both admitted runtimes implement these standard ESM
+ * properties.
+ */
+export const normalizePortableCommonJsGlobals = ({
+  bundle,
+  root,
+}: {
+  readonly bundle: string
+  readonly root: string
+}): string => {
+  const buildRoot = resolve(root)
+  const rewritePath = ({
+    input,
+    name,
+    replacement,
+  }: {
+    readonly input: string
+    readonly name: '__dirname' | '__filename'
+    readonly replacement: string
+  }): string =>
+    input.replace(
+      new RegExp(`\\bvar ${name} = ("(?:\\\\.|[^"\\\\])*");`, 'g'),
+      (_declaration, serialized: string) => {
+        const sourcePath: unknown = JSON.parse(serialized)
+        if (
+          typeof sourcePath !== 'string' ||
+          (sourcePath !== buildRoot && sourcePath.startsWith(`${buildRoot}${sep}`) === false)
+        ) {
+          fail(`bundle ${name} path escapes the build root: ${String(sourcePath)}`)
+        }
+        return `var ${name} = ${replacement};`
+      },
+    )
+  const combined = bundle.replace(
+    /\bvar __dirname = ("(?:\\.|[^"\\])*"), __filename = ("(?:\\.|[^"\\])*");/g,
+    (_declaration, serializedDirectory: string, serializedFile: string) => {
+      const sourceDirectory: unknown = JSON.parse(serializedDirectory)
+      const sourceFile: unknown = JSON.parse(serializedFile)
+      for (const [name, sourcePath] of [
+        ['__dirname', sourceDirectory],
+        ['__filename', sourceFile],
+      ] as const) {
+        if (
+          typeof sourcePath !== 'string' ||
+          (sourcePath !== buildRoot && sourcePath.startsWith(`${buildRoot}${sep}`) === false)
+        ) {
+          fail(`bundle ${name} path escapes the build root: ${String(sourcePath)}`)
+        }
+      }
+      return 'var __dirname = import.meta.dirname, __filename = import.meta.filename;'
+    },
+  )
+  const normalized = rewritePath({
+    name: '__filename',
+    replacement: 'import.meta.filename',
+    input: rewritePath({
+      name: '__dirname',
+      replacement: 'import.meta.dirname',
+      input: combined,
+    }),
+  })
+  if (normalized.includes(buildRoot) === true) {
+    fail(`bundle records its absolute build root outside a CommonJS path declaration: ${buildRoot}`)
+  }
+  return normalized
+}
+
 /** Fails when a CLI bundle kept Bun's unbound `import.meta.main` lowering. */
 export const assertNoUnboundRequireMain = (bundle: string): void => {
   if (bundle.includes('__require.main') === true) {
@@ -756,6 +831,11 @@ export const projectProductDescriptor = ({
   ) {
     fail('module descriptor is not built for the portable JavaScript platform')
   }
+  for (const [name, value] of Object.entries(command.provenance)) {
+    if (value.includes('/nix/store/') === true) {
+      fail(`product provenance ${name} contains a host-specific Nix store path`)
+    }
+  }
   return {
     schema: 'effect-utils/javascript-product/v2',
     productName: command.productName,
@@ -827,8 +907,10 @@ const runBundle = async (command: PackageCommand): Promise<void> => {
   }
   const built = result.outputs[0]?.path ?? fail('bundle produced no output')
   if (resolve(built) !== output) await copyFile(built, output)
-  const bytes = await Bun.file(output).arrayBuffer()
-  const text = new TextDecoder().decode(bytes)
+  const rawText = new TextDecoder().decode(await Bun.file(output).arrayBuffer())
+  const text = normalizePortableCommonJsGlobals({ bundle: rawText, root: farm })
+  if (text !== rawText) await writeFile(output, text)
+  const bytes = new TextEncoder().encode(text)
   assertPortableModuleComments(text)
   if (command.kind === 'cli') assertNoUnboundRequireMain(text)
   const surface = verifyExternalSurface({
@@ -856,8 +938,10 @@ const runBundle = async (command: PackageCommand): Promise<void> => {
         target: command.targetIdentity ?? fail('bundle target identity is missing'),
         externalCapabilities: surface.capabilities,
         externalModules: surface.modules,
-        // Provenance only: never compared by a consumer, because the producer's
-        // store paths and configured target are host facts, not product identity.
+        // Provenance only, and deliberately store-path free: the identity names the
+        // runtime and the package-tree label, never a producer /nix/store path, so a
+        // byte-identical product built on another host carries the same descriptor.
+        // Nothing here is compared by a consumer.
         provenance: {
           dependencyClosureIdentity:
             command.closureIdentity ?? fail('bundle closure identity is missing'),

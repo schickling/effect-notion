@@ -559,15 +559,58 @@ export const DARWIN_SEATBELT_OS_METADATA_PATHS = [
 ] as const
 
 /**
- * The declared OS paths whose CONTENT the Darwin runtime reads, not merely whose existence it
- * checks. `file-read-metadata` answers `stat`; a runtime that seeds its RNG or resolves the local
- * timezone must actually open the file, so those three — and every canonical spelling they resolve
- * to — need `file-read*`. `SystemVersion.plist` is deliberately not here: it is probed, not read.
+ * The declared OS paths whose content the Darwin runtime reads, not merely whose existence it
+ * checks. `file-read-metadata` answers `stat`; Bun also inspects the root directory entry during
+ * startup, while RNG seeding and timezone resolution open their files. Those exact paths — and
+ * every canonical spelling of the linked paths — therefore need `file-read*`. A literal `/`
+ * predicate grants only the root entry, not its descendants. `SystemVersion.plist` is deliberately
+ * not here: it is probed, not read.
  */
 export const DARWIN_SEATBELT_OS_READ_PATHS = [
+  '/',
   '/dev/random',
   '/dev/urandom',
   '/etc/localtime',
+] as const
+
+/**
+ * Exact kernel facts the pinned Bun runtime probes before JavaScript starts.
+ *
+ * Denying one of these can abort Bun before the action runs. A named allowlist
+ * keeps that startup contract explicit instead of granting every sysctl.
+ */
+export const DARWIN_SEATBELT_SYSCTL_NAMES = [
+  'hw.cpufrequency',
+  'hw.ephemeral_storage',
+  'hw.memsize',
+  'hw.model',
+  'hw.optional.AdvSIMD',
+  'hw.optional.AdvSIMD_HPFPCvt',
+  'hw.optional.arm.AdvSIMD',
+  'hw.optional.arm.AdvSIMD_HPFPCvt',
+  'hw.optional.arm.FEAT_AES',
+  'hw.optional.arm.FEAT_BF16',
+  'hw.optional.arm.FEAT_DotProd',
+  'hw.optional.arm.FEAT_FP16',
+  'hw.optional.arm.FEAT_FRINTTS',
+  'hw.optional.arm.FEAT_JSCVT',
+  'hw.optional.arm.FEAT_LSE',
+  'hw.optional.arm.FEAT_PMULL',
+  'hw.optional.arm.FEAT_SHA3',
+  'hw.optional.arm.FEAT_SVE',
+  'hw.optional.armv8_2_sha3',
+  'hw.optional.armv8_crc32',
+  'hw.optional.floatingpoint',
+  'hw.optional.neon',
+  'hw.pagesize_compat',
+  'kern.bootargs',
+  'kern.boottime',
+  'kern.iossupportversion',
+  'kern.osproductversion',
+  'kern.osrelease',
+  'kern.osvariant_status',
+  'kern.version',
+  'security.mac.lockdown_mode_state',
 ] as const
 
 /**
@@ -618,6 +661,9 @@ const seatbeltMetadataLinkPredicates = (count: number): string =>
 const seatbeltLiteralPredicates = (paths: readonly string[]): string =>
   paths.map((path) => `(literal ${JSON.stringify(path)})`).join(' ')
 
+const seatbeltSysctlPredicates = (): string =>
+  DARWIN_SEATBELT_SYSCTL_NAMES.map((name) => `(sysctl-name ${JSON.stringify(name)})`).join(' ')
+
 /**
  * A parameterized Seatbelt profile: default deny, network denied, reads allowed only for
  * declared input and tool roots, writes allowed only for the declared output and scratch. Roots
@@ -638,6 +684,7 @@ export const seatbeltProfile = ({
     '(deny network*)',
     '(allow process-fork)',
     `(allow process-exec ${seatbeltRootPredicates({ count: readRoots.length, mode: 'READ' })} ${seatbeltRootPredicates({ count: writeRoots.length, mode: 'WRITE' })})`,
+    `(allow sysctl-read ${seatbeltSysctlPredicates()})`,
     `(allow file-read-metadata ${seatbeltRootPredicates({ count: readRoots.length, mode: 'READ' })} ${seatbeltRootPredicates({ count: writeRoots.length, mode: 'WRITE' })} ${seatbeltLiteralPredicates(DARWIN_SEATBELT_OS_METADATA_PATHS)} ${seatbeltMetadataLinkPredicates(metadataLinks.length)})`,
     `(allow file-read* ${seatbeltLiteralPredicates(DARWIN_SEATBELT_OS_READ_PATHS)} ${seatbeltMetadataLinkPredicates(metadataLinks.length)})`,
     `(allow file-write-data ${seatbeltLiteralPredicates(DARWIN_SEATBELT_OS_WRITE_PATHS)})`,
@@ -805,6 +852,7 @@ export const probeScriptSource = ({
     'const policyDenialCodes = {',
     '  EACCES: true, EPERM: true, EROFS: true, ENOENT: true,',
     '  ENETUNREACH: true, EHOSTUNREACH: true, ECONNREFUSED: true, ConnectionRefused: true,',
+    '  FailedToOpenSocket: true,',
     '}',
     'let observed = "allowed"',
     'try {',

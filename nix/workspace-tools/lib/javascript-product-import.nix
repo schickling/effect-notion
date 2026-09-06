@@ -3,9 +3,10 @@
 # What is checked is what makes the product usable here: the descriptor schema,
 # the semantic product/runtime contract, the portable platform it claims, the
 # capabilities this consumer must supply, and the exact bytes. What is NOT
-# checked is who produced it — the producer's Nix store paths and configured
-# Buck target are recorded as provenance in the descriptor and are host facts,
-# so gating on them would reject a byte-identical product built anywhere else.
+# checked is who produced it: the descriptor's provenance names the runtime, the
+# package-tree label, and the configured Buck target, and EXCLUDES the producer's
+# Nix store paths outright — so a byte-identical product built on any other host
+# imports here unchanged.
 { pkgs }:
 
 {
