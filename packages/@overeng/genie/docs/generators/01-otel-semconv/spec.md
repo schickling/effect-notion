@@ -94,7 +94,8 @@ type AttrDef = {
   encode?: 'auto' | 'string' | 'number' | 'boolean' | 'json' | 'drop' | 'redacted'
 }
 
-type Deprecated = // weaver 0.23 STRUCTURED form (string removed)
+type Deprecated =
+  // weaver 0.23 STRUCTURED form (string removed)
   | { reason: 'renamed'; renamed_to: string }
   | { reason: 'obsoleted' | 'uncategorized'; note: string }
 

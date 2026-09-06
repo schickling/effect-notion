@@ -110,9 +110,8 @@ export const createStylexVitePlugins = ({
   })
 
   const upstream = stylex.vite(stylexOptions)
-  const collectCss = /** @type {{ __stylexCollectCss?: () => string }} */ (
-    upstream
-  ).__stylexCollectCss
+  const collectCss =
+    /** @type {{ __stylexCollectCss?: () => string }} */ (upstream).__stylexCollectCss
   if (typeof collectCss !== 'function') {
     throw new Error(
       '[overeng:stylex] @stylexjs/unplugin no longer exposes `__stylexCollectCss`; the virtual-module injection path cannot read compiled rules.',
