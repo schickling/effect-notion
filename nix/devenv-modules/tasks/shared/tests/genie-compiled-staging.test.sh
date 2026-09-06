@@ -176,5 +176,48 @@ grep -q 'Buck failed to build' "$cold_stderr" || {
   exit 1
 }
 
+echo "Test 5: cold projection check is phase-scoped and still covers the lock projections"
+# The cold tree has no install, and a `design-time` generator may use the installed runtime
+# graph by declaration, so the projection check must run `--phase bootstrap`. That is only
+# honest if the lock projections the proof promises are themselves bootstrap-phase, which is
+# what the discovery assertion below establishes.
+grep -q -- '--check --phase bootstrap --output json --cwd' "$cold_proof" || {
+  echo "FAIL: cold proof projection check is not phase-scoped" >&2
+  exit 1
+}
+for generator in buck2/dependencies/BUCK.genie.ts buck2/dependencies/pnpm-lock.sha256.json.genie.ts; do
+  grep -q '^// @genie-bootstrap$' "$ROOT/$generator" || {
+    echo "FAIL: $generator is not declared bootstrap-phase, so the cold check cannot cover it" >&2
+    exit 1
+  }
+done
+
+phase_json="$tmpdir/phase-scoped-check.json"
+(
+  cd "$tmp_root"
+  env -u OTEL_EXPORTER_OTLP_ENDPOINT TMPDIR="$tmp_root" \
+    timeout 120s "${compiled_genie[@]}" --check --phase bootstrap --output json --cwd "$ROOT"
+) >"$phase_json" 2>"$tmpdir/phase-scoped-check.err" || true
+
+"${BUN_BIN:?}" - "$phase_json" <<'NODE'
+const fs = require('node:fs')
+const [jsonPath] = process.argv.slice(2)
+const events = fs.readFileSync(jsonPath, 'utf8').trim().split(/\n/).filter(Boolean).map(JSON.parse)
+const files = events.filter((event) => Array.isArray(event.files)).flatMap((event) => event.files)
+const checked = new Set(files.map((file) => file.relativePath))
+const fail = (message) => {
+  console.error(`FAIL: ${message}`)
+  process.exit(1)
+}
+if (files.length === 0) fail('phase-scoped check discovered no generators')
+for (const promised of ['buck2/dependencies/BUCK', 'buck2/dependencies/pnpm-lock.sha256.json']) {
+  if (checked.has(promised) === false) fail(`phase-scoped check never reached ${promised}`)
+}
+// A design-time projection proves the phase filter is doing work rather than passing everything.
+if (checked.has('buck2-member.json') === true) {
+  fail('phase-scoped check imported a design-time generator')
+}
+NODE
+
 echo ""
 echo "Genie compiled import staging cleanup tests passed."
