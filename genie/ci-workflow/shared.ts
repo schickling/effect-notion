@@ -23,6 +23,35 @@ export const darwinArm64Runner = ['sh-darwin-arm64', 'nix'] as const
 /** Namespace Linux runner with 288 GB for paired base/head Nix closures. */
 export const namespaceLinuxX64PairedPerfRunner = 'nscloud-ubuntu-24.04-amd64-16x64-with-features'
 
+/** Label prefix of a Namespace runner PROFILE, which is the only label kind that takes feature suffixes. */
+export const namespaceProfileLabelPrefix = 'namespace-profile-'
+
+/**
+ * Suffix a raw Namespace MACHINE label must carry for its companion `namespace-features:`
+ * label to be honored. A raw label without it silently ignores requested features.
+ */
+export const namespaceFeaturesCapableLabelSuffix = '-with-features'
+
+/**
+ * Namespace privileged-container feature.
+ *
+ * Bubblewrap refuses `pivot_root` inside the default unprivileged Namespace container, so
+ * every job that executes a sandboxed Buck TypeScript action has to request privileged
+ * mode: https://namespace.so/docs/reference/github-actions/runner-configuration
+ *
+ * The feature is spelled as `container.privileged=true` in exactly one of two places, and
+ * they are NOT interchangeable: appended to a `namespace-profile-*` label with `;`, or as
+ * an entry of the companion `namespace-features:` label for a raw runner label.
+ */
+export const namespacePrivilegedContainerFeature = 'container.privileged=true'
+
+/** `;`-suffix form, valid only on a `namespace-profile-*` label. */
+export const namespacePrivilegedContainerSuffix = `;${namespacePrivilegedContainerFeature}`
+
+/** The privileged-container label for one Namespace profile. */
+export const namespacePrivilegedProfile = (profile: RunnerProfile | (string & {})) =>
+  `${profile}${namespacePrivilegedContainerSuffix}`
+
 /** All self-hosted runner labels — derived from the runner constants above + RUNNER_PROFILES */
 const SELF_HOSTED_RUNNER_LABELS = [
   ...new Set([
@@ -31,6 +60,11 @@ const SELF_HOSTED_RUNNER_LABELS = [
     ...linuxArm64Runner,
     ...darwinArm64Runner,
     namespaceLinuxX64PairedPerfRunner,
+    // Privileged PROFILE variant of the Linux Namespace profile that runs sandboxed Buck
+    // actions: actionlint resolves a literal label, so the suffixed profile is admitted too.
+    // The raw `nscloud-*` label never takes a suffix — its feature rides the
+    // `namespace-features:` label — so no suffixed raw form is admitted here.
+    namespacePrivilegedProfile('namespace-profile-linux-x86-64'),
   ]),
 ] as const
 

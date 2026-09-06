@@ -9,6 +9,10 @@ import {
   nixBinaryCachesExtraConf,
   resolveDevenvRevScriptFor,
   linuxX64Runner,
+  namespaceFeaturesCapableLabelSuffix,
+  namespacePrivilegedContainerFeature,
+  namespacePrivilegedProfile,
+  namespaceProfileLabelPrefix,
   runDevenvTasksBefore,
   shellSingleQuote,
   standardCIEnv,
@@ -92,17 +96,73 @@ export const evictCachedPnpmDepsStep = ({
 })
 
 /**
+ * Runner label for a matrix job whose Linux leg needs privileged mode.
+ *
+ * The matrix VALUE stays the bare profile, so the job name — and therefore the required
+ * check context `test (namespace-profile-linux-x86-64)` — is unchanged. Only the resolved
+ * `runs-on` label carries the feature suffix, and only for the named profiles; every other
+ * matrix leg (macOS) resolves to its unprivileged profile.
+ */
+export const namespacePrivilegedMatrixProfile = ({
+  matrixValue,
+  privilegedProfiles,
+}: {
+  /** Matrix expression body, e.g. `matrix.runner`. */
+  matrixValue: string
+  privilegedProfiles: readonly RunnerProfile[]
+}) =>
+  `\${{ ${privilegedProfiles
+    .map(
+      (profile) => `${matrixValue} == '${profile}' && '${namespacePrivilegedProfile(profile)}'`,
+    )
+    .join(' || ')} || ${matrixValue} }}`
+
+/**
  * Namespace runner with run ID-based affinity to prevent queue jumping.
  * Adds a run ID label so runners spawned for one workflow run
  * don't steal jobs from other runs.
+ *
+ * `privileged` opts the job into `container.privileged=true`, which every job that executes
+ * a sandboxed Buck TypeScript action needs (Bubblewrap requires `pivot_root`). Where the
+ * feature is spelled depends on the label KIND, and the two forms are not interchangeable:
+ *
+ *   - a `namespace-profile-*` label carries its features as a `;`-suffix of the PROFILE, so
+ *     the run-id affinity label stays exactly `namespace-features:github.run-id=<id>`;
+ *   - a raw MACHINE label is not a profile and must stay verbatim, so the features travel in
+ *     the companion `namespace-features:` label, whose entries are themselves `;`-separated.
+ *     A raw machine label only honors that companion label when it ends with
+ *     `-with-features`, so requesting privileged mode on any other raw label is refused
+ *     rather than silently emitting a label pair Namespace would ignore.
  */
 export const namespaceRunner = ({
   profile,
   runId,
+  privileged = false,
 }: {
   profile: RunnerProfile | (string & {})
   runId: string
-}) => [profile, `namespace-features:github.run-id=${runId}`] as const
+  privileged?: boolean
+}) => {
+  const runIdFeature = `github.run-id=${runId}`
+  if (privileged === false) {
+    return [profile, `namespace-features:${runIdFeature}`] as const
+  }
+
+  if (profile.startsWith(namespaceProfileLabelPrefix) === true) {
+    return [namespacePrivilegedProfile(profile), `namespace-features:${runIdFeature}`] as const
+  }
+
+  if (profile.endsWith(namespaceFeaturesCapableLabelSuffix) === false) {
+    throw new Error(
+      `namespaceRunner: privileged mode is unavailable on raw runner label "${profile}": a non-profile label must end with "${namespaceFeaturesCapableLabelSuffix}" to honor namespace-features`,
+    )
+  }
+
+  return [
+    profile,
+    `namespace-features:${namespacePrivilegedContainerFeature};${runIdFeature}`,
+  ] as const
+}
 
 // =============================================================================
 // Step Atoms
