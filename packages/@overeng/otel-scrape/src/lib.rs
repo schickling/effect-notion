@@ -2996,9 +2996,7 @@ fn signal_env_string(signal_name: &str, generic_name: &str) -> Option<String> {
 }
 
 fn env_string(name: &str) -> Option<String> {
-    std::env::var(name)
-        .ok()
-        .and_then(|value| if value.is_empty() { None } else { Some(value) })
+    std::env::var(name).ok().filter(|value| !value.is_empty())
 }
 
 fn env_bool(name: &str) -> bool {
