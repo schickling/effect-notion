@@ -99,6 +99,7 @@ ROOT_TEST_SOURCE_FILES = [
     "BUCK",
     "buck2-member.json.genie.ts",
     "devenv.nix",
+    "megarepo.kdl",
     "package.json.genie.ts",
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",

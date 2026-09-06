@@ -95,6 +95,7 @@ root_test_files.update({
     "buck2/toolchains/configured.bzl": "//buck2/toolchains:configured.bzl",
     "devenv.nix": "//:devenv.nix",
     "genie/buck2/BUCK": "//genie/buck2:BUCK",
+    "megarepo.kdl": "//:megarepo.kdl",
     "nix": "//:root_test_sources/nix",
     "nix/devenv-modules/tasks/shared/megarepo.nix": "//nix/devenv-modules:tasks/shared/megarepo.nix",
     "nix/devenv-modules/tasks/shared/netlify.nix": "//nix/devenv-modules:tasks/shared/netlify.nix",

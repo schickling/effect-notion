@@ -405,11 +405,15 @@ mod tests {
         let mut unsorted = capability();
         unsorted.closure_store_paths.reverse();
         let mut duplicated = capability();
-        duplicated.closure_store_paths =
-            vec![duplicated.closure_identity.clone(), duplicated.closure_identity.clone()];
+        duplicated.closure_store_paths = vec![
+            duplicated.closure_identity.clone(),
+            duplicated.closure_identity.clone(),
+        ];
         let mut nested = capability();
-        nested.closure_store_paths =
-            vec![nested.executable_store_path.clone(), nested.closure_identity.clone()];
+        nested.closure_store_paths = vec![
+            nested.executable_store_path.clone(),
+            nested.closure_identity.clone(),
+        ];
         let mut relative = capability();
         relative.closure_store_paths =
             vec!["nix/store/00000000000000000000000000000000-tool".into()];

@@ -1,14 +1,18 @@
 import { existsSync, lstatSync, readdirSync } from 'node:fs'
 import path from 'node:path'
-import process from 'node:process'
 
 import {
   createGenieOutput,
   type GenieOutput,
 } from '../../packages/@overeng/genie/src/runtime/core.ts'
+import { defineRepoContext } from '../../packages/@overeng/genie/src/runtime/repo-context/mod.ts'
 import { pnpmTargetName } from '../../buck2/dependencies/pnpm-lock.ts'
 import { buck2SemanticFingerprint, renderBuck2Visibility } from './mod.ts'
 import { packageTreeRuntime, stagedModuleName } from './runtime-modules.ts'
+
+// The source census is repository-relative; the Buck-built Genie product runs from the
+// composed workspace root, so it is anchored on this module's repository rather than cwd.
+const repo = defineRepoContext({ name: 'effect-utils', importMetaUrl: import.meta.url })
 
 const regenerationCommand = 'devenv tasks run genie:run' as const
 const sourceExtensions = ['.cts', '.js', '.jsx', '.mts', '.ts', '.tsx'] as const
@@ -57,7 +61,7 @@ const discoverPackageSources = ({
   sourceFiles: readonly string[]
   sourceRoots: readonly string[]
 }): readonly string[] => {
-  const absoluteRoot = path.join(process.cwd(), packagePath)
+  const absoluteRoot = repo.resolve(packagePath)
   const sources: string[] = []
 
   const walk = (relativeDirectory: string): void => {
@@ -130,7 +134,7 @@ const discoverTestDataPatterns = ({
   packagePath: string
   testDataRoots: readonly Buck2TestDataRoot[]
 }): readonly string[] => {
-  const absoluteRoot = path.join(process.cwd(), packagePath)
+  const absoluteRoot = repo.resolve(packagePath)
   const patterns: string[] = []
 
   const matches = (relativeDirectory: string, extension: string): boolean =>
@@ -184,7 +188,7 @@ const discoverTestDataPatterns = ({
  * every consumer naming individual files across package boundaries.
  */
 const discoverGeneratorSources = (packagePath: string): readonly string[] =>
-  readdirSync(path.join(process.cwd(), packagePath), { withFileTypes: true })
+  readdirSync(repo.resolve(packagePath), { withFileTypes: true })
     .filter((entry) => {
       if (entry.name.endsWith('.genie.ts') === false) return false
       if (safeSourceSegment(entry.name) === false) {
@@ -302,7 +306,7 @@ export const buck2TypeScriptPackageProjection = ({
     if (safeRelativePath(resourceFile) === false) {
       throw new Error(`Unsafe package resource file: ${resourceFile}`)
     }
-    const resourceStat = lstatSync(path.join(process.cwd(), packagePath, resourceFile))
+    const resourceStat = lstatSync(repo.resolve(packagePath, resourceFile))
     if (resourceStat.isSymbolicLink() === true || resourceStat.isFile() === false) {
       throw new Error(`Package resource census refuses non-file: ${resourceFile}`)
     }
@@ -312,7 +316,7 @@ export const buck2TypeScriptPackageProjection = ({
   const declarationSources = packageSources.filter((source) => source.endsWith('.d.ts'))
   const buckPackagePaths = new Set(
     [packagePath, ...workspaceSiblings.map((sibling) => sibling.packagePath)].filter((candidate) =>
-      existsSync(path.join(process.cwd(), candidate, 'BUCK.genie.ts')),
+      existsSync(repo.resolve(candidate, 'BUCK.genie.ts')),
     ),
   )
   const dependencyView = buck2DependencyViewLabel(packagePath)
