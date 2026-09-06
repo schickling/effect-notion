@@ -1004,6 +1004,236 @@ describe('ci workflow standard job helpers', () => {
   })
 })
 
+describe('ci workflow namespace privileged containers', () => {
+  const privilegedFeature = 'container.privileged=true'
+  const runIdFeature = 'github.run-id=${{ github.run_id }}'
+  const linuxProfile = 'namespace-profile-linux-x86-64'
+  const rawPerfLabel = 'nscloud-ubuntu-24.04-amd64-16x64-with-features'
+
+  /**
+   * The exact `runs-on` label array of one generated job.
+   *
+   * Labels are scanned rather than string-matched so an assertion cannot pass on a
+   * substring of a longer, differently-shaped label.
+   */
+  const generatedRunnerLabels = (jobKey: string): string[] => {
+    const afterHeader = generatedCiWorkflowYamlSource.split(`\n  ${jobKey}:\n`)[1]
+    if (afterHeader === undefined) throw new Error(`missing generated job: ${jobKey}`)
+    const jobBody = afterHeader.split(/\n {2}[a-zA-Z0-9_-]+:\n/)[0] ?? ''
+    const fromRunsOn = jobBody.slice(jobBody.indexOf('    runs-on:'))
+    const flow = fromRunsOn.slice(fromRunsOn.indexOf('[') + 1, fromRunsOn.indexOf(']'))
+
+    const labels: string[] = []
+    let current = ''
+    let quote: string | undefined
+    for (const char of flow) {
+      if (quote !== undefined) {
+        if (char === quote) quote = undefined
+        else current += char
+        continue
+      }
+      if (char === "'" || char === '"') {
+        quote = char
+        continue
+      }
+      if (char === ',') {
+        labels.push(current.trim())
+        current = ''
+        continue
+      }
+      current += char
+    }
+    if (current.trim() !== '') labels.push(current.trim())
+    return labels.filter((label) => label !== '')
+  }
+
+  /** The job-level `env:` value of one generated job. */
+  const generatedJobEnvValue = (jobKey: string, name: string) => {
+    const afterHeader = generatedCiWorkflowYamlSource.split(`\n  ${jobKey}:\n`)[1]
+    if (afterHeader === undefined) throw new Error(`missing generated job: ${jobKey}`)
+    const jobBody = afterHeader.split(/\n {2}[a-zA-Z0-9_-]+:\n/)[0] ?? ''
+    const line = jobBody.match(new RegExp(`^ {6}${name}: (.*)$`, 'm'))?.[1]
+    if (line === undefined) throw new Error(`missing ${name} in job: ${jobKey}`)
+    return line.replace(/^'(.*)'$/, '$1')
+  }
+
+  /**
+   * The two admissible privileged label ARRAYS, one per Namespace label kind. They are not
+   * interchangeable: `;container.privileged=true` is a feature suffix of a
+   * `namespace-profile-*` label, while a raw runner label (`nscloud-*`) must stay verbatim
+   * and carry the feature as an entry of the companion `namespace-features:` label.
+   */
+  const privilegedProfileLabels = [
+    `${linuxProfile};${privilegedFeature}`,
+    `namespace-features:${runIdFeature}`,
+  ]
+  const privilegedRawLabels = [
+    rawPerfLabel,
+    `namespace-features:${privilegedFeature};${runIdFeature}`,
+  ]
+  const unprivilegedProfileLabels = [linuxProfile, `namespace-features:${runIdFeature}`]
+
+  /**
+   * Every job whose payload executes a sandboxed Buck action: direct `runBuck2`, a devenv
+   * task that shells out to `buck2`, or the dispatch-only DQ cache/capacity lanes.
+   *
+   * `lint` is here on empirical grounds: run 34047874617 failed its `lint:check` step with
+   * `bwrap: pivot_root: Operation not permitted` across dist/typecheck targets, so the
+   * generated-freshness prerequisites reach Buck actions even though `lint:check` itself
+   * spells no `buck2` command.
+   */
+  const privilegedProfileJobs = [
+    'typecheck',
+    'lint',
+    'test-megarepo-cold-gc',
+    'bundle-smoke',
+    'buck2',
+    'weaver',
+    'bootstrap-cold-proof',
+    'test-integration-notion',
+    'test-integration-restate',
+    'test-live-deploy-ci-tools',
+    'buck2-cache-publish',
+    'buck2-cache-restore',
+    'buck2-cache-outage',
+    'buck2-capacity',
+    'deploy-storybooks',
+  ]
+
+  /** Sandboxed-Buck jobs whose runner is not a plain literal profile label. */
+  const privilegedRawLabelJobs = ['devenv-perf']
+  const privilegedMatrixJobs = ['test']
+
+  /** Jobs that run no Buck action, so they must keep the default unprivileged container. */
+  const unprivilegedJobs = [
+    'default-ref-policy',
+    'pnpm-regression',
+    'cargo',
+    'nix-closure-sizes',
+    'source-shape',
+    'ci-measurements-report',
+    'notify-alignment',
+  ]
+
+  it('emits the exact privileged profile-label array for every literal-profile Buck job', () => {
+    // Bubblewrap's `pivot_root` is refused in the default unprivileged Namespace container,
+    // so the fail-closed containment contract cannot run without this feature.
+    for (const jobKey of privilegedProfileJobs) {
+      expect(generatedRunnerLabels(jobKey), jobKey).toEqual(privilegedProfileLabels)
+    }
+
+    expect(
+      privilegedProfileJobs.length +
+        privilegedRawLabelJobs.length +
+        privilegedMatrixJobs.length +
+        unprivilegedJobs.length,
+    ).toBe(generatedCiJobKeys.length)
+  })
+
+  it('keeps a raw runner label verbatim and moves the feature into namespace-features', () => {
+    // `;container.privileged=true` is only valid on a `namespace-profile-*` label. The
+    // paired perf lane runs on a raw Namespace runner label, so suffixing it would name a
+    // runner that does not exist.
+    for (const jobKey of privilegedRawLabelJobs) {
+      expect(generatedRunnerLabels(jobKey), jobKey).toEqual(privilegedRawLabels)
+    }
+    expect(generatedCiWorkflowYamlSource).not.toContain(`${rawPerfLabel};${privilegedFeature}`)
+  })
+
+  it('emits the exact unprivileged array for every job with no Buck action', () => {
+    for (const jobKey of unprivilegedJobs) {
+      expect(generatedRunnerLabels(jobKey), jobKey).toEqual(unprivilegedProfileLabels)
+    }
+  })
+
+  it('privileges only the Linux leg of the platform matrix', () => {
+    expect(generatedRunnerLabels('test')).toEqual([
+      `\${{ matrix.runner == '${linuxProfile}' && '${linuxProfile};${privilegedFeature}' || matrix.runner }}`,
+      `namespace-features:${runIdFeature}`,
+    ])
+    // macOS never resolves to a privileged label anywhere in the workflow.
+    expect(generatedCiWorkflowYamlSource).not.toContain(
+      `namespace-profile-macos-arm64;${privilegedFeature}`,
+    )
+  })
+
+  it('keeps the matrix values, and therefore the required check contexts, unchanged', () => {
+    // GitHub derives the check name from the matrix VALUE, not from the resolved runner
+    // label, so `test (namespace-profile-linux-x86-64)` survives the privileged runs-on.
+    expect(generatedCiWorkflowYamlSource).toContain(`runner: [${matrixRunners.join(', ')}]`)
+    for (const runner of matrixRunners) {
+      expect(generatedRequiredCheckContexts).toContain(`test (${runner})`)
+    }
+  })
+
+  it('derives measurement runner provenance from the labels actually requested', () => {
+    // The paired perf lane records its runner class as the joined `runs-on` labels, so the
+    // recorded provenance must be the raw-label form verbatim, feature label included.
+    expect(generatedJobEnvValue('devenv-perf', 'RUNNER_CLASS')).toBe(privilegedRawLabels.join(','))
+    // The profile-form measurement lanes derive their class from the runner context instead,
+    // so no privileged feature may leak into their provenance.
+    expect(generatedCiWorkflowYamlSource).toContain(
+      "RUNNER_CLASS: '${{ runner.os }}-${{ runner.arch }}'",
+    )
+    for (const [jobKey, labels] of [
+      ['nix-closure-sizes', unprivilegedProfileLabels],
+      ['source-shape', unprivilegedProfileLabels],
+    ] as const) {
+      expect(generatedRunnerLabels(jobKey), jobKey).toEqual(labels)
+    }
+  })
+
+  it('derives every privileged label from the shared generator helpers', () => {
+    expect(ciWorkflowSource).toContain(
+      `export const namespacePrivilegedContainerFeature = '${privilegedFeature}'`,
+    )
+    expect(ciWorkflowSource).toContain(
+      'export const namespacePrivilegedContainerSuffix = `;${namespacePrivilegedContainerFeature}`',
+    )
+    expect(ciWorkflowSource).toContain(
+      `export const namespaceProfileLabelPrefix = 'namespace-profile-'`,
+    )
+    expect(ciWorkflowSource).toContain('export const namespacePrivilegedProfile')
+    expect(ciWorkflowSource).toContain('export const namespacePrivilegedMatrixProfile')
+    // The label kind decides where the feature goes; the generator never hand-writes either
+    // spelling.
+    expect(ciWorkflowSource).toContain('profile.startsWith(namespaceProfileLabelPrefix)')
+    expect(generatedWorkflowSource).not.toContain(privilegedFeature)
+  })
+
+  it('refuses privileged mode on a raw label that cannot honor namespace-features', async () => {
+    // Dynamic on purpose: `genie/ci-workflow` lives outside this package's `rootDir`, so a
+    // static import would break the package's own type-check boundary (same pattern as the
+    // pnpm/Nix cache-step test above).
+    const { namespaceRunner } = await import(
+      // oxlint-disable-next-line import/no-dynamic-require
+      new URL('../../../../../../genie/ci-workflow/setup.ts', import.meta.url).href
+    )
+    const runId = '${{ github.run_id }}'
+
+    // A raw machine label only honors the companion `namespace-features:` label when it ends
+    // with `-with-features`, so emitting the pair for any other raw label would silently
+    // drop privileged mode and reintroduce the `pivot_root` failure.
+    expect(() =>
+      namespaceRunner({ profile: 'nscloud-ubuntu-24.04-amd64-16x64', runId, privileged: true }),
+    ).toThrow(
+      'namespaceRunner: privileged mode is unavailable on raw runner label "nscloud-ubuntu-24.04-amd64-16x64": a non-profile label must end with "-with-features" to honor namespace-features',
+    )
+
+    // The same label is fine unprivileged, and both valid privileged callers are unchanged.
+    expect(namespaceRunner({ profile: 'nscloud-ubuntu-24.04-amd64-16x64', runId })).toEqual([
+      'nscloud-ubuntu-24.04-amd64-16x64',
+      `namespace-features:${runIdFeature}`,
+    ])
+    expect(namespaceRunner({ profile: rawPerfLabel, runId, privileged: true })).toEqual(
+      privilegedRawLabels,
+    )
+    expect(namespaceRunner({ profile: linuxProfile, runId, privileged: true })).toEqual(
+      privilegedProfileLabels,
+    )
+  })
+})
+
 describe('ci workflow devenv perf helpers', () => {
   it('exposes reusable devenv perf CI job helpers', () => {
     expect(ciWorkflowSource).toContain('export const devenvPerfJob')

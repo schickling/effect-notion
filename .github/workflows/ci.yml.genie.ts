@@ -29,6 +29,7 @@ import {
   devenvPerfJob,
   downloadPreviousGitHubArtifactStep,
   namespaceLinuxX64PairedPerfRunner,
+  namespacePrivilegedMatrixProfile,
   namespaceRunner,
   nixClosureMeasurementSteps,
   sourceShapeMeasurementStep,
@@ -339,17 +340,25 @@ const measurementReportIf = [
   "&& needs.source-shape.result != 'failure' }}",
 ].join(' ')
 
+/**
+ * `privileged` requests Namespace privileged-container mode, which every job that runs a
+ * sandboxed Buck TypeScript action needs: Bubblewrap's `pivot_root` is refused in the
+ * default unprivileged container. Jobs that run no Buck action stay unprivileged.
+ */
 const job = ({
   step,
   extraSteps = [],
+  privileged = false,
 }: {
   step: { name: string; run: string }
   extraSteps?: readonly any[]
+  privileged?: boolean
 }) => ({
   if: normalCiIf,
   'runs-on': namespaceRunner({
     profile: 'namespace-profile-linux-x86-64',
     runId: '${{ github.run_id }}',
+    privileged,
   }),
   'timeout-minutes': jobTimeoutMinutes,
   defaults: bashShellDefaults,
@@ -372,8 +381,14 @@ const multiPlatformJob = (step: { name: string; run: string }) => ({
       runner: [...RUNNER_PROFILES],
     },
   },
+  // The matrix value stays the bare profile — `test (namespace-profile-linux-x86-64)` is a
+  // required check context — while the resolved Linux label carries privileged mode for the
+  // sandboxed Buck actions. The macOS leg resolves to its unprivileged profile.
   'runs-on': namespaceRunner({
-    profile: '${{ matrix.runner }}' as RunnerProfile,
+    profile: namespacePrivilegedMatrixProfile({
+      matrixValue: 'matrix.runner',
+      privilegedProfiles: ['namespace-profile-linux-x86-64'],
+    }),
     runId: '${{ github.run_id }}',
   }),
   'timeout-minutes': jobTimeoutMinutes,
@@ -405,6 +420,8 @@ const jobs = {
       name: 'Type check Buck package products',
       run: runBuck2('build', '\'filter(":typecheck$", effect_utils//...)\''),
     },
+    // `buck2 build` of the TypeScript typecheck actions.
+    privileged: true,
     extraSteps: [verifyOtelShellEntryStep],
   }),
   lint: job({
@@ -412,6 +429,10 @@ const jobs = {
       name: 'Generated freshness + format + lint',
       run: runDevenvTasksBefore('lint:check'),
     },
+    // Empirically Buck-bearing: run 34047874617 died in `bwrap: pivot_root: Operation not
+    // permitted` across dist/typecheck targets, so `lint:check` reaches sandboxed Buck
+    // actions through its freshness prerequisites.
+    privileged: true,
   }),
   test: multiPlatformJob({
     name: 'Sandbox admission and Buck unit tests',
@@ -422,6 +443,8 @@ const jobs = {
       name: 'Megarepo cold-GC Buck test',
       run: runBuck2('test', 'effect_utils//packages/@overeng/megarepo:test_megarepo_cold_gc'),
     },
+    // `buck2 test` of the megarepo cold-GC test action.
+    privileged: true,
   }),
   'pnpm-regression': job({
     step: {
@@ -438,12 +461,16 @@ const jobs = {
         '\'filter("candidate-smoke$", effect_utils//packages/@overeng/...)\' effect_utils//packages/@overeng/pty-effect:bundle_smoke_candidate',
       ),
     },
+    // `buck2 test` of the candidate bundle-smoke actions.
+    privileged: true,
   }),
   buck2: job({
     step: {
       name: 'Buck2 toolchain surface and Nix bridge',
       run: runDevenvTasksBefore('buck2:check'),
     },
+    // `buck2:check` builds the admitted TypeScript check surface through Buck.
+    privileged: true,
   }),
   cargo: job({
     step: {
@@ -479,6 +506,8 @@ const jobs = {
       name: 'Weaver registry gates (check + diff + live-check)',
       run: runDevenvTasksBefore('weaver:check', 'weaver:diff', 'weaver:live-check'),
     },
+    // `weaver:live-check` runs its e2e assertion as a `buck2 test` action.
+    privileged: true,
   }),
 } satisfies Record<CoreCIJobName, unknown>
 
@@ -743,9 +772,12 @@ const buck2CacheLaneJob = ({
 }) => ({
   if: condition,
   ...(needs === undefined ? {} : { needs: [...needs] }),
+  // Every lane of this helper exists to run Buck against the candidate graph, so all of
+  // them execute sandboxed Buck TypeScript actions and need privileged mode.
   'runs-on': namespaceRunner({
     profile: runnerProfile,
     runId: '${{ github.run_id }}',
+    privileged: true,
   }),
   'timeout-minutes': timeoutMinutes,
   defaults: bashShellDefaults,
@@ -803,13 +835,18 @@ const extraJobs: Record<string, any> = {
         runDevenvTasksBefore('bootstrap:cold-proof'),
       ].join('\n'),
     },
+    // `bootstrap:cold-proof` builds and runs the Buck Genie product (`buck2 build` /
+    // `buck2 run`) inside the cold tree.
+    privileged: true,
   }),
   'devenv-perf': {
     if: devenvPerfLaneIf,
     ...devenvPerfJob({
+      // The `check:quick` probes run `buck2:check`, i.e. sandboxed Buck TypeScript actions.
       runsOn: namespaceRunner({
         profile: namespaceLinuxX64PairedPerfRunner,
         runId: '${{ github.run_id }}',
+        privileged: true,
       }),
       artifactName: 'devenv-perf',
       artifactDir: devenvPerfMeasurementsDir,
@@ -1081,9 +1118,11 @@ const extraJobs: Record<string, any> = {
   /** Integration tests for Notion API (requires package-specific Notion token secrets) */
   'test-integration-notion': {
     if: trustedSecretCiIf,
+    // `test:notion-integration` runs each capability-bearing target as a `buck2 test` action.
     'runs-on': namespaceRunner({
       profile: 'namespace-profile-linux-x86-64',
       runId: '${{ github.run_id }}',
+      privileged: true,
     }),
     'timeout-minutes': 90,
     defaults: bashShellDefaults,
@@ -1124,9 +1163,11 @@ const extraJobs: Record<string, any> = {
         'test-integration-restate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}',
       'cancel-in-progress': true,
     },
+    // `test:restate-integration` runs its target as a `buck2 test` action.
     'runs-on': namespaceRunner({
       profile: 'namespace-profile-linux-x86-64',
       runId: '${{ github.run_id }}',
+      privileged: true,
     }),
     'timeout-minutes': 60,
     defaults: bashShellDefaults,
@@ -1149,9 +1190,11 @@ const extraJobs: Record<string, any> = {
         'test-live-deploy-ci-tools-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}',
       'cancel-in-progress': true,
     },
+    // Both live E2E steps invoke `buck2 test` directly (see `runBuck2` above).
     'runs-on': namespaceRunner({
       profile: 'namespace-profile-linux-x86-64',
       runId: '${{ github.run_id }}',
+      privileged: true,
     }),
     'timeout-minutes': 30,
     defaults: bashShellDefaults,
@@ -1246,9 +1289,12 @@ const extraJobs: Record<string, any> = {
 const deployJobs: Record<string, any> = {
   'deploy-storybooks': {
     if: trustedSecretCiIf,
+    // The Netlify deploy task builds and resolves the declared storybook Buck output
+    // (`buck2 build --show-simple-output`), so it executes sandboxed Buck actions.
     'runs-on': namespaceRunner({
       profile: 'namespace-profile-linux-x86-64',
       runId: '${{ github.run_id }}',
+      privileged: true,
     }),
     'timeout-minutes': jobTimeoutMinutes,
     // No `needs` — run in parallel with other jobs for faster feedback
