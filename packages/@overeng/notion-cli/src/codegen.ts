@@ -940,6 +940,32 @@ export function generateApiCode(opts: GenerateApiCodeOptions): string {
 
   const pascalName = toTopLevelIdentifier(schemaName)
   const schemaImportPath = `./${schemaFileName}`
+  const generatedCodePrintWidth = 100
+  const writeImport = `import { ${pascalName}PageProperties, type ${pascalName}PageWrite, encode${pascalName}Write } from '${schemaImportPath}'`
+  const writeImportLines =
+    writeImport.length <= generatedCodePrintWidth
+      ? [writeImport]
+      : [
+          `import {`,
+          `  ${pascalName}PageProperties,`,
+          `  type ${pascalName}PageWrite,`,
+          `  encode${pascalName}Write,`,
+          `} from '${schemaImportPath}'`,
+        ]
+  const pageType = `export type ${pascalName}Page = TypedPage<${pascalName}PageProperties>`
+  const pageTypeLines =
+    pageType.length <= generatedCodePrintWidth
+      ? [pageType]
+      : [`export type ${pascalName}Page =`, `  TypedPage<${pascalName}PageProperties>`]
+  const encodeCall = `    properties: encode${pascalName}Write(properties as ${pascalName}PageWrite),`
+  const encodeCallLines =
+    encodeCall.length <= generatedCodePrintWidth
+      ? [encodeCall]
+      : [
+          `    properties: encode${pascalName}Write(`,
+          `      properties as ${pascalName}PageWrite,`,
+          `    ),`,
+        ]
 
   // Build the config comment (same options as schema file, always includes includeApi: true)
   const configComment = generateConfigComment({
@@ -960,8 +986,12 @@ export function generateApiCode(opts: GenerateApiCodeOptions): string {
     ...(configComment !== '' ? [configComment] : []),
     ``,
     `import { Effect, Stream } from 'effect'`,
+    ``,
     `import { NotionDatabases, NotionPages, type TypedPage } from '@overeng/notion-effect-client'`,
-    `import { ${pascalName}PageProperties${includeWrite === true ? `, ${pascalName}PageWrite, encode${pascalName}Write` : ''} } from '${schemaImportPath}'`,
+    ``,
+    ...(includeWrite === true
+      ? writeImportLines
+      : [`import { ${pascalName}PageProperties } from '${schemaImportPath}'`]),
     ``,
     `/** Database ID for ${dbInfo.name} */`,
     `const DATABASE_ID = '${dbInfo.id}'`,
@@ -1002,8 +1032,7 @@ export function generateApiCode(opts: GenerateApiCodeOptions): string {
     `/**`,
     ` * Query pages and collect all results.`,
     ` */`,
-    `export const queryAll = (options?: QueryOptions) =>`,
-    `  query(options).pipe(Stream.runCollect)`,
+    `export const queryAll = (options?: QueryOptions) => query(options).pipe(Stream.runCollect)`,
     ``,
     `// -----------------------------------------------------------------------------`,
     `// Get`,
@@ -1018,7 +1047,7 @@ export function generateApiCode(opts: GenerateApiCodeOptions): string {
     `    schema: ${pascalName}PageProperties,`,
     `  })`,
     ``,
-    `export type ${pascalName}Page = TypedPage<${pascalName}PageProperties>`,
+    ...pageTypeLines,
   ]
 
   // Add create/update if write schema is enabled
@@ -1044,13 +1073,18 @@ export function generateApiCode(opts: GenerateApiCodeOptions): string {
     lines.push(`/**`)
     lines.push(` * Update an existing page.`)
     lines.push(` */`)
-    lines.push(`export const update = (`)
-    lines.push(`  pageId: string,`)
-    lines.push(`  properties: Partial<${pascalName}PageWrite>,`)
-    lines.push(`) =>`)
+    const updateSignature = `export const update = (pageId: string, properties: Partial<${pascalName}PageWrite>) =>`
+    if (updateSignature.length <= generatedCodePrintWidth) {
+      lines.push(updateSignature)
+    } else {
+      lines.push(`export const update = (`)
+      lines.push(`  pageId: string,`)
+      lines.push(`  properties: Partial<${pascalName}PageWrite>,`)
+      lines.push(`) =>`)
+    }
     lines.push(`  NotionPages.update({`)
     lines.push(`    pageId,`)
-    lines.push(`    properties: encode${pascalName}Write(properties as ${pascalName}PageWrite),`)
+    lines.push(...encodeCallLines)
     lines.push(`  })`)
   }
 
@@ -1062,8 +1096,7 @@ export function generateApiCode(opts: GenerateApiCodeOptions): string {
   lines.push(`/**`)
   lines.push(` * Archive (soft-delete) a page.`)
   lines.push(` */`)
-  lines.push(`export const archive = (pageId: string) =>`)
-  lines.push(`  NotionPages.archive({ pageId })`)
+  lines.push(`export const archive = (pageId: string) => NotionPages.archive({ pageId })`)
   lines.push(``)
 
   return lines.join('\n')
