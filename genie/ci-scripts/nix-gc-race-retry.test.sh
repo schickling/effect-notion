@@ -60,6 +60,42 @@ assert_not_contains() {
 test_dir="$(mktemp -d)"
 trap 'rm -rf "$test_dir"' EXIT
 
+# The helper deletes Nix caches as part of its repair path. Sandbox HOME and the XDG cache
+# root for the whole suite so no test can ever touch the real developer or runner caches.
+# The two roots are deliberately DIVERGENT (XDG_CACHE_HOME is not under HOME) so the
+# assertions below prove the helper purges the legacy HOME-relative eval cache as well as
+# the XDG root it resolves.
+export HOME="$test_dir/home"
+export XDG_CACHE_HOME="$test_dir/xdg-cache"
+home_nix_cache="$HOME/.cache/nix"
+xdg_nix_cache="$XDG_CACHE_HOME/nix"
+mkdir -p "$home_nix_cache" "$xdg_nix_cache"
+
+seed_nix_caches() {
+  mkdir -p "$xdg_nix_cache/tarball-cache-v2" "$xdg_nix_cache/gitv3" \
+    "$xdg_nix_cache/eval-cache-v6" "$home_nix_cache/eval-cache-v6"
+  : > "$xdg_nix_cache/fetcher-cache-v4.sqlite"
+  : > "$xdg_nix_cache/fetcher-cache-v4.sqlite-shm"
+  : > "$xdg_nix_cache/fetcher-cache-v4.sqlite-wal"
+  : > "$xdg_nix_cache/binary-cache-v7.sqlite"
+}
+
+assert_missing() {
+  if [ -e "$1" ]; then
+    echo "FAIL: $2"
+    echo "  still present: $1"
+    exit 1
+  fi
+}
+
+assert_present() {
+  if [ ! -e "$1" ]; then
+    echo "FAIL: $2"
+    echo "  missing: $1"
+    exit 1
+  fi
+}
+
 echo "Running nix GC race retry helper tests..."
 echo ""
 
@@ -275,6 +311,101 @@ EOF
 )
 CI_PROGRESS_HEARTBEAT_SECONDS=1 NIX_GC_RACE_MAX_RETRIES=2 "$ROOT/genie/ci-scripts/run-with-nix-gc-race-retry.sh" "wrapper-fixture" "$wrapper_command" >/dev/null
 assert_eq "2" "$(cat "$wrapper_attempt_file")" "wrapper retry count"
+
+echo "Test 12: retries missing flake input subpaths rendered with guillemets"
+subpath_fixture="$test_dir/subpath-fixture.sh"
+cat > "$subpath_fixture" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+attempt_file="$test_dir/subpath-attempt"
+attempt=1
+if [ -f "\$attempt_file" ]; then
+  attempt=\$(cat "\$attempt_file")
+fi
+if [ "\$attempt" -eq 1 ]; then
+  echo 2 > "\$attempt_file"
+  echo "error: path '«github:NixOS/nixpkgs/80bdc1e»/pkgs/build-support/fetchpypi' does not exist" >&2
+  exit 1
+fi
+echo "subpath recovered"
+EOF
+chmod +x "$subpath_fixture"
+subpath_stdout="$test_dir/subpath-stdout"
+seed_nix_caches
+CI_PROGRESS_HEARTBEAT_SECONDS=1 NIX_GC_RACE_MAX_RETRIES=2 run_nix_gc_race_retry "subpath-fixture" "$subpath_fixture" >"$subpath_stdout"
+assert_eq "2" "$(cat "$test_dir/subpath-attempt")" "missing flake subpath retry count"
+assert_contains "«github:NixOS/nixpkgs/80bdc1e»/pkgs/build-support/fetchpypi" "$subpath_stdout" "missing subpath is named in the retry warning"
+# The repair must clear the caches Determinate Nix actually uses, including the sqlite
+# sidecars: a database removed without its -shm/-wal leaves a corrupt cache behind.
+assert_missing "$xdg_nix_cache/tarball-cache-v2" "versioned tarball cache purged"
+assert_missing "$xdg_nix_cache/gitv3" "versioned git cache purged"
+assert_missing "$xdg_nix_cache/fetcher-cache-v4.sqlite" "fetcher cache purged"
+assert_missing "$xdg_nix_cache/fetcher-cache-v4.sqlite-shm" "fetcher cache shm sidecar purged"
+assert_missing "$xdg_nix_cache/fetcher-cache-v4.sqlite-wal" "fetcher cache wal sidecar purged"
+# Both eval-cache roots: the XDG root the helper resolves and the legacy HOME-relative one.
+assert_missing "$xdg_nix_cache/eval-cache-v6" "versioned eval cache purged from the XDG root"
+assert_missing "$home_nix_cache/eval-cache-v6" "versioned eval cache purged from the legacy HOME root"
+# Unrelated caches are not collateral damage.
+assert_present "$xdg_nix_cache/binary-cache-v7.sqlite" "binary cache left intact"
+
+echo "Test 13: does not treat a missing plain store path as a missing-subpath transient"
+missing_store_path_fixture="$test_dir/missing-store-path-fixture.sh"
+cat > "$missing_store_path_fixture" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "error: path '/nix/store/does-not-exist-foo' does not exist" >&2
+exit 11
+EOF
+chmod +x "$missing_store_path_fixture"
+set +e
+CI_PROGRESS_HEARTBEAT_SECONDS=1 NIX_GC_RACE_MAX_RETRIES=2 run_nix_gc_race_retry "missing-store-path-fixture" "$missing_store_path_fixture" >/dev/null 2>&1
+exit_code=$?
+set -e
+assert_exit_code 11 "$exit_code" "a missing plain path is not a transient flake-subpath failure"
+
+echo "Test 14: does not retry missing-subpath text that is not anchored to a Nix error"
+subpath_false_positive_fixture="$test_dir/subpath-false-positive-fixture.sh"
+cat > "$subpath_false_positive_fixture" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+# Lowercase `error:` IS present, but 'path' does not directly follow it, so the
+# anchored classifier must not treat this as the transient signature.
+echo "error: assertion failed while checking that path '«github:NixOS/nixpkgs/80bdc1e»/pkgs/build-support/fetchpypi' does not exist" >&2
+exit 12
+EOF
+chmod +x "$subpath_false_positive_fixture"
+set +e
+CI_PROGRESS_HEARTBEAT_SECONDS=1 NIX_GC_RACE_MAX_RETRIES=2 run_nix_gc_race_retry "subpath-false-positive-fixture" "$subpath_false_positive_fixture" >/dev/null 2>&1
+exit_code=$?
+set -e
+assert_exit_code 12 "$exit_code" "unanchored missing-subpath text does not trigger retries"
+
+echo "Test 15: repairs a missing flake subpath once, then reports it as permanent"
+permanent_fixture="$test_dir/permanent-subpath-fixture.sh"
+cat > "$permanent_fixture" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+echo \$((\$(cat "$test_dir/permanent-attempts" 2>/dev/null || echo 0) + 1)) > "$test_dir/permanent-attempts"
+echo "error: path '«github:NixOS/nixpkgs/80bdc1e»/pkgs/build-support/removed-forever' does not exist" >&2
+exit 13
+EOF
+chmod +x "$permanent_fixture"
+permanent_stdout="$test_dir/permanent-stdout"
+permanent_summary="$test_dir/permanent-summary"
+: > "$permanent_summary"
+seed_nix_caches
+set +e
+CI_PROGRESS_HEARTBEAT_SECONDS=1 NIX_GC_RACE_MAX_RETRIES=10 GITHUB_STEP_SUMMARY="$permanent_summary" run_nix_gc_race_retry "permanent-fixture" "$permanent_fixture" >"$permanent_stdout" 2>&1
+exit_code=$?
+set -e
+assert_exit_code 13 "$exit_code" "a permanently missing subpath keeps its exit code"
+assert_eq "2" "$(cat "$test_dir/permanent-attempts")" "a permanently missing subpath is repaired exactly once, not 10 times"
+# It is reported as an error naming the path, not as the generic no-signature warning.
+assert_contains "::error::Nix flake input subpath still missing" "$permanent_stdout" "the permanent case is reported as an error"
+assert_contains "removed-forever" "$permanent_stdout" "the permanent case names the missing path"
+assert_not_contains "without a detected transient Nix failure" "$permanent_stdout" "the permanent case does not fall through to the generic no-signature message"
+assert_contains "Nix flake input subpath still missing after one cache repair" "$permanent_summary" "the step summary carries the specific permanent-path note"
+assert_not_contains "No transient Nix failure signature detected" "$permanent_summary" "the step summary does not carry the generic note"
 
 echo ""
 echo "All nix GC race retry helper tests passed"

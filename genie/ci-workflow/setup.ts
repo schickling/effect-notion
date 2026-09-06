@@ -1036,9 +1036,17 @@ export const pnpmBuilderContractStep = ({
 export const validateNixStoreStepFor = (lockFile = 'devenv.lock') =>
   ({
     name: 'Resolve devenv',
-    run: withCiSourceRoot(
-      `${shellSingleQuote(`${preparedCiRuntimeScriptsDir}/resolve-devenv.sh`)} ${shellSingleQuote(lockFile)}`,
-    ),
+    // Routed through the shared retry wrapper: resolving devenv is the first step that
+    // evaluates flake inputs, so it is where a transient store/input-cache failure lands
+    // (`path '/nix/store/...' is not valid`, a truncated input tarball, an incompletely
+    // cached flake input). Its own in-script repair covers only the devenv store path, so
+    // without the wrapper any other transient signature fails the job outright.
+    run: withGcRaceRetry({
+      command: withCiSourceRoot(
+        `${shellSingleQuote(`${preparedCiRuntimeScriptsDir}/resolve-devenv.sh`)} ${shellSingleQuote(lockFile)}`,
+      ),
+      label: `resolve devenv (${lockFile})`,
+    }),
     shell: 'bash',
   }) as const
 

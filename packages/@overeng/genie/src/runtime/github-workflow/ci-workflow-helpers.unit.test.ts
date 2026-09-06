@@ -258,6 +258,51 @@ describe('ci workflow retry helpers', () => {
     expect(ciWorkflowSource).not.toContain('if [ ! -x "$__genie_ci_retry_script" ]')
   })
 
+  it('routes the devenv resolution step through the shared retry wrapper', () => {
+    expect(validateNixStoreStepSource).toContain('withGcRaceRetry({')
+    expect(validateNixStoreStepSource).toContain('label: `resolve devenv (${lockFile})`')
+    expect(generatedCiWorkflowYamlSource).toContain(
+      'bash "$__genie_ci_retry_script" \'resolve devenv (devenv.lock)\'',
+    )
+  })
+
+  it('classifies an incompletely cached flake input as a bounded transient', () => {
+    expect(nixGcRaceRetryScriptSource).toContain('saw_missing_flake_subpath')
+    // Anchored on the guillemet-wrapped flake reference Nix prints, so a genuinely absent
+    // store path reported with the same wording is not misread as transient.
+    expect(nixGcRaceRetryScriptSource).toContain("flake_ref_open=$'\\302\\253'")
+    expect(nixGcRaceRetryScriptSource).toContain("flake_ref_close=$'\\302\\273'")
+    expect(nixGcRaceRetryScriptSource).toContain(
+      "grep -o \"error:[[:space:]]*path '${flake_ref_open}[^']*${flake_ref_close}[^']*' does not exist\"",
+    )
+    // Determinate Nix versions these caches; the bare legacy names match nothing, and a
+    // sqlite database removed without its -shm/-wal sidecars leaves a corrupt cache.
+    expect(nixGcRaceRetryScriptSource).toContain(
+      'nix_cache_root="${XDG_CACHE_HOME:-$HOME/.cache}/nix"',
+    )
+    expect(nixGcRaceRetryScriptSource).toContain('"$nix_cache_root"/tarball-cache-v*')
+    expect(nixGcRaceRetryScriptSource).toContain('"$nix_cache_root"/gitv*')
+    expect(nixGcRaceRetryScriptSource).toContain('"$nix_cache_root"/fetcher-cache-v*.sqlite*')
+    // The same wording can describe a permanently removed path, so the repair is bounded.
+    expect(nixGcRaceRetryScriptSource).toContain('missing_subpath_repairs')
+    expect(nixGcRaceRetryScriptSource).toContain('[ "$missing_subpath_repairs" -ge 1 ]')
+    expect(nixGcRaceRetryScriptSource).toContain(
+      'rm -rf ~/.cache/nix/eval-cache-* "$nix_cache_root"/eval-cache-*',
+    )
+    // A second identical failure is an error carrying its own summary note and the
+    // original exit code, never the generic no-transient-signature path.
+    expect(nixGcRaceRetryScriptSource).toContain(
+      '::error::Nix flake input subpath still missing for $task',
+    )
+    expect(nixGcRaceRetryScriptSource).toContain(
+      'write_summary failure "Nix flake input subpath still missing after one cache repair',
+    )
+    // ASCII-only template: a guillemet in the generator can be re-encoded as an escape
+    // sequence that String.raw would emit literally into the shipped script.
+    expect(nixGcRaceRetryScriptSource).not.toContain('\\u00AB')
+    expect(nixGcRaceRetryScriptSource).not.toContain('\u00AB')
+  })
+
   it('prepares retry helpers before generated jobs use the prepared retry script', () => {
     const jobBlocks = generatedCiWorkflowYamlSource.split(/\n  [a-zA-Z0-9_-]+:\n/g).slice(1)
 
@@ -583,8 +628,10 @@ printf '%s\\n' "$NIX_OUTPUT"
     expect(resolveDevenvScript).not.toContain('readlink -e')
     expect(validateNixStoreStepSource).toContain('resolve-devenv.sh')
     expect(validateNixStoreStepSource).not.toContain('resolve-devenv-ci.sh')
+    // The invocation is now nested inside the retry wrapper's single-quoted command, so
+    // the script reference carries the escaped inner quotes.
     expect(generatedCiWorkflowYamlSource).toContain(
-      "'${{ runner.temp }}/composition-state/ci-runtime/resolve-devenv.sh'",
+      `'"'"'\${{ runner.temp }}/composition-state/ci-runtime/resolve-devenv.sh'"'"'`,
     )
     expect(generatedCiWorkflowYamlSource).not.toContain('resolve_devenv_once()')
     expect(
