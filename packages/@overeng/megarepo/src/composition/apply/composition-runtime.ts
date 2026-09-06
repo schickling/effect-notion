@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
+import { accessSync, constants, statSync, type Stats } from 'node:fs'
 import { lstat, mkdir, readFile, rm } from 'node:fs/promises'
 import * as NodePath from 'node:path'
 
@@ -22,6 +23,7 @@ export const compositionRuntimeEnvironmentNames = {
   cpPath: 'MR_COMPOSITION_CP_BIN',
   mvPath: 'MR_CAPABILITY_MV_BIN',
   buck2Path: 'MR_COMPOSITION_BUCK2_BIN',
+  watchmanPath: 'MR_COMPOSITION_WATCHMAN_BIN',
   buck2Protocol: 'MR_COMPOSITION_BUCK2_PROTOCOL',
   system: 'MR_COMPOSITION_SYSTEM',
   platform: 'MR_COMPOSITION_PLATFORM',
@@ -44,6 +46,32 @@ const required = ({
 const normalizedAbsolute = ({ value, name }: { readonly value: string; readonly name: string }) => {
   if (NodePath.isAbsolute(value) === false || NodePath.normalize(value) !== value) {
     throw new TypeError(`${name} must be an exact normalized absolute path`)
+  }
+  return value
+}
+
+/**
+ * Buck's own identity is additionally proven against the platform hub's resolved buck2 capability.
+ * Watchman has no such capability projection, and the generated wrapper bakes it into PATH for
+ * every later Buck invocation, so prove it is a real executable here instead of at first use.
+ * `X_OK` alone is not that proof: it also succeeds for a searchable directory. The store path is
+ * expected to be a symlink into the realization, so follow it and require a real file.
+ */
+const executableAbsolute = ({ value, name }: { readonly value: string; readonly name: string }) => {
+  normalizedAbsolute({ value, name })
+  let info: Stats
+  try {
+    info = statSync(value)
+  } catch (cause) {
+    throw new TypeError(`${name} must point at an existing path: ${value}`, { cause })
+  }
+  if (info.isFile() === false) {
+    throw new TypeError(`${name} must point at a file, not a directory or device: ${value}`)
+  }
+  try {
+    accessSync(value, constants.X_OK)
+  } catch (cause) {
+    throw new TypeError(`${name} must point at an executable file: ${value}`, { cause })
   }
   return value
 }
@@ -159,6 +187,10 @@ export const compositionApplyRuntimeFromEnv = ({
     value: required({ env, name: compositionRuntimeEnvironmentNames.buck2Path }),
     name: compositionRuntimeEnvironmentNames.buck2Path,
   })
+  const watchmanPath = executableAbsolute({
+    value: required({ env, name: compositionRuntimeEnvironmentNames.watchmanPath }),
+    name: compositionRuntimeEnvironmentNames.watchmanPath,
+  })
   const buck2Protocol = required({ env, name: compositionRuntimeEnvironmentNames.buck2Protocol })
   const system = required({ env, name: compositionRuntimeEnvironmentNames.system })
   const platform = required({ env, name: compositionRuntimeEnvironmentNames.platform })
@@ -194,6 +226,7 @@ export const compositionApplyRuntimeFromEnv = ({
     system,
     platform,
     buck2Path,
+    watchmanPath,
     buck2Protocol,
     capabilityRuntime: { ...capabilityRuntime, nonce },
     mountRuntime: {

@@ -736,6 +736,7 @@ in
   env.MR_COMPOSITION_SYSTEM = currentSystem;
   env.MR_COMPOSITION_PLATFORM = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "linux";
   env.MR_COMPOSITION_GIT_BIN = "${pkgs.git}/bin/git";
+  env.MR_COMPOSITION_WATCHMAN_BIN = "${pkgs.watchman}/bin/watchman";
   env.MR_CAPABILITY_NIX_BIN = "${pkgs.nix}/bin/nix";
   env.MR_CAPABILITY_MV_BIN = "${pkgs.coreutils}/bin/mv";
 

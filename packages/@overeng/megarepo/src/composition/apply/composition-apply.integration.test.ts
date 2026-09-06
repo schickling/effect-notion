@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import * as NodePath from 'node:path'
 
@@ -9,6 +9,7 @@ import { expect } from 'vitest'
 import type { BuckMemberCapability, BuckMemberManifest } from '@overeng/megarepo/buck2-manifest'
 
 import { CompositionGeneratorConfig, EffectPath } from '../../core/config.ts'
+import { requireTool } from '../../test-utils/require-tool.ts'
 import type { OwnedCpAMountMetadata } from '../mounts/member-mount-r6.ts'
 import { type CompositionApplyRequest } from './composition-apply-schema.ts'
 import {
@@ -18,6 +19,10 @@ import {
   type CompositionMountedMemberInspection,
   type CompositionApplyRuntime,
 } from './composition-apply.ts'
+import {
+  compositionApplyRuntimeFromEnv,
+  compositionRuntimeEnvironmentNames,
+} from './composition-runtime.ts'
 
 const digest = `sha256:${'b'.repeat(64)}`
 const commit = 'b'.repeat(40)
@@ -73,6 +78,7 @@ interface FixtureOptions {
   readonly rootMode?: 'first' | 'update' | 'nochange' | 'overlay-failure'
   readonly capabilityFailure?: string
   readonly mountFailure?: string
+  readonly mountMode?: 'already-current'
   readonly lockFailure?: boolean
   readonly allowDarwin?: boolean
   readonly recovery?: boolean
@@ -221,12 +227,11 @@ const fixture = async (options: FixtureOptions = {}) => {
       calls.push(`mount:${mount.member}:${mount.allowVerifiedDarwinAdvance}`)
       if (options.mountFailure === mount.member) throw new Error('mount failed')
       const manifest = manifests.get(mount.sourcePath)!
-      return {
-        _tag: 'Published',
-        operation: 'FirstPublish',
-        destinationPath: NodePath.join(workspaceRoot, 'repos', mount.member),
-        metadata: mountMetadata({ workspaceRoot, key: mount.member, manifest }),
-      }
+      const metadata = mountMetadata({ workspaceRoot, key: mount.member, manifest })
+      const destinationPath = NodePath.join(workspaceRoot, 'repos', mount.member)
+      return options.mountMode === 'already-current'
+        ? { _tag: 'AlreadyCurrent', destinationPath, metadata }
+        : { _tag: 'Published', operation: 'FirstPublish', destinationPath, metadata }
     },
     listPublishedMemberKeys: async () => [],
     teardownMount: async () => {
@@ -332,6 +337,7 @@ const fixture = async (options: FixtureOptions = {}) => {
     system: options.allowDarwin === true ? 'aarch64-darwin' : 'x86_64-linux',
     platform: options.allowDarwin === true ? 'darwin' : 'linux',
     buck2Path: '/nix/store/buck/bin/buck2',
+    watchmanPath: '/nix/store/watchman/bin/watchman',
     buck2Protocol: protocol,
     capabilityRuntime: {
       nixPath: '/bin/nix',
@@ -453,6 +459,33 @@ describe('composition apply integration', () => {
       }
     },
   )
+
+  it('converges a stale composition root when no member acquisition changes anything', async () => {
+    // Reproduces an ordinary `mr apply` over an existing workspace: every mount is already
+    // current and no recovery runs, yet the generated root is stale and must still be republished.
+    const value = await fixture({ rootMode: 'update', mountMode: 'already-current' })
+    try {
+      const result = await Effect.runPromise(
+        compositionApply({ request: value.request, runtime: value.runtime }),
+      )
+      expect(result._tag).toBe('Applied')
+      if (result._tag !== 'Applied') return
+      expect(
+        result.members.map((member) => ({
+          memberKey: member.memberKey,
+          mount: member.mount === undefined ? undefined : member.mount._tag,
+        })),
+      ).toEqual([
+        { memberKey: 'dep', mount: 'AlreadyCurrent' },
+        { memberKey: 'owned', mount: undefined },
+      ])
+      expect(value.calls).toContain('root:authority')
+      expect(value.calls).toContain('root:commit')
+      expect(result.root.changedPaths).toEqual(['.buckconfig'])
+    } finally {
+      await value.cleanup()
+    }
+  })
 
   it('orders multiple members and overlays and uses exact Buck argv', async () => {
     const value = await fixture({
@@ -673,6 +706,68 @@ describe('composition apply integration', () => {
       ])
     } finally {
       await value.cleanup()
+    }
+  })
+})
+
+/**
+ * Only the Watchman identity is proven against the filesystem, so every other pinned value is a
+ * canonical absolute string. The generated Buck wrapper bakes the Watchman path into PATH for
+ * every later Buck invocation, which is why this one value must be a real executable file.
+ */
+describe('pinned Watchman runtime identity', () => {
+  const watchmanExecutable = requireTool('BASH_BIN')
+  const runtimeFor = (watchmanPath: string | undefined) =>
+    compositionApplyRuntimeFromEnv({
+      workspaceRoot: '/workspace',
+      env: {
+        [compositionRuntimeEnvironmentNames.cpPath]: '/nix/store/pinned-coreutils/bin/cp',
+        [compositionRuntimeEnvironmentNames.mvPath]: '/nix/store/pinned-coreutils/bin/mv',
+        [compositionRuntimeEnvironmentNames.buck2Path]: '/nix/store/pinned-buck2/bin/buck2',
+        [compositionRuntimeEnvironmentNames.buck2Protocol]: protocol,
+        [compositionRuntimeEnvironmentNames.system]: 'x86_64-linux',
+        [compositionRuntimeEnvironmentNames.platform]: 'linux',
+        MR_CAPABILITY_NIX_BIN: '/nix/store/pinned-nix/bin/nix',
+        ...(watchmanPath === undefined
+          ? {}
+          : { [compositionRuntimeEnvironmentNames.watchmanPath]: watchmanPath }),
+      },
+    })
+
+  it('accepts exactly one real executable file', () => {
+    expect(runtimeFor(watchmanExecutable).watchmanPath).toBe(watchmanExecutable)
+  })
+
+  it('refuses a searchable directory that satisfies the executable bit', () => {
+    // `access(X_OK)` succeeds for any searchable directory, so the directory holding the pinned
+    // binary would pass an executable-bit-only check while provisioning nothing.
+    const directory = NodePath.dirname(watchmanExecutable)
+    expect(() => runtimeFor(directory)).toThrow(
+      `${compositionRuntimeEnvironmentNames.watchmanPath} must point at a file, not a directory or device: ${directory}`,
+    )
+  })
+
+  it('refuses a missing path, a non-executable file, and an absent declaration', async () => {
+    const directory = await mkdtemp(NodePath.join(tmpdir(), 'megarepo-watchman-identity-'))
+    try {
+      const readable = NodePath.join(directory, 'watchman')
+      await writeFile(readable, '')
+      await chmod(readable, 0o644)
+      expect(() => runtimeFor(readable)).toThrow(
+        `${compositionRuntimeEnvironmentNames.watchmanPath} must point at an executable file: ${readable}`,
+      )
+      const missing = NodePath.join(directory, 'absent', 'watchman')
+      expect(() => runtimeFor(missing)).toThrow(
+        `${compositionRuntimeEnvironmentNames.watchmanPath} must point at an existing path: ${missing}`,
+      )
+      expect(() => runtimeFor(undefined)).toThrow(
+        `Missing pinned composition runtime value in ${compositionRuntimeEnvironmentNames.watchmanPath}`,
+      )
+      expect(() => runtimeFor('watchman')).toThrow(
+        `${compositionRuntimeEnvironmentNames.watchmanPath} must be an exact normalized absolute path`,
+      )
+    } finally {
+      await rm(directory, { recursive: true, force: true })
     }
   })
 })

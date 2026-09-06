@@ -210,6 +210,8 @@ export interface CompositionApplyRuntime {
   readonly system: CompositionCapabilitySystem
   readonly platform: RuntimePlatform
   readonly buck2Path: string
+  /** Watchman binary the generated wrapper provisions for `buck2.file_watcher = watchman`. */
+  readonly watchmanPath: string
   readonly buck2Protocol: string
   readonly capabilityRuntime: CompositionCapabilityRuntime
   readonly mountRuntime: CpAMemberMountRuntime
@@ -356,6 +358,7 @@ interface LoadedMember {
 const validateRuntime = (runtime: CompositionApplyRuntime): void => {
   for (const [name, value] of [
     ['buck2Path', runtime.buck2Path],
+    ['watchmanPath', runtime.watchmanPath],
     ['mountRuntime.cpPath', runtime.mountRuntime.cpPath],
     ['mountRuntime.mvPath', runtime.mountRuntime.mvPath],
     ['mountRecoveryRuntime.mvPath', runtime.mountRecoveryRuntime.mvPath],
@@ -1039,6 +1042,7 @@ const applyComposition = async ({
       ownedMemberKey: request.ownedMemberKey,
       compositionConfig: request.compositionConfig,
       resolvedBuckExecutable: runtime.buck2Path,
+      resolvedWatchmanExecutable: runtime.watchmanPath,
       cacheSections: request.cacheSections,
       assertCapabilityProjection: async () => {},
     } satisfies PlanCompositionRootPublicationOptions
@@ -1356,6 +1360,7 @@ const applyComposition = async ({
       ownedMemberKey: request.ownedMemberKey,
       compositionConfig: request.compositionConfig,
       resolvedBuckExecutable: runtime.buck2Path,
+      resolvedWatchmanExecutable: runtime.watchmanPath,
       cacheSections: request.cacheSections,
       lock: runtime.publisherLock,
       runtime: {

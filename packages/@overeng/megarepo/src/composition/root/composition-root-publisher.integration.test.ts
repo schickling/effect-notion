@@ -72,6 +72,7 @@ interface Fixture {
   readonly root: string
   readonly workspaceRoot: ReturnType<typeof EffectPath.unsafe.absoluteDir>
   readonly buckExecutable: string
+  readonly watchmanExecutable: string
 }
 
 const makeFixture = ({
@@ -97,10 +98,14 @@ const makeFixture = ({
       const buckExecutable = NodePath.join(root, 'fake-buck2')
       await writeFile(buckExecutable, `#!${requireTool('BASH_BIN')}\nprintf "%s\\n" "$@"\n`)
       await chmod(buckExecutable, 0o755)
+      const watchmanExecutable = NodePath.join(root, 'fake-watchman')
+      await writeFile(watchmanExecutable, `#!${requireTool('BASH_BIN')}\nprintf 'watchman\\n'\n`)
+      await chmod(watchmanExecutable, 0o755)
       return {
         root,
         workspaceRoot: EffectPath.unsafe.absoluteDir(`${root}/`),
         buckExecutable,
+        watchmanExecutable,
       }
     }),
     ({ root }) => Effect.promise(() => rm(root, { recursive: true, force: true })),
@@ -127,6 +132,7 @@ const optionsFor = ({
   lockToken = 'test-token',
   recoverToken,
   afterAuthorityPublished,
+  watchmanExecutable,
 }: {
   readonly fixture: Fixture
   readonly memberKeys?: ReadonlyArray<string>
@@ -138,12 +144,14 @@ const optionsFor = ({
   readonly lockToken?: string
   readonly recoverToken?: string
   readonly afterAuthorityPublished?: () => Promise<void>
+  readonly watchmanExecutable?: string
 }): PublishCompositionRootOptions => ({
   workspaceRoot: fixture.workspaceRoot,
   configMemberKeys: memberKeys,
   ownedMemberKey,
   compositionConfig: compositionConfig(platformHub, isolationDir),
   resolvedBuckExecutable: fixture.buckExecutable,
+  resolvedWatchmanExecutable: watchmanExecutable ?? fixture.watchmanExecutable,
   cacheSections:
     cacheValue === undefined
       ? []
@@ -169,6 +177,7 @@ const planOptionsFor = (
     ownedMemberKey: options.ownedMemberKey,
     compositionConfig: options.compositionConfig,
     resolvedBuckExecutable: options.resolvedBuckExecutable,
+    resolvedWatchmanExecutable: options.resolvedWatchmanExecutable,
     ...(options.cacheSections === undefined ? {} : { cacheSections: options.cacheSections }),
     assertCapabilityProjection,
   }
@@ -639,6 +648,64 @@ describe('composition root publisher', () => {
     ),
   )
 
+  it.effect('converges a stale generated root with unchanged members, then stays a no-op', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // An existing workspace published by an older generator: its files and ownership manifest
+        // agree with each other but not with what the current generator renders. An ordinary
+        // apply, with no member change at all, must converge them and then do nothing.
+        const fixture = yield* makeFixture({ members: ['alpha'] })
+        yield* publishCompositionRoot(
+          optionsFor({ fixture, memberKeys: ['alpha'], lockToken: 'stale-initial' }),
+        )
+        const wrapperPath = NodePath.join(fixture.root, '.megarepo/bin/buck2')
+        const manifestPath = NodePath.join(fixture.root, COMPOSITION_GENERATION_MANIFEST_PATH)
+        const staleWrapper = yield* Effect.promise(() => readFile(wrapperPath, 'utf8'))
+        const staleManifest = yield* Effect.promise(() => readFile(manifestPath, 'utf8'))
+        const nextWatchmanDirectory = NodePath.join(fixture.root, 'next-watchman')
+        const nextWatchman = NodePath.join(nextWatchmanDirectory, 'watchman')
+        yield* Effect.promise(async () => {
+          await mkdir(nextWatchmanDirectory)
+          await writeFile(nextWatchman, `#!${requireTool('BASH_BIN')}\nprintf 'watchman\\n'\n`)
+          await chmod(nextWatchman, 0o755)
+        })
+        const converge = optionsFor({
+          fixture,
+          memberKeys: ['alpha'],
+          lockToken: 'stale-converge',
+          watchmanExecutable: nextWatchman,
+        })
+        const converged = yield* publishCompositionRoot(converge)
+        expect(converged.changedPaths).toContain('.megarepo/bin/buck2')
+        const wrapper = yield* Effect.promise(() => readFile(wrapperPath, 'utf8'))
+        expect(wrapper).not.toBe(staleWrapper)
+        expect(wrapper).toContain(`PATH='${nextWatchmanDirectory}'`)
+        const info = yield* Effect.promise(() => stat(wrapperPath))
+        expect(info.mode & 0o777).toBe(0o755)
+        const manifest = yield* Effect.promise(() => readFile(manifestPath, 'utf8'))
+        expect(manifest).not.toBe(staleManifest)
+        expect(manifest).toContain(`sha256:${createHash('sha256').update(wrapper).digest('hex')}`)
+        const before = new Map(
+          yield* Effect.promise(() =>
+            Promise.all(
+              generatedPaths.map(async (path) => {
+                const entry = await stat(NodePath.join(fixture.root, path))
+                return [path, { mtimeMs: entry.mtimeMs, mode: entry.mode & 0o777 }] as const
+              }),
+            ),
+          ),
+        )
+        const repeated = yield* publishCompositionRoot(converge)
+        expect(repeated.changedPaths).toEqual([])
+        for (const path of generatedPaths) {
+          const entry = yield* Effect.promise(() => stat(NodePath.join(fixture.root, path)))
+          expect(entry.mtimeMs).toBe(before.get(path)?.mtimeMs)
+          expect(entry.mode & 0o777).toBe(before.get(path)?.mode)
+        }
+      }),
+    ),
+  )
+
   it.effect('canonicalizes config member permutation without republishing', () =>
     Effect.scoped(
       Effect.gen(function* () {
@@ -1083,6 +1150,7 @@ describe('composition root publisher', () => {
           members: [{ memberKey: 'alpha', manifest: memberManifest({ memberKey: 'alpha' }) }],
           platformHubCell: 'alpha',
           resolvedBuckExecutable: fixture.buckExecutable,
+          resolvedWatchmanExecutable: fixture.watchmanExecutable,
         })
         const rootBuck = pure.files.find((file) => file.path === 'BUCK')!
         yield* Effect.promise(() => writeFile(NodePath.join(fixture.root, 'BUCK'), rootBuck.bytes))
