@@ -151,15 +151,36 @@ if (errored.length > 0 || files.length !== expected) {
 }
 NODE
 
-# The full check includes buck2/dependencies/pnpm-lock.json and
-# pnpm-lock.sha256.json. It reads the committed lockfile and generated outputs
-# only: no pnpm invocation, registry access, or dependency installation.
+# The check covers buck2/dependencies/BUCK and pnpm-lock.sha256.json. It reads the
+# committed lockfile and generated outputs only: no pnpm invocation, registry access, or
+# dependency installation.
+#
+# It is scoped to `--phase bootstrap` for the same reason the tree carries no
+# node_modules: a `design-time` generator may use the installed runtime graph by
+# declaration (decision 0004), so importing one here would make the runtime resolve an
+# ambient dependency instead of proving anything. The lock projections stay covered
+# because both their generators declare `// @genie-bootstrap`, and the assertion below
+# refuses a vacuous pass.
 log "checking install-free generated projections from the Buck product ..."
 if ! (cd "$workspace" && "$buck2_bin" run "$launch_target" -- \
-  --check --output json --cwd "$tree") >"$work/genie-check.json" 2>"$work/genie-check.stderr"; then
+  --check --phase bootstrap --output json --cwd "$tree") >"$work/genie-check.json" 2>"$work/genie-check.stderr"; then
   cat "$work/genie-check.stderr" >&2 || true
   fail "Buck Genie product found stale generated projections"
 fi
+
+"$bun_bin" - "$work/genie-check.json" <<'NODE'
+const fs = require('node:fs')
+const [jsonPath] = process.argv.slice(2)
+const events = fs.readFileSync(jsonPath, 'utf8').trim().split(/\n/).filter(Boolean).map(JSON.parse)
+const files = events.filter((event) => Array.isArray(event.files)).flatMap((event) => event.files)
+const checked = new Set(files.map((file) => file.relativePath))
+const promised = ['buck2/dependencies/BUCK', 'buck2/dependencies/pnpm-lock.sha256.json']
+const missing = promised.filter((relativePath) => checked.has(relativePath) === false)
+if (missing.length > 0) {
+  console.error(`[cold-proof] FAIL: phase-scoped check never reached ${missing.join(', ')}`)
+  process.exit(1)
+}
+NODE
 [ ! -e "$tree/node_modules" ] || fail "install-free projection check created node_modules"
 
 log "PASS — Buck Genie product ran cold bootstrap and verified install-free lock projections"
