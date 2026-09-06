@@ -79,6 +79,13 @@ support_tool(
 )
 
 support_tool(
+    name = "tool_coreutils_readlink",
+    protocol = "gnu/coreutils/v9",
+    tool_id = "coreutils-readlink",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
     name = "tool_coreutils_cat",
     protocol = "gnu/coreutils/v9",
     tool_id = "coreutils-cat",

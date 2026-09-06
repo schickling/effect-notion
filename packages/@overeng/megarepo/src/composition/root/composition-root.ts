@@ -394,14 +394,19 @@ const IsolationDir = Schema.String.check(
   ),
 )
 
-const ResolvedBuckExecutable = Schema.String.check(
+/**
+ * Shared by the resolved Buck and Watchman executables: the generated `.buckconfig`
+ * unconditionally selects `buck2.file_watcher = watchman`, so the same generator that owns that
+ * setting also owns provisioning both binaries for every Buck invocation through its wrapper.
+ */
+const ResolvedExecutable = Schema.String.check(
   Schema.makeFilter<string>((value) => {
     if (printableAscii(value) === false || value.startsWith('/') === false || value === '/') {
-      return 'Expected an absolute resolved Buck executable path'
+      return 'Expected an absolute resolved executable path'
     }
     return PosixPath.normalize(value) === value
       ? undefined
-      : 'Expected a canonical absolute resolved Buck executable path'
+      : 'Expected a canonical absolute resolved executable path'
   }),
 )
 
@@ -467,7 +472,8 @@ export const CompositionRootInputSchema = Schema.Struct({
   isolationDir: Schema.optional(IsolationDir),
   cacheSections: Schema.optional(Schema.Array(BuckCacheSectionSchema)),
   additionalProjectIgnores: Schema.optional(Schema.Array(IgnorePattern)),
-  resolvedBuckExecutable: ResolvedBuckExecutable,
+  resolvedBuckExecutable: ResolvedExecutable,
+  resolvedWatchmanExecutable: ResolvedExecutable,
 }).annotate({ identifier: 'Megarepo.CompositionRootInput' })
 export type CompositionRootInput = typeof CompositionRootInputSchema.Type
 
@@ -489,6 +495,7 @@ export interface NormalizedCompositionRootInput {
   readonly cacheSections: ReadonlyArray<BuckCacheSection>
   readonly additionalProjectIgnores: ReadonlyArray<string>
   readonly resolvedBuckExecutable: string
+  readonly resolvedWatchmanExecutable: string
 }
 
 const reservedCellNames: Readonly<Record<string, true>> = {
@@ -635,6 +642,7 @@ export const decodeCompositionRootInput = (input: unknown): NormalizedCompositio
     ),
     additionalProjectIgnores: canonicalStringSet(decoded.additionalProjectIgnores ?? []),
     resolvedBuckExecutable: decoded.resolvedBuckExecutable,
+    resolvedWatchmanExecutable: decoded.resolvedWatchmanExecutable,
   }
 }
 
@@ -756,6 +764,9 @@ const shellQuote = (value: string): string => `'${value.replaceAll("'", `'"'"'`)
 const renderBuckWrapper = (input: NormalizedCompositionRootInput): string => `#!/bin/sh
 set -eu
 
+# Locate this wrapper with shell builtins only. A bare-shell caller may hand us an empty PATH, and
+# the workspace root has to be known before anything external can be provisioned, so no external
+# command runs here. \`readlink\` is reached only when the wrapper is invoked through a symlink.
 case "$0" in
   */*) wrapper_path=$0 ;;
   *) wrapper_path=$(command -v "$0") ;;
@@ -768,10 +779,12 @@ while [ -L "$wrapper_path" ]; do
   wrapper_link=$(readlink "$wrapper_path")
   case "$wrapper_link" in
     /*) wrapper_path=$wrapper_link ;;
-    *) wrapper_path=$(dirname -- "$wrapper_path")/$wrapper_link ;;
+    *) wrapper_path=\${wrapper_path%/*}/$wrapper_link ;;
   esac
 done
-wrapper_dir=$(CDPATH= cd -- "$(dirname -- "$wrapper_path")" && pwd -P)
+wrapper_parent=\${wrapper_path%/*}
+[ -n "$wrapper_parent" ] || wrapper_parent=/
+wrapper_dir=$(CDPATH= cd -- "$wrapper_parent" && pwd -P)
 workspace_root=$(CDPATH= cd -- "$wrapper_dir/../.." && pwd -P)
 update_lock="$workspace_root/.megarepo/workspace-update.lock"
 if [ -e "$update_lock" ] || [ -L "$update_lock" ]; then
@@ -787,6 +800,11 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+# The generated \`.buckconfig\` pins \`buck2.file_watcher = watchman\`, so Buck must find exactly
+# this Watchman even when the caller's PATH has none. Prepending keeps every caller entry.
+PATH=${shellQuote(PosixPath.dirname(input.resolvedWatchmanExecutable))}\${PATH:+:$PATH}
+export PATH
 
 exec ${shellQuote(input.resolvedBuckExecutable)} --isolation-dir ${shellQuote(input.isolationDir)} "$@"
 `

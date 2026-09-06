@@ -199,6 +199,7 @@ const fake = ({
     system: 'x86_64-linux',
     platform: 'linux',
     buck2Path: '/nix/store/buck/bin/buck2',
+    watchmanPath: '/nix/store/watchman/bin/watchman',
     buck2Protocol: buckProtocol,
     capabilityRuntime: {
       nixPath: '/bin/nix',

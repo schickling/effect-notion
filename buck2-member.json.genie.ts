@@ -257,6 +257,12 @@ const manifestProjection = {
       executable: 'bin/printf',
     },
     {
+      toolId: 'coreutils-readlink',
+      protocol: 'gnu/coreutils/v9',
+      flakePackage: 'buck2-coreutils',
+      executable: 'bin/readlink',
+    },
+    {
       toolId: 'coreutils-cat',
       protocol: 'gnu/coreutils/v9',
       flakePackage: 'buck2-coreutils',

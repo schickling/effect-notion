@@ -82,6 +82,7 @@ const input = ({
   cacheSections,
   additionalProjectIgnores,
   resolvedBuckExecutable = '/nix/store/00000000000000000000000000000000-buck2/bin/buck2',
+  resolvedWatchmanExecutable = '/nix/store/11111111111111111111111111111111-watchman/bin/watchman',
 }: Pick<CompositionRootInput, 'members'> &
   Partial<Omit<CompositionRootInput, 'schemaVersion' | 'members'>>): CompositionRootInput => ({
   schemaVersion: 1,
@@ -91,6 +92,7 @@ const input = ({
   cacheSections,
   additionalProjectIgnores,
   resolvedBuckExecutable,
+  resolvedWatchmanExecutable,
 })
 
 const alphaMember = {
@@ -666,6 +668,34 @@ describe('ignore projection', () => {
     expect(ignore).toContain('repos/.staging-*')
     expect(ignore).toContain('.buck2/capabilities.candidate.*')
     expect(ignore).toEqual([...ignore].sort(compareCodeUnits))
+  })
+})
+
+describe('watchman provisioning', () => {
+  it('provisions the configured Watchman bin directory wherever file_watcher is emitted', () => {
+    const files = filesByPath(
+      input({
+        members: [alphaMember],
+        resolvedBuckExecutable: '/tools/buck dir/buck2',
+        resolvedWatchmanExecutable: "/tools/watchman's dir/watchman",
+      }),
+    )
+    expect(text(files.get('.buckconfig')!)).toContain('  file_watcher = watchman')
+    const wrapper = text(files.get('.megarepo/bin/buck2')!)
+    const pathLine = `PATH='/tools/watchman'"'"'s dir'\${PATH:+:$PATH}`
+    expect(wrapper).toContain(`${pathLine}\nexport PATH\n\nexec '/tools/buck dir/buck2' `)
+    // The wrapper must provision Watchman only on the path that actually reaches Buck.
+    expect(wrapper.indexOf(pathLine)).toBeGreaterThan(wrapper.indexOf('--isolation-dir is fixed'))
+  })
+
+  it.each([
+    ['relative', 'watchman/bin/watchman'],
+    ['bare root', '/'],
+    ['non-canonical', '/tools/../watchman/bin/watchman'],
+  ])('refuses a %s Watchman executable', (_name, resolvedWatchmanExecutable) => {
+    expect(() =>
+      decodeCompositionRootInput(input({ members: [alphaMember], resolvedWatchmanExecutable })),
+    ).toThrow()
   })
 })
 

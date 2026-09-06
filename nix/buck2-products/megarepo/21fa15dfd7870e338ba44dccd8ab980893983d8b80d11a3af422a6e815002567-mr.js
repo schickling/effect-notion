@@ -74666,11 +74666,11 @@ var DecodedMemberSchema = exports_Schema.Struct({
   manifest: BuckMemberManifestSchema
 }).annotate({ identifier: "Megarepo.CompositionDecodedMember" });
 var IsolationDir = exports_Schema.String.check(exports_Schema.makeFilter((value5) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value5) === true ? undefined : "Expected a fixed one-segment Buck isolation directory"));
-var ResolvedBuckExecutable = exports_Schema.String.check(exports_Schema.makeFilter((value5) => {
+var ResolvedExecutable = exports_Schema.String.check(exports_Schema.makeFilter((value5) => {
   if (printableAscii2(value5) === false || value5.startsWith("/") === false || value5 === "/") {
-    return "Expected an absolute resolved Buck executable path";
+    return "Expected an absolute resolved executable path";
   }
-  return PosixPath2.normalize(value5) === value5 ? undefined : "Expected a canonical absolute resolved Buck executable path";
+  return PosixPath2.normalize(value5) === value5 ? undefined : "Expected a canonical absolute resolved executable path";
 }));
 var IniName = exports_Schema.String.check(exports_Schema.makeFilter((value5) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value5) === true ? undefined : "Expected a canonical buckconfig section or key name"));
 var IniValue = exports_Schema.String.check(exports_Schema.makeFilter((value5) => value5.length > 0 && printableAscii2(value5) === true ? undefined : "Expected a non-empty one-line buckconfig value"));
@@ -74708,7 +74708,8 @@ var CompositionRootInputSchema = exports_Schema.Struct({
   isolationDir: exports_Schema.optional(IsolationDir),
   cacheSections: exports_Schema.optional(exports_Schema.Array(BuckCacheSectionSchema)),
   additionalProjectIgnores: exports_Schema.optional(exports_Schema.Array(IgnorePattern)),
-  resolvedBuckExecutable: ResolvedBuckExecutable
+  resolvedBuckExecutable: ResolvedExecutable,
+  resolvedWatchmanExecutable: ResolvedExecutable
 }).annotate({ identifier: "Megarepo.CompositionRootInput" });
 var reservedCellNames = {
   prelude: true,
@@ -74819,7 +74820,8 @@ var decodeCompositionRootInput = (input) => {
     isolationDir: decoded.isolationDir ?? DEFAULT_BUCK_ISOLATION_DIR,
     cacheSections: cacheSections.toSorted((left, right) => compareCodeUnits2({ left: left.section, right: right.section })),
     additionalProjectIgnores: canonicalStringSet(decoded.additionalProjectIgnores ?? []),
-    resolvedBuckExecutable: decoded.resolvedBuckExecutable
+    resolvedBuckExecutable: decoded.resolvedBuckExecutable,
+    resolvedWatchmanExecutable: decoded.resolvedWatchmanExecutable
   };
 };
 var GeneratedCompositionFileSchema = exports_Schema.Struct({
@@ -74886,6 +74888,9 @@ var shellQuote = (value5) => `'${value5.replaceAll("'", `'"'"'`)}'`;
 var renderBuckWrapper = (input) => `#!/bin/sh
 set -eu
 
+# Locate this wrapper with shell builtins only. A bare-shell caller may hand us an empty PATH, and
+# the workspace root has to be known before anything external can be provisioned, so no external
+# command runs here. \`readlink\` is reached only when the wrapper is invoked through a symlink.
 case "$0" in
   */*) wrapper_path=$0 ;;
   *) wrapper_path=$(command -v "$0") ;;
@@ -74898,10 +74903,12 @@ while [ -L "$wrapper_path" ]; do
   wrapper_link=$(readlink "$wrapper_path")
   case "$wrapper_link" in
     /*) wrapper_path=$wrapper_link ;;
-    *) wrapper_path=$(dirname -- "$wrapper_path")/$wrapper_link ;;
+    *) wrapper_path=\${wrapper_path%/*}/$wrapper_link ;;
   esac
 done
-wrapper_dir=$(CDPATH= cd -- "$(dirname -- "$wrapper_path")" && pwd -P)
+wrapper_parent=\${wrapper_path%/*}
+[ -n "$wrapper_parent" ] || wrapper_parent=/
+wrapper_dir=$(CDPATH= cd -- "$wrapper_parent" && pwd -P)
 workspace_root=$(CDPATH= cd -- "$wrapper_dir/../.." && pwd -P)
 update_lock="$workspace_root/.megarepo/workspace-update.lock"
 if [ -e "$update_lock" ] || [ -L "$update_lock" ]; then
@@ -74917,6 +74924,11 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+# The generated \`.buckconfig\` pins \`buck2.file_watcher = watchman\`, so Buck must find exactly
+# this Watchman even when the caller's PATH has none. Prepending keeps every caller entry.
+PATH=${shellQuote(PosixPath2.dirname(input.resolvedWatchmanExecutable))}\${PATH:+:$PATH}
+export PATH
 
 exec ${shellQuote(input.resolvedBuckExecutable)} --isolation-dir ${shellQuote(input.isolationDir)} "$@"
 `;
@@ -76193,7 +76205,8 @@ var prepareComposition = async ({
         isolationDir: options.compositionConfig.isolationDir,
         cacheSections: options.cacheSections,
         additionalProjectIgnores: (options.compositionConfig.ignoredMembers ?? []).map((member) => `repos/${member}`),
-        resolvedBuckExecutable: options.resolvedBuckExecutable
+        resolvedBuckExecutable: options.resolvedBuckExecutable,
+        resolvedWatchmanExecutable: options.resolvedWatchmanExecutable
       })
     };
   } catch (cause) {
@@ -86008,6 +86021,7 @@ var compareCodeUnits3 = ({
 var validateRuntime2 = (runtime3) => {
   for (const [name, value5] of [
     ["buck2Path", runtime3.buck2Path],
+    ["watchmanPath", runtime3.watchmanPath],
     ["mountRuntime.cpPath", runtime3.mountRuntime.cpPath],
     ["mountRuntime.mvPath", runtime3.mountRuntime.mvPath],
     ["mountRecoveryRuntime.mvPath", runtime3.mountRecoveryRuntime.mvPath]
@@ -86583,6 +86597,7 @@ var applyComposition = async ({
       ownedMemberKey: request3.ownedMemberKey,
       compositionConfig: request3.compositionConfig,
       resolvedBuckExecutable: runtime3.buck2Path,
+      resolvedWatchmanExecutable: runtime3.watchmanPath,
       cacheSections: request3.cacheSections,
       assertCapabilityProjection: async () => {}
     };
@@ -86882,6 +86897,7 @@ var applyComposition = async ({
       ownedMemberKey: request3.ownedMemberKey,
       compositionConfig: request3.compositionConfig,
       resolvedBuckExecutable: runtime3.buck2Path,
+      resolvedWatchmanExecutable: runtime3.watchmanPath,
       cacheSections: request3.cacheSections,
       lock: runtime3.publisherLock,
       runtime: {
@@ -87006,6 +87022,7 @@ var compositionApply = exports_Effect.fn("megarepo/composition/apply")(({ reques
 // src/composition/apply/composition-runtime.ts
 import { spawn as spawn4 } from "node:child_process";
 import { createHash as createHash8, randomBytes as randomBytes11 } from "node:crypto";
+import { accessSync, constants as constants6, statSync } from "node:fs";
 import { lstat as lstat10, mkdir as mkdir11, readFile as readFile12, rm as rm8 } from "node:fs/promises";
 import * as NodePath18 from "node:path";
 
@@ -87696,6 +87713,7 @@ var compositionRuntimeEnvironmentNames = {
   cpPath: "MR_COMPOSITION_CP_BIN",
   mvPath: "MR_CAPABILITY_MV_BIN",
   buck2Path: "MR_COMPOSITION_BUCK2_BIN",
+  watchmanPath: "MR_COMPOSITION_WATCHMAN_BIN",
   buck2Protocol: "MR_COMPOSITION_BUCK2_PROTOCOL",
   system: "MR_COMPOSITION_SYSTEM",
   platform: "MR_COMPOSITION_PLATFORM"
@@ -87713,6 +87731,24 @@ var required4 = ({
 var normalizedAbsolute3 = ({ value: value5, name }) => {
   if (NodePath18.isAbsolute(value5) === false || NodePath18.normalize(value5) !== value5) {
     throw new TypeError(`${name} must be an exact normalized absolute path`);
+  }
+  return value5;
+};
+var executableAbsolute = ({ value: value5, name }) => {
+  normalizedAbsolute3({ value: value5, name });
+  let info2;
+  try {
+    info2 = statSync(value5);
+  } catch (cause) {
+    throw new TypeError(`${name} must point at an existing path: ${value5}`, { cause });
+  }
+  if (info2.isFile() === false) {
+    throw new TypeError(`${name} must point at a file, not a directory or device: ${value5}`);
+  }
+  try {
+    accessSync(value5, constants6.X_OK);
+  } catch (cause) {
+    throw new TypeError(`${name} must point at an executable file: ${value5}`, { cause });
   }
   return value5;
 };
@@ -87791,6 +87827,10 @@ var compositionApplyRuntimeFromEnv = ({
     value: required4({ env, name: compositionRuntimeEnvironmentNames.buck2Path }),
     name: compositionRuntimeEnvironmentNames.buck2Path
   });
+  const watchmanPath = executableAbsolute({
+    value: required4({ env, name: compositionRuntimeEnvironmentNames.watchmanPath }),
+    name: compositionRuntimeEnvironmentNames.watchmanPath
+  });
   const buck2Protocol = required4({ env, name: compositionRuntimeEnvironmentNames.buck2Protocol });
   const system = required4({ env, name: compositionRuntimeEnvironmentNames.system });
   const platform = required4({ env, name: compositionRuntimeEnvironmentNames.platform });
@@ -87821,6 +87861,7 @@ var compositionApplyRuntimeFromEnv = ({
     system,
     platform,
     buck2Path,
+    watchmanPath,
     buck2Protocol,
     capabilityRuntime: { ...capabilityRuntime, nonce },
     mountRuntime: {

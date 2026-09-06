@@ -71,6 +71,7 @@ let
       MR_COMPOSITION_GIT_BIN = "${pkgs.git}/bin/git";
       MR_COMPOSITION_PLATFORM = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "linux";
       MR_COMPOSITION_SYSTEM = pkgs.stdenv.hostPlatform.system;
+      MR_COMPOSITION_WATCHMAN_BIN = "${pkgs.watchman}/bin/watchman";
     };
     expectedExternalCapabilities = [
       "buck2"

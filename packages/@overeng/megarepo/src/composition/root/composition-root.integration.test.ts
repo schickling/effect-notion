@@ -2,7 +2,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { realpathSync } from 'node:fs'
 import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
@@ -10,7 +10,10 @@ import { expect } from 'vitest'
 import { requireTool } from '../../test-utils/require-tool.ts'
 import { generateCompositionRoot, type CompositionRootInput } from './composition-root.ts'
 
-const makeInput = (resolvedBuckExecutable: string): CompositionRootInput => ({
+const makeInput = (
+  resolvedBuckExecutable: string,
+  resolvedWatchmanExecutable: string,
+): CompositionRootInput => ({
   schemaVersion: 1,
   members: [
     {
@@ -27,16 +30,39 @@ const makeInput = (resolvedBuckExecutable: string): CompositionRootInput => ({
   ],
   platformHubCell: 'alpha',
   resolvedBuckExecutable,
+  resolvedWatchmanExecutable,
 })
 
+/**
+ * Signal mode waits through the declared Bun runtime rather than `sleep`: a contained test action
+ * binds only declared closures, so no ambient utility is reachable by name. `trap`, `kill`, and
+ * `wait` are shell builtins, and `wait` is interruptible, so SIGTERM is observed immediately.
+ * The Bun timer only parks the fake process until that signal arrives; no test waits on a clock.
+ */
 const fakeBuckSource = `#!${requireTool('BASH_BIN')}
 if [ "\${FAKE_MODE:-argv}" = signal ]; then
-  trap 'exit 23' TERM
+  ${requireTool('BUN_BIN')} -e 'setTimeout(() => {}, 600000)' &
+  sleeper=$!
+  trap 'kill "$sleeper" 2>/dev/null; exit 23' TERM
   printf 'ready\\n'
-  while :; do sleep 0.05; done
+  wait "$sleeper"
 fi
 printf '%s\\n' "$@" > "$ARGV_FILE"
+printf '%s\\n' "\${PATH-}" > "$PATH_FILE"
+{ command -v watchman || printf 'unresolved\\n'; } > "$WATCHMAN_FILE"
 exit "\${FAKE_EXIT:-0}"
+`
+
+/**
+ * Every wrapper case runs with exactly this one PATH entry: the declared coreutils capability
+ * directory behind `READLINK_BIN`, which carries the `readlink` the wrapper needs for a symlinked
+ * invocation and deliberately carries no `watchman`. Watchman must reach Buck only because the
+ * wrapper provisions the exact configured binary, never because a host happened to have one.
+ */
+const declaredToolsDirectory = dirname(requireTool('READLINK_BIN'))
+
+const fakeWatchmanSource = `#!${requireTool('BASH_BIN')}
+printf 'fake watchman\\n'
 `
 
 /**
@@ -53,6 +79,10 @@ const withWrapperFixture = async <T>(
     readonly wrapper: string
     readonly workspaceRoot: string
     readonly argvFile: string
+    readonly watchmanFile: string
+    readonly pathFile: string
+    readonly fakeWatchman: string
+    readonly sentinelDirectory: string
     readonly env: NodeJS.ProcessEnv
   }) => Promise<T> | T,
 ): Promise<T> => {
@@ -65,13 +95,22 @@ const withWrapperFixture = async <T>(
   try {
     const fakeDirectory = join(directory, "fake buck's directory")
     const fakeBuck = join(fakeDirectory, "buck2's fake")
+    const watchmanDirectory = join(directory, "fake watchman's directory")
+    const fakeWatchman = join(watchmanDirectory, 'watchman')
+    const sentinelDirectory = join(directory, "caller's path entry")
     const wrapper = join(directory, '.megarepo', 'bin', 'buck2')
     const argvFile = join(directory, 'argv')
+    const watchmanFile = join(directory, 'watchman-resolution')
+    const pathFile = join(directory, 'child-path')
     await mkdir(fakeDirectory)
+    await mkdir(watchmanDirectory)
+    await mkdir(sentinelDirectory)
     await mkdir(join(directory, '.megarepo', 'bin'), { recursive: true })
     await writeFile(fakeBuck, fakeBuckSource)
     await chmod(fakeBuck, 0o755)
-    const generated = generateCompositionRoot(makeInput(fakeBuck))
+    await writeFile(fakeWatchman, fakeWatchmanSource)
+    await chmod(fakeWatchman, 0o755)
+    const generated = generateCompositionRoot(makeInput(fakeBuck, fakeWatchman))
     const wrapperFile = generated.files.find((file) => file.path === '.megarepo/bin/buck2')!
     expect(wrapperFile.mode).toBe(0o755)
     await writeFile(wrapper, wrapperFile.bytes)
@@ -80,7 +119,17 @@ const withWrapperFixture = async <T>(
       wrapper,
       workspaceRoot: directory,
       argvFile,
-      env: { ...process.env, ARGV_FILE: argvFile },
+      watchmanFile,
+      pathFile,
+      fakeWatchman,
+      sentinelDirectory,
+      env: {
+        ...process.env,
+        PATH: declaredToolsDirectory,
+        ARGV_FILE: argvFile,
+        WATCHMAN_FILE: watchmanFile,
+        PATH_FILE: pathFile,
+      },
     })
   } finally {
     await rm(directory, { recursive: true, force: true })
@@ -105,8 +154,42 @@ describe('generated Buck wrapper', () => {
       )
     }))
 
+  it('execs Buck with the exact configured Watchman that no caller PATH provides', () =>
+    withWrapperFixture(async ({ wrapper, argvFile, watchmanFile, pathFile, fakeWatchman, env }) => {
+      // The bare-shell CI caller: the only PATH entry is the declared tool directory, which
+      // has no `watchman`, so Buck can only see the one the wrapper provisions.
+      const result = spawnSync(wrapperShell, [wrapper, 'build', 'alpha//:target'], {
+        env,
+        encoding: 'utf8',
+      })
+      expect(result.error).toBeUndefined()
+      expect(result.stderr).toBe('')
+      expect(result.status).toBe(0)
+      expect(await readFile(argvFile, 'utf8')).toBe(
+        '--isolation-dir\nmegarepo\nbuild\nalpha//:target\n',
+      )
+      expect(await readFile(watchmanFile, 'utf8')).toBe(`${fakeWatchman}\n`)
+      expect(await readFile(pathFile, 'utf8')).toBe(
+        `${dirname(fakeWatchman)}:${declaredToolsDirectory}\n`,
+      )
+    }))
+
+  it('prepends Watchman without dropping any caller PATH entry', () =>
+    withWrapperFixture(
+      async ({ wrapper, watchmanFile, pathFile, fakeWatchman, sentinelDirectory, env }) => {
+        const callerPath = `${declaredToolsDirectory}:${sentinelDirectory}:/caller's second entry`
+        const result = spawnSync(wrapperShell, [wrapper, 'build', 'alpha//:target'], {
+          env: { ...env, PATH: callerPath },
+          encoding: 'utf8',
+        })
+        expect(result.status).toBe(0)
+        expect(await readFile(watchmanFile, 'utf8')).toBe(`${fakeWatchman}\n`)
+        expect(await readFile(pathFile, 'utf8')).toBe(`${dirname(fakeWatchman)}:${callerPath}\n`)
+      },
+    ))
+
   it('resolves a relative external symlink chain and refuses Buck while update-locked', () =>
-    withWrapperFixture(async ({ workspaceRoot, argvFile, env }) => {
+    withWrapperFixture(async ({ workspaceRoot, argvFile, watchmanFile, env }) => {
       const externalDirectory = join(workspaceRoot, 'external-links')
       const nestedDirectory = join(externalDirectory, 'nested')
       const externalWrapper = join(externalDirectory, 'buck2')
@@ -124,6 +207,7 @@ describe('generated Buck wrapper', () => {
       expect(result.stderr).toContain(`workspace update lock exists at ${lockPath}`)
       expect(result.stderr).toContain('through mr')
       await expect(readFile(argvFile, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
+      await expect(readFile(watchmanFile, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
     }))
 
   it('passes through the exact Buck exit status', () =>

@@ -19,10 +19,10 @@
       "moduleSha256": "5a2aa4550c930ab841ae392f8a62addf4c39b53339d42145297812cf80117433"
     },
     "megarepo": {
-      "artifact": "megarepo/c4c19ae14f55c2ae474e3b66834f35bc6e95a0488404f1a0d6bdaa8aa6c22a84-mr.js",
-      "descriptorSha256": "a4e27f6f7816fb2d1782991f139dbb687c82a3892877703f63af50c3f9b912d0",
+      "artifact": "megarepo/21fa15dfd7870e338ba44dccd8ab980893983d8b80d11a3af422a6e815002567-mr.js",
+      "descriptorSha256": "996dd267bb50dcf0e9a179478dd17569bea68e8970e32499fcbefdd38f5f3c63",
       "label": "//packages/@overeng/megarepo:megarepo-candidate",
-      "moduleSha256": "c4c19ae14f55c2ae474e3b66834f35bc6e95a0488404f1a0d6bdaa8aa6c22a84"
+      "moduleSha256": "21fa15dfd7870e338ba44dccd8ab980893983d8b80d11a3af422a6e815002567"
     },
     "notion-cli": {
       "artifact": "notion-cli/7ec8f372c9fc0016d0a6d85d744cc3a0eb86ed51f11f86254e0ebb50546aadb3-notion.js",

@@ -231,6 +231,12 @@
       "executable": "bin/printf"
     },
     {
+      "toolId": "coreutils-readlink",
+      "protocol": "gnu/coreutils/v9",
+      "flakePackage": "buck2-coreutils",
+      "executable": "bin/readlink"
+    },
+    {
       "toolId": "coreutils-stty",
       "protocol": "gnu/coreutils/v9",
       "flakePackage": "buck2-coreutils",

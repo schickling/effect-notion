@@ -197,6 +197,7 @@ export interface PublishCompositionRootOptions {
   readonly ownedMemberKey: string
   readonly compositionConfig: CompositionGeneratorConfig
   readonly resolvedBuckExecutable: string
+  readonly resolvedWatchmanExecutable: string
   readonly cacheSections?: ReadonlyArray<BuckCacheSection>
   readonly lock: CompositionPublisherLockOptions
   readonly runtime: CompositionRootPublicationRuntime
@@ -211,6 +212,7 @@ export interface PlanCompositionRootPublicationOptions {
   readonly ownedMemberKey: string
   readonly compositionConfig: CompositionGeneratorConfig
   readonly resolvedBuckExecutable: string
+  readonly resolvedWatchmanExecutable: string
   readonly cacheSections?: ReadonlyArray<BuckCacheSection>
   readonly assertCapabilityProjection: CompositionRootPublicationRuntime['assertCapabilityProjection']
 }
@@ -1625,6 +1627,7 @@ type CompositionPreparationOptions = Pick<
   | 'ownedMemberKey'
   | 'compositionConfig'
   | 'resolvedBuckExecutable'
+  | 'resolvedWatchmanExecutable'
   | 'cacheSections'
 >
 
@@ -1668,6 +1671,7 @@ const prepareComposition = async ({
           (member) => `repos/${member}`,
         ),
         resolvedBuckExecutable: options.resolvedBuckExecutable,
+        resolvedWatchmanExecutable: options.resolvedWatchmanExecutable,
       }),
     }
   } catch (cause) {

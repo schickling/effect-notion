@@ -150,9 +150,10 @@ const packagePlans: Readonly<Record<string, Buck2JavaScriptTestPlan>> = {
         ],
         // Composition drives real `cp`/`mv` reflink and exchange semantics, `git` object
         // memory, `nix` and `grep` for capability resolution, `script` + `stty` for the PTY
-        // prompt suite, `otelite` for the store-GC trace assertions, and the pinned Bun for
-        // the CLI contract. `bash` is also the shell the composition fixtures are written
-        // against, so no fixture may name `/bin/sh`.
+        // prompt suite, `otelite` for the store-GC trace assertions, `readlink` for the
+        // generated Buck wrapper's symlink-chain contract, and the pinned Bun for the CLI
+        // contract. `bash` is also the shell the composition fixtures are written against, so
+        // no fixture may name `/bin/sh`.
         tools: {
           BASH_BIN: 'test-bash',
           BUN_BIN: 'bun',
@@ -162,6 +163,7 @@ const packagePlans: Readonly<Record<string, Buck2JavaScriptTestPlan>> = {
           MV_BIN: 'coreutils-mv',
           NIX_BIN: 'test-nix',
           OTELITE_BIN: 'test-otelite',
+          READLINK_BIN: 'coreutils-readlink',
           SCRIPT_BIN: 'test-script',
           STTY_BIN: 'coreutils-stty',
         },
