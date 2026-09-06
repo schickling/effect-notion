@@ -10,7 +10,9 @@
 #      metadata and sha256 sidecars, without installing the workspace.
 #
 # BUCK2 names the composed workspace launcher. BUN names an explicit Bun
-# product used only for the proof's small JSON/non-vacuity assertions.
+# product used only for the proof's small JSON/non-vacuity assertions. The
+# strict TypeScript export proof's compiler is not named by the caller: it is
+# resolved below from the member's own capability projection.
 
 set -euo pipefail
 
@@ -43,6 +45,40 @@ buck2_bin="${BUCK2:-$workspace/.megarepo/bin/buck2}"
 
 bun_bin="${BUN:?BUN must name the explicit Bun product used to execute the candidate}"
 [ -x "$bun_bin" ] || fail "BUN is not executable: $bun_bin"
+
+# The strict export-environment proof needs a TypeScript compiler executable, and the
+# cold tree carries no node_modules while the runner carries no `tsgo` on PATH. Resolving
+# it from PATH would either find nothing (the proof's own hard failure) or, worse, an
+# ambient compiler, so the exact pinned realization is passed explicitly through
+# GENIE_EXPORT_TYPE_PROOF_COMPILER — the same seam the Nix Genie wrapper uses.
+#
+# `.buck2/capabilities` is the per-host projection of exact Nix realizations that the Buck
+# toolchains themselves resolve `effect-tsgo` from (mr's composition capability resolver is
+# its only producer), so the compiler proving types here is the one Buck's TypeScript
+# actions execute. Only an immutable /nix/store path crosses into the proof; nothing is
+# installed and nothing is read out of the cold tree. Any inherited value is replaced.
+projection="$repo/.buck2/capabilities"
+[ -f "$projection/defs.bzl" ] ||
+  fail "capability projection is absent ($projection/defs.bzl); run 'mr apply' to project the pinned Nix realizations"
+generation="$(sed -n 's/^GENERATION = "\([0-9a-f]\{64\}\)"$/\1/p' "$projection/defs.bzl")"
+[ -n "$generation" ] || fail "capability projection declares no generation in $projection/defs.bzl"
+# The projection carries exactly one execution platform (its producer renders the host
+# platform alone), so the host key is read off the installed generation instead of being
+# re-derived from uname here.
+platform_roots=("$projection/generations/$generation"/*/)
+[ "${#platform_roots[@]}" -eq 1 ] && [ -d "${platform_roots[0]}" ] ||
+  fail "capability projection generation $generation does not carry exactly one execution platform"
+compiler_link="${platform_roots[0]}effect-tsgo/executable"
+[ -L "$compiler_link" ] ||
+  fail "capability projection generation $generation carries no effect-tsgo capability ($compiler_link)"
+compiler="$(readlink "$compiler_link")"
+case "$compiler" in
+  /nix/store/*/bin/*) ;;
+  *) fail "projected effect-tsgo is not an immutable Nix executable: $compiler" ;;
+esac
+[ -x "$compiler" ] || fail "projected effect-tsgo is not executable: $compiler"
+export GENIE_EXPORT_TYPE_PROOF_COMPILER="$compiler"
+log "pinned type-proof compiler: $GENIE_EXPORT_TYPE_PROOF_COMPILER"
 
 work="$(mktemp -d "${TMPDIR:-/tmp}/genie-cold-proof.XXXXXX")"
 trap 'rm -rf "$work"' EXIT

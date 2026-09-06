@@ -2,7 +2,10 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { defineRepoContext } from '../../packages/@overeng/genie/src/runtime/repo-context/mod.ts'
 import { buck2SemanticFingerprint } from '../../genie/buck2/mod.ts'
+
+const repo = defineRepoContext({ name: 'effect-utils', importMetaUrl: import.meta.url })
 
 /** Schema identifier for the normalized pnpm lock metadata projection. */
 export const pnpmLockMetadataSchema = 'effect-utils/buck2-pnpm-lock/v1' as const
@@ -406,9 +409,12 @@ export const translatePnpmLock = ({
   lockfileText,
   workspaceText,
   readPatch = (patchPath) => {
-    if (existsSync(patchPath) === false)
+    // Repo-relative by contract, so it is resolved against the repository that owns this
+    // module: the Genie product's working directory is not the tree being projected.
+    const absolutePatchPath = repo.resolve(patchPath)
+    if (existsSync(absolutePatchPath) === false)
       return fail(`patched dependency file does not exist: ${patchPath}`)
-    return readFileSync(patchPath)
+    return readFileSync(absolutePatchPath)
   },
 }: TranslatePnpmLockOptions): PnpmLockMetadata => {
   const lock = parseYamlDocument({ text: lockfileText, location: 'pnpm-lock.yaml' })

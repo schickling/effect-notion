@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import process from 'node:process'
 
 import { describe, expect, it } from 'vitest'
@@ -263,6 +264,35 @@ describe('declared-closure package projection', () => {
         .map(({ packagePath }) => `${packagePath}/BUCK.genie.ts`)
         .toSorted((left, right) => compare({ left, right })),
     )
+  })
+
+  /**
+   * `bootstrap:cold-proof` runs the Buck-built Genie product, whose working directory is the
+   * composed workspace root while `--cwd` names a separate install-free export of the
+   * committed source. A census anchored on `process.cwd()` therefore reads the wrong tree (or
+   * nothing at all), so the projection must be a function of the repository that owns the
+   * projector, never of the process working directory.
+   */
+  it('projects identically from a foreign working directory', () => {
+    const atRepoRoot = admittedPackages().map(({ packagePath, output }) => ({
+      packagePath,
+      output,
+    }))
+    const previousCwd = process.cwd()
+    process.chdir(tmpdir())
+    try {
+      expect(
+        Object.values(buck2TypeScriptAdmissions).map((admission) => ({
+          packagePath: admission.packagePath,
+          output: buck2TypeScriptPackageProjection(admission).stringify({
+            cwd: previousCwd,
+            location: '',
+          }),
+        })),
+      ).toEqual(atRepoRoot)
+    } finally {
+      process.chdir(previousCwd)
+    }
   })
 })
 

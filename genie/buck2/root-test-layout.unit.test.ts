@@ -1,10 +1,15 @@
-import { readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
+import { repoRootFromModuleUrl } from '../../packages/@overeng/genie/src/runtime/repo-context/mod.ts'
 import {
   projectionInputsTarget,
   rootTestContractDirectories,
+  rootTestDataFiles,
   rootTestLayout,
   rootTestRepositoryContractModules,
   rootTestSourcesTarget,
@@ -84,6 +89,38 @@ describe('root test layout', () => {
         rootTestLayout.modules.some((module) => module.startsWith(`${destination}/`) === true),
       ).toBe(true)
     }
+  })
+
+  /**
+   * The staged tree is a copy of repository bytes inside `buck-out`, i.e. *below* the
+   * composed workspace root. Generator code resolves its own repository from its module
+   * path, so without a repo marker of its own the copy would resolve to the live
+   * composition root and read paths the action never declared. Staging `megarepo.kdl`
+   * makes the copy self-identifying.
+   */
+  it('stages a repository marker so the copied tree resolves itself, never the live worktree', () => {
+    expect(rootTestDataFiles).toContain('megarepo.kdl')
+    expect(rootTestLayout.rootFiles).toContain('megarepo.kdl')
+    expect(rootTestLayout.dataFiles).toContainEqual({
+      destination: 'megarepo.kdl',
+      label: '//:megarepo.kdl',
+    })
+    expect(generatedLayoutBzl).toContain('    "megarepo.kdl",')
+    expect(generatedBuck).toContain('    "megarepo.kdl": "//:megarepo.kdl",')
+
+    // Enclosing repository (the composed workspace) with a staged tree copied below it.
+    const enclosing = mkdtempSync(join(tmpdir(), 'root-test-enclosing-'))
+    writeFileSync(join(enclosing, 'megarepo.kdl'), '')
+    const staged = join(enclosing, 'buck-out/package_tree')
+    mkdirSync(join(staged, 'genie/buck2'), { recursive: true })
+    const stagedModule = join(staged, 'genie/buck2/root-test-layout.ts')
+    writeFileSync(stagedModule, '')
+
+    // Without the marker the copy is indistinguishable from the enclosing repository.
+    expect(repoRootFromModuleUrl(pathToFileURL(stagedModule).href)).toBe(enclosing)
+
+    writeFileSync(join(staged, 'megarepo.kdl'), '')
+    expect(repoRootFromModuleUrl(pathToFileURL(stagedModule).href)).toBe(staged)
   })
 
   it('runs the declared repository-contract suites', () => {

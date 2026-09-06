@@ -1,13 +1,16 @@
 import { existsSync, statSync } from 'node:fs'
-import path from 'node:path'
-import process from 'node:process'
 
 import {
   createGenieOutput,
   type GenieOutput,
 } from '../../packages/@overeng/genie/src/runtime/core.ts'
+import { defineRepoContext } from '../../packages/@overeng/genie/src/runtime/repo-context/mod.ts'
 import type { Buck2TypeScriptAdmission } from './typescript-admissions.ts'
 import { buck2TypeScriptPackageProjection } from './typescript-package-projection.ts'
+
+// Repository-anchored probe root: the Buck-built Genie product's working directory is the
+// composed workspace, not the tree being projected.
+const repo = defineRepoContext({ name: 'effect-utils', importMetaUrl: import.meta.url })
 
 export { javascriptTestPlanFor } from './javascript-test-targets.ts'
 
@@ -261,7 +264,7 @@ export const buck2JavaScriptPackageProjection = (
   // A package-local suite is only runnable if its test sources are inside the declared package
   // view. Packages that keep suites in `test/` never listed that root for typecheck, so the
   // JavaScript targets adopt it here instead of duplicating source census in every admission.
-  const testRoot = path.join(process.cwd(), admission.packagePath, 'test')
+  const testRoot = repo.resolve(admission.packagePath, 'test')
   const adoptTestRoot =
     plan.targets.length > 0 &&
     admission.sourceRoots.includes('test') === false &&

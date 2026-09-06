@@ -1,8 +1,12 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import process from 'node:process'
 
+import { defineRepoContext } from '../../packages/@overeng/genie/src/runtime/repo-context/mod.ts'
 import { buck2TypeScriptAdmissions } from './typescript-admissions.ts'
+
+// The layout is derived from repository sources, so its reads anchor on the repository that
+// owns this module rather than on the Genie process working directory.
+const repo = defineRepoContext({ name: 'effect-utils', importMetaUrl: import.meta.url })
 
 /**
  * Repository-root layout the root Vitest suite runs against.
@@ -108,6 +112,11 @@ export const rootTestDataFiles = [
   'devenv.nix',
   'genie/buck2/BUCK',
   'genie/ci-scripts/buck2-candidate-graph.txt',
+  // The staged tree must identify itself as a repository: generator code resolves its own
+  // repo root from its module path (megarepo config, then `.git`), and the copied tree has
+  // neither unless this marker is staged. Without it the census would walk out of the tree
+  // and read the live composition root, which declares none of these bytes.
+  'megarepo.kdl',
   'nix/buck2-products/products.json',
   'nix/devenv-modules/tasks/shared/megarepo.nix',
   'nix/devenv-modules/tasks/shared/netlify.nix',
@@ -157,8 +166,7 @@ const fail = (message: string): never => {
   throw new Error(`Invalid root test layout: ${message}`)
 }
 
-const repositoryPath = (repoRelativePath: string): string =>
-  path.join(process.cwd(), repoRelativePath)
+const repositoryPath = (repoRelativePath: string): string => repo.resolve(repoRelativePath)
 
 /** Root `BUCK` target name carrying one root-package generator directory. */
 export const rootTestSourcesTarget = (prefix: string): string => `root_test_sources/${prefix}`
