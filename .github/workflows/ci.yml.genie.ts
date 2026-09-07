@@ -117,6 +117,28 @@ const runBuck2 = (...args: readonly string[]) =>
     'test -x "$buck2"',
     `cd "$workspace" && "$buck2" ${args.join(' ')}`,
   ].join('\n')
+
+/**
+ * Build every target a Buck QUERY selects.
+ *
+ * `buck2 build`/`test`/`run` parse each positional as a target PATTERN, never as a query
+ * expression — not even as the sole argument. A `filter(...)` positional dies during
+ * `Parsing target pattern` with `invalid target: ...)` and exit 3. Query expansion
+ * therefore has to happen in a separate `uquery` invocation whose labels become the argv.
+ *
+ * A query that matches nothing is a graph or generator regression, not a green lane:
+ * `buck2 build` with an empty argv succeeds, so zero labels fail loudly instead.
+ */
+const buildBuck2QueryTargets = (query: string) =>
+  [
+    'workspace="${EFFECT_UTILS_WORKSPACE_ROOT:?EFFECT_UTILS_WORKSPACE_ROOT not set}"',
+    'buck2="$workspace/.megarepo/bin/buck2"',
+    'test -x "$buck2"',
+    'cd "$workspace"',
+    `mapfile -t targets < <("$buck2" uquery '${query}')`,
+    `[ "\${#targets[@]}" -gt 0 ] || { echo '::error::buck2 uquery matched no targets: ${query}'; exit 1; }`,
+    '"$buck2" build "${targets[@]}"',
+  ].join('\n')
 const liveNetlifyCiToolsPreflightStep = {
   id: 'live-netlify-preflight',
   name: 'Check live Netlify ci-tools E2E secrets',
@@ -418,7 +440,7 @@ const jobs = {
   typecheck: job({
     step: {
       name: 'Type check Buck package products',
-      run: runBuck2('build', '\'filter(":typecheck$", effect_utils//...)\''),
+      run: buildBuck2QueryTargets('filter(":typecheck$", effect_utils//...)'),
     },
     // `buck2 build` of the TypeScript typecheck actions.
     privileged: true,
@@ -455,13 +477,13 @@ const jobs = {
   }),
   'bundle-smoke': job({
     step: {
-      name: 'Buck candidate and pty-effect bundle smoke tests',
-      run: runBuck2(
-        'test',
-        '\'filter("candidate-smoke$", effect_utils//packages/@overeng/...)\' effect_utils//packages/@overeng/pty-effect:bundle_smoke_candidate',
+      name: 'Buck candidate and pty-effect bundle smoke checks',
+      run: buildBuck2QueryTargets(
+        'filter("(candidate-smoke|bundle_smoke_candidate)$", effect_utils//packages/@overeng/...)',
       ),
     },
-    // `buck2 test` of the candidate bundle-smoke actions.
+    // `package_bin_check` is build-only: it returns no `ExternalRunnerTestInfo`, so these
+    // candidates are built, never `buck2 test`-ed. One query covers both naming schemes.
     privileged: true,
   }),
   buck2: job({

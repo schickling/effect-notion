@@ -1002,6 +1002,51 @@ describe('ci workflow standard job helpers', () => {
     expect(ciWorkflowSource).toContain('standardSelfHostedPnpmCiPrepSteps(prep)')
     expect(ciWorkflowSource).toContain('standardSelfHostedPnpmCiPostSteps(post)')
   })
+
+  /**
+   * `buck2 build`/`test`/`run` parse every positional as a target PATTERN, never as a query
+   * expression — not even as the sole argument. Run 34067718982 died in both query lanes with
+   * `Parsing target pattern filter(...)` / `Invalid target name '...)'` and exit 3. A query
+   * must therefore be expanded by a separate `uquery`, and an expansion that matched nothing
+   * must fail loudly: `buck2 build` with an empty argv succeeds and would fake a green lane.
+   */
+  it('expands Buck queries through uquery instead of passing them where a target pattern is parsed', () => {
+    const invocations = [
+      ...generatedCiWorkflowYamlSource.matchAll(
+        /"\$buck2" (?<verb>build|test|run) (?<positionals>.*)$/gmu,
+      ),
+    ]
+    expect(invocations.length).toBeGreaterThan(0)
+    for (const invocation of invocations) {
+      expect(invocation.groups?.positionals, invocation[0]).not.toContain('(')
+    }
+
+    const expansions = [
+      ...generatedCiWorkflowYamlSource.matchAll(
+        /mapfile -t targets < <\("\$buck2" uquery '(?<query>[^']+)'\)/gmu,
+      ),
+    ]
+    expect(expansions.map((expansion) => expansion.groups?.query)).toEqual([
+      'filter(":typecheck$", effect_utils//...)',
+      'filter("(candidate-smoke|bundle_smoke_candidate)$", effect_utils//packages/@overeng/...)',
+    ])
+    for (const expansion of expansions) {
+      expect(generatedCiWorkflowYamlSource, expansion[0]).toContain(
+        `[ "\${#targets[@]}" -gt 0 ] || { echo '::error::buck2 uquery matched no targets: ${expansion.groups?.query}'; exit 1; }`,
+      )
+    }
+
+    // `package_bin_check` returns no `ExternalRunnerTestInfo`, so the smoke candidates are
+    // build-only; one query covers both candidate naming schemes that used to need a
+    // query plus a hand-listed literal target.
+    const bundleSmoke =
+      generatedCiWorkflowYamlSource.split('  bundle-smoke:\n')[1]?.split(/^  [a-z]/mu)[0] ?? ''
+    expect(bundleSmoke).toContain('"$buck2" build "${targets[@]}"')
+    expect(bundleSmoke).not.toContain('"$buck2" test')
+    // Both query lanes reach that shape through one generator helper.
+    expect(generatedWorkflowSource).toContain('const buildBuck2QueryTargets = (query: string) =>')
+    expect(generatedWorkflowSource.split('buildBuck2QueryTargets(').length - 1).toBe(2)
+  })
 })
 
 describe('ci workflow namespace privileged containers', () => {
