@@ -11,8 +11,8 @@
     "os": "any"
   },
   "modulePath": "genie.js",
-  "integrity": "sha256-w/Fjr3uBaBIPedtshSMehMVSWFHCk8oYQxye1ptnAlY=",
-  "sizeBytes": 11532809,
+  "integrity": "sha256-TLnielxciDfsJ0XQq+haB2T7bu9/XHjivq76FfVbxn4=",
+  "sizeBytes": 11532971,
   "target": "effect_utils//packages/@overeng/genie:genie-candidate",
   "externalCapabilities": [
     "actionlint",

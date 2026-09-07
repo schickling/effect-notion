@@ -7,10 +7,10 @@
       "moduleSha256": "6d3ab3cd4c8afd60d92e12f9863d00d43692d3a11b920f648df10cb9dc688555"
     },
     "genie": {
-      "artifact": "genie/c3f163af7b8168120f79db6c85231e84c5525851c293ca18431c9ed69b670256-genie.js",
-      "descriptorSha256": "5f6e5e2628879b67968ca8630ef279db6c6439f6115983b292562f6d84d6d201",
+      "artifact": "genie/4cb9e27a5c5c8837ec2745d0abe85a0764fb6eef7f5c78e2beaefa15f55bc67e-genie.js",
+      "descriptorSha256": "45f06a9ad04b3964ccbd068d78b94140781ae401c4c8fc8c092316bef96171aa",
       "label": "//packages/@overeng/genie:genie-candidate",
-      "moduleSha256": "c3f163af7b8168120f79db6c85231e84c5525851c293ca18431c9ed69b670256"
+      "moduleSha256": "4cb9e27a5c5c8837ec2745d0abe85a0764fb6eef7f5c78e2beaefa15f55bc67e"
     },
     "genie-bootstrap-closure-check": {
       "artifact": "genie-bootstrap-closure-check/5a2aa4550c930ab841ae392f8a62addf4c39b53339d42145297812cf80117433-genie-bootstrap-closure-check.js",
@@ -19,10 +19,10 @@
       "moduleSha256": "5a2aa4550c930ab841ae392f8a62addf4c39b53339d42145297812cf80117433"
     },
     "megarepo": {
-      "artifact": "megarepo/3755a6236ef7a761d09ac89f04b99131a4b36b409ca84df71c34f09982b0e2c2-mr.js",
-      "descriptorSha256": "14bb44c8f3d6407d7cc8946e6f8a60bd5b61e4f192dd78d4e67e3215730b51fd",
+      "artifact": "megarepo/b18fc89a3bbef4c0189583057253a28359d14ba7264fa2701c308dd2735d7e15-mr.js",
+      "descriptorSha256": "64f49a3d4e7170eb0703fbfcc910cff554ef08401bfb2139681c4a54bf0b594a",
       "label": "//packages/@overeng/megarepo:megarepo-candidate",
-      "moduleSha256": "3755a6236ef7a761d09ac89f04b99131a4b36b409ca84df71c34f09982b0e2c2"
+      "moduleSha256": "b18fc89a3bbef4c0189583057253a28359d14ba7264fa2701c308dd2735d7e15"
     },
     "notion-cli": {
       "artifact": "notion-cli/7ec8f372c9fc0016d0a6d85d744cc3a0eb86ed51f11f86254e0ebb50546aadb3-notion.js",

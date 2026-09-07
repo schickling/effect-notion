@@ -232481,8 +232481,11 @@ var ensureImportMapResolver = exports_Effect.gen(function* () {
     }
   });
 }).pipe(withImportMapResolverSpan);
+var editorViewDirectoryName = ".editor-view";
 var shouldSkipDirectory = (name) => {
   if (name === "node_modules" || name === "dist" || name === "tmp")
+    return true;
+  if (name === editorViewDirectoryName)
     return true;
   if (name === ".pnpm" || name === ".pnpm-store" || name === ".pnpm-home")
     return true;
@@ -232495,7 +232498,11 @@ var shouldSkipDirectory = (name) => {
   return false;
 };
 var isGenieFile = (file4) => file4.endsWith(".genie.ts");
-var gitGeniePathspecs = ["*.genie.ts", ":(glob)**/*.genie.ts"];
+var gitGeniePathspecs = [
+  "*.genie.ts",
+  ":(glob)**/*.genie.ts",
+  `:(exclude,glob)**/${editorViewDirectoryName}/**`
+];
 var gitListGenieFiles = ({
   args: args2,
   cwd

@@ -1,8 +1,27 @@
 {
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/notion-core",
+      "packages/@overeng/notion-effect-client",
+      "packages/@overeng/notion-effect-schema",
+      "packages/@overeng/notion-md",
+      "packages/@overeng/notion-property-write",
+      "packages/@overeng/notion-react",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/tui-core",
+      "packages/@overeng/tui-react",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
+  },
   "name": "@overeng/notion-react",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "private": true,
   "exports": {
     ".": {
       "types": "./dist/src/mod.d.ts",
@@ -35,20 +54,6 @@
     },
     "./web/katex.css": "./src/web/katex.css",
     "./web/styles.css": "./src/web/styles.css"
-  },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js",
-      "./markdown": "./dist/markdown/mod.js",
-      "./renderer": "./dist/renderer/mod.js",
-      "./o11y": "./dist/o11y/mod.js",
-      "./o11y/effect": "./dist/o11y/effect-adapter.js",
-      "./o11y/otel": "./dist/o11y/otel-adapter.js",
-      "./web": "./dist/web/mod.js",
-      "./web/styles.css": "./dist/web/styles.css",
-      "./web/katex.css": "./dist/web/katex.css"
-    }
   },
   "scripts": {
     "storybook": "storybook dev -p 6014",
@@ -119,23 +124,18 @@
       "optional": true
     }
   },
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/notion-core",
-      "packages/@overeng/notion-effect-client",
-      "packages/@overeng/notion-effect-schema",
-      "packages/@overeng/notion-md",
-      "packages/@overeng/notion-property-write",
-      "packages/@overeng/notion-react",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/tui-core",
-      "packages/@overeng/tui-react",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js",
+      "./markdown": "./dist/markdown/mod.js",
+      "./renderer": "./dist/renderer/mod.js",
+      "./o11y": "./dist/o11y/mod.js",
+      "./o11y/effect": "./dist/o11y/effect-adapter.js",
+      "./o11y/otel": "./dist/o11y/otel-adapter.js",
+      "./web": "./dist/web/mod.js",
+      "./web/styles.css": "./dist/web/styles.css",
+      "./web/katex.css": "./dist/web/katex.css"
+    }
   }
 }

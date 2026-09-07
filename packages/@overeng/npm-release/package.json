@@ -1,8 +1,16 @@
 {
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/npm-release",
+      "packages/@overeng/utils-dev"
+    ]
+  },
   "name": "@overeng/npm-release",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "private": true,
   "exports": {
     ".": {
       "types": "./dist/src/mod.d.ts",
@@ -11,13 +19,6 @@
     "./cli": {
       "types": "./dist/src/cli.d.ts",
       "default": "./src/cli.ts"
-    }
-  },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js",
-      "./cli": "./dist/cli.js"
     }
   },
   "devDependencies": {
@@ -32,12 +33,11 @@
     "@effect/platform-node": "^4.0.0-rc.111",
     "effect": "^4.0.0-rc.111"
   },
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/npm-release",
-      "packages/@overeng/utils-dev"
-    ]
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js",
+      "./cli": "./dist/cli.js"
+    }
   }
 }

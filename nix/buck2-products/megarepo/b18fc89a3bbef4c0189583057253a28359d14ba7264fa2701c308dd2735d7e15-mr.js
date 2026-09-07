@@ -70610,14 +70610,12 @@ var make67 = ({
     getRepoBasePath,
     getBareRepoPath,
     getWorktreePath,
-    getRepoPath: getRepoBasePath,
     hasBareRepo: (source) => fs4.exists(getBareRepoPath(source)),
     hasWorktree: (args2) => {
       const worktreePath = getWorktreePath(args2);
       const gitFilePath = `${worktreePath}.git`.replace(/\/\.git$/, "/.git");
       return fs4.exists(gitFilePath);
     },
-    hasRepo: (source) => fs4.exists(getBareRepoPath(source)),
     listRepos: exports_Effect.gen(function* () {
       const exists2 = yield* fs4.exists(basePath);
       if (exists2 === false) {

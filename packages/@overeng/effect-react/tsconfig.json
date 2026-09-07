@@ -48,7 +48,9 @@
     "composite": true,
     "rootDir": ".",
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "noEmit": true

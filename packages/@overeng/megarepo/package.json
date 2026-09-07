@@ -1,8 +1,25 @@
 {
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/effect-path",
+      "packages/@overeng/kdl",
+      "packages/@overeng/kdl-effect",
+      "packages/@overeng/megarepo",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/tui-core",
+      "packages/@overeng/tui-react",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
+  },
   "name": "@overeng/megarepo",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "private": true,
   "exports": {
     ".": {
       "types": "./dist/src/mod.d.ts",
@@ -15,14 +32,6 @@
     "./cli": {
       "types": "./dist/src/cli/mod.d.ts",
       "default": "./src/cli/mod.ts"
-    }
-  },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js",
-      "./buck2-manifest": "./dist/buck2-manifest.js",
-      "./cli": "./dist/cli.js"
     }
   },
   "scripts": {
@@ -52,6 +61,11 @@
     "react-reconciler": "0.33.0",
     "vitest": "4.1.9"
   },
+  "dependenciesMeta": {
+    "@overeng/tui-react": {
+      "injected": true
+    }
+  },
   "devDependencies": {
     "@effect/atom-react": "4.0.0-rc.111",
     "@effect/platform-node": "4.0.0-rc.111",
@@ -74,11 +88,6 @@
     "vite": "8.0.16",
     "vitest": "4.1.9"
   },
-  "dependenciesMeta": {
-    "@overeng/tui-react": {
-      "injected": true
-    }
-  },
   "peerDependencies": {
     "@effect/atom-react": "^4.0.0-rc.111",
     "@effect/opentelemetry": "^4.0.0-rc.111",
@@ -94,21 +103,12 @@
     "react-dom": "^19.2.7",
     "react-reconciler": "^0.33.0"
   },
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/effect-path",
-      "packages/@overeng/kdl",
-      "packages/@overeng/kdl-effect",
-      "packages/@overeng/megarepo",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/tui-core",
-      "packages/@overeng/tui-react",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js",
+      "./buck2-manifest": "./dist/buck2-manifest.js",
+      "./cli": "./dist/cli.js"
+    }
   }
 }
