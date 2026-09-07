@@ -157,12 +157,13 @@ caller. `mr store lease` propagates the wrapped command's own exit code.
 ### Live-process veto
 
 The lease only excludes an activation that takes it, and a shell or agent session that was already
-sitting inside a worktree announces nothing. On Linux a rename is invisible to a process already in
+sitting inside a worktree announces nothing. On Unix a rename is invisible to a process already in
 that directory — its cwd silently follows the inode into `.archive/` — so every destructive
 worktree step additionally refuses when a live process has its cwd inside the target, reporting
 `kept` with `reason: process-in-use` (a plan-bound application fails instead). Evidence is
-`/proc/<pid>/cwd`; megarepo's own process and its children are excluded so a `git` child cannot
-self-veto. A host without `/proc`, or a scan that cannot be read, is `unknown` and keeps.
+`/proc/<pid>/cwd` on Linux and the system `lsof` cwd table on macOS; megarepo's own process and its
+children are excluded so a `git` child cannot self-veto. A host without a supported process table,
+or a scan that cannot be read, is `unknown` and keeps.
 
 ## Documentation
 

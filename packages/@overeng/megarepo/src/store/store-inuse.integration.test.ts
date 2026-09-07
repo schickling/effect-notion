@@ -1,8 +1,8 @@
 /**
  * Live-process in-use probe tests.
  *
- * The pure classifier is exercised directly (boundaries and exclusion), and the
- * `/proc` reader against a REAL spawned holder whose cwd is inside a temp
+ * The pure classifier and lsof parser are exercised directly, and the native
+ * process-table reader against a REAL spawned holder whose cwd is inside a temp
  * worktree — the incident shape: a live session sitting in a directory that
  * reclamation is about to rename. These cases deliberately drive real OS
  * processes, because the probe's whole job is to observe them; process
@@ -16,7 +16,6 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process'
-import { existsSync } from 'node:fs'
 
 import { NodeServices } from '@effect/platform-node'
 import { describe, it } from '@effect/vitest'
@@ -26,9 +25,14 @@ import { expect } from 'vitest'
 
 import { EffectPath } from '@overeng/effect-path'
 
-import { classifyInUse, isInsideWorktree, readWorktreeInUse } from './store-inuse.ts'
+import {
+  classifyInUse,
+  isInsideWorktree,
+  parseLsofProcessCwds,
+  readWorktreeInUse,
+} from './store-inuse.ts'
 
-const hasProc = existsSync('/proc')
+const supportsProcessCwdProbe = process.platform === 'linux' || process.platform === 'darwin'
 
 /** Spawn a long-lived holder in `cwd`, resolved once the OS reports it spawned. */
 const spawnHolder = (cwd: string): Promise<ChildProcess> => {
@@ -48,6 +52,28 @@ const killHolder = (child: ChildProcess): Promise<void> => {
 }
 
 describe('store-inuse classifier', () => {
+  it('parses macOS lsof cwd records with their parent process identities', () => {
+    expect(
+      parseLsofProcessCwds([
+        'p100',
+        'R1',
+        'fcwd',
+        'n/store/repo',
+        'p101',
+        'R100',
+        'fcwd',
+        'n/store/repo/src',
+        'pnot-a-pid',
+        'R101',
+        'fcwd',
+        'n/ignored',
+      ]),
+    ).toEqual([
+      { pid: 100, parentPid: 1, path: '/store/repo' },
+      { pid: 101, parentPid: 100, path: '/store/repo/src' },
+    ])
+  })
+
   it('treats the worktree and its descendants as inside, siblings as outside', () => {
     const worktree = '/store/repo/refs/heads/main'
     expect(isInsideWorktree({ candidate: worktree, worktreePath: `${worktree}/` })).toBe(true)
@@ -85,7 +111,7 @@ describe('store-inuse classifier', () => {
   })
 })
 
-describe.skipIf(hasProc === false)('store-inuse probe (/proc)', () => {
+describe.skipIf(supportsProcessCwdProbe === false)('store-inuse native process probe', () => {
   it.effect(
     'sees a live holder inside the worktree, and frees once it exits',
     Effect.fnUntraced(

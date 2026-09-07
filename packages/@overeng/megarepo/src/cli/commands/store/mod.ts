@@ -1092,7 +1092,7 @@ const inUseVeto = ({
   worktreePath,
 }: {
   worktreePath: AbsoluteDirPath | string
-}): Effect.Effect<InUseHolder | undefined, never, FileSystem.FileSystem> =>
+}): Effect.Effect<InUseHolder | undefined, never, FileSystem.FileSystem | ChildProcessSpawner> =>
   Effect.gen(function* () {
     const result = yield* readWorktreeInUse({ worktreePath })
     if (result._tag === 'free') return undefined
