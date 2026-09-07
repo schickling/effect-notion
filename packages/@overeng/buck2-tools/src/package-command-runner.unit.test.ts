@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -21,6 +21,7 @@ import {
   bareSpecifierPackage,
   createEntryOverridePlugin,
   parsePackageCommand,
+  planPackageLaunch,
   normalizePortableCommonJsGlobals,
   projectProductDescriptor,
   requireNormalizedRelativePath,
@@ -794,6 +795,108 @@ describe('package command runner', () => {
         runtimeArgs: [],
         externalCapabilities: ['git'],
       })
+    })
+  })
+
+  // Buck writes a local action's artifact paths relative to the project root,
+  // which is the action's working directory. The launched child runs in the
+  // package tree, so any path still relative when it crosses that boundary is
+  // resolved a second time against the tree.
+  describe('the resolved launch plan', () => {
+    const treePath = 'buck-out/v2/gen/root/hash/packages/@overeng/oxc-config/__package_tree__/tree'
+    const verdictPath =
+      'buck-out/v2/gen/root/hash/packages/@overeng/oxc-config/__oxc-config-candidate-smoke__/check.ok'
+
+    it('resolves a project-relative check entrypoint instead of rebasing it on the tree', () => {
+      const command = parsePackageCommand([
+        'check',
+        '/nix/store/runtime/bin/bun',
+        treePath,
+        'src/mod.ts',
+        verdictPath,
+      ])
+
+      const plan = planPackageLaunch({ command })
+
+      expect(plan.cwd).toBe(resolve(treePath))
+      expect(plan.argv).toStrictEqual([
+        '/nix/store/runtime/bin/bun',
+        resolve(treePath, 'src/mod.ts'),
+      ])
+      expect(plan.output).toBe(resolve(verdictPath))
+      expect(plan.argv[1]).not.toContain(join(treePath, treePath))
+    })
+
+    it('resolves the {OUT} and {TREE} placeholders a build-dir child receives', () => {
+      const command = parsePackageCommand([
+        'build-dir',
+        '/nix/store/runtime/bin/bun',
+        treePath,
+        'node_modules/storybook/dist/bin/dispatcher.js',
+        'buck-out/v2/gen/root/hash/storybook-static',
+        '--arg',
+        'build',
+        '--arg',
+        '{OUT}',
+        '--arg',
+        '{TREE}',
+      ])
+
+      const plan = planPackageLaunch({ command })
+
+      expect(plan.argv).toStrictEqual([
+        '/nix/store/runtime/bin/bun',
+        resolve(treePath, 'node_modules/storybook/dist/bin/dispatcher.js'),
+        'build',
+        resolve('buck-out/v2/gen/root/hash/storybook-static'),
+        resolve(treePath),
+      ])
+      expect(plan.output).toBe(resolve('buck-out/v2/gen/root/hash/storybook-static'))
+    })
+
+    it('launches the runtime itself for a native check and keeps the output resolved', () => {
+      const command = parsePackageCommand([
+        'native-check',
+        '/nix/store/runtime/bin/tsgo',
+        treePath,
+        'src/mod.ts',
+        verdictPath,
+        '--arg',
+        '--noEmit',
+      ])
+
+      const plan = planPackageLaunch({ command })
+
+      expect(plan.argv).toStrictEqual(['/nix/store/runtime/bin/tsgo', '--noEmit'])
+      expect(plan.cwd).toBe(resolve(treePath))
+      expect(plan.output).toBe(resolve(verdictPath))
+    })
+
+    it('leaves the absolute paths `buck2 run` hands an exec launch untouched', () => {
+      const command = parsePackageCommand([
+        'exec',
+        '/nix/store/runtime/bin/bun',
+        '/project/buck-out/tree',
+        'scripts/dev.ts',
+        '-',
+        '--arg',
+        'dev',
+        '--',
+        '--host',
+        '0.0.0.0',
+      ])
+
+      const plan = planPackageLaunch({ command })
+
+      expect(plan.cwd).toBe('/project/buck-out/tree')
+      expect(plan.argv).toStrictEqual([
+        '/nix/store/runtime/bin/bun',
+        '/project/buck-out/tree/scripts/dev.ts',
+        'dev',
+        '--host',
+        '0.0.0.0',
+      ])
+      expect(plan.output).toBeUndefined()
     })
   })
 })
