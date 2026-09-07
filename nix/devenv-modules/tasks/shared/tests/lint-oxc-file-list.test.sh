@@ -396,4 +396,58 @@ fi
 echo "  ok: the diagnostic reports a nonzero stdout byte count"
 
 echo ""
+echo "Test 9: a redirected regular-file stdout is appended to, never reopened"
+# The task's stdout here is a REGULAR FILE that already holds bytes and whose
+# offset has advanced — a CI log. Naming the inherited descriptor as a path
+# (`tee /dev/fd/3`) reopens it with O_TRUNC: the BEFORE sentinel disappears and
+# the outer offset leaves a NUL hole. Only duplication (`>&3`) is safe.
+export TEST_OXLINT_LOUD_FAILURE=1
+log_file="$tmpdir/task.log"
+log_stderr="$tmpdir/task.log.stderr"
+log_status=0
+{
+  echo "BEFORE-SENTINEL"
+  (
+    cd "$workspace"
+    bash "$tmpdir/lint-check-oxlint.sh"
+  ) || log_status=$?
+  echo "AFTER-SENTINEL"
+} > "$log_file" 2> "$log_stderr"
+unset TEST_OXLINT_LOUD_FAILURE
+
+if [ "$log_status" -eq 0 ]; then
+  echo "FAIL: a failing lint run must stay nonzero with a file-redirected stdout"
+  exit 1
+fi
+echo "  ok: status stays nonzero ($log_status)"
+
+log_lines="$(grep -n -e BEFORE-SENTINEL -e 'error: no-debugger' -e AFTER-SENTINEL "$log_file" | cut -d: -f2- | paste -sd'|' -)"
+if [ "$log_lines" != "BEFORE-SENTINEL|fixture.ts:1:1: error: no-debugger|AFTER-SENTINEL" ]; then
+  echo "FAIL: log must keep BEFORE, the finding and AFTER in order"
+  echo "  got: $log_lines"
+  echo "  raw log:"
+  cat -A "$log_file" | sed -n '1,20p'
+  exit 1
+fi
+echo "  ok: BEFORE sentinel, finding and AFTER sentinel survive in order"
+
+log_size="$(wc -c < "$log_file")"
+log_size_without_nul="$(tr -d '\0' < "$log_file" | wc -c)"
+if [ "$log_size" != "$log_size_without_nul" ]; then
+  echo "FAIL: log contains NUL padding — stdout was reopened/truncated"
+  cat -A "$log_file" | sed -n '1,20p'
+  exit 1
+fi
+echo "  ok: no NUL hole (stdout descriptor was duplicated, not reopened)"
+
+finding_bytes="$(printf 'fixture.ts:1:1: error: no-debugger\n' | wc -c)"
+if ! grep -qF -- "stdout_bytes=$finding_bytes" "$log_stderr"; then
+  echo "FAIL: byte count must match the finding actually written"
+  echo "  expected stdout_bytes=$finding_bytes"
+  sed -n '1,20p' "$log_stderr"
+  exit 1
+fi
+echo "  ok: reported stdout_bytes matches the streamed bytes"
+
+echo ""
 echo "All lint-oxc file list tests passed"
