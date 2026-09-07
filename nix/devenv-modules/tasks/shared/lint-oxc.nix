@@ -220,6 +220,59 @@ let
         }
       }
 
+      # Memory evidence for a lint child that dies mute. A kernel OOM kill
+      # (SIGKILL) leaves NO message of its own — `tsgolint` reporting
+      # `signal: 9 (SIGKILL)` is otherwise indistinguishable from any other
+      # signal death, so "the runner ran out of memory" stayed an inference.
+      # cgroup v2 answers it directly: memory.events records `oom`/`oom_kill`
+      # counts and memory.peak the high-water mark against memory.max.
+      #
+      # Every read is optional and LABELLED when missing: cgroup v1 hosts,
+      # restricted mounts and macOS (no /proc, no cgroups) report
+      # `memory=unavailable` instead of turning diagnostics into a failure.
+      _lint_cgroup_field() {
+        local value
+        if [ -r "$1" ]; then
+          # memory.events is multi-line ("low 0", "high 0", "max 0", "oom 0",
+          # "oom_kill 0"); flatten it so the whole record stays one log line.
+          value=$(${pkgs.coreutils}/bin/tr '\n' ' ' < "$1" 2>/dev/null || true)
+          printf '%s' "''${value% }"
+        else
+          printf 'unavailable'
+        fi
+      }
+
+      _lint_memory_evidence() {
+        local line rel dir
+        rel=""
+        dir=""
+        if [ -r /proc/self/cgroup ]; then
+          # A unified-hierarchy host has exactly one "0::<path>" line; hybrid
+          # v1 hosts carry extra controller lines that are of no use here.
+          while IFS= read -r line; do
+            case "$line" in
+              0::*) rel=''${line#0::} ;;
+            esac
+          done < /proc/self/cgroup
+        fi
+        if [ -n "$rel" ] && [ -r "/sys/fs/cgroup$rel/memory.events" ]; then
+          dir="/sys/fs/cgroup$rel"
+        elif [ -r /sys/fs/cgroup/memory.events ]; then
+          # Inside a cgroup namespace (containers, some CI runners) the process's
+          # own cgroup IS the mount root, so the /proc path does not resolve.
+          dir=/sys/fs/cgroup
+        fi
+        if [ -z "$dir" ]; then
+          printf 'lint-oxc: lane=%s stage=run memory=unavailable (no readable cgroup v2)\n' "$lint_lane" >&2
+          return 0
+        fi
+        printf 'lint-oxc: lane=%s stage=run cgroup=%s memory.events=[%s] memory.peak=%s memory.max=%s\n' \
+          "$lint_lane" "$dir" \
+          "$(_lint_cgroup_field "$dir/memory.events")" \
+          "$(_lint_cgroup_field "$dir/memory.peak")" \
+          "$(_lint_cgroup_field "$dir/memory.max")" >&2
+      }
+
       # oxlint/oxfmt findings go to STDOUT, so "did the tool print anything at
       # all" is what separates a real finding from a tool that died mute — the
       # ambiguity that made a red CI oxlint task unattributable (devenv dumps a
@@ -235,23 +288,48 @@ let
       # left a NUL hole where the outer offset had advanced. The counter
       # therefore gets a FIFO — a path tee may safely open — with `wc` reading it
       # in a known background job that is waited on before the count is read.
+      #
+      # A SECOND fifo carries the same stream to `tail -c 1`, which retains only
+      # the final byte: that is how the tail's newline-termination is learned
+      # without buffering any output. Both readers are explicitly waited on, so
+      # their results are complete before they are read.
       lint_status=0
       lint_stdout_bytes=unknown
+      lint_stdout_tail=unknown
       if [ -t 1 ]; then
         _run_lint || lint_status=$?
       else
         lint_probe_dir=$(mktemp -d)
         trap 'rm -f "$files"; rm -rf "$lint_probe_dir"' EXIT
         lint_bytes="$lint_probe_dir/bytes"
+        lint_last="$lint_probe_dir/last"
         lint_fifo="$lint_probe_dir/stdout"
-        ${pkgs.coreutils}/bin/mkfifo "$lint_fifo"
+        lint_tail_fifo="$lint_probe_dir/tail"
+        ${pkgs.coreutils}/bin/mkfifo "$lint_fifo" "$lint_tail_fifo"
         ${pkgs.coreutils}/bin/wc -c < "$lint_fifo" > "$lint_bytes" &
         lint_wc_pid=$!
+        ${pkgs.coreutils}/bin/tail -c 1 < "$lint_tail_fifo" > "$lint_last" &
+        lint_tail_pid=$!
         {
-          _run_lint | ${pkgs.coreutils}/bin/tee "$lint_fifo" >&3
+          _run_lint | ${pkgs.coreutils}/bin/tee "$lint_fifo" "$lint_tail_fifo" >&3
         } 3>&1 || lint_status=$?
         wait "$lint_wc_pid"
+        wait "$lint_tail_pid"
         lint_stdout_bytes=$(${pkgs.coreutils}/bin/tr -d ' ' < "$lint_bytes")
+        if [ ! -s "$lint_last" ]; then
+          lint_stdout_tail=empty
+        elif [ "$(${pkgs.coreutils}/bin/od -An -N1 -tu1 < "$lint_last" \
+          | ${pkgs.coreutils}/bin/tr -d '[:space:]')" = 10 ]; then
+          # Compare the retained byte NUMERICALLY (10 = LF). Inspecting the byte
+          # as text cannot classify it: command substitution strips trailing
+          # newlines AND drops NUL bytes, so a stream ending in a literal NUL
+          # (a truncated/holed tail) produced an empty string and was mislabelled
+          # `newline`, suppressing the line-completing newline on the failure
+          # path. `od` renders the byte as digits, which survive substitution.
+          lint_stdout_tail=newline
+        else
+          lint_stdout_tail=no-newline
+        fi
       fi
       if [ "$lint_status" -ne 0 ]; then
         # `xargs` never forwards the child's own status; translate its documented
@@ -264,9 +342,19 @@ let
           126) lint_hint=" (xargs: command found but not executable)" ;;
           127) lint_hint=" (xargs: command not found)" ;;
         esac
-        printf "lint-oxc: lane=%s stage=run status=%s files=%s stdout_bytes=%s command=%s%s\n" \
+        # devenv relays a failing task's output line by line and DROPS the
+        # trailing chunk after the last newline when the stream hits EOF. A
+        # tsgolint crash prints exactly `Error running tsgolint: "exit status:
+        # signal: 9 (SIGKILL)"` with no trailing newline, so the only line that
+        # named the failure was invisible in CI. Complete that final line here —
+        # on the failure path only, so successful output stays byte-identical.
+        if [ "$lint_stdout_tail" = "no-newline" ]; then
+          printf '\n'
+        fi
+        printf "lint-oxc: lane=%s stage=run status=%s files=%s stdout_bytes=%s stdout_tail=%s command=%s%s\n" \
           "$lint_lane" "$lint_status" "$lint_file_count" "$lint_stdout_bytes" \
-          "$lint_cmd_label" "$lint_hint" >&2
+          "$lint_stdout_tail" "$lint_cmd_label" "$lint_hint" >&2
+        _lint_memory_evidence
         exit "$lint_status"
       fi
     '';
