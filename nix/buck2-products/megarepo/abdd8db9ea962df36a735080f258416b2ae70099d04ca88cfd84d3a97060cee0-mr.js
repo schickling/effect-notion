@@ -76042,12 +76042,13 @@ var assertManifestShape = ({
   expectedPaths,
   path: path8
 }) => {
-  const actual = manifest.files.map((file6) => file6.path);
-  if (actual.length !== expectedPaths.length || actual.some((value5, index2) => value5 !== expectedPaths[index2]) === true) {
+  const owned = Object.fromEntries(expectedPaths.map((path9) => [path9, true]));
+  const unknown2 = manifest.files.find((file6) => owned[file6.path] !== true);
+  if (unknown2 !== undefined) {
     throw failure2({
       reason: "InvalidGenerationManifest",
       path: path8,
-      message: `Generation manifest does not own the canonical file set: ${path8}`
+      message: `Generation manifest owns an unknown path ${unknown2.path}: ${path8}`
     });
   }
 };
@@ -76102,6 +76103,7 @@ var validatePublicationState = async ({
   const manifestPath = finalPathFor(workspaceRoot, COMPOSITION_GENERATION_MANIFEST_PATH);
   const manifestSnapshot = await snapshotMaybe(manifestPath);
   let manifest;
+  let manifestPaths = new Set;
   if (manifestSnapshot !== undefined) {
     if (manifestSnapshot.mode !== 420) {
       throw failure2({
@@ -76111,16 +76113,7 @@ var validatePublicationState = async ({
       });
     }
     manifest = decodeGenerationManifest({ snapshot: manifestSnapshot, path: manifestPath });
-    const manifestPaths = new Set(manifest.files.map((file6) => file6.path));
-    for (const expectedPath of expectedGeneratedPaths(files)) {
-      if (manifestPaths.has(expectedPath) === false) {
-        throw failure2({
-          reason: "InvalidGenerationManifest",
-          path: manifestPath,
-          message: `Generation manifest does not own required path ${expectedPath}: ${manifestPath}`
-        });
-      }
-    }
+    manifestPaths = new Set(manifest.files.map((file6) => file6.path));
   }
   const configPath = finalPathFor(workspaceRoot, ".buckconfig");
   if (manifest === undefined && await snapshotMaybe(configPath) !== undefined) {
@@ -76158,11 +76151,12 @@ var validatePublicationState = async ({
     const path8 = finalPathFor(workspaceRoot, file6.path);
     const snapshot3 = file6.path === COMPOSITION_GENERATION_MANIFEST_PATH ? manifestSnapshot : await snapshotMaybe(path8);
     snapshots.set(file6.path, snapshot3);
-    if (manifest === undefined && snapshot3 !== undefined && snapshotMatchesFile(snapshot3, file6) === false) {
+    const unowned = file6.path !== COMPOSITION_GENERATION_MANIFEST_PATH && manifestPaths.has(file6.path) === false;
+    if ((manifest === undefined || unowned === true) && snapshot3 !== undefined && snapshotMatchesFile(snapshot3, file6) === false) {
       throw failure2({
         reason: "ForeignPath",
         path: path8,
-        message: `Refusing unowned first-create path: ${path8}`
+        message: `Refusing unowned generated path: ${path8}`
       });
     }
   }
