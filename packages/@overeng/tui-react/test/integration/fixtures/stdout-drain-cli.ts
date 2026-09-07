@@ -6,12 +6,15 @@
  * piped into a slower consumer).
  *
  * `DRAIN_STRATEGY=stream` selects the old, unfixed `process.stdout.write` path
- * and keeps it exercisable as a control: the write is queued behind the stream
- * and `process.exit(1)` runs in the same tick, so whatever the kernel pipe
- * could not take is thrown away. Whether that loses bytes depends on the
- * reader — the parent supplies the backpressure (see `pauseReaderUntilExit` in
- * the test), so this fixture only has to pick the path, never fake a loss.
+ * and keeps it exercisable as a control. It writes fixed-size chunks in the
+ * same turn until the stream reports backpressure, then queues one more chunk
+ * behind that in-flight write before exiting. The total attempted byte count
+ * and the count at the first backpressure signal are reported synchronously on
+ * stderr, an independently drained control channel, so the parent can prove
+ * that the extra tail was attempted and compare the total with surviving
+ * stdout.
  */
+import { writeSync } from 'node:fs'
 
 import { writeStdoutSync } from '../../../src/effect/stdout.node.ts'
 
@@ -22,12 +25,29 @@ const bytes = Number(process.env.DRAIN_BYTES ?? '1000000')
 // short writes and EAGAIN rather than trusting a single `writeSync`.
 void process.stdout.isTTY
 
-const payload = `${'x'.repeat(bytes - 1)}\n`
-
 if (process.env.DRAIN_STRATEGY === 'stream') {
-  process.stdout.write(payload)
+  const chunk = 'x'.repeat(64 * 1024)
+  const maxWrites = 1024
+  let attemptedByteLength = 0
+  let backpressuredAtByteLength: number | undefined
+
+  for (let write = 0; write < maxWrites; write++) {
+    attemptedByteLength += chunk.length
+    if (process.stdout.write(chunk) === false) {
+      backpressuredAtByteLength = attemptedByteLength
+      break
+    }
+  }
+
+  if (backpressuredAtByteLength === undefined) {
+    writeSync(2, `no-backpressure:${attemptedByteLength}`)
+  } else {
+    attemptedByteLength += chunk.length
+    process.stdout.write(chunk)
+    writeSync(2, `${attemptedByteLength}:${backpressuredAtByteLength}`)
+  }
 } else {
-  writeStdoutSync(payload)
+  writeStdoutSync(`${'x'.repeat(bytes - 1)}\n`)
 }
 
 process.exit(1)
