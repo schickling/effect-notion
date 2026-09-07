@@ -2448,8 +2448,19 @@ const storeGcCommand = Cli.Command.make(
                   })
                 }
                 yield* fs.remove(candidate.path, { recursive: true })
-                yield* Git.pruneWorktrees(owner.bareRepoPath)
-                return candidate
+                const pruneWarning = yield* Git.pruneWorktrees(owner.bareRepoPath).pipe(
+                  Effect.as(undefined),
+                  Effect.catch((error) =>
+                    Effect.succeed(
+                      `worktree removed, but git worktree prune failed: ${
+                        error instanceof Error === true ? error.message : String(error)
+                      }`,
+                    ),
+                  ),
+                )
+                return pruneWarning === undefined
+                  ? candidate
+                  : { ...candidate, message: pruneWarning }
               })
             } else {
               const config = yield* loadStoreGcConfig({ storeBasePath: store.basePath })
