@@ -97,6 +97,15 @@ let
       # so the diagnostic names the tool, not the plumbing.
       commandLabel ? command,
       emptySelectionDiagnostic ? null,
+      # Split the selected file list into ownership units and run the command
+      # once per unit, sequentially. Only the oxlint lanes need this: oxlint
+      # hands the whole selection to tsgolint in ONE type-aware program, whose
+      # memory grows superlinearly with the number of heavy packages (CI #5370:
+      # oom_kill=1, peak 14.78 GiB of 16 GiB, tsgolint SIGKILL; a bounded
+      # prototype measured >23 GiB at four heavy packages versus 1.354 GiB
+      # maximum across 38 sequential units for the same 1644-file surface).
+      # oxfmt has no such program and keeps its single invocation.
+      partition ? false,
       # Optional shell prelude injected before the file scan (e.g. trace.instr,
       # which defines the _otel_instr / _otel_instr_flags arrays the command uses).
       prelude ? "",
@@ -122,7 +131,8 @@ let
 
       lint_stage=scan
       files=$(mktemp)
-      trap 'rm -f "$files"' EXIT
+      lint_scratch=$(mktemp -d)
+      trap 'rm -f "$files"; rm -rf "$lint_scratch"' EXIT
         {
           ${git} ls-files -z -- "''${lint_pathspec_args[@]}"
           ${git} ls-files -z --others --exclude-standard -- "''${lint_pathspec_args[@]}"
@@ -141,17 +151,90 @@ let
       fi
 
       lint_file_count=$(${pkgs.coreutils}/bin/tr -cd '\0' < "$files" | ${pkgs.coreutils}/bin/wc -c)
+
+      # Ownership partitioning. Every directory holding a LITERAL tsconfig.json
+      # under the lint pathspecs owns the files whose nearest such ancestor it
+      # is; files owned by none form ONE residual unit (keyed ".", which is also
+      # where a repo-root tsconfig.json lands, so the two can never split the
+      # same file). The union is therefore exactly `$files` — no file dropped,
+      # none linted twice — and the per-invocation flags are untouched, so lint
+      # semantics do not change. `--tsconfig` is NOT what partitions tsgolint
+      # (it neither selects compilerOptions nor bounds the program: each file is
+      # resolved against its own nearest literal tsconfig.json), so the split
+      # has to happen at the invocation boundary.
+      lint_unit_files=()
+      lint_unit_labels=()
+      ${
+        if partition then
+          ''
+            lint_stage=partition
+            lint_units_dir="$lint_scratch/units"
+            ${pkgs.coreutils}/bin/mkdir -p "$lint_units_dir"
+            declare -A lint_unit_slot=()
+            declare -A lint_owner_of_dir=()
+            while IFS= read -r -d "" lint_path; do
+              lint_dir=''${lint_path%/*}
+              if [ "$lint_dir" = "$lint_path" ]; then
+                lint_dir=.
+              fi
+              # Directory -> owner is memoized: a package with hundreds of files
+              # then costs one upward walk, not one per file.
+              if [ -n "''${lint_owner_of_dir[$lint_dir]+set}" ]; then
+                lint_owner=''${lint_owner_of_dir[$lint_dir]}
+              else
+                lint_owner=.
+                lint_probe=$lint_dir
+                while true; do
+                  if [ -f "$lint_probe/tsconfig.json" ]; then
+                    lint_owner=$lint_probe
+                    break
+                  fi
+                  if [ "$lint_probe" = "." ]; then
+                    break
+                  fi
+                  lint_parent=''${lint_probe%/*}
+                  if [ "$lint_parent" = "$lint_probe" ]; then
+                    lint_parent=.
+                  fi
+                  lint_probe=$lint_parent
+                done
+                lint_owner_of_dir[$lint_dir]=$lint_owner
+              fi
+              if [ -z "''${lint_unit_slot[$lint_owner]+set}" ]; then
+                lint_slot=''${#lint_unit_files[@]}
+                lint_unit_slot[$lint_owner]=$lint_slot
+                lint_unit_labels[lint_slot]=$lint_owner
+                lint_unit_files[lint_slot]="$lint_units_dir/$lint_slot"
+                : > "$lint_units_dir/$lint_slot"
+              fi
+              lint_slot=''${lint_unit_slot[$lint_owner]}
+              # NUL-separated throughout: paths carrying spaces or newlines are
+              # never re-split, exactly as the `xargs -0` contract requires.
+              printf '%s\0' "$lint_path" >> "''${lint_unit_files[$lint_slot]}"
+            done < "$files"
+          ''
+        else
+          ''
+            lint_unit_files=("$files")
+            lint_unit_labels=(all)
+          ''
+      }
+      lint_unit_count=''${#lint_unit_files[@]}
       lint_stage=run
 
       # The invocation lives in a function so its exact form (including the
-      # `< "$files"` redirect and the outer-shell `_otel_instr` array) is
-      # unchanged, while its status can be captured instead of aborting the exec
-      # anonymously under `errexit`.
-      _run_lint() {
+      # `< "$lint_unit_file"` redirect and the outer-shell `_otel_instr` array)
+      # is unchanged, while its status can be captured instead of aborting the
+      # exec anonymously under `errexit`. It is called once per ownership unit
+      # with that unit's NUL-separated file list; an unpartitioned lane passes
+      # the whole `$files` list, so its single invocation is byte-identical to
+      # before.
+      _run_lint_unit() {
+        local lint_unit_file="$1"
 
         ${
           if emptySelectionDiagnostic == null then
-            "${pkgs.findutils}/bin/xargs -0 ${command} < \"$files\""
+            "${pkgs.findutils}/bin/xargs -0 ${command} < \"$lint_unit_file\""
           else
             # The empty-selection stderr swallow must run PER xargs batch (a later
             # all-ignored chunk emits the diagnostic independently), so it lives in
@@ -215,9 +298,110 @@ let
                 printf "%s\n" "$stderr" >&2
                 exit "$status"
               ' bash ${lib.escapeShellArg emptySelectionDiagnostic} \
-                "''${#_otel_instr[@]}" "''${_otel_instr[@]}" < "$files"
+                "''${#_otel_instr[@]}" "''${_otel_instr[@]}" < "$lint_unit_file"
             ''
         }
+      }
+
+      # Classify the RETAINED FINAL BYTE of a stream. The comparison is
+      # NUMERICAL (10 = LF) because inspecting the byte as text cannot classify
+      # it: command substitution strips trailing newlines AND drops NUL bytes,
+      # so a stream ending in a literal NUL (a truncated/holed tail) produced an
+      # empty string and was mislabelled `newline`, suppressing the
+      # line-completing newline. `od` renders the byte as digits, which survive
+      # substitution. An empty retention file means the stream had no bytes.
+      _lint_classify_tail() {
+        if [ ! -s "$1" ]; then
+          printf 'empty'
+        elif [ "$(${pkgs.coreutils}/bin/od -An -N1 -tu1 < "$1" \
+          | ${pkgs.coreutils}/bin/tr -d '[:space:]')" = 10 ]; then
+          printf 'newline'
+        else
+          printf 'no-newline'
+        fi
+      }
+
+      # Per-unit output boundary. Byte accounting and tail classification are
+      # PER UNIT rather than per task because a unit whose stdout ends WITHOUT a
+      # newline (the tsgolint SIGKILL report) is otherwise concatenated with the
+      # next unit's first line: two reports fuse into one corrupt line, and the
+      # aggregate tail reads `newline` merely because some LATER unit ended
+      # cleanly — so the diagnostic denied a truncation that had already
+      # happened. Every unit therefore OWNS and COMPLETES its own final line
+      # before the next unit starts, regardless of whether the inherited stdout
+      # is a terminal or a redirect.
+      #
+      # `tee` relays bytes as they arrive, preserving interactive rendering and
+      # progress output rather than collecting a unit before displaying it. Only
+      # the final byte is retained (`tail -c 1`) and only bytes are counted
+      # (`wc -c`): no lint output is ever buffered, in memory or on disk. The
+      # real stdout is reached with `>&3`, which DUPLICATES the inherited
+      # descriptor. It must never be named as a path: `tee /dev/fd/3` reopens the
+      # file with O_TRUNC on Linux, so a task whose stdout is a redirected
+      # regular file (a CI log) lost everything written before this point and
+      # left a NUL hole where the outer offset had advanced. The readers get
+      # FIFOs — paths `tee` may safely open — as known background jobs that are
+      # waited on before their results are read.
+      lint_unit_bytes=0
+      lint_unit_tail=empty
+      _run_lint_unit_observed() {
+        local unit_file="$1"
+        local rc=0
+        local wc_pid tail_pid
+        ${pkgs.coreutils}/bin/rm -f "$lint_stdout_fifo" "$lint_tail_fifo"
+        ${pkgs.coreutils}/bin/mkfifo "$lint_stdout_fifo" "$lint_tail_fifo"
+        ${pkgs.coreutils}/bin/wc -c < "$lint_stdout_fifo" > "$lint_bytes" &
+        wc_pid=$!
+        ${pkgs.coreutils}/bin/tail -c 1 < "$lint_tail_fifo" > "$lint_last" &
+        tail_pid=$!
+        {
+          _run_lint_unit "$unit_file" \
+            | ${pkgs.coreutils}/bin/tee "$lint_stdout_fifo" "$lint_tail_fifo" >&3
+        } 3>&1 || rc=$?
+        wait "$wc_pid"
+        wait "$tail_pid"
+        lint_unit_bytes=$(${pkgs.coreutils}/bin/tr -d ' ' < "$lint_bytes")
+        lint_unit_tail=$(_lint_classify_tail "$lint_last")
+        # Complete the line the tool never terminated, on the real stdout and
+        # OUTSIDE the counted stream, so the inserted byte is never reported as
+        # tool output. devenv relays a failing task's output line by line and
+        # DROPS the trailing chunk after the last newline at EOF, so an
+        # unterminated report was invisible in CI even when it was the only line
+        # naming the failure. Nothing is inserted after output that already ends
+        # in a newline, and nothing at all after a silent unit.
+        if [ "$lint_unit_tail" = no-newline ]; then
+          printf '\n'
+        fi
+        return "$rc"
+      }
+
+      # Units run STRICTLY SEQUENTIALLY: the whole point is that only one
+      # tsgolint program is resident at a time. A failing unit does not
+      # short-circuit — later units still lint, so one broken package cannot
+      # mask findings elsewhere — and the FIRST nonzero status is what the task
+      # returns, so a single-unit lane keeps its exact previous exit behaviour.
+      _run_lint() {
+        local unit_index=0
+        local unit_rc
+        while [ "$unit_index" -lt "$lint_unit_count" ]; do
+          unit_rc=0
+          _run_lint_unit_observed "''${lint_unit_files[$unit_index]}" || unit_rc=$?
+          lint_stdout_bytes=$((lint_stdout_bytes + lint_unit_bytes))
+          # The aggregate tail describes the last unit that actually WROTE
+          # something: a silent later unit must not make a newline-less report
+          # look terminated.
+          if [ "$lint_unit_tail" != empty ]; then
+            lint_stdout_tail=$lint_unit_tail
+          fi
+          if [ "$unit_rc" -ne 0 ]; then
+            lint_failed_units=$((lint_failed_units + 1))
+            if [ "$lint_status" -eq 0 ]; then
+              lint_status=$unit_rc
+              lint_first_failed_unit=''${lint_unit_labels[$unit_index]}
+            fi
+          fi
+          unit_index=$((unit_index + 1))
+        done
       }
 
       # Memory evidence for a lint child that dies mute. A kernel OOM kill
@@ -276,61 +460,24 @@ let
       # oxlint/oxfmt findings go to STDOUT, so "did the tool print anything at
       # all" is what separates a real finding from a tool that died mute — the
       # ambiguity that made a red CI oxlint task unattributable (devenv dumps a
-      # failing task's stdout, and there was none). Bytes are COUNTED as they
-      # stream past; no lint output is ever buffered in memory or on disk, and
-      # the branch is skipped entirely when stdout is a terminal so interactive
-      # tty/colour behaviour is untouched.
-      #
-      # The real stdout is reached with `>&3`, which DUPLICATES the inherited
-      # descriptor. It must never be named as a path: `tee /dev/fd/3` reopens the
-      # file with O_TRUNC on Linux, so a task whose stdout is a redirected
-      # regular file (a CI log) lost everything written before this point and
-      # left a NUL hole where the outer offset had advanced. The counter
-      # therefore gets a FIFO — a path tee may safely open — with `wc` reading it
-      # in a known background job that is waited on before the count is read.
-      #
-      # A SECOND fifo carries the same stream to `tail -c 1`, which retains only
-      # the final byte: that is how the tail's newline-termination is learned
-      # without buffering any output. Both readers are explicitly waited on, so
-      # their results are complete before they are read.
+      # failing task's stdout, and there was none). The reported byte count is
+      # the SUM of the per-unit counts, so it stays the number of bytes the
+      # TOOLS wrote: line-completing newlines are inserted outside the counted
+      # stream and never inflate it. Observation uses the same streaming relay
+      # for terminal and redirected stdout, so both paths enforce identical unit
+      # boundaries and retain identical aggregate diagnostics.
       lint_status=0
-      lint_stdout_bytes=unknown
-      lint_stdout_tail=unknown
-      if [ -t 1 ]; then
-        _run_lint || lint_status=$?
-      else
-        lint_probe_dir=$(mktemp -d)
-        trap 'rm -f "$files"; rm -rf "$lint_probe_dir"' EXIT
-        lint_bytes="$lint_probe_dir/bytes"
-        lint_last="$lint_probe_dir/last"
-        lint_fifo="$lint_probe_dir/stdout"
-        lint_tail_fifo="$lint_probe_dir/tail"
-        ${pkgs.coreutils}/bin/mkfifo "$lint_fifo" "$lint_tail_fifo"
-        ${pkgs.coreutils}/bin/wc -c < "$lint_fifo" > "$lint_bytes" &
-        lint_wc_pid=$!
-        ${pkgs.coreutils}/bin/tail -c 1 < "$lint_tail_fifo" > "$lint_last" &
-        lint_tail_pid=$!
-        {
-          _run_lint | ${pkgs.coreutils}/bin/tee "$lint_fifo" "$lint_tail_fifo" >&3
-        } 3>&1 || lint_status=$?
-        wait "$lint_wc_pid"
-        wait "$lint_tail_pid"
-        lint_stdout_bytes=$(${pkgs.coreutils}/bin/tr -d ' ' < "$lint_bytes")
-        if [ ! -s "$lint_last" ]; then
-          lint_stdout_tail=empty
-        elif [ "$(${pkgs.coreutils}/bin/od -An -N1 -tu1 < "$lint_last" \
-          | ${pkgs.coreutils}/bin/tr -d '[:space:]')" = 10 ]; then
-          # Compare the retained byte NUMERICALLY (10 = LF). Inspecting the byte
-          # as text cannot classify it: command substitution strips trailing
-          # newlines AND drops NUL bytes, so a stream ending in a literal NUL
-          # (a truncated/holed tail) produced an empty string and was mislabelled
-          # `newline`, suppressing the line-completing newline on the failure
-          # path. `od` renders the byte as digits, which survive substitution.
-          lint_stdout_tail=newline
-        else
-          lint_stdout_tail=no-newline
-        fi
-      fi
+      lint_failed_units=0
+      lint_first_failed_unit=-
+      lint_stdout_bytes=0
+      lint_stdout_tail=empty
+      lint_probe_dir=$(mktemp -d)
+      trap 'rm -f "$files"; rm -rf "$lint_scratch" "$lint_probe_dir"' EXIT
+      lint_bytes="$lint_probe_dir/bytes"
+      lint_last="$lint_probe_dir/last"
+      lint_stdout_fifo="$lint_probe_dir/stdout"
+      lint_tail_fifo="$lint_probe_dir/tail"
+      _run_lint
       if [ "$lint_status" -ne 0 ]; then
         # `xargs` never forwards the child's own status; translate its documented
         # codes so the line says what actually happened rather than "123".
@@ -342,17 +489,12 @@ let
           126) lint_hint=" (xargs: command found but not executable)" ;;
           127) lint_hint=" (xargs: command not found)" ;;
         esac
-        # devenv relays a failing task's output line by line and DROPS the
-        # trailing chunk after the last newline when the stream hits EOF. A
-        # tsgolint crash prints exactly `Error running tsgolint: "exit status:
-        # signal: 9 (SIGKILL)"` with no trailing newline, so the only line that
-        # named the failure was invisible in CI. Complete that final line here —
-        # on the failure path only, so successful output stays byte-identical.
-        if [ "$lint_stdout_tail" = "no-newline" ]; then
-          printf '\n'
-        fi
-        printf "lint-oxc: lane=%s stage=run status=%s files=%s stdout_bytes=%s stdout_tail=%s command=%s%s\n" \
-          "$lint_lane" "$lint_status" "$lint_file_count" "$lint_stdout_bytes" \
+        # The final line was already completed at its unit's output boundary, so
+        # nothing is appended here: the reported tail describes what the TOOL
+        # wrote, not what reached stdout after completion.
+        printf "lint-oxc: lane=%s stage=run status=%s files=%s units=%s failed_units=%s first_failed_unit=%s stdout_bytes=%s stdout_tail=%s command=%s%s\n" \
+          "$lint_lane" "$lint_status" "$lint_file_count" "$lint_unit_count" \
+          "$lint_failed_units" "$lint_first_failed_unit" "$lint_stdout_bytes" \
           "$lint_stdout_tail" "$lint_cmd_label" "$lint_hint" >&2
         _lint_memory_evidence
         exit "$lint_status"
@@ -392,6 +534,9 @@ let
     in
     mkLintExec {
       inherit lane;
+      # oxlint owns the tsgolint program, so both oxlint lanes are partitioned
+      # per nearest owning tsconfig.json (see `partition` in mkLintExec).
+      partition = true;
       command =
         if instrName != null then
           ''"''${_otel_instr[@]}" oxlint "''${_otel_instr_flags[@]}" --import-plugin ${flags} ${typeAwareFlags}''

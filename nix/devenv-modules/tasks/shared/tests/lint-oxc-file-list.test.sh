@@ -84,6 +84,37 @@ mkdir -p "$workspace/node_modules/pkg" "$tmpdir/bin"
 cat > "$tmpdir/bin/oxlint" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+# Per-invocation record. The partition contract is about HOW MANY times the tool
+# runs and with WHICH files each time, so a single overwritten arg file cannot
+# express it: every invocation appends a `=== unit` header plus its argv.
+if [ -n "${TEST_OXLINT_INVOCATIONS:-}" ]; then
+  {
+    echo "=== unit"
+    printf '%s\n' "$@"
+  } >> "$TEST_OXLINT_INVOCATIONS"
+fi
+# Fail exactly one ownership unit, with the real tsgolint crash shape (stdout,
+# no trailing newline). Later units must still run and the overall task must
+# still be nonzero.
+if [ -n "${TEST_OXLINT_FAIL_ON:-}" ]; then
+  for arg in "$@"; do
+    if [ "$arg" = "$TEST_OXLINT_FAIL_ON" ]; then
+      printf '%s' 'Error running tsgolint: "exit status: signal: 9 (SIGKILL)"'
+      exit 1
+    fi
+  done
+fi
+# Optionally emit one ordinary newline-terminated line from a later ownership
+# unit. Together with TEST_OXLINT_FAIL_ON this proves unit output boundaries:
+# the line must never attach to the failing unit's newline-less SIGKILL report.
+if [ -n "${TEST_OXLINT_EMIT_ON:-}" ]; then
+  for arg in "$@"; do
+    if [ "$arg" = "$TEST_OXLINT_EMIT_ON" ]; then
+      printf '%s\n' "${TEST_OXLINT_EMIT_TEXT:?}"
+      exit 0
+    fi
+  done
+fi
 # Silent nonzero exit: the exact shape that made a red CI oxlint task
 # unattributable (exit 1, no stdout, no diagnostics). Under `xargs` the child
 # status is additionally collapsed to 123, so the task boundary must name the
@@ -320,9 +351,8 @@ export TEST_OXLINT_SILENT_FAILURE=1
 oxlint_silent_status=0
 oxlint_silent_stderr="$tmpdir/oxlint-silent.stderr"
 oxlint_silent_stdout="$tmpdir/oxlint-silent.stdout"
-# stdout is redirected to a FILE on purpose: the byte accounting only engages on
-# a non-tty stdout (a terminal keeps raw tty semantics), and the assertion below
-# is precisely that the tool produced zero bytes of findings.
+# stdout is redirected to a FILE so the zero-byte assertion below inspects the
+# exact stream independently of the terminal-path coverage in Test 16.
 (
   cd "$workspace"
   bash "$tmpdir/lint-check-oxlint.sh"
@@ -604,6 +634,327 @@ for needle in \
   fi
   echo "  ok: diagnostic names $needle"
 done
+
+echo ""
+echo "Test 12: the lint surface is partitioned per nearest owning tsconfig.json"
+# CI #5370: one oxlint call over the whole surface hands tsgolint every file at
+# once and the host is OOM-killed (oom_kill=1, 14.78 GiB of 16 GiB, tsgolint
+# SIGKILL). The fix is ownership partitioning: each directory holding a LITERAL
+# tsconfig.json is one unit, files owned by none form one residual unit, and the
+# units run sequentially. The union must be exactly the previously linted set —
+# no file dropped, none linted twice — so lint semantics are unchanged.
+partition="$tmpdir/partition"
+mkdir -p \
+  "$partition/packages/a/src" \
+  "$partition/packages/b/src" \
+  "$partition/packages/b/nested" \
+  "$partition/scripts"
+
+for cfg in packages/a packages/b packages/b/nested; do
+  echo '{"compilerOptions":{}}' > "$partition/$cfg/tsconfig.json"
+done
+for src in \
+  packages/a/src/one.ts \
+  packages/a/two.ts \
+  packages/a/untracked.ts \
+  packages/b/src/three.ts \
+  packages/b/nested/four.ts \
+  scripts/tool.ts \
+  top.ts; do
+  echo "export const x = true" > "$partition/$src"
+done
+
+(
+  cd "$partition"
+  git init --quiet
+  # `untracked.ts` stays untracked-but-not-ignored on purpose: it is part of the
+  # lint surface, so it must land in its owning unit like a tracked file.
+  git add packages scripts top.ts
+  git rm --cached --quiet packages/a/untracked.ts
+)
+
+partition_invocations="$tmpdir/partition-invocations.txt"
+: > "$partition_invocations"
+(
+  cd "$partition"
+  TEST_OXLINT_INVOCATIONS="$partition_invocations" bash "$tmpdir/lint-check-oxlint.sh"
+)
+
+read_unit_signatures() {
+  local record="$1"
+  local -a cur=()
+  local line
+  local skip_value=0
+  while IFS= read -r line; do
+    if [ "$line" = "=== unit" ]; then
+      if [ "${#cur[@]}" -gt 0 ]; then
+        printf '%s\n' "$(printf '%s\n' "${cur[@]}" | sort | paste -sd, -)"
+      fi
+      cur=()
+    else
+      # argv carries the invariant flags (`--import-plugin`, `--deny-warnings`,
+      # and `--tsconfig <path>` when type-aware linting is on) ahead of the
+      # files; the partition contract is about the FILES.
+      case "$line" in
+        --tsconfig) skip_value=1 ;;
+        -*) ;;
+        *)
+          if [ "$skip_value" = 1 ]; then
+            skip_value=0
+          else
+            cur+=("$line")
+          fi
+          ;;
+      esac
+    fi
+  done < "$record"
+  if [ "${#cur[@]}" -gt 0 ]; then
+    printf '%s\n' "$(printf '%s\n' "${cur[@]}" | sort | paste -sd, -)"
+  fi
+}
+
+actual_units="$(read_unit_signatures "$partition_invocations" | sort)"
+expected_units="$(
+  cat <<'EOF' | sort
+packages/a/src/one.ts,packages/a/two.ts,packages/a/untracked.ts
+packages/b/nested/four.ts
+packages/b/src/three.ts
+scripts/tool.ts,top.ts
+EOF
+)"
+if [ "$actual_units" != "$expected_units" ]; then
+  echo "FAIL: lint units must be one per owning tsconfig.json plus one residual"
+  echo "  expected:"
+  printf '    %s\n' $expected_units
+  echo "  actual:"
+  printf '    %s\n' $actual_units
+  exit 1
+fi
+echo "  ok: one invocation per owning package plus one residual unit"
+
+union="$(read_unit_signatures "$partition_invocations" | tr ',' '\n' | sort)"
+union_unique="$(printf '%s\n' "$union" | sort -u)"
+if [ "$union" != "$union_unique" ]; then
+  echo "FAIL: a file was linted by more than one unit"
+  printf '%s\n' "$union" | uniq -d
+  exit 1
+fi
+echo "  ok: no file appears in two units"
+
+expected_union="$(
+  cat <<'EOF' | sort
+packages/a/src/one.ts
+packages/a/two.ts
+packages/a/untracked.ts
+packages/b/nested/four.ts
+packages/b/src/three.ts
+scripts/tool.ts
+top.ts
+EOF
+)"
+if [ "$union" != "$expected_union" ]; then
+  echo "FAIL: the union of all units must equal the tracked lint surface exactly"
+  diff <(printf '%s\n' "$expected_union") <(printf '%s\n' "$union") || true
+  exit 1
+fi
+echo "  ok: union equals the full lint surface"
+
+echo ""
+echo "Test 13: one failing unit fails the task without hiding its output"
+partition_fail_invocations="$tmpdir/partition-fail-invocations.txt"
+: > "$partition_fail_invocations"
+partition_fail_stdout="$tmpdir/partition-fail.stdout"
+partition_fail_stderr="$tmpdir/partition-fail.stderr"
+partition_fail_status=0
+(
+  cd "$partition"
+  TEST_OXLINT_INVOCATIONS="$partition_fail_invocations" \
+    TEST_OXLINT_FAIL_ON="packages/b/src/three.ts" \
+    bash "$tmpdir/lint-check-oxlint.sh"
+) > "$partition_fail_stdout" 2> "$partition_fail_stderr" || partition_fail_status=$?
+
+if [ "$partition_fail_status" -eq 0 ]; then
+  echo "FAIL: a failing unit must make the whole task nonzero"
+  exit 1
+fi
+echo "  ok: task status stays nonzero ($partition_fail_status)"
+
+partition_fail_text='Error running tsgolint: "exit status: signal: 9 (SIGKILL)"'
+if [ "$(cat "$partition_fail_stdout")" != "$partition_fail_text" ]; then
+  echo "FAIL: the failing unit's stdout must survive verbatim"
+  echo "  actual:"
+  sed -n '1,20p' "$partition_fail_stdout"
+  exit 1
+fi
+if [ "$(tail -c 1 "$partition_fail_stdout" | od -An -tu1 | tr -d ' ')" != 10 ]; then
+  echo "FAIL: the newline-less failing tail must still be completed"
+  exit 1
+fi
+echo "  ok: newline-less unit output reaches stdout and is line-completed"
+
+partition_fail_unit_count="$(grep -cxF '=== unit' "$partition_fail_invocations")"
+if [ "$partition_fail_unit_count" != 4 ]; then
+  echo "FAIL: every unit must run even after one fails (ran $partition_fail_unit_count of 4)"
+  exit 1
+fi
+echo "  ok: all 4 units ran; the failure is aggregated, not short-circuiting"
+
+for needle in \
+  "lint-oxc: lane=lint:check:oxlint stage=run" \
+  "units=4" \
+  "failed_units=1" \
+  "first_failed_unit=packages/b" \
+  "stdout_tail=no-newline"; do
+  if ! grep -qF -- "$needle" "$partition_fail_stderr"; then
+    echo "FAIL: failure diagnostic must contain: $needle"
+    echo "  actual stderr:"
+    sed -n '1,40p' "$partition_fail_stderr"
+    exit 1
+  fi
+  echo "  ok: diagnostic names $needle"
+done
+
+echo ""
+echo "Test 14: a fully passing partitioned run keeps success semantics"
+partition_ok_stdout="$tmpdir/partition-ok.stdout"
+partition_ok_stderr="$tmpdir/partition-ok.stderr"
+(
+  cd "$partition"
+  bash "$tmpdir/lint-check-oxlint.sh"
+) > "$partition_ok_stdout" 2> "$partition_ok_stderr"
+if grep -qE 'stdout_tail=|failed_units=|memory\.events=|memory=unavailable' "$partition_ok_stderr"; then
+  echo "FAIL: a passing partitioned run must emit no failure diagnostics"
+  sed -n '1,40p' "$partition_ok_stderr"
+  exit 1
+fi
+if [ -s "$partition_ok_stdout" ]; then
+  echo "FAIL: a passing partitioned run must not add stdout of its own"
+  sed -n '1,20p' "$partition_ok_stdout"
+  exit 1
+fi
+echo "  ok: exit 0, no added stdout, no diagnostics"
+
+echo ""
+echo "Test 15: a newline-less middle unit owns its output boundary"
+partition_boundary_invocations="$tmpdir/partition-boundary-invocations.txt"
+: > "$partition_boundary_invocations"
+partition_boundary_stdout="$tmpdir/partition-boundary.stdout"
+partition_boundary_stderr="$tmpdir/partition-boundary.stderr"
+partition_boundary_expected="$tmpdir/partition-boundary.expected"
+partition_boundary_status=0
+partition_boundary_crash='Error running tsgolint: "exit status: signal: 9 (SIGKILL)"'
+partition_boundary_later='later unit output'
+partition_boundary_crash_bytes="$(printf '%s' "$partition_boundary_crash" | wc -c | tr -d ' ')"
+if [ "$partition_boundary_crash_bytes" != 58 ]; then
+  echo "FAIL: regression fixture must retain the exact 58-byte tsgolint crash text"
+  exit 1
+fi
+(
+  cd "$partition"
+  TEST_OXLINT_INVOCATIONS="$partition_boundary_invocations" \
+    TEST_OXLINT_FAIL_ON="packages/b/nested/four.ts" \
+    TEST_OXLINT_EMIT_ON="scripts/tool.ts" \
+    TEST_OXLINT_EMIT_TEXT="$partition_boundary_later" \
+    bash "$tmpdir/lint-check-oxlint.sh"
+) > "$partition_boundary_stdout" 2> "$partition_boundary_stderr" || partition_boundary_status=$?
+
+if [ "$partition_boundary_status" -eq 0 ]; then
+  echo "FAIL: the middle unit failure must make the task nonzero"
+  exit 1
+fi
+echo "  ok: task status stays nonzero ($partition_boundary_status)"
+
+# Exact bytes: the tool's 58-byte crash text, exactly ONE inserted LF at that
+# unit boundary, then the later unit's ordinary newline-terminated line.
+printf '%s\n%s\n' "$partition_boundary_crash" "$partition_boundary_later" \
+  > "$partition_boundary_expected"
+if ! cmp -s "$partition_boundary_expected" "$partition_boundary_stdout"; then
+  echo "FAIL: adjacent unit outputs must be two separate complete lines"
+  echo "  expected bytes:"
+  od -An -tu1 "$partition_boundary_expected"
+  echo "  actual bytes:"
+  od -An -tu1 "$partition_boundary_stdout"
+  exit 1
+fi
+partition_boundary_lines="$(wc -l < "$partition_boundary_stdout" | tr -d ' ')"
+if [ "$partition_boundary_lines" != 2 ]; then
+  echo "FAIL: expected exactly two output lines, got $partition_boundary_lines"
+  exit 1
+fi
+echo "  ok: exactly one LF separates the 58-byte crash from later output"
+
+partition_boundary_unit_count="$(grep -cxF '=== unit' "$partition_boundary_invocations")"
+if [ "$partition_boundary_unit_count" != 4 ]; then
+  echo "FAIL: every unit must run after the middle failure (ran $partition_boundary_unit_count of 4)"
+  exit 1
+fi
+echo "  ok: all 4 units ran"
+
+partition_boundary_later_bytes="$(printf '%s\n' "$partition_boundary_later" | wc -c | tr -d ' ')"
+partition_boundary_tool_bytes="$((partition_boundary_crash_bytes + partition_boundary_later_bytes))"
+for needle in \
+  "units=4" \
+  "failed_units=1" \
+  "first_failed_unit=packages/b/nested" \
+  "stdout_bytes=$partition_boundary_tool_bytes" \
+  "stdout_tail=newline"; do
+  if ! grep -qF -- "$needle" "$partition_boundary_stderr"; then
+    echo "FAIL: aggregate failure diagnostic must contain: $needle"
+    echo "  actual stderr:"
+    sed -n '1,40p' "$partition_boundary_stderr"
+    exit 1
+  fi
+  echo "  ok: aggregate diagnostic names $needle"
+done
+
+echo ""
+echo "Test 16: a pseudo-TTY stdout enforces the same middle-unit boundary"
+partition_boundary_tty_invocations="$tmpdir/partition-boundary-tty-invocations.txt"
+: > "$partition_boundary_tty_invocations"
+partition_boundary_tty_stdout="$tmpdir/partition-boundary-tty.stdout"
+partition_boundary_tty_stderr="$tmpdir/partition-boundary-tty.stderr"
+partition_boundary_tty_status=0
+printf -v partition_boundary_tty_command \
+  'stty -onlcr; cd %q; exec bash %q 2>%q' \
+  "$partition" "$tmpdir/lint-check-oxlint.sh" "$partition_boundary_tty_stderr"
+TEST_OXLINT_INVOCATIONS="$partition_boundary_tty_invocations" \
+  TEST_OXLINT_FAIL_ON="packages/b/nested/four.ts" \
+  TEST_OXLINT_EMIT_ON="scripts/tool.ts" \
+  TEST_OXLINT_EMIT_TEXT="$partition_boundary_later" \
+  script -qefc "$partition_boundary_tty_command" /dev/null \
+  > "$partition_boundary_tty_stdout" || partition_boundary_tty_status=$?
+
+if [ "$partition_boundary_tty_status" -eq 0 ]; then
+  echo "FAIL: the pseudo-TTY middle unit failure must make the task nonzero"
+  exit 1
+fi
+if ! cmp -s "$partition_boundary_expected" "$partition_boundary_tty_stdout"; then
+  echo "FAIL: pseudo-TTY adjacent unit outputs must be two separate complete lines"
+  echo "  expected bytes:"
+  od -An -tu1 "$partition_boundary_expected"
+  echo "  actual bytes:"
+  od -An -tu1 "$partition_boundary_tty_stdout"
+  exit 1
+fi
+partition_boundary_tty_unit_count="$(grep -cxF '=== unit' "$partition_boundary_tty_invocations")"
+if [ "$partition_boundary_tty_unit_count" != 4 ]; then
+  echo "FAIL: every pseudo-TTY unit must run after the middle failure (ran $partition_boundary_tty_unit_count of 4)"
+  exit 1
+fi
+for needle in \
+  "units=4" \
+  "failed_units=1" \
+  "first_failed_unit=packages/b/nested" \
+  "stdout_bytes=$partition_boundary_tool_bytes" \
+  "stdout_tail=newline"; do
+  if ! grep -qF -- "$needle" "$partition_boundary_tty_stderr"; then
+    echo "FAIL: pseudo-TTY aggregate failure diagnostic must contain: $needle"
+    echo "  actual stderr:"
+    sed -n '1,40p' "$partition_boundary_tty_stderr"
+    exit 1
+  fi
+done
+echo "  ok: pseudo-TTY output has exactly one LF boundary, all units, and aggregate diagnostics"
 
 echo ""
 echo "All lint-oxc file list tests passed"
