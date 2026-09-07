@@ -200,12 +200,23 @@ export const acquireDeletionLease = ({
       })
     }
 
-    const link = fs.link(stagingPath, leasePath).pipe(
-      Effect.as(true),
-      Effect.orElseSucceed(() => false),
-    )
+    // Link, then prove the lease at the path is OURS. Recovery makes `link`
+    // alone insufficient: two acquirers can judge the same dead record
+    // releasable, and the loser's `remove` can delete the winner's fresh lease
+    // before linking its own (ABA). The record's token is the only ownership
+    // proof, so a mismatch fails closed and — critically — removes nothing,
+    // leaving the actual holder untouched.
+    const linkAndClaim = Effect.gen(function* () {
+      const linked = yield* fs.link(stagingPath, leasePath).pipe(
+        Effect.as(true),
+        Effect.orElseSucceed(() => false),
+      )
+      if (linked === false) return false
+      const current = yield* readLeaseRecord({ fs, leasePath })
+      return current?.token === token
+    })
     const acquired = yield* Effect.gen(function* () {
-      if ((yield* link) === true) return true
+      if ((yield* linkAndClaim) === true) return true
       // Contended: recover only a provably dead same-host holder, then retry once.
       const existing = yield* readLeaseRecord({ fs, leasePath })
       if (existing === undefined || isProvablyReleasable(existing) === false) return false
@@ -214,7 +225,7 @@ export const acquireDeletionLease = ({
         Effect.orElseSucceed(() => false),
       )
       if (removed === false) return false
-      return yield* link
+      return yield* linkAndClaim
     })
 
     yield* fs.remove(stagingPath).pipe(Effect.orElseSucceed(() => undefined))

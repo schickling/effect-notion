@@ -119,6 +119,10 @@ window: reclamation holds it across final classification and deletion, and activ
 before its first worktree write until after it has published the manifest. The lease is one file at
 `$MEGAREPO_STORE/.state/deletion-leases/<sha256-of-owner-path>.lease`, taken by hard-linking onto
 that path — atomic on POSIX, so the loser fails closed instead of proceeding on a stale snapshot.
+Every plan-bound deletion takes it, whole worktrees and archive reaps included, since an activation
+of the worktree being deleted is exactly what the lease has to exclude. After linking, the acquirer
+re-reads the record and requires its own token: concurrent recovery of one dead holder can otherwise
+let a loser's removal delete the winner's fresh lease, and a mismatch refuses without removing.
 
 Activation needs no protocol code of its own; wrap it:
 
@@ -128,7 +132,7 @@ mr store lease --owner-path /path/to/store/worktree -- <activation command>
 
 A lease is reclaimed only when its record is decodable, names this host, and names a pid that is
 provably gone. A foreign host, a live pid, or an unreadable record keeps the lease and refuses the
-caller.
+caller. `mr store lease` propagates the wrapped command's own exit code.
 
 ## Documentation
 

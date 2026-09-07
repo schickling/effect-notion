@@ -120,8 +120,9 @@ worktree, archive, or generated-artifact action after an owner-locked
 revalidation. Missing, ambiguous, changed, or unknown evidence refuses the
 application.
 
-Generated-artifact deletion additionally holds the owner's deletion lease, so an
-activation wrapped in `mr store lease` can never be overtaken.
+Every plan-bound deletion — generated artifact, whole worktree, archive reap —
+additionally holds the lease for its owner path, so an activation wrapped in
+`mr store lease` can never be overtaken.
 
 ### `mr store lease`
 

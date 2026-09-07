@@ -188,6 +188,74 @@ describe('store deletion lease', () => {
   )
 
   it.effect(
+    'never claims a lease replaced between its link and its ownership check',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const f = yield* fixture()
+        const ownerPath = yield* canonicalizeOwnerPath(f.owner)
+        const leasePath = yield* writeLease({
+          storePath: f.storePath,
+          ownerPath,
+          content: encodeJson({
+            version: 1,
+            ownerPath,
+            host: hostname(),
+            pid: deadPid(),
+            token: 'stale-token',
+            acquiredAtMs: NOW - 60_000,
+          }),
+        })
+
+        // Deterministic ABA: a competing acquirer that already judged the same
+        // dead holder releasable removes what it finds — possibly OUR fresh
+        // lease — and links its own. Injecting that replacement immediately
+        // after our `link` returns proves the acquisition is decided by the
+        // record's token, not by `link` succeeding, and that losing removes
+        // nothing: the competitor's lease must survive untouched.
+        const competitor = encodeJson({
+          version: 1,
+          ownerPath,
+          host: hostname(),
+          pid: process.pid,
+          token: 'competitor-token',
+          acquiredAtMs: NOW,
+        })
+        const racingFs: FileSystem.FileSystem = {
+          ...fs,
+          link: (from: string, to: string) =>
+            fs
+              .link(from, to)
+              .pipe(
+                Effect.andThen(
+                  to === leasePath
+                    ? fs.remove(to).pipe(Effect.andThen(fs.writeFileString(to, competitor)))
+                    : Effect.void,
+                ),
+              ),
+        }
+
+        const attempt = yield* acquireDeletionLease({
+          storeBasePath: f.storePath,
+          ownerPath,
+          now: NOW,
+        }).pipe(Effect.provideService(FileSystem.FileSystem, racingFs), Effect.result)
+
+        expect(attempt._tag).toBe('Failure')
+        expect(yield* fs.readFileString(leasePath)).toBe(competitor)
+
+        // No staging file survived the losing attempt.
+        const leaseDir = leasePath.slice(0, leasePath.lastIndexOf('/'))
+        expect(yield* fs.readDirectory(leaseDir)).toEqual([
+          leasePath.slice(leasePath.lastIndexOf('/') + 1),
+        ])
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
     'never recovers a foreign-host, live-pid, or unreadable lease',
     Effect.fnUntraced(
       function* () {

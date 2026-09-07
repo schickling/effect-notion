@@ -16,7 +16,12 @@ import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
 import { parseSourceString, isRemoteSource } from '../core/config.ts'
 import * as Git from '../core/git.ts'
 import { LOCK_FILE_NAME, readLockFile } from '../core/lock.ts'
-import { canonicalizeOwnerPath, deletionLeasePath } from '../store/store-deletion-lease.ts'
+import {
+  acquireDeletionLease,
+  canonicalizeOwnerPath,
+  deletionLeasePath,
+  releaseDeletionLease,
+} from '../store/store-deletion-lease.ts'
 import { refreshWorkspaceRegistry } from '../store/store-liveness.ts'
 import { makeStoreLayer, Store } from '../store/store.ts'
 import { makeConsoleCapture } from '../test-utils/consoleCapture.ts'
@@ -546,14 +551,95 @@ describe('mr store lease', () => {
         expect(observed.exitCode).toBe(0)
         expect(yield* fs.exists(leasePath)).toBe(false)
 
-        // A failing command propagates failure and still frees the lease.
-        const failed = yield* runMrCommand({
+        // Wrapping is transparent: the child's own code becomes the command's
+        // code (`process.exitCode`, honored by the CLI teardown), never a
+        // collapsed generic failure — and the lease is freed either way.
+        const previousExitCode = process.exitCode
+        try {
+          process.exitCode = undefined
+          const failed = yield* runMrCommand({
+            cwd,
+            command: ['store', 'lease', '--owner-path', owner, '--', 'sh', '-c', 'exit 42'],
+            env: { MEGAREPO_STORE: storePath },
+          })
+          expect(failed.exitCode).toBe(0)
+          expect(process.exitCode).toBe(42)
+          expect(yield* fs.exists(leasePath)).toBe(false)
+        } finally {
+          process.exitCode = previousExitCode
+        }
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+  it.effect(
+    'refuses whole-worktree application while an activation holds that owner lease',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const commit = 'abcdef1234567890abcdef1234567890abcdef12'
+        const { storePath, worktreePaths } = yield* createStoreFixture([
+          {
+            host: 'github.com',
+            owner: 'test-owner',
+            repo: 'leased-worktree-repo',
+            branches: ['main'],
+            commits: [commit],
+          },
+        ])
+        const candidate = worktreePaths[`github.com/test-owner/leased-worktree-repo#${commit}`]!
+        const cwd = EffectPath.unsafe.absoluteDir(`${yield* fs.makeTempDirectoryScoped()}/`)
+        const plan = decodeStoreGcJsonOutput(
+          (yield* runMrCommand({
+            cwd,
+            command: ['store', 'gc', '--dry-run', '--output', 'json'],
+            env: { MEGAREPO_STORE: storePath },
+          })).stdout,
+        )
+
+        // An activation of this very worktree holds its lease, so the plan-bound
+        // whole-worktree deletion must fail closed rather than delete underneath it.
+        const held = yield* acquireDeletionLease({
+          storeBasePath: storePath,
+          ownerPath: yield* canonicalizeOwnerPath(candidate),
+          now: Date.now(),
+        })
+        const refused = yield* runMrCommand({
           cwd,
-          command: ['store', 'lease', '--owner-path', owner, '--', 'false'],
+          command: [
+            'store',
+            'gc',
+            '--expected-plan',
+            plan.planSha256!,
+            '--candidate-path',
+            candidate,
+            '--output',
+            'json',
+          ],
           env: { MEGAREPO_STORE: storePath },
         })
-        expect(failed.exitCode).toBe(1)
-        expect(yield* fs.exists(leasePath)).toBe(false)
+        expect(refused.exitCode).toBe(1)
+        expect(yield* fs.exists(candidate)).toBe(true)
+
+        yield* releaseDeletionLease(held)
+        const applied = yield* runMrCommand({
+          cwd,
+          command: [
+            'store',
+            'gc',
+            '--expected-plan',
+            plan.planSha256!,
+            '--candidate-path',
+            candidate,
+            '--output',
+            'json',
+          ],
+          env: { MEGAREPO_STORE: storePath },
+        })
+        expect(applied.exitCode).toBe(0)
+        expect(yield* fs.exists(candidate)).toBe(false)
+        expect(yield* fs.exists(held.leasePath)).toBe(false)
       },
       Effect.provide(NodeServices.layer),
       Effect.scoped,

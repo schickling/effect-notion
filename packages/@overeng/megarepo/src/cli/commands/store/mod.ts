@@ -2426,15 +2426,19 @@ const storeGcCommand = Cli.Command.make(
             // plan under this candidate's owner lock (see `runGcTransaction`).
             if (ownerLockHeld === false) return candidate.path
 
-            let applied: StoreGcResult
-            if (candidate.status === 'removed') {
-              const worktree = owner.worktrees.filter((entry) => entry.path === candidate.path)
-              if (worktree.length !== 1) {
-                return yield* new StoreCommandError({
-                  message: 'candidate worktree is missing or ambiguous',
-                })
-              }
-              applied = yield* Effect.gen(function* () {
+            // The activation lease names the owner worktree path itself, so a
+            // whole-worktree removal, archive, or reap must hold it too: the
+            // owner lock alone only excludes megarepo's own reclaimers, and an
+            // activation of this very path would otherwise be unprotected.
+            const leaseOwnerPath = yield* canonicalizeOwnerPath(candidate.path)
+            const applied: StoreGcResult = yield* Effect.gen(function* () {
+              if (candidate.status === 'removed') {
+                const worktree = owner.worktrees.filter((entry) => entry.path === candidate.path)
+                if (worktree.length !== 1) {
+                  return yield* new StoreCommandError({
+                    message: 'candidate worktree is missing or ambiguous',
+                  })
+                }
                 const freshLiveSet = yield* reReconcileLiveSet({ store, root, now })
                 const decision = yield* classifyGcWorktree({
                   worktree: worktree[0]!,
@@ -2464,8 +2468,8 @@ const storeGcCommand = Cli.Command.make(
                 return pruneWarning === undefined
                   ? candidate
                   : { ...candidate, message: pruneWarning }
-              })
-            } else {
+              }
+
               const config = yield* loadStoreGcConfig({ storeBasePath: store.basePath })
               const injectedResolver = yield* Effect.serviceOption(PrStateResolver)
               const prResolver =
@@ -2513,8 +2517,14 @@ const storeGcCommand = Cli.Command.make(
                   message: 'candidate changed during owner-locked revalidation',
                 })
               }
-              applied = matching[0]!
-            }
+              return matching[0]!
+            }).pipe(
+              withDeletionLease({
+                storeBasePath: store.basePath,
+                ownerPath: leaseOwnerPath,
+                now,
+              }),
+            )
             results.splice(0, results.length, applied)
           }
 
@@ -3213,23 +3223,23 @@ const storeLeaseCommand = Cli.Command.make(
       const store = yield* Store
       const now = yield* Clock.currentTimeMillis
       const leaseOwnerPath = yield* canonicalizeOwnerPath(ownerPath)
-      const exitCode = yield* withDeletionLease({
-        storeBasePath: store.basePath,
-        ownerPath: leaseOwnerPath,
-        now,
-      })(
-        Effect.gen(function* () {
-          const child = yield* ChildProcess.make(command[0]!, command.slice(1), {
-            stderr: 'inherit',
-            stdin: 'inherit',
-            stdout: 'inherit',
-          })
-          return yield* child.exitCode
-        }).pipe(Effect.scoped),
+      const exitCode = yield* Effect.gen(function* () {
+        const child = yield* ChildProcess.make(command[0]!, command.slice(1), {
+          stderr: 'inherit',
+          stdin: 'inherit',
+          stdout: 'inherit',
+        })
+        return yield* child.exitCode
+      }).pipe(
+        Effect.scoped,
+        withDeletionLease({ storeBasePath: store.basePath, ownerPath: leaseOwnerPath, now }),
       )
+      // Wrapping must be transparent: the child's own code is the command's code
+      // (`runTuiMain`'s teardown honors an already-set `process.exitCode`), so a
+      // wrapped `exit 42` stays 42 instead of collapsing to a generic failure.
       if (exitCode !== 0) {
-        return yield* new StoreCommandError({
-          message: `leased command exited with code ${exitCode}`,
+        yield* Effect.sync(() => {
+          process.exitCode = exitCode
         })
       }
     }).pipe(
