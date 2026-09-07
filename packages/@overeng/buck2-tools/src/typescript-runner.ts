@@ -528,17 +528,54 @@ export const bubblewrapArgv = ({
 const seatbeltParameter = (options: { readonly index: number; readonly mode: 'READ' | 'WRITE' }) =>
   `${options.mode}_ROOT_${options.index}`
 
+/**
+ * `subpath` grants a declared root and everything under it; `path-ancestors` grants only the
+ * directories on the way to that root, never their other children.
+ */
+type SeatbeltPathFilter = 'path-ancestors' | 'subpath'
+
 const seatbeltRootPredicates = ({
   count,
+  filter = 'subpath',
   mode,
 }: {
   readonly count: number
+  readonly filter?: SeatbeltPathFilter
   readonly mode: 'READ' | 'WRITE'
 }): string =>
   Array.from(
     { length: count },
-    (_, index) => `(subpath (param "${seatbeltParameter({ index, mode })}"))`,
+    (_, index) => `(${filter} (param "${seatbeltParameter({ index, mode })}"))`,
   ).join(' ')
+
+/**
+ * The traversal grant for the directories leading to the declared roots, in both modes.
+ *
+ * Resolving a path walks it from `/` down: Node's `realpathSync` `lstat`s every ancestor of a
+ * declared root, and Bun's module resolution opens those ancestor directories while searching
+ * upward for `node_modules` and `package.json`. Denying the walk fails an action on an input it
+ * was already granted — reported as `EPERM: operation not permitted, lstat '/Users'` or an
+ * unresolvable module — so the ancestors of what is already admitted are admitted too.
+ *
+ * `path-ancestors` names exactly those directory entries, so this grants the directory metadata
+ * and the directory listing needed to traverse, and nothing else: a sibling file or sibling
+ * directory under an ancestor is not itself an ancestor, so its contents stay denied. The grant
+ * is derived from the existing root parameters, so no action declares anything new, and it is
+ * read-only for both modes — a write root's ancestors never become writable.
+ */
+const seatbeltAncestorPredicates = ({
+  readCount,
+  writeCount,
+}: {
+  readonly readCount: number
+  readonly writeCount: number
+}): string =>
+  [
+    seatbeltRootPredicates({ count: readCount, filter: 'path-ancestors', mode: 'READ' }),
+    seatbeltRootPredicates({ count: writeCount, filter: 'path-ancestors', mode: 'WRITE' }),
+  ]
+    .filter((predicates) => predicates !== '')
+    .join(' ')
 
 /**
  * Exact system metadata files/devices the Darwin runtime itself requires, named by their stable
@@ -676,6 +713,10 @@ const seatbeltSysctlPredicates = (): string =>
  * A parameterized Seatbelt profile: default deny, network denied, reads allowed only for
  * declared input and tool roots, writes allowed only for the declared output and scratch. Roots
  * arrive as `-D` parameters so the profile bytes stay identical across actions.
+ *
+ * The one derived grant is traversal: the ancestor directories of those same roots are readable
+ * so a runtime can walk down to an input it was already granted. See
+ * {@link seatbeltAncestorPredicates}.
  */
 export const seatbeltProfile = ({
   metadataLinks,
@@ -696,6 +737,11 @@ export const seatbeltProfile = ({
     `(allow file-read-metadata ${seatbeltRootPredicates({ count: readRoots.length, mode: 'READ' })} ${seatbeltRootPredicates({ count: writeRoots.length, mode: 'WRITE' })} ${seatbeltLiteralPredicates(DARWIN_SEATBELT_OS_METADATA_PATHS)} ${seatbeltMetadataLinkPredicates(metadataLinks.length)})`,
     `(allow file-read* ${seatbeltLiteralPredicates(DARWIN_SEATBELT_OS_READ_PATHS)} ${seatbeltMetadataLinkPredicates(metadataLinks.length)})`,
     `(allow file-write-data ${seatbeltLiteralPredicates(DARWIN_SEATBELT_OS_WRITE_PATHS)})`,
+    ...(readRoots.length + writeRoots.length === 0
+      ? []
+      : [
+          `(allow file-read-metadata file-read-data ${seatbeltAncestorPredicates({ readCount: readRoots.length, writeCount: writeRoots.length })})`,
+        ]),
     ...(readRoots.length === 0
       ? []
       : [
