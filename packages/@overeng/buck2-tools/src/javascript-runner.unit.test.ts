@@ -1,4 +1,13 @@
-import { existsSync, realpathSync, statSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
@@ -7,10 +16,12 @@ import { describe, expect, it } from 'vitest'
 
 import {
   acquireScratch,
+  javaScriptSandboxInvocation,
   parseJavaScriptRunOptions,
   planScratch,
   vitestArgv,
 } from './javascript-runner.ts'
+import { DARWIN_SANDBOX_LAUNCHER, type SandboxOptions } from './typescript-runner.ts'
 
 const bun = '/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bun/bin/bun'
 
@@ -313,5 +324,108 @@ describe('acquireScratch', () => {
     } finally {
       await rm(declared, { recursive: true, force: true })
     }
+  })
+})
+
+const BUN_CLOSURE = '/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bun'
+const BWRAP = '/nix/store/3333333333333333333333333333333c-bubblewrap/bin/bwrap'
+
+const seatbelt: SandboxOptions = {
+  kind: 'seatbelt',
+  launcher: DARWIN_SANDBOX_LAUNCHER,
+  toolClosure: [BUN_CLOSURE],
+  darwinKernelMajors: ['25'],
+}
+
+const bubblewrap: SandboxOptions = {
+  kind: 'bubblewrap',
+  launcher: BWRAP,
+  toolClosure: [BUN_CLOSURE],
+  darwinKernelMajors: [],
+}
+
+/** A logical Darwin-shaped metadata path: `etc` is a directory symlink, `localtime` a file one. */
+const createMetadataFixture = () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'javascript-runner-metadata-')))
+  const canonicalDirectory = join(root, 'private/etc')
+  const logicalDirectory = join(root, 'etc')
+  const zoneinfo = join(root, 'private/var/db/timezone/zoneinfo/Europe')
+  mkdirSync(canonicalDirectory, { recursive: true })
+  mkdirSync(zoneinfo, { recursive: true })
+  writeFileSync(join(zoneinfo, 'Berlin'), 'TZif')
+  symlinkSync(canonicalDirectory, logicalDirectory)
+  symlinkSync('../var/db/timezone/zoneinfo/Europe/Berlin', join(canonicalDirectory, 'localtime'))
+  const logicalLocaltime = join(logicalDirectory, 'localtime')
+  return {
+    root,
+    logicalLocaltime,
+    expectedLinks: [
+      join(realpathSync(logicalDirectory), 'localtime'),
+      realpathSync(logicalLocaltime),
+    ].toSorted(),
+  }
+}
+
+describe('javaScriptSandboxInvocation', () => {
+  it('parameterizes a Seatbelt launch with the canonical Darwin OS metadata spellings', () => {
+    const fixture = createMetadataFixture()
+    try {
+      const scratch = join(fixture.root, 'scratch')
+      const packageTree = join(fixture.root, 'package')
+
+      const invocation = javaScriptSandboxInvocation({
+        command: [bun, 'run', 'vitest'],
+        inputRoots: [packageTree],
+        kernelRelease: '25.5.0',
+        metadataPaths: [fixture.logicalLocaltime],
+        outputRoots: [],
+        sandbox: seatbelt,
+        scratchRoot: scratch,
+        workingDirectory: packageTree,
+      })
+
+      expect(invocation.argv.slice(0, 3)).toEqual([
+        DARWIN_SANDBOX_LAUNCHER,
+        '-f',
+        join(scratch, 'seatbelt.sb'),
+      ])
+      expect(invocation.argv.slice(-3)).toEqual([bun, 'run', 'vitest'])
+      for (const [index, link] of fixture.expectedLinks.entries()) {
+        expect(invocation.argv).toContain(`META_LINK_${index}=${link}`)
+        expect(invocation.profile?.bytes).toContain(`(literal (param "META_LINK_${index}"))`)
+      }
+    } finally {
+      rmSync(fixture.root, { recursive: true })
+    }
+  })
+
+  it('refuses a Seatbelt launch on a host the Darwin containment gate has not admitted', () => {
+    expect(() =>
+      javaScriptSandboxInvocation({
+        command: [bun, 'run'],
+        inputRoots: ['/tree'],
+        kernelRelease: '24.6.0',
+        outputRoots: [],
+        sandbox: seatbelt,
+        scratchRoot: '/scratch',
+        workingDirectory: '/tree',
+      }),
+    ).toThrow(/Darwin kernel 24 is not an admitted Seatbelt executor.*25/u)
+  })
+
+  it('leaves a Bubblewrap launch without Darwin metadata parameters or a profile', () => {
+    const invocation = javaScriptSandboxInvocation({
+      command: [bun, 'run'],
+      inputRoots: ['/tree'],
+      kernelRelease: '6.18.0',
+      outputRoots: [],
+      sandbox: bubblewrap,
+      scratchRoot: '/scratch',
+      workingDirectory: '/tree',
+    })
+
+    expect(invocation.argv[0]).toBe(BWRAP)
+    expect(invocation.argv.some((argument) => argument.includes('META_LINK_'))).toBe(false)
+    expect(invocation.profile).toBeUndefined()
   })
 })
