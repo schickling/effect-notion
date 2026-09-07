@@ -202,18 +202,19 @@ const readProcessCwds = (
   })
 
 /** Read macOS process cwd and parent evidence from the system `lsof`. */
-const readDarwinProcessCwds = (
-  selfPid: number,
-): Effect.Effect<ReadonlyArray<DarwinProcessCwd> | undefined, never, ChildProcessSpawner> =>
-  Effect.gen(function* () {
-    const spawner = yield* ChildProcessSpawner
-    const lines = yield* spawner
-      .lines(ChildProcess.make('/usr/sbin/lsof', ['-n', '-P', '-w', '-d', 'cwd', '-FpnR']))
-      .pipe(Effect.timeout('5 seconds'), Effect.option)
-    if (lines._tag === 'None') return undefined
-    const observed = parseLsofProcessCwds(lines.value)
-    return observed.some((entry) => entry.pid === selfPid) === true ? observed : undefined
-  })
+const readDarwinProcessCwds: Effect.Effect<
+  ReadonlyArray<DarwinProcessCwd> | undefined,
+  never,
+  ChildProcessSpawner
+> = Effect.gen(function* () {
+  const spawner = yield* ChildProcessSpawner
+  const lines = yield* spawner
+    .lines(ChildProcess.make('/usr/sbin/lsof', ['-n', '-P', '-w', '-d', 'cwd', '-FpnR']))
+    .pipe(Effect.timeout('5 seconds'), Effect.option)
+  if (lines._tag === 'None') return undefined
+  const observed = parseLsofProcessCwds(lines.value)
+  return observed.some((entry) => entry.pid === process.pid) === true ? observed : undefined
+})
 
 const hasDarwinAncestor = ({
   parentByPid,
@@ -279,7 +280,7 @@ export const readWorktreeInUse = ({
     if (process.platform !== 'darwin') {
       return { _tag: 'unknown', reason: 'no-proc' } as const
     }
-    const processes = yield* readDarwinProcessCwds(selfPid)
+    const processes = yield* readDarwinProcessCwds
     if (processes === undefined) return { _tag: 'unknown', reason: 'scan-failed' } as const
     const inside = processes.filter((entry) =>
       isInsideWorktree({ candidate: entry.path, worktreePath: canonicalWorktreePath }),
