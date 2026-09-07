@@ -551,7 +551,10 @@ jobs:
           workspace="${EFFECT_UTILS_WORKSPACE_ROOT:?EFFECT_UTILS_WORKSPACE_ROOT not set}"
           buck2="$workspace/.megarepo/bin/buck2"
           test -x "$buck2"
-          cd "$workspace" && "$buck2" build 'filter(":typecheck$", effect_utils//...)'
+          cd "$workspace"
+          mapfile -t targets < <("$buck2" uquery 'filter(":typecheck$", effect_utils//...)')
+          [ "${#targets[@]}" -gt 0 ] || { echo '::error::buck2 uquery matched no targets: filter(":typecheck$", effect_utils//...)'; exit 1; }
+          "$buck2" build "${targets[@]}"
       - name: Nix diagnostics summary
         if: failure()
         shell: bash
@@ -1314,12 +1317,15 @@ jobs:
           EOF
           echo "::warning::Intentional failure for diagnostics validation (#272)"
           exit 1
-      - name: Buck candidate and pty-effect bundle smoke tests
+      - name: Buck candidate and pty-effect bundle smoke checks
         run: |
           workspace="${EFFECT_UTILS_WORKSPACE_ROOT:?EFFECT_UTILS_WORKSPACE_ROOT not set}"
           buck2="$workspace/.megarepo/bin/buck2"
           test -x "$buck2"
-          cd "$workspace" && "$buck2" test 'filter("candidate-smoke$", effect_utils//packages/@overeng/...)' effect_utils//packages/@overeng/pty-effect:bundle_smoke_candidate
+          cd "$workspace"
+          mapfile -t targets < <("$buck2" uquery 'filter("(candidate-smoke|bundle_smoke_candidate)$", effect_utils//packages/@overeng/...)')
+          [ "${#targets[@]}" -gt 0 ] || { echo '::error::buck2 uquery matched no targets: filter("(candidate-smoke|bundle_smoke_candidate)$", effect_utils//packages/@overeng/...)'; exit 1; }
+          "$buck2" build "${targets[@]}"
       - name: Nix diagnostics summary
         if: failure()
         shell: bash
