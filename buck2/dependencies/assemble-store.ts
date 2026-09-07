@@ -21,6 +21,7 @@
  * replaced the per-importer closure assembly outright.
  */
 import {
+  chmod,
   copyFile,
   link,
   lstat,
@@ -90,11 +91,25 @@ const isInside = ({
   )
 }
 
-/** Copies one declared tree, hardlinking files and preserving contained links. */
+/**
+ * How one declared source's file bytes reach the assembled output.
+ *
+ * `hardlink` shares inodes with a declared tree Buck itself produced, which is
+ * both cheap and safe to finalize. `copy` is required for a source Buck does
+ * not own: an override in `/nix/store` is a root-owned read-only inode on the
+ * same filesystem, so a hardlink would hand output finalization an inode it
+ * cannot chmod (`EPERM`). Copying gives the output its own writable inode and
+ * leaves the declared source untouched.
+ */
+export type TreeMaterialization = 'hardlink' | 'copy'
+
+/** Copies one declared tree, preserving contained links. */
 const materializeTree = async ({
+  materialization,
   source,
   destination,
 }: {
+  readonly materialization: TreeMaterialization
   readonly source: string
   readonly destination: string
 }): Promise<void> => {
@@ -125,6 +140,13 @@ const materializeTree = async ({
     }
     await mkdir(dirname(currentDestination), { recursive: true })
     if (metadata.isFile() === true) {
+      if (materialization === 'copy') {
+        await copyFile(currentSource, currentDestination)
+        // `copyFile` carries the source mode, so a 0444 store file would land
+        // read-only. Add owner write and keep every other declared bit.
+        await chmod(currentDestination, (metadata.mode & 0o7777) | 0o200)
+        return
+      }
       try {
         await link(currentSource, currentDestination)
       } catch (error) {
@@ -254,6 +276,8 @@ export type StoreEntryOptions = {
   readonly dependencies: readonly StoreEntryLink[]
   readonly output: string
   readonly packageName: string
+  /** Defaults to `hardlink`: a declared tree Buck produced itself. */
+  readonly packageMaterialization?: TreeMaterialization
   readonly packageTree: string
 }
 
@@ -271,6 +295,7 @@ export const assembleStoreEntry = async (options: StoreEntryOptions): Promise<vo
     build: async (stage) => {
       const nodeModules = join(stage, 'node_modules')
       await materializeTree({
+        materialization: options.packageMaterialization ?? 'hardlink',
         source: options.packageTree,
         destination: join(nodeModules, options.packageName),
       })
@@ -382,6 +407,7 @@ export const assembleStoreScc = async (options: SccOptions): Promise<void> => {
         left.storeKey < right.storeKey ? -1 : 1,
       )) {
         await materializeTree({
+          materialization: 'hardlink',
           source: member.packageTree,
           destination: join(
             memberNodeModules({ root: stage, storeKey: member.storeKey }),
@@ -552,6 +578,9 @@ const takeArguments = ({
  * is an immutable absolute directory (a Nix-built native addon) that replaces
  * it for every importer of that one normalized entry. Declaring both, or
  * neither, is a projection bug rather than a runtime condition.
+ *
+ * The extraction is a Buck output, so it hardlinks. The override is foreign,
+ * read-only, and not owned by this build, so its bytes must be copied.
  */
 const requirePackageSource = ({
   packageOverride,
@@ -559,13 +588,14 @@ const requirePackageSource = ({
 }: {
   readonly packageOverride: string | undefined
   readonly packageTree: string | undefined
-}): string => {
+}): { readonly materialization: TreeMaterialization; readonly path: string } => {
   if (packageTree !== undefined && packageOverride !== undefined)
     fail('--package-tree and --package-override are mutually exclusive')
-  if (packageOverride === undefined) return packageTree ?? fail('missing --package-tree')
+  if (packageOverride === undefined)
+    return { materialization: 'hardlink', path: packageTree ?? fail('missing --package-tree') }
   if (isAbsolute(packageOverride) === false)
     fail(`--package-override must be an absolute directory: ${JSON.stringify(packageOverride)}`)
-  return packageOverride
+  return { materialization: 'copy', path: packageOverride }
 }
 
 /** Parses Buck action arguments and runs the selected store assembly mode. */
@@ -648,12 +678,14 @@ export const runStoreAssemblyCli = async (args: readonly string[]): Promise<void
 
   const requiredOutput = output ?? fail('missing --output')
   if (mode === 'entry') {
+    const source = requirePackageSource({ packageOverride, packageTree })
     await assembleStoreEntry({
       bins,
       dependencies,
       output: requiredOutput,
+      packageMaterialization: source.materialization,
       packageName: packageName ?? fail('missing --package-name'),
-      packageTree: requirePackageSource({ packageOverride, packageTree }),
+      packageTree: source.path,
     })
     return
   }
