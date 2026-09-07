@@ -251,12 +251,15 @@ export const readWorktreeInUse = ({
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const hasProc = yield* fs.exists('/proc').pipe(Effect.orElseSucceed(() => false))
+    const canonicalWorktreePath = yield* fs
+      .realPath(worktreePath)
+      .pipe(Effect.orElseSucceed(() => worktreePath))
 
     if (hasProc === true) {
       const processes = yield* readProcessCwds(fs)
       if (processes === undefined) return { _tag: 'unknown', reason: 'scan-failed' } as const
       const inside = processes.filter((entry) =>
-        isInsideWorktree({ candidate: entry.path, worktreePath }),
+        isInsideWorktree({ candidate: entry.path, worktreePath: canonicalWorktreePath }),
       )
       const excluded = yield* Effect.forEach(
         inside,
@@ -268,7 +271,7 @@ export const readWorktreeInUse = ({
       )
       return classifyInUse({
         processes: inside,
-        worktreePath,
+        worktreePath: canonicalWorktreePath,
         excludePids: new Set(excluded.flat()),
       })
     }
@@ -279,12 +282,12 @@ export const readWorktreeInUse = ({
     const processes = yield* readDarwinProcessCwds(selfPid)
     if (processes === undefined) return { _tag: 'unknown', reason: 'scan-failed' } as const
     const inside = processes.filter((entry) =>
-      isInsideWorktree({ candidate: entry.path, worktreePath }),
+      isInsideWorktree({ candidate: entry.path, worktreePath: canonicalWorktreePath }),
     )
     const parentByPid = new Map(processes.map((entry) => [entry.pid, entry.parentPid]))
     return classifyInUse({
       processes: inside,
-      worktreePath,
+      worktreePath: canonicalWorktreePath,
       excludePids: new Set(
         inside
           .filter((entry) =>
