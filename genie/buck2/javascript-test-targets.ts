@@ -43,12 +43,15 @@ const packagePlans: Readonly<Record<string, Buck2JavaScriptTestPlan>> = {
         runner: 'vitest',
         // The CLI contract and deploy e2e suites spawn the pinned Bun, and the fake
         // `netlify`/`vercel` binaries they write carry a `#!/usr/bin/env bash` shebang, so `env`
-        // and `bash` are both driven. Those stubs also run `mkdir` and `tr`, which containment
-        // supplies as declared capabilities rather than an ambient PATH lookup. The live lanes
+        // and `bash` are both driven. Those stubs also run `cat`, `mkdir` and `tr`, which
+        // containment supplies as declared capabilities rather than an ambient PATH lookup —
+        // the alias-retry counter swallows a missing `cat` behind `|| echo 0`, so an
+        // undeclared tool would silently hollow out the retry evidence. The live lanes
         // are their own targets and are excluded here rather than collected and self-skipped.
         tools: {
           BASH_BIN: 'test-bash',
           BUN_BIN: 'bun',
+          CAT_BIN: 'coreutils-cat',
           ENV_BIN: 'coreutils-env',
           MKDIR_BIN: 'coreutils-mkdir',
           TR_BIN: 'coreutils-tr',
