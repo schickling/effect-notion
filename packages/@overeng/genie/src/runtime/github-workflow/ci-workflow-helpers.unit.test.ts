@@ -1798,7 +1798,7 @@ describe('effect-utils CI composition workspace', () => {
       // A failing assertion leaves the read-only trees behind, and the fixture teardown
       // would then hit the very `Permission denied` under test.
       for (const tree of published) {
-        if (existsSync(tree)) chmodSync(tree, 0o755)
+        if (existsSync(tree) === true) chmodSync(tree, 0o755)
       }
       rmSync(fixture.root, { force: true, recursive: true, maxRetries: 10, retryDelay: 20 })
     }

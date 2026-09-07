@@ -1,4 +1,4 @@
-# Weaver LIVE-CHECK e2e gate (SC-R12; additive; GEN-R09 block-vs-degrade)
+# Weaver LIVE-CHECK e2e gate (SC-R12; additive)
 #
 # Usage in devenv.nix:
 #   imports = [ (inputs.effect-utils.devenvModules.tasks.weaver-live-check {}) ];
@@ -22,9 +22,10 @@
 # weaver Rust build and the upstream semconv FOD in the closure of `devenv-shell-env`, so every
 # shell entry — and therefore every unrelated task — would pay for them before running anything.
 #
-# Block-vs-degrade (GEN-R09), mirroring weaver:check: a live-check VALIDATION failure (the test
-# fails) BLOCKS; weaver UNAVAILABILITY (flake build/eval failure, binary missing) DEGRADES to a
-# warning (exit 0) in a separate lane.
+# This lane BLOCKS on both failure modes, which is where it parts ways with weaver:check. A
+# live-check VALIDATION failure blocks because the registry and the emitted telemetry
+# disagree. Weaver UNAVAILABILITY also blocks, because the gate exists to prove the emitted
+# OTLP conforms: degrading to exit 0 would report success without having validated anything.
 {
   # Non-cacheable Buck test target declaring the Weaver/Nix and writable-temp
   # capabilities required by this live lane.

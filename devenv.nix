@@ -522,7 +522,8 @@ in
     { tasks."check:all".after = [ "weaver:diff" ]; }
     # Live-check e2e (SC-R12): emits registry-conformant OTLP from a first-party site, captures it,
     # and asserts `weaver registry live-check` accepts it (exit 0). Runs the scoped vitest e2e with
-    # the hermetic weaver + semconv-model on env; degrades to a warning if weaver is unavailable.
+    # the hermetic weaver + semconv-model on env, both resolved at task time; an unavailable
+    # weaver blocks rather than degrading, since a skipped e2e would validate nothing.
     # Defined here so the CI `weaver` lane can invoke it, but deliberately NOT wired into `check:all`:
     # unlike the deterministic check/diff runs, this is a subprocess e2e (spawns otelite, binds an
     # ephemeral port, depends on export-flush timing), so it lives in CI rather than gating every
