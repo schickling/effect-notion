@@ -1,4 +1,14 @@
-import { mkdirSync, mkdtempSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { lstat, readdir, readlink, rename } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
@@ -434,6 +444,7 @@ describe('store assembly command line', () => {
   it('drives entry mode from Buck action arguments', async () => {
     const root = makeRoot()
     const entry = join(root, 'entry')
+    const tree = makePackage({ name: 'left', root })
     await runStoreAssemblyCli([
       '--mode',
       'entry',
@@ -442,10 +453,15 @@ describe('store assembly command line', () => {
       '--package-name',
       'left',
       '--package-tree',
-      makePackage({ name: 'left', root }),
+      tree,
     ])
 
-    expect(statSync(join(entry, 'node_modules', 'left', 'index.js')).isFile()).toBe(true)
+    const materialized = statSync(join(entry, 'node_modules', 'left', 'index.js'))
+    expect(materialized.isFile()).toBe(true)
+    // A declared tree is a Buck output on the same filesystem, so it keeps the
+    // hardlink fast path rather than paying for a copy.
+    expect(materialized.ino).toBe(statSync(join(tree, 'index.js')).ino)
+    expect(materialized.nlink).toBe(2)
   })
 
   it('materializes a grafted override in place of the registry archive', async () => {
@@ -472,6 +488,57 @@ describe('store assembly command line', () => {
     expect(
       statSync(join(entry, 'node_modules', 'left', 'build', 'Release', 'pty.node')).isFile(),
     ).toBe(true)
+  })
+
+  it('copies a read-only override onto its own owner-writable inode', async () => {
+    const root = makeRoot()
+    const entry = join(root, 'entry')
+    const override = makePackage({
+      files: { 'build/Release/pty.node': 'native bytes\n', 'index.js': 'module.exports = 1\n' },
+      name: 'immutable',
+      root,
+    })
+    // An override lives in `/nix/store`: root-owned 0444 files below 0555
+    // directories, on the same filesystem as the Buck output. Hardlinking one
+    // of those inodes hands Buck an inode it cannot chmod when it finalizes
+    // the output, so the bytes must land on a fresh writable inode instead.
+    const immutable = [
+      join(override, 'index.js'),
+      join(override, 'build', 'Release', 'pty.node'),
+      join(override, 'build', 'Release'),
+      join(override, 'build'),
+      override,
+    ]
+    for (const path of immutable)
+      chmodSync(path, statSync(path).isDirectory() === true ? 0o555 : 0o444)
+
+    try {
+      await runStoreAssemblyCli([
+        '--mode',
+        'entry',
+        '--output',
+        entry,
+        '--package-name',
+        'left',
+        '--package-override',
+        override,
+      ])
+
+      const sourceFile = join(override, 'build', 'Release', 'pty.node')
+      const materializedFile = join(entry, 'node_modules', 'left', 'build', 'Release', 'pty.node')
+      const source = statSync(sourceFile)
+      const materialized = statSync(materializedFile)
+      expect(materialized.nlink).toBe(1)
+      expect(materialized.ino).not.toBe(source.ino)
+      expect(materialized.mode & 0o200).toBe(0o200)
+      expect(readFileSync(materializedFile, 'utf8')).toBe('native bytes\n')
+      // The declared source stays exactly as immutable as it was declared.
+      expect(source.mode & 0o777).toBe(0o444)
+      expect(source.nlink).toBe(1)
+      expect(readFileSync(sourceFile, 'utf8')).toBe('native bytes\n')
+    } finally {
+      for (const path of immutable.toReversed()) chmodSync(path, 0o755)
+    }
   })
 
   it('refuses two declared sources of one entry, and refuses none', async () => {
