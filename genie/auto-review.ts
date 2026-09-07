@@ -23,12 +23,12 @@ export const autoReviewWorkflow = ({
     },
     jobs: {
       'request-review': {
-        if: `github.event.pull_request.user.login == '${author}' && github.event.pull_request.draft == false`,
         'runs-on': runner,
         'timeout-minutes': timeoutMinutes,
         steps: [
           {
             name: `Request review from ${reviewer}`,
+            if: `github.event.pull_request.user.login == '${author}' && github.event.pull_request.draft == false`,
             env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' },
             run: [
               `curl --fail-with-body --silent --show-error --request POST \\`,

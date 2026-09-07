@@ -39,6 +39,10 @@ const generatedCiWorkflowYamlSource = readFileSync(
   new URL(['../../../../../../.github/workflows', 'ci.yml'].join('/'), import.meta.url),
   'utf8',
 )
+const generatedAutoReviewWorkflowYamlSource = readFileSync(
+  new URL(['../../../../../../.github/workflows', 'auto-review.yml'].join('/'), import.meta.url),
+  'utf8',
+)
 const generatedRepoSettings = JSON.parse(
   readFileSync(
     new URL(['../../../../../../.github', 'repo-settings.json'].join('/'), import.meta.url),
@@ -220,6 +224,17 @@ const megarepoTaskModuleSource = readFileSync(
   ),
   'utf8',
 )
+
+describe('pull request control-event workflows', () => {
+  it('finishes the auto-review suite successfully when no review request is needed', () => {
+    expect(generatedAutoReviewWorkflowYamlSource).not.toMatch(
+      /  request-review:\n    if: github\.event\.pull_request/,
+    )
+    expect(generatedAutoReviewWorkflowYamlSource).toContain(
+      "      - name: Request review from schickling\n        if: github.event.pull_request.user.login == 'schickling-assistant' && github.event.pull_request.draft == false",
+    )
+  })
+})
 
 describe('ci workflow retry helpers', () => {
   it('keeps non-advisory always-on workflow jobs required by branch protection', () => {
