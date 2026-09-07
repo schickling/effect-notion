@@ -150,5 +150,6 @@ package_bin_check(
     entrypoint = "src/cli.ts",
     external_capabilities = ["npm"],
     package_tree = ":package_tree",
+    runtime = "bun",
     visibility = ["PUBLIC"],
 )

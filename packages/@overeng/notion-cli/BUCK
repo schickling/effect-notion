@@ -294,6 +294,7 @@ package_bin_check(
     entrypoint = "src/cli.ts",
     external_capabilities = [],
     package_tree = ":package_tree",
+    runtime = "bun",
     visibility = ["PUBLIC"],
 )
 package_bin_artifact(
@@ -328,5 +329,6 @@ package_bin_check(
     entrypoint = "src/cli/main.ts",
     external_capabilities = ["opentui-core-native"],
     package_tree = "//packages/@overeng/notion-datasource-sync:package_tree",
+    runtime = "node",
     visibility = ["PUBLIC"],
 )

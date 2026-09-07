@@ -2,6 +2,15 @@ import { createGenieOutput, type GenieOutput } from '../../packages/@overeng/gen
 
 const quote = (value: string): string => JSON.stringify(value)
 
+/**
+ * `runtime` is the bundle's build target; `smokeRuntime` is the runtime the
+ * source smoke launches the raw entrypoint with. They are separate because the
+ * two things executed are different artifacts: the product bundle is built for
+ * `runtime`, while the smoke runs the package tree's uncompiled source. Bun
+ * runs TypeScript and JSX sources directly, so it is the default; a source
+ * entrypoint that imports a Node-only builtin (`node:sqlite`) is not
+ * executable by Bun at all and must declare `smokeRuntime: 'node'`.
+ */
 export type JavaScriptProduct =
   | {
       readonly entrypoint: string
@@ -13,6 +22,7 @@ export type JavaScriptProduct =
       readonly productName: string
       readonly smokeArgs: readonly string[]
       readonly runtime?: 'bun' | 'node'
+      readonly smokeRuntime?: 'bun' | 'node'
       readonly targetName: string
     }
   | {
@@ -24,6 +34,7 @@ export type JavaScriptProduct =
       readonly packageTree?: string
       readonly productName: string
       readonly runtime?: 'bun' | 'node'
+      readonly smokeRuntime?: 'bun' | 'node'
       readonly targetName: string
     }
 
@@ -51,6 +62,19 @@ const renderProduct = (product: JavaScriptProduct): string => {
     target = ${quote(product.runtime ?? 'node')},
     visibility = ["PUBLIC"],
 )`
+  // One smoke shape for every product kind: it executes the package tree's
+  // source entrypoint, so only a loadable module (which has no command line)
+  // omits the arguments. The runtime is always explicit, because the source a
+  // smoke launches and the bundle a product publishes are different artifacts
+  // and need not be executable by the same runtime.
+  const smoke = `package_bin_check(
+    name = ${quote(`${product.targetName}-smoke`)},
+${product.kind === 'module' ? '' : `    args = ${list(product.smokeArgs)},\n`}    entrypoint = ${quote(product.entrypoint)},
+    external_capabilities = ${list(product.externalCapabilities ?? [])},
+    package_tree = ${quote(packageTree)},
+    runtime = ${quote(product.smokeRuntime ?? 'bun')},
+    visibility = ["PUBLIC"],
+)`
   if (product.kind === 'module') {
     return `${module}
 
@@ -61,13 +85,7 @@ module_product(
     visibility = ["PUBLIC"],
 )
 
-package_bin_check(
-    name = ${quote(`${product.targetName}-smoke`)},
-    entrypoint = ${quote(product.entrypoint)},
-    external_capabilities = ${list(product.externalCapabilities ?? [])},
-    package_tree = ${quote(packageTree)},
-    visibility = ["PUBLIC"],
-)`
+${smoke}`
   }
 
   if (product.runtime === 'bun') {
@@ -86,14 +104,7 @@ alias(
     visibility = ["PUBLIC"],
 )
 
-package_bin_check(
-    name = ${quote(`${product.targetName}-smoke`)},
-    args = ${list(product.smokeArgs)},
-    entrypoint = ${quote(product.entrypoint)},
-    external_capabilities = ${list(product.externalCapabilities ?? [])},
-    package_tree = ${quote(packageTree)},
-    visibility = ["PUBLIC"],
-)`
+${smoke}`
   }
 
   const launchName = `${product.targetName}-launch`
@@ -113,14 +124,7 @@ cli_product(
     visibility = ["PUBLIC"],
 )
 
-package_bin_check(
-    name = ${quote(`${product.targetName}-smoke`)},
-    args = ${list(product.smokeArgs)},
-    entrypoint = ${quote(product.entrypoint)},
-    external_capabilities = ${list(product.externalCapabilities ?? [])},
-    package_tree = ${quote(packageTree)},
-    visibility = ["PUBLIC"],
-)`
+${smoke}`
 }
 /** Appends package-local candidate targets while retaining the canonical TypeScript projection. */
 export const withJavaScriptCandidates = ({

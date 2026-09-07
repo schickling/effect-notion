@@ -258,5 +258,6 @@ package_bin_check(
     entrypoint = "bin/tui-stories.tsx",
     external_capabilities = [],
     package_tree = ":package_tree",
+    runtime = "bun",
     visibility = ["PUBLIC"],
 )

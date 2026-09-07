@@ -50,14 +50,14 @@ def _relative(value, field):
         if part in ["", ".", ".."]:
             fail("{} must be a normalized relative path: {}".format(field, value))
 
-def _runner_args(ctx, mode, output = None):
+def _runner_args(ctx, mode, output = None, runtime = None):
     package_tree = ctx.attrs.package_tree[PackageTreeInfo]
     toolchain = ctx.attrs._bun[BunToolchainInfo]
     args = cmd_args([
         toolchain.executable,
         ctx.attrs._runner,
         mode,
-        toolchain.executable,
+        runtime if runtime else toolchain.executable,
         package_tree.tree,
         ctx.attrs.entrypoint,
         output.as_output() if output else "-",
@@ -80,9 +80,11 @@ def _runner_args(ctx, mode, output = None):
 
 def _package_check_impl(ctx):
     _relative(ctx.attrs.entrypoint, "entrypoint")
+    if ctx.attrs.runtime == "node" and not ctx.attrs.node:
+        fail("package_bin_check with runtime = \"node\" requires the resolved node capability")
     verdict = ctx.actions.declare_output("check.ok")
     descriptor = ctx.actions.declare_output("check.json")
-    args = _runner_args(ctx, "check", verdict)
+    args = _runner_args(ctx, "check", verdict, runtime = ctx.attrs.node if ctx.attrs.runtime == "node" else None)
     ctx.actions.run(args, category = "package_bin_check", local_only = True, allow_cache_upload = False)
     ctx.actions.write_json(descriptor, {
         "schema": "effect-utils/package-check/v1",
@@ -95,7 +97,7 @@ def _package_check_impl(ctx):
     ]
 
 
-package_bin_check = rule(
+_package_bin_check = rule(
     impl = _package_check_impl,
     attrs = {
         "package_tree": attrs.dep(providers = [PackageTreeInfo]),
@@ -103,10 +105,25 @@ package_bin_check = rule(
         "args": attrs.list(attrs.string(), default = []),
         "env": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
         "external_capabilities": attrs.list(attrs.string(), default = []),
+        "runtime": attrs.enum(["bun", "node"], default = "bun"),
+        "node": attrs.string(default = ""),
         "_bun": attrs.default_only(attrs.exec_dep(default = "//buck2/toolchains:bun", providers = [BunToolchainInfo])),
         "_runner": attrs.default_only(attrs.source(default = "//packages/@overeng/buck2-tools:src/package-command-runner.ts")),
     },
 )
+
+# The runner script itself always executes under Bun — it drives `Bun.spawn`
+# and `Bun.build`. `runtime` selects only the CHILD runtime the check launches
+# the package tree's source entrypoint with, resolved from the same admitted
+# host capability the node launch targets use. Bun runs TypeScript and JSX
+# sources directly, so it stays the default; a source entrypoint importing a
+# Node-only builtin such as `node:sqlite` is not executable by Bun at all.
+def package_bin_check(name, runtime = "bun", **kwargs):
+    node = ""
+    if runtime == "node":
+        platform = host_capability_platform()
+        node = require_capability(CAPABILITIES, GENERATION, platform, "node")["executableStorePath"]
+    _package_bin_check(name = name, runtime = runtime, node = node, **kwargs)
 
 def _package_build_impl(ctx):
     _relative(ctx.attrs.entrypoint, "entrypoint")

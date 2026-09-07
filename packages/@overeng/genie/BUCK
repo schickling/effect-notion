@@ -450,6 +450,7 @@ package_bin_check(
     entrypoint = "bin/genie.tsx",
     external_capabilities = ["actionlint", "effect-tsgo", "oxfmt"],
     package_tree = ":package_tree",
+    runtime = "bun",
     visibility = ["PUBLIC"],
 )
 package_bin_artifact(
@@ -483,5 +484,6 @@ package_bin_check(
     entrypoint = "bin/bootstrap-closure-check.ts",
     external_capabilities = [],
     package_tree = ":package_tree",
+    runtime = "bun",
     visibility = ["PUBLIC"],
 )
