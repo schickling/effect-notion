@@ -32,6 +32,8 @@ const requireTool = (name: string): string => {
 
 const bunBin = requireTool('BUN_BIN')
 const bashBin = requireTool('BASH_BIN')
+const mkdirBin = requireTool('MKDIR_BIN')
+const trBin = requireTool('TR_BIN')
 let apiMode: ApiMode = 'ok'
 let aliasApiMode: AliasApiMode = 'ok'
 let server: Server
@@ -214,7 +216,7 @@ describe('ci-tools deploy vercel', () => {
 set -euo pipefail
 printf 'cwd=%s VERCEL_PROJECT_ID=%s VERCEL_ORG_ID=%s args=%s\\n' "$PWD" "\${VERCEL_PROJECT_ID:-}" "\${VERCEL_ORG_ID:-}" "$*" >> "${logPath}"
 if [ "\${1:-}" = "pull" ]; then
-  mkdir -p .vercel
+  ${mkdirBin} -p .vercel
   printf '{"settings":{}}\\n' > .vercel/project.json
   exit 0
 fi
@@ -224,9 +226,9 @@ if [ "\${1:-}" = "build" ]; then
   case "$(<.vercel/project.json)" in *'"rootDirectory":"app"'*) ;; *) exit 1 ;; esac
   test "\${BUILD_MARKER:-}" = "ci-tools"
   if [ "\${FAKE_VERCEL_LARGE_BUILD_OUTPUT:-0}" = "1" ]; then
-    printf '%1200000s\\n' '' | tr ' ' x
+    printf '%1200000s\\n' '' | ${trBin} ' ' x
   fi
-  mkdir -p .vercel/output/static
+  ${mkdirBin} -p .vercel/output/static
   printf '{"version":3}\\n' > .vercel/output/config.json
   printf 'built marker\\n' > .vercel/output/static/index.html
   exit 0

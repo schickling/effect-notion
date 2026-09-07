@@ -118,8 +118,8 @@
             buck2-archive-tool = buck2-stage0-tools.archive-tool;
             # Test-tool capability realization for every `gnu/coreutils/v9` executable
             # `buck2-member.json` declares against this flake package: cat, cp, echo, env,
-            # false, mv, printf, readlink, stty, true, wc. The list is exhaustive on purpose — a
-            # declared executable missing from this realization fails capability
+            # false, mkdir, mv, printf, readlink, stty, tr, true, wc. The list is exhaustive on
+            # purpose — a declared executable missing from this realization fails capability
             # resolution, which is exactly how the short cp/mv/false loop broke.
             # Each declared executable must be a real file here: the default multi-call
             # coreutils package exposes symlinks that would collapse every declaration
@@ -128,7 +128,7 @@
             # substitutable on ephemeral CI hosts.
             buck2-coreutils = pkgs.runCommand "buck2-coreutils-capability" { } ''
               mkdir -p "$out/bin"
-              for tool in cat cp echo env false mv printf readlink stty true wc; do
+              for tool in cat cp echo env false mkdir mv printf readlink stty tr true wc; do
                 cat > "$out/bin/$tool" <<EOF
               #!${pkgs.runtimeShell}
               exec ${pkgs.coreutils}/bin/$tool "\$@"
