@@ -73,10 +73,12 @@ done < <(git --git-dir="$bare_repo" worktree list --porcelain -z)
 # `git worktree remove` deletes files with the permissions it finds: a read-only directory
 # makes the unlink fail with `Permission denied` and strands the whole store. Restore write
 # permission first — after every ownership guard above, so this can only ever touch a
-# verified job-local worktree. GNU chmod does not follow symlinks it encounters during the
-# walk, so this cannot escape the store, and a failure here must abort rather than leave a
-# half-writable tree for the removal below.
-chmod -R u+w -- "$store_root"
+# verified job-local worktree. `$store_root` is the absolute, resolved path derived above, so
+# it can never be read as an option and needs no `--` end-of-options marker — BSD `chmod`
+# treats that marker as a file operand and aborts. Neither GNU nor BSD `chmod -R` follows
+# symlinks it encounters during the walk, so this cannot escape the store, and a failure here
+# must abort rather than leave a half-writable tree for the removal below.
+chmod -R u+w "$store_root"
 
 git --git-dir="$bare_repo" worktree remove --force "$owned_worktree"
 rm -rf -- "$workspace_root"

@@ -1804,6 +1804,96 @@ describe('effect-utils CI composition workspace', () => {
     }
   }, 20_000)
 
+  /**
+   * macOS runners ship BSD `chmod`, which has no `--` end-of-options marker: it reads the
+   * marker as a file operand, reports `chmod: --: No such file or directory`, and exits
+   * non-zero, so a GNU-only invocation aborts cleanup under `set -e` and strands the store.
+   * That is exactly how buck2 job 101599360339 failed on macOS with every prior step green.
+   * This fixture puts a BSD-faithful `chmod` first on PATH — it refuses `--` and applies
+   * `-R u+w` to every other operand without following symlinks — over the same read-only
+   * Buck trees, so the permission restore has to really happen through the stub.
+   */
+  it('removes a store using a BSD chmod that rejects the `--` marker', async () => {
+    const fixture = makeFixture('Linux')
+    const published: string[] = []
+    try {
+      const result = await runComposition(fixture)
+      expect(result.status, result.stderr).toBe(0)
+      const store = fixture.env.MEGAREPO_STORE!
+      const workspace = join(
+        store,
+        'github.com/overengineeringstudio/effect-utils/refs/heads/ci-100-2-unit_job',
+      )
+
+      for (const owner of [join(workspace, 'repos/effect-utils'), workspace]) {
+        const tree = join(owner, 'dist-published')
+        mkdirSync(tree, { recursive: true })
+        writeFileSync(join(tree, 'mod.js'), 'export {}\n')
+        chmodSync(join(tree, 'mod.js'), 0o444)
+        chmodSync(tree, 0o555)
+        published.push(tree)
+      }
+
+      const bsdBin = join(fixture.root, 'bsd-bin')
+      mkdirSync(bsdBin)
+      const bsdChmod = join(bsdBin, 'chmod')
+      writeFileSync(
+        bsdChmod,
+        [
+          `#!${process.execPath}`,
+          "'use strict'",
+          "const { chmodSync, lstatSync, readdirSync } = require('node:fs')",
+          "const { join: joinPath } = require('node:path')",
+          'const argv = process.argv.slice(2)',
+          'const options = []',
+          'while (argv.length > 0 && /^-[^-]/.test(argv[0])) options.push(argv.shift())',
+          'const mode = argv.shift()',
+          "if (options.join(' ') !== '-R' || mode !== 'u+w') {",
+          "  process.stderr.write('chmod: unsupported fixture invocation\\n')",
+          '  process.exit(64)',
+          '}',
+          '// Neither BSD nor GNU `chmod -R` follows a symlink it meets during the walk.',
+          'const grant = (path) => {',
+          '  const info = lstatSync(path)',
+          '  if (info.isSymbolicLink()) return',
+          '  chmodSync(path, info.mode | 0o200)',
+          '  if (info.isDirectory())',
+          '    for (const entry of readdirSync(path)) grant(joinPath(path, entry))',
+          '}',
+          'let status = 0',
+          'for (const operand of argv) {',
+          "  if (operand === '--') {",
+          "    process.stderr.write('chmod: --: No such file or directory\\n')",
+          '    status = 1',
+          '    continue',
+          '  }',
+          '  try {',
+          '    grant(operand)',
+          '  } catch (cause) {',
+          '    process.stderr.write(`chmod: ${operand}: ${cause.message}\\n`)',
+          '    status = 1',
+          '  }',
+          '}',
+          'process.exit(status)',
+          '',
+        ].join('\n'),
+      )
+      chmodSync(bsdChmod, 0o755)
+
+      const cleanup = await cleanupComposition(fixture, {
+        PATH: [bsdBin, fixture.env.PATH].join(delimiter),
+      })
+      expect(cleanup.stderr).not.toContain('chmod: --: No such file or directory')
+      expect(cleanup.status, cleanup.stderr).toBe(0)
+      expect(existsSync(store)).toBe(false)
+    } finally {
+      for (const tree of published) {
+        if (existsSync(tree) === true) chmodSync(tree, 0o755)
+      }
+      rmSync(fixture.root, { force: true, recursive: true, maxRetries: 10, retryDelay: 20 })
+    }
+  }, 20_000)
+
   it('refuses a registered partial workspace on an unrelated branch', async () => {
     const fixture = makeFixture('Linux')
     try {
