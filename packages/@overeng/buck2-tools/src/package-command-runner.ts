@@ -854,6 +854,61 @@ export const projectProductDescriptor = ({
   }
 }
 
+/** One non-bundle launch's process shape: what to run, where, and what it writes. */
+export type PackageLaunchPlan = {
+  /** The child's argv, every path already absolute. */
+  readonly argv: readonly string[]
+  /** The child's working directory: the package tree, absolute. */
+  readonly cwd: string
+  /** The declared output this launch writes, absolute, when it has one. */
+  readonly output: string | undefined
+}
+
+/**
+ * Resolves one non-bundle launch into its final argv, working directory, and
+ * output path.
+ *
+ * Buck writes a local action's artifact paths relative to the project root,
+ * which is the action's own working directory. The launched child runs with
+ * the package tree as its working directory, because package-relative module
+ * and config resolution needs it, so every path crossing into the child must
+ * be absolute before that change of directory — a still-relative path would be
+ * resolved a second time, against the tree instead of the project root.
+ * `resolve` is a no-op for the absolute paths `buck2 run` hands an `exec`
+ * launch, so both callers share one contract. `runBundle` resolves its own
+ * paths the same way.
+ */
+export const planPackageLaunch = ({
+  command,
+}: {
+  readonly command: PackageCommand
+}): PackageLaunchPlan => {
+  const packageTree = resolve(command.packageTree)
+  const output = command.output === undefined ? undefined : resolve(command.output)
+  // Declared arguments carry the build placeholders; runtime arguments come
+  // from the caller's own command line and reach the entrypoint unchanged.
+  const args = [
+    ...command.args.map((arg) =>
+      arg === '{OUT}'
+        ? (output ?? fail('output is missing'))
+        : arg === '{TREE}'
+          ? packageTree
+          : arg,
+    ),
+    ...command.runtimeArgs,
+  ]
+  return {
+    // A native check launches the runtime itself; every other mode launches
+    // the runtime on the package tree's entrypoint.
+    argv:
+      command.mode === 'native-check'
+        ? [command.runtime, ...args]
+        : [command.runtime, join(packageTree, command.entrypoint), ...args],
+    cwd: packageTree,
+    output,
+  }
+}
+
 const runBundle = async (command: PackageCommand): Promise<void> => {
   const output = resolve(command.output ?? fail('bundle output is missing'))
   const descriptorPath = resolve(command.descriptor ?? fail('bundle descriptor is missing'))
@@ -956,38 +1011,22 @@ const runBundle = async (command: PackageCommand): Promise<void> => {
 const run = async (command: PackageCommand): Promise<void> => {
   if (command.mode === 'bundle') return runBundle(command)
 
-  const output = command.output
+  const plan = planPackageLaunch({ command })
   if (command.mode === 'build-dir')
-    await mkdir(output ?? fail('build output is missing'), { recursive: true })
-  // Declared arguments carry the build placeholders; runtime arguments come
-  // from the caller's own command line and reach the entrypoint unchanged.
-  const args = [
-    ...command.args.map((arg) =>
-      arg === '{OUT}'
-        ? (output ?? fail('output is missing'))
-        : arg === '{TREE}'
-          ? command.packageTree
-          : arg,
-    ),
-    ...command.runtimeArgs,
-  ]
-  child = Bun.spawn(
-    command.mode === 'native-check'
-      ? [command.runtime, ...args]
-      : [command.runtime, join(command.packageTree, command.entrypoint), ...args],
-    {
-      cwd: command.packageTree,
-      env: command.mode === 'exec' ? { ...process.env, ...command.env } : { ...command.env },
-      stdin: 'inherit',
-      stdout: 'inherit',
-      stderr: 'inherit',
-    },
-  )
+    await mkdir(plan.output ?? fail('build output is missing'), { recursive: true })
+  // `Bun.spawn` declares a mutable argv, and the plan is a read-only value.
+  child = Bun.spawn([...plan.argv], {
+    cwd: plan.cwd,
+    env: command.mode === 'exec' ? { ...process.env, ...command.env } : { ...command.env },
+    stdin: 'inherit',
+    stdout: 'inherit',
+    stderr: 'inherit',
+  })
   const exitCode = await child.exited
   child = undefined
   if (exitCode !== 0) fail(`${command.entrypoint} exited ${exitCode}`)
   if (command.mode === 'check' || command.mode === 'native-check') {
-    await writeFile(output ?? fail('verdict output is missing'), 'ok\n')
+    await writeFile(plan.output ?? fail('verdict output is missing'), 'ok\n')
   }
 }
 
