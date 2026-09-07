@@ -12,6 +12,7 @@ import { isAbsolute, normalize } from 'node:path'
 import { Clock, Effect, Option, Schedule, Schema, Stream } from 'effect'
 import * as FileSystem from 'effect/FileSystem'
 import { type PlatformError } from 'effect/PlatformError'
+import type * as Scope from 'effect/Scope'
 import * as Cli from 'effect/unstable/cli'
 import type { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 import React from 'react'
@@ -197,7 +198,7 @@ const planGeneratedArtifacts = ({
   repoWorktrees: GeneratedArtifactRepoWorktrees
 }): Effect.Effect<
   { readonly results: ReadonlyArray<StoreGcResult>; readonly planSha256: string },
-  never,
+  PlatformError,
   ChildProcessSpawner
 > =>
   Effect.gen(function* () {
@@ -241,7 +242,7 @@ const planGeneratedArtifacts = ({
             worktree.path,
             EffectPath.unsafe.relativeDir(`${artifactClass}/`),
           )
-          if ((yield* fs.exists(artifactPath).pipe(Effect.orElseSucceed(() => false))) === false) {
+          if ((yield* fs.exists(artifactPath)) === false) {
             continue
           }
           const ignored = yield* Git.runCommand({
@@ -677,8 +678,8 @@ const collectStoreWorktrees = ({
       if (entry.startsWith('.') === true) continue
 
       const entryPath = EffectPath.ops.join(currentPath, EffectPath.unsafe.relativeDir(`${entry}/`))
-      const entryStat = yield* fs.stat(entryPath).pipe(Effect.orElseSucceed(() => null))
-      if (entryStat?.type !== 'Directory') continue
+      const entryStat = yield* fs.stat(entryPath)
+      if (entryStat.type !== 'Directory') continue
 
       result.push(
         ...(yield* collectStoreWorktrees({
@@ -706,10 +707,7 @@ const collectRepoStoreWorktrees = ({
   Effect.gen(function* () {
     const repoPrefix = repoPath.replace(/\/+$/, '')
     const refsPrefix = `${repoPrefix}/refs/`
-    const realRepoPrefix = yield* fs.realPath(repoPath).pipe(
-      Effect.map((path) => path.replace(/\/+$/, '')),
-      Effect.orElseSucceed(() => repoPrefix),
-    )
+    const realRepoPrefix = (yield* fs.realPath(repoPath)).replace(/\/+$/, '')
     const realRefsPrefix = `${realRepoPrefix}/refs/`
     const result: Array<CollectedWorktree> = []
     const seenPaths = new Set<string>()
@@ -726,62 +724,41 @@ const collectRepoStoreWorktrees = ({
     // Git's worktree registry can be stale or incomplete after interrupted
     // operations. Use it as a fast hint, then merge in the path layout because
     // the store layout is the durable source of truth for refs/heads|tags|commits.
-    const gitWorktreesResult = yield* Git.listWorktrees(bareRepoPath).pipe(
-      Effect.tapError((error) =>
-        Effect.gen(function* () {
-          yield* Observability.annotateStoreGitWorktreeListFailure(true)
-          yield* Effect.logWarning('Falling back to store layout worktree discovery').pipe(
-            Effect.annotateLogs({
-              repoPath,
-              bareRepoPath,
-              error: error instanceof Error === true ? error.message : String(error),
-            }),
-          )
-        }),
-      ),
-      Effect.result,
-    )
+    const gitWorktrees = yield* Git.listWorktrees(bareRepoPath)
+    for (const worktree of gitWorktrees) {
+      const normalizedPath = worktree.path.replace(/\/+$/, '')
+      const relativePath =
+        normalizedPath.startsWith(refsPrefix) === true
+          ? normalizedPath.slice(refsPrefix.length)
+          : normalizedPath.startsWith(realRefsPrefix) === true
+            ? normalizedPath.slice(realRefsPrefix.length)
+            : undefined
+      if (relativePath === undefined) continue
 
-    if (gitWorktreesResult._tag === 'Success') {
-      for (const worktree of gitWorktreesResult.success) {
-        const normalizedPath = worktree.path.replace(/\/+$/, '')
-        const relativePath =
-          normalizedPath.startsWith(refsPrefix) === true
-            ? normalizedPath.slice(refsPrefix.length)
-            : normalizedPath.startsWith(realRefsPrefix) === true
-              ? normalizedPath.slice(realRefsPrefix.length)
-              : undefined
-        if (relativePath === undefined) continue
+      const separatorIndex = relativePath.indexOf('/')
+      if (separatorIndex === -1) continue
 
-        const separatorIndex = relativePath.indexOf('/')
-        if (separatorIndex === -1) continue
+      const refType = relativePath.slice(0, separatorIndex)
+      if (refType !== 'heads' && refType !== 'tags' && refType !== 'commits') continue
 
-        const refType = relativePath.slice(0, separatorIndex)
-        if (refType !== 'heads' && refType !== 'tags' && refType !== 'commits') continue
+      const ref = relativePath.slice(separatorIndex + 1)
+      if (ref.length === 0) continue
 
-        const ref = relativePath.slice(separatorIndex + 1)
-        if (ref.length === 0) continue
-
-        seenPaths.add(normalizedPath)
-        seenPaths.add(`${repoPrefix}/refs/${relativePath}`)
-        knownRefsByType[refType].add(ref)
-        result.push({
-          ref,
-          refType,
-          path: EffectPath.unsafe.absoluteDir(`${repoPrefix}/refs/${relativePath}/`),
-          broken: false,
-        })
-      }
+      seenPaths.add(normalizedPath)
+      seenPaths.add(`${repoPrefix}/refs/${relativePath}`)
+      knownRefsByType[refType].add(ref)
+      result.push({
+        ref,
+        refType,
+        path: EffectPath.unsafe.absoluteDir(`${repoPrefix}/refs/${relativePath}/`),
+        broken: false,
+      })
     }
 
     // Union in the bare's ref set — the source of truth for worktree roots, and
     // the only signal for a broken worktree absent from the registry above.
-    // Cheap (one streamed `for-each-ref` per namespace); failure degrades to the
-    // worktree-list names already collected.
     for (const namespace of ['heads', 'tags'] as const) {
-      const refNames = yield* Git.listRefShortNames({ bareRepoPath, namespace }).pipe(
-        Effect.orElseSucceed(() => [] as ReadonlyArray<string>),
-      )
+      const refNames = yield* Git.listRefShortNames({ bareRepoPath, namespace })
       for (const refName of refNames) knownRefsByType[namespace].add(refName)
     }
 
@@ -790,8 +767,9 @@ const collectRepoStoreWorktrees = ({
         repoPath,
         EffectPath.unsafe.relativeDir(`refs/${refType}/`),
       )
-      const refTypeStat = yield* fs.stat(refTypePath).pipe(Effect.orElseSucceed(() => null))
-      if (refTypeStat?.type !== 'Directory') continue
+      if ((yield* fs.exists(refTypePath)) === false) continue
+      const refTypeStat = yield* fs.stat(refTypePath)
+      if (refTypeStat.type !== 'Directory') continue
 
       const layoutWorktrees = yield* collectStoreWorktrees({
         fs,
@@ -1192,15 +1170,14 @@ const coldReclaimRepo = ({
           lockAlreadyHeld === true
             ? archiveAction
             : storeLock.withWorktreeLock(worktree.path)(archiveAction)
+        ).pipe(
+          Effect.catch((error) =>
+            Effect.succeed({
+              _tag: 'error' as const,
+              message: error instanceof Error === true ? error.message : String(error),
+            }),
+          ),
         )
-          .pipe(
-            Effect.catch((error) =>
-              Effect.succeed({
-                _tag: 'error' as const,
-                message: error instanceof Error === true ? error.message : String(error),
-              }),
-            ),
-          )
 
         if (archiveOutcome._tag === 'kept-live') {
           results.push(keepRefMismatch(`HEAD is '${actualHeadBranch}' and path is live`))
@@ -1308,15 +1285,14 @@ const coldReclaimRepo = ({
         lockAlreadyHeld === true
           ? archiveAction
           : storeLock.withWorktreeLock(worktree.path)(archiveAction)
+      ).pipe(
+        Effect.catch((error) =>
+          Effect.succeed({
+            _tag: 'error' as const,
+            message: error instanceof Error === true ? error.message : String(error),
+          }),
+        ),
       )
-        .pipe(
-          Effect.catch((error) =>
-            Effect.succeed({
-              _tag: 'error' as const,
-              message: error instanceof Error === true ? error.message : String(error),
-            }),
-          ),
-        )
 
       if (archiveOutcome._tag === 'kept-live') {
         results.push(coldResult({ target, status: 'kept', reason: 'live' }))
@@ -1350,9 +1326,7 @@ const coldReclaimRepo = ({
     }
 
     // Reap archives past the retention TTL, each under lock + a fresh veto.
-    const archives = yield* scanArchives({ repoRoot: repoFullPath, bareRepoPath }).pipe(
-      Effect.orElseSucceed(() => [] as never[]),
-    )
+    const archives = yield* scanArchives({ repoRoot: repoFullPath, bareRepoPath })
     for (const entry of archives) {
       if (candidatePath !== undefined && entry.path !== candidatePath) continue
       if (now - entry.archivedAtMs < config.archiveRetentionMs) continue
@@ -1383,18 +1357,15 @@ const coldReclaimRepo = ({
         return { _tag: 'reaped' as const }
       })
       const reapOutcome = yield* (
-        lockAlreadyHeld === true
-          ? reapAction
-          : storeLock.withWorktreeLock(entry.path)(reapAction)
+        lockAlreadyHeld === true ? reapAction : storeLock.withWorktreeLock(entry.path)(reapAction)
+      ).pipe(
+        Effect.catch((error) =>
+          Effect.succeed({
+            _tag: 'error' as const,
+            message: error instanceof Error === true ? error.message : String(error),
+          }),
+        ),
       )
-        .pipe(
-          Effect.catch((error) =>
-            Effect.succeed({
-              _tag: 'error' as const,
-              message: error instanceof Error === true ? error.message : String(error),
-            }),
-          ),
-        )
 
       if (reapOutcome._tag === 'kept-live') {
         results.push(coldResult({ target: reapTarget, status: 'kept', reason: 'live' }))
@@ -1738,8 +1709,7 @@ const storeGcCommand = Cli.Command.make(
       }
       if (generatedArtifacts === true && dryRun === false && targetedApply === false) {
         return yield* new StoreCommandError({
-          message:
-            '--generated-artifacts mutation requires --expected-plan and --candidate-path',
+          message: '--generated-artifacts mutation requires --expected-plan and --candidate-path',
         })
       }
 
@@ -1914,7 +1884,7 @@ const storeGcCommand = Cli.Command.make(
       }: {
         progressive: boolean
         ownerLockHeld?: boolean | undefined
-      }) =>
+      }): Effect.Effect<void, unknown, FileSystem.FileSystem | Scope.Scope | ChildProcessSpawner> =>
         Effect.gen(function* () {
           if (progressive === true) {
             yield* dispatchGc({ done: false, forceDispatch: true })
@@ -2103,8 +2073,7 @@ const storeGcCommand = Cli.Command.make(
                   }
                   const freshCandidates = freshPlan.results.filter(
                     (result) =>
-                      normalizeStorePath(result.path) ===
-                        normalizeStorePath(candidatePath.value) &&
+                      normalizeStorePath(result.path) === normalizeStorePath(candidatePath.value) &&
                       result.outcome === 'would-delete',
                   )
                   if (freshCandidates.length !== 1) {
@@ -2134,6 +2103,50 @@ const storeGcCommand = Cli.Command.make(
                   ) {
                     return yield* new StoreCommandError({
                       message: 'candidate owner became live before deletion',
+                    })
+                  }
+                  const manifestPath = freshConfig.generatedArtifacts.agentLivenessManifest
+                  if (manifestPath === undefined) {
+                    return yield* new StoreCommandError({
+                      message: 'agent liveness became unavailable before deletion',
+                    })
+                  }
+                  const manifestContent = yield* fs
+                    .readFileString(manifestPath)
+                    .pipe(Effect.orElseSucceed(() => undefined))
+                  const manifest =
+                    manifestContent === undefined
+                      ? undefined
+                      : yield* Schema.decodeUnknownEffect(
+                          Schema.fromJsonString(AgentLivenessManifest),
+                        )(manifestContent).pipe(Effect.orElseSucceed(() => undefined))
+                  const removalTime = yield* Clock.currentTimeMillis
+                  if (
+                    manifest === undefined ||
+                    manifest.expiresAtMs < removalTime ||
+                    manifest.activeWorkspacePaths.some(
+                      (path) => isNormalizedAbsolutePath(path) === false,
+                    ) === true
+                  ) {
+                    return yield* new StoreCommandError({
+                      message: 'agent liveness became unknown before deletion',
+                    })
+                  }
+                  const activeAgentPaths = yield* Effect.forEach(
+                    manifest.activeWorkspacePaths,
+                    (path) => fs.realPath(path).pipe(Effect.orElseSucceed(() => undefined)),
+                    { concurrency: 1 },
+                  )
+                  if (
+                    activeAgentPaths.some((path) => path === undefined) === true ||
+                    activeAgentPaths.some(
+                      (path) =>
+                        path !== undefined &&
+                        normalizeStorePath(path) === normalizeStorePath(canonicalOwner),
+                    ) === true
+                  ) {
+                    return yield* new StoreCommandError({
+                      message: 'candidate owner is live or liveness is unknown before deletion',
                     })
                   }
                   yield* fs.remove(freshCandidate.path, { recursive: true })
@@ -2392,9 +2405,7 @@ const storeGcCommand = Cli.Command.make(
               })
             }
             const candidate = candidates[0]!
-            const owner = repoWorktrees.find(
-              ({ repo }) => repo.relativePath === candidate.repo,
-            )
+            const owner = repoWorktrees.find(({ repo }) => repo.relativePath === candidate.repo)
             if (owner === undefined) {
               return yield* new StoreCommandError({
                 message: 'candidate owner repository is missing',
@@ -2414,9 +2425,7 @@ const storeGcCommand = Cli.Command.make(
 
             let applied: StoreGcResult
             if (candidate.status === 'removed') {
-              const worktree = owner.worktrees.filter(
-                (entry) => entry.path === candidate.path,
-              )
+              const worktree = owner.worktrees.filter((entry) => entry.path === candidate.path)
               if (worktree.length !== 1) {
                 return yield* new StoreCommandError({
                   message: 'candidate worktree is missing or ambiguous',
@@ -2439,6 +2448,7 @@ const storeGcCommand = Cli.Command.make(
                   })
                 }
                 yield* fs.remove(candidate.path, { recursive: true })
+                yield* Git.pruneWorktrees(owner.bareRepoPath)
                 return candidate
               })
             } else {
@@ -2495,7 +2505,7 @@ const storeGcCommand = Cli.Command.make(
           }
 
           statusMessage = undefined
-          if (progressive === true) {
+          if (progressive === true || ownerLockHeld === true) {
             yield* dispatchGc({ done: true, forceDispatch: true })
           }
         })

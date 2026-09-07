@@ -315,8 +315,8 @@ const make = ({
           // Backstop: never descend past the layout's plausible repo depth, so a
           // pathological non-git directory tree can't drive an unbounded walk.
           if (depth >= STORE_REPO_WALK_MAX_DEPTH) {
-            return yield* Effect.dieMessage(
-              `store listRepos census exceeded the supported depth at ${dir}`,
+            return yield* Effect.die(
+              new Error(`store listRepos census exceeded the supported depth at ${dir}`),
             )
           }
 
