@@ -1,19 +1,19 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "context/effect/socket"
-    ]
-  },
   "name": "effect-socket-examples",
-  "type": "module",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@effect/platform-node": "4.0.0-rc.111",
     "effect": "4.0.0-rc.111"
   },
   "devDependencies": {
     "@types/node": "26.0.0"
+  },
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "context/effect/socket"
+    ]
   }
 }

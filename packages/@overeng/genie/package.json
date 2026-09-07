@@ -1,22 +1,8 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/genie",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/tui-core",
-      "packages/@overeng/tui-react",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
-  },
   "name": "@overeng/genie",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/src/runtime/mod.d.ts",
@@ -37,6 +23,16 @@
     "./sdk": {
       "types": "./dist/src/sdk/mod.d.ts",
       "default": "./src/sdk/mod.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/src/runtime/mod.js",
+      "./node": "./dist/src/runtime/node/mod.js",
+      "./composition": "./dist/src/runtime/composition/mod.js",
+      "./cli": "./dist/src/build/mod.js",
+      "./sdk": "./dist/src/sdk/mod.js"
     }
   },
   "scripts": {
@@ -62,11 +58,6 @@
     "typescript": "6.0.3",
     "vitest": "4.1.9"
   },
-  "dependenciesMeta": {
-    "@overeng/tui-react": {
-      "injected": true
-    }
-  },
   "devDependencies": {
     "@effect/atom-react": "4.0.0-rc.111",
     "@effect/platform-node": "4.0.0-rc.111",
@@ -84,6 +75,11 @@
     "storybook": "10.5.10",
     "vitest": "4.1.9"
   },
+  "dependenciesMeta": {
+    "@overeng/tui-react": {
+      "injected": true
+    }
+  },
   "peerDependencies": {
     "@effect/atom-react": "^4.0.0-rc.111",
     "@effect/opentelemetry": "^4.0.0-rc.111",
@@ -99,14 +95,18 @@
     "react-dom": "^19.2.7",
     "react-reconciler": "^0.33.0"
   },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/src/runtime/mod.js",
-      "./node": "./dist/src/runtime/node/mod.js",
-      "./composition": "./dist/src/runtime/composition/mod.js",
-      "./cli": "./dist/src/build/mod.js",
-      "./sdk": "./dist/src/sdk/mod.js"
-    }
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/genie",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/tui-core",
+      "packages/@overeng/tui-react",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
   }
 }

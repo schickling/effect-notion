@@ -1,20 +1,8 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/effect-rpc-tanstack/examples/basic",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
-  },
   "name": "effect-rpc-tanstack-example-basic",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -22,6 +10,8 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@effect/platform-node": "4.0.0-rc.111",
+    "@overeng/effect-rpc-tanstack": "workspace:^",
     "@tanstack/react-router": "1.170.16",
     "@tanstack/react-start": "1.168.26",
     "effect": "4.0.0-rc.111",
@@ -38,5 +28,18 @@
     "@vitejs/plugin-react": "6.0.2",
     "typescript": "6.0.3",
     "vite": "8.0.16"
+  },
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/effect-rpc-tanstack",
+      "packages/@overeng/effect-rpc-tanstack/examples/basic",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
   }
 }

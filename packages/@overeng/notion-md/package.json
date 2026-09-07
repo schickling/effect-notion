@@ -1,26 +1,8 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/notion-core",
-      "packages/@overeng/notion-effect-client",
-      "packages/@overeng/notion-effect-schema",
-      "packages/@overeng/notion-md",
-      "packages/@overeng/notion-property-write",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/tui-core",
-      "packages/@overeng/tui-react",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
-  },
   "name": "@overeng/notion-md",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/src/mod.d.ts",
@@ -33,6 +15,17 @@
     "./cli-program": {
       "types": "./dist/src/cli-program.d.ts",
       "default": "./src/cli-program.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "bin": {
+      "notion-md": "./dist/src/cli.js"
+    },
+    "exports": {
+      ".": "./dist/src/mod.js",
+      "./cli": "./dist/src/cli.js",
+      "./cli-program": "./dist/src/cli-program.js"
     }
   },
   "scripts": {
@@ -78,15 +71,22 @@
     "@playwright/test": "^1.61.0",
     "effect": "^4.0.0-rc.111"
   },
-  "publishConfig": {
-    "access": "public",
-    "bin": {
-      "notion-md": "./dist/src/cli.js"
-    },
-    "exports": {
-      ".": "./dist/src/mod.js",
-      "./cli": "./dist/src/cli.js",
-      "./cli-program": "./dist/src/cli-program.js"
-    }
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/notion-core",
+      "packages/@overeng/notion-effect-client",
+      "packages/@overeng/notion-effect-schema",
+      "packages/@overeng/notion-md",
+      "packages/@overeng/notion-property-write",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/tui-core",
+      "packages/@overeng/tui-react",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
   }
 }

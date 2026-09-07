@@ -1,15 +1,8 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/oxc-config"
-    ]
-  },
   "name": "@overeng/oxc-config",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "exports": {
     "./plugin": {
       "types": "./dist/src/mod.d.ts",
@@ -30,5 +23,12 @@
     "oxlint-tsgolint": "0.23.0",
     "typescript": "6.0.3",
     "vitest": "4.1.9"
+  },
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/oxc-config"
+    ]
   }
 }

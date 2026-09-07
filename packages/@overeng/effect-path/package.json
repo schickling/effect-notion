@@ -1,20 +1,18 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/effect-path",
-      "packages/@overeng/utils-dev"
-    ]
-  },
   "name": "@overeng/effect-path",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/src/mod.d.ts",
       "default": "./src/mod.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js"
     }
   },
   "devDependencies": {
@@ -29,10 +27,12 @@
   "peerDependencies": {
     "effect": "^4.0.0-rc.111"
   },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js"
-    }
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/effect-path",
+      "packages/@overeng/utils-dev"
+    ]
   }
 }
