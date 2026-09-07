@@ -32,6 +32,7 @@ const requireTool = (name: string): string => {
 
 const bunBin = requireTool('BUN_BIN')
 const bashBin = requireTool('BASH_BIN')
+const catBin = requireTool('CAT_BIN')
 const mkdirBin = requireTool('MKDIR_BIN')
 const trBin = requireTool('TR_BIN')
 let apiMode: ApiMode = 'ok'
@@ -725,7 +726,7 @@ if [ "\${1:-}" = "alias" ]; then
       exit 1
       ;;
     release-after-retry)
-      attempts=$(( $(cat "\${FAKE_VERCEL_ATTEMPTS_FILE}" 2>/dev/null || echo 0) + 1 ))
+      attempts=$(( $(${catBin} "\${FAKE_VERCEL_ATTEMPTS_FILE}" 2>/dev/null || echo 0) + 1 ))
       printf '%s\\n' "$attempts" > "\${FAKE_VERCEL_ATTEMPTS_FILE}"
       if [ "$attempts" -ge 2 ]; then
         printf 'Aliased %s to %s\\n' "\${2:-}" "\${3:-}"
