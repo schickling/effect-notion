@@ -382,15 +382,18 @@ describe('platform sandbox contract', () => {
     expect(profile).toContain('(allow process-exec ')
     expect(profile).toContain('(allow file-read-metadata ')
 
-    // Bun inspects the root directory entry during startup, and opens the
-    // remaining paths. The root uses `literal`, never `subpath`.
+    // Bun inspects the root directory entry during startup, and opens the remaining paths. An
+    // inner child launched with an ignored stdin opens `/dev/null` read-only from inside
+    // `posix_spawn`, so that device is read here as well as written below. The root uses
+    // `literal`, never `subpath`.
     expect(profile).toContain(
-      '(allow file-read* (literal "/") (literal "/dev/random") (literal "/dev/urandom") (literal "/etc/localtime") (literal (param "META_LINK_0")) (literal (param "META_LINK_1")))',
+      '(allow file-read* (literal "/") (literal "/dev/null") (literal "/dev/random") (literal "/dev/urandom") (literal "/etc/localtime") (literal (param "META_LINK_0")) (literal (param "META_LINK_1")))',
     )
     // Exactly one writable OS path, and only its data: no create, unlink, or chmod.
     expect(profile).toContain('(allow file-write-data (literal "/dev/null"))')
     expect(DARWIN_SEATBELT_OS_READ_PATHS).toEqual([
       '/',
+      '/dev/null',
       '/dev/random',
       '/dev/urandom',
       '/etc/localtime',

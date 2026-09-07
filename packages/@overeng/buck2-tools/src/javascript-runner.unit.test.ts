@@ -17,6 +17,7 @@ import { describe, expect, it } from 'vitest'
 import {
   acquireScratch,
   javaScriptSandboxInvocation,
+  type JavaScriptRunOptions,
   parseJavaScriptRunOptions,
   planScratch,
   vitestArgv,
@@ -427,5 +428,145 @@ describe('javaScriptSandboxInvocation', () => {
     expect(invocation.argv[0]).toBe(BWRAP)
     expect(invocation.argv.some((argument) => argument.includes('META_LINK_'))).toBe(false)
     expect(invocation.profile).toBeUndefined()
+  })
+})
+
+const NODE_BIN = '/nix/store/4444444444444444444444444444444d-node/bin/node'
+
+const seatbeltFlags = [
+  '--sandbox',
+  'seatbelt',
+  '--sandbox-launcher',
+  DARWIN_SANDBOX_LAUNCHER,
+  '--tool-closure',
+  BUN_CLOSURE,
+  '--darwin-kernel-major',
+  '25',
+] as const
+
+/** The declared roots one lane hands to its Seatbelt launch, exactly as `runSandboxed` builds them. */
+const declaredInputRoots = (options: JavaScriptRunOptions): readonly string[] => [
+  options.packageTree,
+  ...options.readRoots,
+  ...Object.values(options.externalInputs),
+]
+
+/**
+ * Runs one parsed lane through a Seatbelt launch over a Darwin-shaped metadata fixture, and hands
+ * the assertion the profile bytes plus the read roots the launch predicates by `-D` parameter.
+ */
+const withSeatbeltLaunch = (
+  options: JavaScriptRunOptions,
+  assert: (launch: { readonly profile: string; readonly readRoots: readonly string[] }) => void,
+): void => {
+  const fixture = createMetadataFixture()
+  try {
+    const invocation = javaScriptSandboxInvocation({
+      command: [options.bun, 'run'],
+      inputRoots: declaredInputRoots(options),
+      kernelRelease: '25.5.0',
+      metadataPaths: [fixture.logicalLocaltime],
+      outputRoots: [],
+      sandbox: options.sandbox,
+      scratchRoot: join(fixture.root, 'scratch'),
+      workingDirectory: options.packageTree,
+    })
+    assert({
+      profile: invocation.profile?.bytes ?? '',
+      readRoots: invocation.argv
+        .filter((argument) => argument.startsWith('READ_ROOT_') === true)
+        .map((argument) => argument.slice(argument.indexOf('=') + 1)),
+    })
+  } finally {
+    rmSync(fixture.root, { recursive: true })
+  }
+}
+
+describe('the Seatbelt grant a nested JavaScript spawn depends on', () => {
+  // Every lane spawns its inner child with `stdin: 'ignore'`, and that child opens `/dev/null`
+  // read-only from inside `posix_spawn`. The device is readable through the shared OS contract,
+  // so no lane declares it — a device is not a hashable action input.
+  it('reads the ignored-stdin device through the shared OS contract, never a declared root', () => {
+    const options = parseJavaScriptRunOptions([
+      'bun-test',
+      bun,
+      '/buck/package-tree',
+      '30000',
+      '--test',
+      'src/a.test.ts',
+      ...seatbeltFlags,
+    ])
+
+    withSeatbeltLaunch(options, ({ profile, readRoots }) => {
+      expect(profile).toContain(
+        '(allow file-read* (literal "/") (literal "/dev/null") (literal "/dev/random")',
+      )
+      // The device stays write-data only, and metadata stays granted for every declared path.
+      expect(profile).toContain('(allow file-write-data (literal "/dev/null"))')
+      expect(profile).toContain('(allow file-read-metadata ')
+      expect(profile).toContain('(literal "/System/Library/CoreServices/SystemVersion.plist")')
+      expect(readRoots).toEqual(['/buck/package-tree', BUN_CLOSURE])
+    })
+  })
+
+  // The pinned Bun that execs the inner child, and the declared NODE_BIN that evaluates the Node
+  // Vitest lane, are already inside declared read roots: Bun under its tool closure, NODE_BIN as
+  // a declared external input. Neither needs a root of its own.
+  it('execs the pinned Bun and the declared NODE_BIN from roots the lane already declares', () => {
+    const options = parseJavaScriptRunOptions([
+      'vitest',
+      bun,
+      '/buck/package-tree',
+      'vitest.config.ts',
+      '30000',
+      '45000',
+      '--vitest-runtime',
+      'node',
+      '--external-path',
+      'NODE_BIN',
+      NODE_BIN,
+      ...seatbeltFlags,
+    ])
+
+    withSeatbeltLaunch(options, ({ profile, readRoots }) => {
+      expect(readRoots).toEqual(['/buck/package-tree', BUN_CLOSURE, NODE_BIN].toSorted())
+      expect(readRoots).not.toContain('/dev/null')
+      expect(readRoots).not.toContain(bun)
+      expect(bun.startsWith(`${BUN_CLOSURE}/`)).toBe(true)
+      const execLine = profile
+        .split('\n')
+        .find((line) => line.startsWith('(allow process-exec ') === true)
+      for (const [index] of readRoots.entries()) {
+        expect(execLine).toContain(`(subpath (param "READ_ROOT_${index}"))`)
+      }
+    })
+  })
+
+  it('keeps a Bubblewrap or unsandboxed lane at exactly its declared inputs', () => {
+    const bubblewrapLane = parseJavaScriptRunOptions([
+      'bun-test',
+      bun,
+      '/buck/package-tree',
+      '30000',
+      '--sandbox',
+      'bubblewrap',
+      '--sandbox-launcher',
+      BWRAP,
+      '--tool-closure',
+      BUN_CLOSURE,
+    ])
+
+    expect(declaredInputRoots(bubblewrapLane)).toEqual(['/buck/package-tree'])
+    expect(
+      declaredInputRoots(
+        parseJavaScriptRunOptions([
+          'bun-test',
+          bun,
+          '/buck/package-tree',
+          '30000',
+          ...sandboxFlags,
+        ]),
+      ),
+    ).toEqual(['/buck/package-tree'])
   })
 })

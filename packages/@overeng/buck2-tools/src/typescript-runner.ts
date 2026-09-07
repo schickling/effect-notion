@@ -565,9 +565,17 @@ export const DARWIN_SEATBELT_OS_METADATA_PATHS = [
  * every canonical spelling of the linked paths — therefore need `file-read*`. A literal `/`
  * predicate grants only the root entry, not its descendants. `SystemVersion.plist` is deliberately
  * not here: it is probed, not read.
+ *
+ * `/dev/null` is read as well as written: a child launched with `stdin: 'ignore'` opens that
+ * device read-only from inside `posix_spawn`, and a grant carrying only `file-write-data` fails
+ * the spawn as `EPERM: operation not permitted, posix_spawn '<runtime>'` — an error that names
+ * the runtime executable and hides the device that was actually refused. The read belongs on this
+ * shared OS contract, like the other devices here, because every sandboxed lane spawns that way;
+ * it is not a property of any action's declared inputs.
  */
 export const DARWIN_SEATBELT_OS_READ_PATHS = [
   '/',
+  '/dev/null',
   '/dev/random',
   '/dev/urandom',
   '/etc/localtime',
