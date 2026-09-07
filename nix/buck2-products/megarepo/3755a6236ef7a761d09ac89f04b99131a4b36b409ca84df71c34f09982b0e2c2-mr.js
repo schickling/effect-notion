@@ -87429,13 +87429,14 @@ var captureContainedDirectory = async ({
   }
   return { path: path8, realpath: canonicalPath, device: info2.dev, inode: info2.ino };
 };
+var describeIdentity = (identity3) => `realpath '${identity3.realpath}' device ${String(identity3.device)} inode ${String(identity3.inode)}`;
 var assertDirectoryIdentity2 = async (identity3) => {
   const current = await captureContainedDirectory({
     path: identity3.path,
     parent: NodePath17.dirname(identity3.realpath)
   });
   if (current.realpath !== identity3.realpath || current.device !== identity3.device || current.inode !== identity3.inode) {
-    throw new TypeError(`Directory identity changed at '${identity3.path}'`);
+    throw new TypeError(`Directory identity changed at '${identity3.path}': expected ${describeIdentity(identity3)}, observed ${describeIdentity(current)}`);
   }
 };
 var isErrno3 = ({ cause, code }) => typeof cause === "object" && cause !== null && ("code" in cause) && cause.code === code;

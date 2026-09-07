@@ -1,4 +1,15 @@
-import { mkdtemp, mkdir, readFile, readdir, rename, rm, symlink, writeFile } from 'node:fs/promises'
+import {
+  lstat,
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import * as NodePath from 'node:path'
 
@@ -171,9 +182,14 @@ describe('owned capability projection', { timeout: 120_000 }, () => {
     },
   )
 
-  it.each(['copy', 'publish'] as const)(
-    'detects deterministic .buck2 replacement before %s without following the replacement',
-    async (phase) => {
+  it.each([
+    ['copy', 'symlink'],
+    ['copy', 'recreate'],
+    ['publish', 'symlink'],
+    ['publish', 'recreate'],
+  ] as const)(
+    'detects a deterministic .buck2 %s-phase %s replacement without following the replacement',
+    async (phase, kind) => {
       const fixture = await mkdtemp(NodePath.join(tmpdir(), 'owned-capability-race-'))
       try {
         const owned = NodePath.join(fixture, 'owned')
@@ -184,31 +200,53 @@ describe('owned capability projection', { timeout: 120_000 }, () => {
         await writeFile(NodePath.join(owned, '.git'), 'gitdir: fixture\n')
         const { coreutils, storePath, capabilityGcRoots } = await projectionRuntime(fixture)
         await writeProjection({ root: projection, generation, storePath })
+        // The installer captured the parent's identity itself, so the expected half of the refusal
+        // is read back from disk right before the replacement lands. A `recreate` keeps the path
+        // and the device and moves only the inode, which is exactly what a bare
+        // `Directory identity changed` message cannot tell a reader after the fact.
+        let expectedMessage = ''
         const replaceParent = async (parent: string) => {
+          const captured = await lstat(parent)
+          const canonical = await realpath(parent)
           await rename(parent, `${parent}.captured`)
-          await symlink(outside, parent)
+          if (kind === 'symlink') {
+            await symlink(outside, parent)
+            expectedMessage = `Expected a real contained directory at '${parent}'`
+            return
+          }
+          await mkdir(parent, { mode: 0o700 })
+          const replacement = await lstat(parent)
+          expectedMessage = `Directory identity changed at '${parent}': expected realpath '${canonical}' device ${String(captured.dev)} inode ${String(captured.ino)}, observed realpath '${canonical}' device ${String(replacement.dev)} inode ${String(replacement.ino)}`
         }
 
-        await expect(
-          installOwnedCapabilityProjection({
-            memberKey: 'owned',
-            ownedMemberPath: owned,
-            projectionPath: projection,
-            projectionDigest: generation,
-            runtime: {
-              ...coreutils,
-              capabilityGcRoots,
-              nonce: () => `race-${phase}`,
-              ...(phase === 'copy'
-                ? { beforeCopy: replaceParent }
-                : { beforePublish: replaceParent }),
-            },
-          }),
-        ).rejects.toMatchObject({
+        const error: unknown = await installOwnedCapabilityProjection({
+          memberKey: 'owned',
+          ownedMemberPath: owned,
+          projectionPath: projection,
+          projectionDigest: generation,
+          runtime: {
+            ...coreutils,
+            capabilityGcRoots,
+            nonce: () => `race-${phase}-${kind}`,
+            ...(phase === 'copy'
+              ? { beforeCopy: replaceParent }
+              : { beforePublish: replaceParent }),
+          },
+        }).then(
+          () => undefined,
+          (cause: unknown) => cause,
+        )
+
+        expect(error).toMatchObject({
           _tag: 'OwnedCapabilityProjectionError',
           reason: phase === 'copy' ? 'CopyFailed' : 'PublishFailed',
+          cause: expect.objectContaining({ name: 'TypeError', message: expectedMessage }),
         })
         expect(await readdir(outside)).toEqual([])
+        // Nothing was written through the replacement that took the parent's place.
+        if (kind === 'recreate') {
+          expect(await readdir(NodePath.join(owned, '.buck2'))).toEqual([])
+        }
       } finally {
         await rm(fixture, { recursive: true, force: true })
       }
