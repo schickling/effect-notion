@@ -43,9 +43,16 @@ const packagePlans: Readonly<Record<string, Buck2JavaScriptTestPlan>> = {
         runner: 'vitest',
         // The CLI contract and deploy e2e suites spawn the pinned Bun, and the fake
         // `netlify`/`vercel` binaries they write carry a `#!/usr/bin/env bash` shebang, so `env`
-        // and `bash` are both driven. The live lanes are their own targets and are excluded here
-        // rather than collected and self-skipped.
-        tools: { BASH_BIN: 'test-bash', BUN_BIN: 'bun', ENV_BIN: 'coreutils-env' },
+        // and `bash` are both driven. Those stubs also run `mkdir` and `tr`, which containment
+        // supplies as declared capabilities rather than an ambient PATH lookup. The live lanes
+        // are their own targets and are excluded here rather than collected and self-skipped.
+        tools: {
+          BASH_BIN: 'test-bash',
+          BUN_BIN: 'bun',
+          ENV_BIN: 'coreutils-env',
+          MKDIR_BIN: 'coreutils-mkdir',
+          TR_BIN: 'coreutils-tr',
+        },
         capabilities: ['subprocess'],
         excludes: ['src/deploy-netlify.live.e2e.test.ts', 'src/deploy-vercel.live.e2e.test.ts'],
       },

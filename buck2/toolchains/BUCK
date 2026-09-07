@@ -44,6 +44,20 @@ support_tool(
 )
 
 support_tool(
+    name = "tool_coreutils_mkdir",
+    protocol = "gnu/coreutils/v9",
+    tool_id = "coreutils-mkdir",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_coreutils_tr",
+    protocol = "gnu/coreutils/v9",
+    tool_id = "coreutils-tr",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
     name = "tool_coreutils_env",
     protocol = "gnu/coreutils/v9",
     tool_id = "coreutils-env",

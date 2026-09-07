@@ -227,6 +227,18 @@ const manifestProjection = {
       executable: 'bin/mv',
     },
     {
+      toolId: 'coreutils-mkdir',
+      protocol: 'gnu/coreutils/v9',
+      flakePackage: 'buck2-coreutils',
+      executable: 'bin/mkdir',
+    },
+    {
+      toolId: 'coreutils-tr',
+      protocol: 'gnu/coreutils/v9',
+      flakePackage: 'buck2-coreutils',
+      executable: 'bin/tr',
+    },
+    {
       toolId: 'coreutils-env',
       protocol: 'gnu/coreutils/v9',
       flakePackage: 'buck2-coreutils',

@@ -156,7 +156,7 @@ vitest_test(
     hook_timeout_ms = 30000,
     timeout_ms = 30000,
     excludes = ["src/deploy-netlify.live.e2e.test.ts", "src/deploy-vercel.live.e2e.test.ts"],
-    tools = {"BASH_BIN": "//buck2/toolchains:tool_test_bash", "BUN_BIN": "//buck2/toolchains:tool_bun", "ENV_BIN": "//buck2/toolchains:tool_coreutils_env"},
+    tools = {"BASH_BIN": "//buck2/toolchains:tool_test_bash", "BUN_BIN": "//buck2/toolchains:tool_bun", "ENV_BIN": "//buck2/toolchains:tool_coreutils_env", "MKDIR_BIN": "//buck2/toolchains:tool_coreutils_mkdir", "TR_BIN": "//buck2/toolchains:tool_coreutils_tr"},
     capabilities = ["subprocess"],
     visibility = ["PUBLIC"],
 )

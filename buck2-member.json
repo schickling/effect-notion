@@ -219,6 +219,12 @@
       "executable": "bin/false"
     },
     {
+      "toolId": "coreutils-mkdir",
+      "protocol": "gnu/coreutils/v9",
+      "flakePackage": "buck2-coreutils",
+      "executable": "bin/mkdir"
+    },
+    {
       "toolId": "coreutils-mv",
       "protocol": "gnu/coreutils/v9",
       "flakePackage": "buck2-coreutils",
@@ -241,6 +247,12 @@
       "protocol": "gnu/coreutils/v9",
       "flakePackage": "buck2-coreutils",
       "executable": "bin/stty"
+    },
+    {
+      "toolId": "coreutils-tr",
+      "protocol": "gnu/coreutils/v9",
+      "flakePackage": "buck2-coreutils",
+      "executable": "bin/tr"
     },
     {
       "toolId": "coreutils-true",
