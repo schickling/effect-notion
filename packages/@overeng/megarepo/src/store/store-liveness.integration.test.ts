@@ -422,4 +422,58 @@ describe('store-liveness', () => {
       Effect.scoped,
     ),
   )
+  it.effect(
+    'fails closed when the workspace registry cannot be enumerated',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const { storePath } = yield* createStoreFixture([])
+        const store = yield* Effect.provide(Store, makeStoreLayer({ basePath: storePath }))
+        const stateDir = EffectPath.ops.join(storePath, EffectPath.unsafe.relativeDir('.state/'))
+        yield* fs.makeDirectory(stateDir, { recursive: true })
+        yield* fs.writeFileString(
+          EffectPath.ops.join(stateDir, EffectPath.unsafe.relativeFile('workspaces')),
+          'not a directory',
+        )
+
+        const result = yield* collectStoreLiveSet({
+          store,
+          refreshCurrentWorkspace: false,
+        }).pipe(Effect.result)
+
+        expect(result._tag).toBe('Failure')
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
+    'fails closed when a workspace registry record is malformed',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const { storePath } = yield* createStoreFixture([])
+        const store = yield* Effect.provide(Store, makeStoreLayer({ basePath: storePath }))
+        const registryDir = EffectPath.ops.join(
+          storePath,
+          EffectPath.unsafe.relativeDir('.state/workspaces/'),
+        )
+        yield* fs.makeDirectory(registryDir, { recursive: true })
+        yield* fs.writeFileString(
+          EffectPath.ops.join(registryDir, EffectPath.unsafe.relativeFile('broken.json')),
+          '{',
+        )
+
+        const result = yield* collectStoreLiveSet({
+          store,
+          refreshCurrentWorkspace: false,
+        }).pipe(Effect.result)
+
+        expect(result._tag).toBe('Failure')
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
 })

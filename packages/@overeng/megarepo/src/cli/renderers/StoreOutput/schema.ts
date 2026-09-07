@@ -172,6 +172,7 @@ export const StoreGcState = Schema.TaggedStruct('Gc', {
   done: Schema.optional(Schema.Boolean),
   interrupted: Schema.optional(Schema.Boolean),
   planSha256: Schema.optional(Schema.String),
+  censusStatus: Schema.optional(Schema.Literals(['complete', 'unknown'])),
 })
 
 /**
@@ -324,6 +325,7 @@ export const StoreAction = Schema.Union([
     done: Schema.optional(Schema.Boolean),
     interrupted: Schema.optional(Schema.Boolean),
     planSha256: Schema.optional(Schema.String),
+    censusStatus: Schema.optional(Schema.Literals(['complete', 'unknown'])),
   }),
   Schema.TaggedStruct('SetAdd', {
     status: Schema.Literals(['added', 'already_exists', 'created']),
@@ -405,6 +407,7 @@ export const storeReducer = ({
         done: action.done,
         interrupted: action.interrupted,
         planSha256: action.planSha256,
+        censusStatus: action.censusStatus,
       }
     case 'SetAdd':
       return {

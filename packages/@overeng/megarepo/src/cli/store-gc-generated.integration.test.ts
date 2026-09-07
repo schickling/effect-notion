@@ -10,6 +10,11 @@ import { expect } from 'vitest'
 import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
 
 import * as Git from '../core/git.ts'
+import {
+  acquireDeletionLease,
+  canonicalizeOwnerPath,
+  releaseDeletionLease,
+} from '../store/store-deletion-lease.ts'
 import { makeConsoleCapture } from '../test-utils/consoleCapture.ts'
 import { decodeJson, encodeJson } from '../test-utils/json.ts'
 import { createStoreFixture } from '../test-utils/store-setup.ts'
@@ -106,23 +111,57 @@ const fixture = () =>
     return { ...created, worktree, outside, manifest, config }
   })
 
+const CATALOG = '/var/lib/st2/catalog'
+const HOST = 'test-host'
+
+/**
+ * Write the gc config plus, when a manifest path is given, a native
+ * `st2.workspace-activity.v1` snapshot claiming `activeWorkspacePaths`.
+ */
 const configure = ({
   config,
   manifest,
   activeWorkspacePaths = [],
-  expiresAtMs = NOW + DAY_MS,
+  expiresAtMs,
+  complete = true,
+  errors = [],
+  epoch = { catalog: CATALOG, host: HOST, catalogGeneration: 1 },
+  omitConfigEpoch = false,
 }: {
   config: string
   manifest?: string | undefined
   activeWorkspacePaths?: ReadonlyArray<string>
   expiresAtMs?: number
+  complete?: boolean
+  errors?: ReadonlyArray<string>
+  epoch?: {
+    readonly catalog: string
+    readonly host: string
+    readonly catalogGeneration: number | null
+  }
+  omitConfigEpoch?: boolean
 }) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     if (manifest !== undefined) {
+      const capturedAtMs = Date.now()
       yield* fs.writeFileString(
         manifest,
-        encodeJson({ version: 1, expiresAtMs, activeWorkspacePaths }),
+        encodeJson({
+          schemaVersion: 'st2.workspace-activity.v1',
+          producer: 'st2',
+          epoch,
+          capturedAt: new Date(capturedAtMs).toISOString(),
+          expiresAt: new Date(expiresAtMs ?? capturedAtMs + 60_000).toISOString(),
+          complete,
+          errors,
+          claims: [...activeWorkspacePaths].toSorted().map((workspace) => ({
+            workspace,
+            agents: ['test.agent'],
+            activeRuntimeIds: ['test.agent'],
+            active: true,
+          })),
+        }),
       )
     }
     yield* fs.writeFileString(
@@ -132,7 +171,14 @@ const configure = ({
           enabled: true,
           retentionMs: DAY_MS,
           allowlist: ['node_modules', 'dist'],
-          ...(manifest !== undefined ? { agentLivenessManifest: manifest } : {}),
+          ...(manifest !== undefined
+            ? {
+                agentLivenessManifest: manifest,
+                ...(omitConfigEpoch === true
+                  ? {}
+                  : { agentLivenessEpoch: { catalog: CATALOG, host: HOST } }),
+              }
+            : {}),
         },
       }),
     )
@@ -222,6 +268,65 @@ describe('mr store gc --generated-artifacts', () => {
   )
 
   it.effect(
+    'keeps an artifact whose worktree is canonically claimed active by st2',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const f = yield* fixture()
+        yield* oldIgnoredArtifact(f.worktree)
+        yield* configure({
+          config: f.config,
+          manifest: f.manifest,
+          activeWorkspacePaths: [yield* fs.realPath(f.worktree)],
+        })
+        const result = yield* runGc({ cwd: f.outside, storePath: f.storePath, args: ['--dry-run'] })
+        expect(generated(result.results, 'node_modules')).toMatchObject({
+          outcome: 'keep',
+          reason: 'live',
+        })
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
+    'refuses snapshots outside the admitted epoch or with an incomplete capture',
+    Effect.fnUntraced(
+      function* () {
+        const f = yield* fixture()
+        yield* oldIgnoredArtifact(f.worktree)
+
+        // Each case is evidence megarepo must not trust: a snapshot produced for
+        // another host or catalog, a partial capture, a capture that reported
+        // errors, and a manifest with no configured epoch to admit it at all.
+        const cases = [
+          { epoch: { catalog: CATALOG, host: 'other-host', catalogGeneration: 1 } },
+          { epoch: { catalog: '/var/lib/st2/other', host: HOST, catalogGeneration: 1 } },
+          { complete: false },
+          { errors: ['catalog read failed'] },
+          { omitConfigEpoch: true },
+        ] as const
+
+        for (const override of cases) {
+          yield* configure({ config: f.config, manifest: f.manifest, ...override })
+          const result = yield* runGc({
+            cwd: f.outside,
+            storePath: f.storePath,
+            args: ['--dry-run'],
+          })
+          expect(generated(result.results, 'node_modules')).toMatchObject({
+            outcome: 'unknown',
+            reason: 'agent-liveness-unavailable',
+          })
+        }
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
     'recent nested activity keeps an old artifact root',
     Effect.fnUntraced(
       function* () {
@@ -303,7 +408,7 @@ describe('mr store gc --generated-artifacts', () => {
   )
 
   it.effect(
-    'rejects mutation and expected-plan until a deletion transaction exists',
+    'requires a complete plan-bound candidate selector for mutation',
     Effect.fnUntraced(
       function* () {
         const f = yield* fixture()
@@ -317,6 +422,164 @@ describe('mr store gc --generated-artifacts', () => {
             args: ['--dry-run', '--expected-plan', '0'.repeat(64)],
           })).exitCode,
         ).toBe(1)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
+    'applies exactly one generated-artifact candidate from an unchanged plan',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const f = yield* fixture()
+        yield* configure({ config: f.config, manifest: f.manifest })
+        const artifact = yield* oldIgnoredArtifact(f.worktree)
+        yield* fs.writeFileString(`${f.worktree}/.gitignore`, 'node_modules/\ndist/\n')
+        yield* Git.runCommand({ args: ['add', '.gitignore'], cwd: f.worktree })
+        yield* Git.runCommand({ args: ['commit', '-m', 'ignore dist'], cwd: f.worktree })
+        const sibling = `${f.worktree}/dist`
+        yield* fs.makeDirectory(sibling, { recursive: true })
+        yield* fs.writeFileString(`${sibling}/fixture.txt`, 'generated sibling')
+        yield* Effect.promise(() =>
+          utimes(sibling, new Date(NOW - 2 * DAY_MS), new Date(NOW - 2 * DAY_MS)),
+        )
+
+        const plan = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--dry-run'],
+        })
+        const candidate = generated(plan.results, 'node_modules')!
+        const applied = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--expected-plan', plan.planSha256!, '--candidate-path', candidate.path],
+        })
+
+        expect(applied.exitCode).toBe(0)
+        expect(applied.results).toHaveLength(1)
+        expect(applied.results[0]).toMatchObject({ path: candidate.path, outcome: 'deleted' })
+        expect(yield* fs.exists(artifact)).toBe(false)
+        expect(yield* fs.exists(sibling)).toBe(true)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
+    'refuses to delete while an activation holds the owner deletion lease',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const f = yield* fixture()
+        yield* configure({ config: f.config, manifest: f.manifest })
+        const artifact = yield* oldIgnoredArtifact(f.worktree)
+        const plan = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--dry-run'],
+        })
+
+        const candidatePath = generated(plan.results, 'node_modules')!.path
+        // Stand in for `mr store lease -- <activation>`: hold the owner lease
+        // across the whole apply attempt.
+        const ownerPath = yield* canonicalizeOwnerPath(f.worktree)
+        const held = yield* acquireDeletionLease({
+          storeBasePath: f.storePath,
+          ownerPath,
+          now: NOW,
+        })
+        const refused = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--expected-plan', plan.planSha256!, '--candidate-path', candidatePath],
+        })
+        expect(refused.exitCode).toBe(1)
+        expect(yield* fs.exists(artifact)).toBe(true)
+
+        // Activation finished (and published its manifest): the same plan applies.
+        yield* releaseDeletionLease(held)
+        const applied = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--expected-plan', plan.planSha256!, '--candidate-path', candidatePath],
+        })
+        expect(applied.exitCode).toBe(0)
+        expect(yield* fs.exists(artifact)).toBe(false)
+        expect(yield* fs.exists(held.leasePath)).toBe(false)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
+    'refuses missing and newly-live generated-artifact candidates',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const f = yield* fixture()
+        yield* configure({ config: f.config, manifest: f.manifest })
+        const artifact = yield* oldIgnoredArtifact(f.worktree)
+        const plan = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--dry-run'],
+        })
+        const candidatePath = generated(plan.results, 'node_modules')!.path
+
+        const missing = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--expected-plan', plan.planSha256!, '--candidate-path', `${f.outside}missing`],
+        })
+        expect(missing.exitCode).toBe(1)
+        expect(yield* fs.exists(artifact)).toBe(true)
+
+        yield* configure({
+          config: f.config,
+          manifest: f.manifest,
+          activeWorkspacePaths: [f.worktree.replace(/\/+$/u, '')],
+        })
+        const live = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--expected-plan', plan.planSha256!, '--candidate-path', candidatePath],
+        })
+        expect(live.exitCode).toBe(1)
+        expect(yield* fs.exists(artifact)).toBe(true)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
+    'refuses application when any part of the canonical plan changed',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const f = yield* fixture()
+        yield* configure({ config: f.config, manifest: f.manifest })
+        const artifact = yield* oldIgnoredArtifact(f.worktree)
+        const plan = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--dry-run'],
+        })
+        yield* fs.writeFileString(`${artifact}/changed-after-plan.txt`, 'new evidence')
+
+        const changed = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--expected-plan', plan.planSha256!, '--candidate-path', artifact],
+        })
+
+        expect(changed.exitCode).toBe(1)
+        expect(yield* fs.exists(artifact)).toBe(true)
       },
       Effect.provide(NodeServices.layer),
       Effect.scoped,
@@ -355,7 +618,7 @@ describe('mr store gc --generated-artifacts', () => {
           args: ['--dry-run'],
           generatedArtifacts: false,
         })
-        expect(result.planSha256).toBeUndefined()
+        expect(result.planSha256).toMatch(/^[0-9a-f]{64}$/)
         expect(result.results.some((row) => row.kind === 'generated-artifact')).toBe(false)
         expect(yield* FileSystem.FileSystem.pipe(Effect.flatMap((fs) => fs.exists(artifact)))).toBe(
           true,

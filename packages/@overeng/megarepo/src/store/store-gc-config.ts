@@ -58,6 +58,12 @@ export interface StoreGcConfig {
     readonly retentionMs: number
     readonly allowlist: ReadonlyArray<StoreGcGeneratedArtifact>
     readonly agentLivenessManifest?: string | undefined
+    /**
+     * Epoch that admits an `st2.workspace-activity.v1` snapshot: a snapshot is
+     * evidence only when it was produced for THIS catalog and host, so a fresh
+     * snapshot from another fleet epoch can never be trusted.
+     */
+    readonly agentLivenessEpoch?: { readonly catalog: string; readonly host: string } | undefined
   }
 }
 
@@ -84,6 +90,9 @@ const StoreGcConfigOverride = Schema.Struct({
       retentionMs: Schema.optional(Schema.Finite),
       allowlist: Schema.optional(Schema.Array(Schema.Literals([...STORE_GC_GENERATED_ARTIFACTS]))),
       agentLivenessManifest: Schema.optional(Schema.String),
+      agentLivenessEpoch: Schema.optional(
+        Schema.Struct({ catalog: Schema.String, host: Schema.String }),
+      ),
     }),
   ),
 })
@@ -120,6 +129,14 @@ export const mergeStoreGcConfig = (override: StoreGcConfigOverride): StoreGcConf
     override.generatedArtifacts?.agentLivenessManifest === undefined
       ? undefined
       : normalizedAbsolutePath(override.generatedArtifacts.agentLivenessManifest)
+  const overrideEpoch = override.generatedArtifacts?.agentLivenessEpoch
+  // Both halves are load-bearing; a half-configured epoch admits nothing.
+  const agentLivenessEpoch =
+    overrideEpoch === undefined ||
+    normalizedAbsolutePath(overrideEpoch.catalog) === undefined ||
+    overrideEpoch.host.length === 0
+      ? undefined
+      : { catalog: overrideEpoch.catalog, host: overrideEpoch.host }
   return {
     absenceGraceMs: validDuration({
       value: override.absenceGraceMs,
@@ -147,6 +164,7 @@ export const mergeStoreGcConfig = (override: StoreGcConfigOverride): StoreGcConf
         ),
       ],
       ...(agentLivenessManifest === undefined ? {} : { agentLivenessManifest }),
+      ...(agentLivenessEpoch === undefined ? {} : { agentLivenessEpoch }),
     },
   }
 }

@@ -4,6 +4,9 @@
  * Tests the store GC, ls, and fetch commands with realistic store fixtures.
  */
 
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+
 import { NodeServices } from '@effect/platform-node'
 import { describe, it } from '@effect/vitest'
 import { Effect, Exit, Option, Schema } from 'effect'
@@ -16,6 +19,12 @@ import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
 import { parseSourceString, isRemoteSource } from '../core/config.ts'
 import * as Git from '../core/git.ts'
 import { LOCK_FILE_NAME, readLockFile } from '../core/lock.ts'
+import {
+  acquireDeletionLease,
+  canonicalizeOwnerPath,
+  deletionLeasePath,
+  releaseDeletionLease,
+} from '../store/store-deletion-lease.ts'
 import { refreshWorkspaceRegistry } from '../store/store-liveness.ts'
 import { makeStoreLayer, Store } from '../store/store.ts'
 import { makeConsoleCapture } from '../test-utils/consoleCapture.ts'
@@ -37,6 +46,8 @@ const StoreGcJsonOutput = Schema.Struct({
       message: Schema.optional(Schema.String),
     }),
   ),
+  censusStatus: Schema.optional(Schema.Literals(['complete', 'unknown'])),
+  planSha256: Schema.optional(Schema.String),
 })
 
 const decodeStoreGcJsonOutput = Schema.decodeUnknownSync(Schema.fromJsonString(StoreGcJsonOutput))
@@ -439,7 +450,275 @@ describe('mr store gc', () => {
         Effect.scoped,
       ),
     )
+    it.effect(
+      'applies exactly one whole-worktree candidate from an unchanged dry-run plan',
+      Effect.fnUntraced(
+        function* () {
+          const fs = yield* FileSystem.FileSystem
+          const first = 'abcdef1234567890abcdef1234567890abcdef12'
+          const second = '1234567890abcdef1234567890abcdef12345678'
+          const { storePath, worktreePaths } = yield* createStoreFixture([
+            {
+              host: 'github.com',
+              owner: 'test-owner',
+              repo: 'targeted-repo',
+              branches: ['main'],
+              commits: [first, second],
+            },
+          ])
+          const candidate = worktreePaths[`github.com/test-owner/targeted-repo#${first}`]!
+          const sibling = worktreePaths[`github.com/test-owner/targeted-repo#${second}`]!
+          const tmpDir = EffectPath.unsafe.absoluteDir(`${yield* fs.makeTempDirectoryScoped()}/`)
+          const cwd = EffectPath.ops.join(tmpDir, EffectPath.unsafe.relativeDir('outside/'))
+          yield* fs.makeDirectory(cwd, { recursive: true })
+
+          const planned = yield* runMrCommand({
+            cwd,
+            command: ['store', 'gc', '--dry-run', '--output', 'json'],
+            env: { MEGAREPO_STORE: storePath },
+          })
+          const plan = decodeStoreGcJsonOutput(planned.stdout)
+          expect(plan.planSha256).toMatch(/^[0-9a-f]{64}$/)
+          const applied = yield* runMrCommand({
+            cwd,
+            command: [
+              'store',
+              'gc',
+              '--expected-plan',
+              plan.planSha256!,
+              '--candidate-path',
+              candidate,
+              '--output',
+              'json',
+            ],
+            env: { MEGAREPO_STORE: storePath },
+          })
+
+          expect(applied.exitCode).toBe(0)
+          expect(decodeStoreGcJsonOutput(applied.stdout).results).toHaveLength(1)
+          expect(yield* fs.exists(candidate)).toBe(false)
+          expect(yield* fs.exists(sibling)).toBe(true)
+
+          const secondPlanRun = yield* runMrCommand({
+            cwd,
+            command: ['store', 'gc', '--dry-run', '--output', 'json'],
+            env: { MEGAREPO_STORE: storePath },
+          })
+          const secondPlan = decodeStoreGcJsonOutput(secondPlanRun.stdout)
+          const textApplied = yield* runMrCommand({
+            cwd,
+            command: [
+              'store',
+              'gc',
+              '--expected-plan',
+              secondPlan.planSha256!,
+              '--candidate-path',
+              sibling,
+            ],
+            env: { MEGAREPO_STORE: storePath },
+          })
+          expect(textApplied.exitCode).toBe(0)
+          expect(textApplied.stdout.length).toBeGreaterThan(0)
+          expect(yield* fs.exists(sibling)).toBe(false)
+        },
+        Effect.provide(NodeServices.layer),
+        Effect.scoped,
+      ),
+    )
   })
+})
+
+describe('mr store lease', () => {
+  it.effect(
+    'holds the owner lease for the wrapped command and releases it on both outcomes',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const { storePath, worktreePaths } = yield* createStoreFixture([
+          { host: 'github.com', owner: 'test-owner', repo: 'leased-repo', branches: ['main'] },
+        ])
+        const owner = worktreePaths['github.com/test-owner/leased-repo#main']!
+        const cwd = EffectPath.unsafe.absoluteDir(`${yield* fs.makeTempDirectoryScoped()}/`)
+        const leasePath = deletionLeasePath({
+          storeBasePath: storePath,
+          ownerPath: yield* canonicalizeOwnerPath(owner),
+        })
+
+        // The wrapped command observes its own lease, proving external activation
+        // is covered from before its first write until after it exits.
+        const observed = yield* runMrCommand({
+          cwd,
+          command: ['store', 'lease', '--owner-path', owner, '--', 'test', '-f', leasePath],
+          env: { MEGAREPO_STORE: storePath },
+        })
+        expect(observed.exitCode).toBe(0)
+        expect(yield* fs.exists(leasePath)).toBe(false)
+
+        // Wrapping is transparent: the child's own code becomes the command's
+        // code (`process.exitCode`, honored by the CLI teardown), never a
+        // collapsed generic failure — and the lease is freed either way.
+        const previousExitCode = process.exitCode
+        try {
+          process.exitCode = undefined
+          const failed = yield* runMrCommand({
+            cwd,
+            command: ['store', 'lease', '--owner-path', owner, '--', 'sh', '-c', 'exit 42'],
+            env: { MEGAREPO_STORE: storePath },
+          })
+          expect(failed.exitCode).toBe(0)
+          expect(process.exitCode).toBe(42)
+          expect(yield* fs.exists(leasePath)).toBe(false)
+        } finally {
+          process.exitCode = previousExitCode
+        }
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+  it.effect(
+    'refuses whole-worktree application while an activation holds that owner lease',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const commit = 'abcdef1234567890abcdef1234567890abcdef12'
+        const { storePath, worktreePaths } = yield* createStoreFixture([
+          {
+            host: 'github.com',
+            owner: 'test-owner',
+            repo: 'leased-worktree-repo',
+            branches: ['main'],
+            commits: [commit],
+          },
+        ])
+        const candidate = worktreePaths[`github.com/test-owner/leased-worktree-repo#${commit}`]!
+        const cwd = EffectPath.unsafe.absoluteDir(`${yield* fs.makeTempDirectoryScoped()}/`)
+        const plan = decodeStoreGcJsonOutput(
+          (yield* runMrCommand({
+            cwd,
+            command: ['store', 'gc', '--dry-run', '--output', 'json'],
+            env: { MEGAREPO_STORE: storePath },
+          })).stdout,
+        )
+
+        // An activation of this very worktree holds its lease, so the plan-bound
+        // whole-worktree deletion must fail closed rather than delete underneath it.
+        const held = yield* acquireDeletionLease({
+          storeBasePath: storePath,
+          ownerPath: yield* canonicalizeOwnerPath(candidate),
+          now: Date.now(),
+        })
+        const refused = yield* runMrCommand({
+          cwd,
+          command: [
+            'store',
+            'gc',
+            '--expected-plan',
+            plan.planSha256!,
+            '--candidate-path',
+            candidate,
+            '--output',
+            'json',
+          ],
+          env: { MEGAREPO_STORE: storePath },
+        })
+        expect(refused.exitCode).toBe(1)
+        expect(yield* fs.exists(candidate)).toBe(true)
+
+        yield* releaseDeletionLease(held)
+        const applied = yield* runMrCommand({
+          cwd,
+          command: [
+            'store',
+            'gc',
+            '--expected-plan',
+            plan.planSha256!,
+            '--candidate-path',
+            candidate,
+            '--output',
+            'json',
+          ],
+          env: { MEGAREPO_STORE: storePath },
+        })
+        expect(applied.exitCode).toBe(0)
+        expect(yield* fs.exists(candidate)).toBe(false)
+        expect(yield* fs.exists(held.leasePath)).toBe(false)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  // Run through a REAL `mr` process: the probe deliberately excludes its own
+  // descendants (a `git` child megarepo spawns inside the worktree must not
+  // self-veto), so an in-process CLI call could never observe a holder spawned
+  // by this test. A separate process tree is exactly production's shape.
+  it.effect(
+    'refuses whole-worktree application while a live process works inside the candidate',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const commit = 'fedcba9876543210fedcba9876543210fedcba98'
+        const { storePath, worktreePaths } = yield* createStoreFixture([
+          {
+            host: 'github.com',
+            owner: 'test-owner',
+            repo: 'inuse-repo',
+            branches: ['main'],
+            commits: [commit],
+          },
+        ])
+        const candidate = worktreePaths[`github.com/test-owner/inuse-repo#${commit}`]!
+        const cliPath = fileURLToPath(new URL('../../bin/mr.ts', import.meta.url))
+        const runCli = (...args: ReadonlyArray<string>) =>
+          spawnSync('bun', [cliPath, ...args], {
+            encoding: 'utf8',
+            env: { ...process.env, MEGAREPO_STORE: storePath, NO_COLOR: '1' },
+          })
+
+        const plan = decodeStoreGcJsonOutput(
+          runCli('store', 'gc', '--dry-run', '--output', 'json').stdout,
+        )
+        const applyArgs = [
+          'store',
+          'gc',
+          '--expected-plan',
+          plan.planSha256!,
+          '--candidate-path',
+          candidate,
+          '--output',
+          'json',
+        ] as const
+
+        // A session that never took a lease is still working inside the
+        // worktree; deleting it would yank that live cwd.
+        const holder = yield* Effect.promise(() => {
+          const { promise, resolve, reject } = Promise.withResolvers<ChildProcess>()
+          const child = spawn('sleep', ['120'], { cwd: candidate, stdio: 'ignore' })
+          child.once('spawn', () => resolve(child))
+          child.once('error', reject)
+          return promise
+        })
+        const refused = runCli(...applyArgs)
+        expect(refused.status).toBe(1)
+        expect(yield* fs.exists(candidate)).toBe(true)
+
+        // Once the session is gone the SAME plan applies, so the veto — not the
+        // plan, the lease, or liveness — was the only thing refusing.
+        yield* Effect.promise(() => {
+          const { promise, resolve } = Promise.withResolvers<void>()
+          holder.once('exit', () => resolve())
+          holder.kill('SIGKILL')
+          return promise
+        })
+        const applied = runCli(...applyArgs)
+        expect(applied.status).toBe(0)
+        expect(yield* fs.exists(candidate)).toBe(false)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
 })
 
 describe('store discovery is bounded to the layout', () => {
@@ -471,6 +750,9 @@ describe('store discovery is bounded to the layout', () => {
         // Legit member at depth 2 (a bare repo placed directly under a pseudo-host
         // dir, like the real store's `other/contrib-bare`) — must be INCLUDED.
         yield* mkdirp('other/contrib/.bare')
+        // Host namespaces may carry their own metadata; a lone `.state` must not
+        // make the host look like a nested store and hide all repos below it.
+        yield* mkdirp('github.com/.state')
         // `_`-prefixed co-tenant namespace holding a NESTED store with a deep working
         // tree: root-skipped, so its `.bare` is never discovered AND its subtree
         // never walked.
@@ -539,7 +821,8 @@ describe('store discovery is bounded to the layout', () => {
           command: ['store', 'gc', '--dry-run', '--output', 'json'],
           env: { MEGAREPO_STORE: storePath },
         })
-        const { results } = decodeStoreGcJsonOutput(stdout)
+        const { results, censusStatus } = decodeStoreGcJsonOutput(stdout)
+        expect(censusStatus).toBe('complete')
 
         // Exactly one result for the broken worktree root, and NONE for paths
         // inside its working tree (pre-fix the walk emitted one per leaf dir).

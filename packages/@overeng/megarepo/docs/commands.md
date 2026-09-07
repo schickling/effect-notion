@@ -106,9 +106,32 @@ mr store fetch [--json]
 ### `mr store gc`
 
 ```bash
-mr store gc [--dry-run] [--force] [--all]
+mr store gc [--dry-run] [--force] [--all] [--generated-artifacts]
+mr store gc [--generated-artifacts] --expected-plan <sha256> --candidate-path <absolute-path>
 ```
 
 Removes clean unrooted `refs/commits/*` worktrees. Named `refs/heads/*` and
 `refs/tags/*` worktrees are kept by default. Dirty worktrees are preserved
 unless `--force` is used. `--all` also considers named refs for removal.
+
+Dry-run output includes a canonical `planSha256`. Supplying that digest with one
+candidate path recomputes the complete plan and applies only the selected
+worktree, archive, or generated-artifact action after an owner-locked
+revalidation. Missing, ambiguous, changed, or unknown evidence refuses the
+application.
+
+Every plan-bound deletion — generated artifact, whole worktree, archive reap —
+additionally holds the lease for its owner path, so an activation wrapped in
+`mr store lease` can never be overtaken.
+
+### `mr store lease`
+
+```bash
+mr store lease --owner-path <path> -- <command> [args…]
+```
+
+Runs the command while holding the deletion lease for one store worktree and
+propagates its exit code. Wrap workspace activation with it: acquire before the
+first worktree write, publish the agent-liveness manifest inside, and the lease
+is released when the command exits. If reclamation holds the lease, the wrapper
+fails instead of racing it.

@@ -296,25 +296,28 @@ const make = ({
           // a real store and mis-claiming non-members:
           //  - `.git` present  → a checked-out worktree, never a namespace dir;
           //    its working tree (node_modules, …) must never be walked.
-          //  - `.state`/`.locks` present → a NESTED megarepo store (e.g. an
-          //    isolated experiment store), whose repos belong to it, not here.
+          //  - `.state`/`.locks` below the host namespace → a NESTED megarepo
+          //    store, whose repos belong to it, not here. Host namespaces may
+          //    carry `.state` metadata of their own.
           const hasGit = yield* fs.exists(
             EffectPath.ops.join(dir, EffectPath.unsafe.relativeFile('.git')),
           )
           if (hasGit === true) return
-          const isNestedStore = yield* Effect.all([
+          const [hasNestedState, hasNestedLocks] = yield* Effect.all([
             fs.exists(EffectPath.ops.join(dir, EffectPath.unsafe.relativeDir('.state/'))),
             fs.exists(EffectPath.ops.join(dir, EffectPath.unsafe.relativeDir('.locks/'))),
-          ]).pipe(Effect.map(([state, locks]) => state === true || locks === true))
+          ])
+          const isHostNamespace = depth === 1 && dir.slice(basePath.length).includes('.')
+          const isNestedStore =
+            isHostNamespace === false && (hasNestedState === true || hasNestedLocks === true)
           if (isNestedStore === true) return
 
           // Backstop: never descend past the layout's plausible repo depth, so a
           // pathological non-git directory tree can't drive an unbounded walk.
           if (depth >= STORE_REPO_WALK_MAX_DEPTH) {
-            yield* Effect.logWarning(
-              'store listRepos: walk depth limit reached; not descending',
-            ).pipe(Effect.annotateLogs({ dir, depth }))
-            return
+            return yield* Effect.die(
+              new Error(`store listRepos census exceeded the supported depth at ${dir}`),
+            )
           }
 
           const entries = yield* fs.readDirectory(dir)
@@ -329,8 +332,8 @@ const make = ({
                   dir,
                   EffectPath.unsafe.relativeDir(`${entry}/`),
                 )
-                const entryStat = yield* fs.stat(entryPath).pipe(Effect.orElseSucceed(() => null))
-                if (entryStat?.type !== 'Directory') return
+                const entryStat = yield* fs.stat(entryPath)
+                if (entryStat.type !== 'Directory') return
 
                 yield* walk({ dir: entryPath, depth: depth + 1 })
               }),
@@ -351,8 +354,8 @@ const make = ({
               basePath,
               EffectPath.unsafe.relativeDir(`${entry}/`),
             )
-            const entryStat = yield* fs.stat(entryPath).pipe(Effect.orElseSucceed(() => null))
-            if (entryStat?.type !== 'Directory') return
+            const entryStat = yield* fs.stat(entryPath)
+            if (entryStat.type !== 'Directory') return
 
             yield* walk({ dir: entryPath, depth: 1 })
           }),

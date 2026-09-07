@@ -335,36 +335,32 @@ const readRegistryRecords = ({
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const registryDir = workspaceRegistryDir(store)
-    const exists = yield* fs.exists(registryDir).pipe(Effect.orElseSucceed(() => false))
+    const exists = yield* fs.exists(registryDir)
     if (exists === false) return { records: [], uncleanReconcilePaths: new Set<string>() }
 
-    const entries = yield* fs
-      .readDirectory(registryDir)
-      .pipe(Effect.orElseSucceed(() => [] as string[]))
+    const entries = yield* fs.readDirectory(registryDir)
     const records: StoreWorkspaceRecord[] = []
     const uncleanReconcilePaths = new Set<string>()
 
     for (const entry of entries) {
       if (entry.endsWith('.json') === false) continue
       const recordPath = EffectPath.ops.join(registryDir, EffectPath.unsafe.relativeFile(entry))
-      const parsed = yield* fs.readFileString(recordPath).pipe(
-        Effect.flatMap((content) =>
-          Schema.decodeUnknownEffect(Schema.fromJsonString(StoreWorkspaceRecord))(content),
-        ),
-        Effect.orElseSucceed(() => null),
-      )
-      if (parsed === null) continue
+      const parsed = yield* fs
+        .readFileString(recordPath)
+        .pipe(
+          Effect.flatMap((content) =>
+            Schema.decodeUnknownEffect(Schema.fromJsonString(StoreWorkspaceRecord))(content),
+          ),
+        )
 
       const workspaceRoot = EffectPath.unsafe.absoluteDir(`${parsed.workspaceRoot}/`)
-      const workspaceExists = yield* fs
-        .exists(parsed.workspaceRoot)
-        .pipe(Effect.orElseSucceed(() => false))
+      const workspaceExists = yield* fs.exists(parsed.workspaceRoot)
 
       // Prune only when the workspace dir is GONE (decision 0010); a
       // present-but-unreadable workspace must never be pruned.
       if (workspaceExists === false) {
         if (pruneStale === true) {
-          yield* fs.remove(recordPath).pipe(Effect.catch(() => Effect.void))
+          yield* fs.remove(recordPath)
         }
         continue
       }
