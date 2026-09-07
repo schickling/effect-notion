@@ -84,6 +84,19 @@ mkdir -p "$workspace/node_modules/pkg" "$tmpdir/bin"
 cat > "$tmpdir/bin/oxlint" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+# Silent nonzero exit: the exact shape that made a red CI oxlint task
+# unattributable (exit 1, no stdout, no diagnostics). Under `xargs` the child
+# status is additionally collapsed to 123, so the task boundary must name the
+# lane, stage, status and file count itself.
+if [ "${TEST_OXLINT_SILENT_FAILURE:-0}" = 1 ]; then
+  exit 1
+fi
+# Ordinary lint findings: nonzero WITH stdout. Proves the byte accounting is a
+# pass-through — findings must still reach stdout verbatim.
+if [ "${TEST_OXLINT_LOUD_FAILURE:-0}" = 1 ]; then
+  echo "fixture.ts:1:1: error: no-debugger"
+  exit 1
+fi
 printf '%s\n' "$@" > "${TEST_OXLINT_ARGS:?}"
 EOF
 cat > "$tmpdir/bin/oxfmt" <<'EOF'
@@ -283,6 +296,104 @@ if (
   exit 1
 fi
 unset TEST_OXFMT_MIXED_EMPTY_TARGET_ERROR
+
+echo ""
+echo "Test 6: a silent nonzero lint child is attributed at the task boundary"
+export TEST_OXLINT_SILENT_FAILURE=1
+oxlint_silent_status=0
+oxlint_silent_stderr="$tmpdir/oxlint-silent.stderr"
+oxlint_silent_stdout="$tmpdir/oxlint-silent.stdout"
+# stdout is redirected to a FILE on purpose: the byte accounting only engages on
+# a non-tty stdout (a terminal keeps raw tty semantics), and the assertion below
+# is precisely that the tool produced zero bytes of findings.
+(
+  cd "$workspace"
+  bash "$tmpdir/lint-check-oxlint.sh"
+) > "$oxlint_silent_stdout" 2> "$oxlint_silent_stderr" || oxlint_silent_status=$?
+unset TEST_OXLINT_SILENT_FAILURE
+
+if [ "$oxlint_silent_status" -eq 0 ]; then
+  echo "FAIL: a silent nonzero lint child must keep the task nonzero"
+  exit 1
+fi
+echo "  ok: task status stays nonzero ($oxlint_silent_status)"
+
+for needle in \
+  "lint-oxc: lane=lint:check:oxlint stage=run" \
+  "status=$oxlint_silent_status" \
+  "files=" \
+  "stdout_bytes=0" \
+  "command=oxlint --import-plugin"; do
+  if ! grep -qF -- "$needle" "$oxlint_silent_stderr"; then
+    echo "FAIL: failure diagnostic must contain: $needle"
+    echo "  actual stderr:"
+    sed -n '1,40p' "$oxlint_silent_stderr"
+    exit 1
+  fi
+  echo "  ok: diagnostic names $needle"
+done
+
+if [ -s "$oxlint_silent_stdout" ]; then
+  echo "FAIL: the mute-tool case must really have had empty stdout"
+  exit 1
+fi
+echo "  ok: stdout_bytes=0 matches an actually empty stdout"
+
+echo ""
+echo "Test 7: a setup/scan failure names its stage, line and status"
+scan_status=0
+scan_stderr="$tmpdir/scan.stderr"
+non_git="$tmpdir/not-a-repo"
+mkdir -p "$non_git"
+(
+  cd "$non_git"
+  GIT_CEILING_DIRECTORIES="$tmpdir" bash "$tmpdir/lint-check-oxlint.sh"
+) 2> "$scan_stderr" || scan_status=$?
+
+if [ "$scan_status" -eq 0 ]; then
+  echo "FAIL: a failing file scan must not report success"
+  exit 1
+fi
+for needle in \
+  "lint-oxc: lane=lint:check:oxlint stage=scan aborted at line" \
+  "with status"; do
+  if ! grep -qF -- "$needle" "$scan_stderr"; then
+    echo "FAIL: scan-stage diagnostic must contain: $needle"
+    echo "  actual stderr:"
+    sed -n '1,40p' "$scan_stderr"
+    exit 1
+  fi
+  echo "  ok: diagnostic names $needle"
+done
+
+echo ""
+echo "Test 8: lint findings still stream to stdout on a failing run"
+export TEST_OXLINT_LOUD_FAILURE=1
+loud_status=0
+loud_stdout="$tmpdir/oxlint-loud.stdout"
+loud_stderr="$tmpdir/oxlint-loud.stderr"
+(
+  cd "$workspace"
+  bash "$tmpdir/lint-check-oxlint.sh"
+) > "$loud_stdout" 2> "$loud_stderr" || loud_status=$?
+unset TEST_OXLINT_LOUD_FAILURE
+
+if [ "$loud_status" -eq 0 ]; then
+  echo "FAIL: a failing lint run must stay nonzero"
+  exit 1
+fi
+if ! grep -qF -- "error: no-debugger" "$loud_stdout"; then
+  echo "FAIL: findings must reach stdout verbatim"
+  sed -n '1,20p' "$loud_stdout"
+  exit 1
+fi
+echo "  ok: findings stream through to stdout"
+if grep -qF -- "stdout_bytes=0" "$loud_stderr"; then
+  echo "FAIL: a run that printed findings must not be reported as mute"
+  sed -n '1,20p' "$loud_stderr"
+  exit 1
+fi
+echo "  ok: the diagnostic reports a nonzero stdout byte count"
 
 echo ""
 echo "All lint-oxc file list tests passed"
