@@ -685,6 +685,14 @@ in
   # without reintroducing a root node_modules tree.
   tasks."genie:prepare".after = [ "buck2:typescript:publish-editor-views" ];
 
+  # Type-aware oxlint resolves package type definitions through the same
+  # Buck-published editor dependency views, so publication is a prerequisite: a
+  # cold tree without them lints against absent types and reports missing
+  # type-definition errors instead of real findings. The edge sits on the oxlint
+  # task itself rather than on the `lint:check` aggregate, so a direct
+  # `devenv tasks run lint:check:oxlint` is ordered too.
+  tasks."lint:check:oxlint".after = [ "buck2:typescript:publish-editor-views" ];
+
   # Publication itself is deliberately genie-independent (see the buck-editor
   # import above); the freshness-checking and watch tasks keep the `genie:run`
   # edge so they compare views against regenerated BUCK projections.

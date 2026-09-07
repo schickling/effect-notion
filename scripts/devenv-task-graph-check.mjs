@@ -111,6 +111,7 @@ for (const name of [
   'buck2:tui-core:publish-editor',
   'buck2:tui-core:check-editor',
   'genie:prepare',
+  'lint:check:oxlint',
   'buck2:typescript:publish-editor-views',
 ])
   requireTask(name)
@@ -174,12 +175,23 @@ for (const name of [
 // no `packages/@overeng/genie/node_modules` and no `packages/.editor-view`
 // fails generation itself, so publication is a PREREQUISITE of every genie
 // invocation — reached through the shared `genie:prepare` hook.
+//
+// Type-aware oxlint reads node/bun type definitions out of those same views, so
+// it is a prerequisite there too: without the edge a cold host lints against an
+// absent view and reports missing type definitions instead of real findings.
 const editorViews = 'buck2:typescript:publish-editor-views'
 ok({
   condition: reaches({ start: 'genie:prepare', target: editorViews }),
   name: `genie:prepare waits for ${editorViews}`,
 })
-for (const name of ['check:quick', 'check:all', 'lint:check:genie', 'genie:run', 'genie:check']) {
+for (const name of [
+  'check:quick',
+  'check:all',
+  'lint:check:genie',
+  'lint:check:oxlint',
+  'genie:run',
+  'genie:check',
+]) {
   ok({
     condition: reaches({ start: name, target: editorViews }),
     name: `${name} reaches the published editor dependency views`,
