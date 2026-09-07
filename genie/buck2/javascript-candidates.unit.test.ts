@@ -10,6 +10,21 @@ import oxcConfig from '../../packages/@overeng/oxc-config/BUCK.genie.ts'
 import tuiStories from '../../packages/@overeng/tui-stories/BUCK.genie.ts'
 import { withJavaScriptCandidates } from './javascript-candidates.ts'
 
+/** The rendered attribute block of one named Starlark target. */
+const targetBlock = ({
+  name,
+  output,
+}: {
+  readonly name: string
+  readonly output: string
+}): string => {
+  const start = output.indexOf(`    name = ${JSON.stringify(name)},\n`)
+  if (start === -1) throw new Error(`no target named ${name}`)
+  const end = output.indexOf('\n)', start)
+  if (end === -1) throw new Error(`unterminated target ${name}`)
+  return output.slice(start, end)
+}
+
 describe('JavaScript product projection', () => {
   it('renders typed Node CLI and loadable-module products', () => {
     const output = withJavaScriptCandidates({
@@ -46,6 +61,50 @@ describe('JavaScript product projection', () => {
     expect(output).toContain('module_product(')
     expect(output).toContain('package_bin_check(')
     expect(output).toContain('external_capabilities = [\"native-capability\"]')
+    // The source smoke defaults to Bun: it executes the package tree's raw
+    // TypeScript entrypoint, which Bun runs without a build step.
+    expect(targetBlock({ name: 'tool-candidate-smoke', output })).toContain('runtime = "bun"')
+    expect(targetBlock({ name: 'plugin-candidate-smoke', output })).toContain('runtime = "bun"')
+  })
+
+  it('smokes a declared node source runtime while keeping the bundle target', () => {
+    const output = withJavaScriptCandidates({
+      products: [
+        {
+          entrypoint: 'src/cli/main.ts',
+          kind: 'cli',
+          output: 'tool.js',
+          productName: 'tool',
+          smokeArgs: ['--help'],
+          smokeRuntime: 'node',
+          targetName: 'tool-candidate',
+        },
+      ],
+      projection: { data: {}, stringify: () => 'BASE' },
+    }).stringify({ cwd: '', location: '' })
+
+    expect(targetBlock({ name: 'tool-candidate-module', output })).toContain('target = "node"')
+    expect(targetBlock({ name: 'tool-candidate-smoke', output })).toContain('runtime = "node"')
+  })
+
+  it('renders the declared source smoke runtime for a bun-target product', () => {
+    const output = withJavaScriptCandidates({
+      products: [
+        {
+          entrypoint: 'src/mod.ts',
+          kind: 'module',
+          output: 'plugin.js',
+          productName: 'plugin',
+          runtime: 'bun',
+          smokeRuntime: 'node',
+          targetName: 'plugin-candidate',
+        },
+      ],
+      projection: { data: {}, stringify: () => 'BASE' },
+    }).stringify({ cwd: '', location: '' })
+
+    expect(targetBlock({ name: 'plugin-candidate-module', output })).toContain('target = "bun"')
+    expect(targetBlock({ name: 'plugin-candidate-smoke', output })).toContain('runtime = "node"')
   })
 
   it('declares every CLI and plugin candidate with an executable smoke boundary', () => {
@@ -73,5 +132,16 @@ describe('JavaScript product projection', () => {
     expect(genieOutput).toContain('bun_cli_product(')
     expect(genieOutput).toContain('name = "genie-candidate-launch"')
     expect(genieOutput).toContain('args = ["--dry-run"]')
+
+    const notionOutput = notionCli.stringify(context)
+    // `notion-db`'s source entrypoint imports `node:sqlite`, which Bun cannot
+    // resolve, so its smoke launches the admitted Node runtime; its sibling
+    // keeps the Bun default.
+    expect(targetBlock({ name: 'notion-db-candidate-smoke', output: notionOutput })).toContain(
+      'runtime = "node"',
+    )
+    expect(targetBlock({ name: 'notion-cli-candidate-smoke', output: notionOutput })).toContain(
+      'runtime = "bun"',
+    )
   })
 })

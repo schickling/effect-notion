@@ -67,6 +67,10 @@ export const javaScriptProductRegistry = {
       packageTree: '//packages/@overeng/notion-datasource-sync:package_tree',
       productName: 'notion-db-runtime',
       smokeArgs: ['--help'],
+      // The source entrypoint imports `node:sqlite`, which Bun cannot resolve,
+      // so the source smoke launches Node — the same runtime the published
+      // product's launch target already resolves.
+      smokeRuntime: 'node',
       targetName: 'notion-db-candidate',
     },
   ],

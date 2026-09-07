@@ -237,5 +237,6 @@ package_bin_check(
     entrypoint = "src/mod.ts",
     external_capabilities = [],
     package_tree = ":package_tree",
+    runtime = "bun",
     visibility = ["PUBLIC"],
 )

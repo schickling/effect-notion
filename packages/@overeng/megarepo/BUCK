@@ -1011,5 +1011,6 @@ package_bin_check(
     entrypoint = "bin/mr.ts",
     external_capabilities = ["buck2", "coreutils", "git", "nix", "watchman"],
     package_tree = ":package_tree",
+    runtime = "bun",
     visibility = ["PUBLIC"],
 )
