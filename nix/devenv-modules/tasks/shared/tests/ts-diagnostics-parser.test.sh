@@ -4,8 +4,8 @@ set -euo pipefail
 # Validates the ts:check OTEL diagnostics parser against real tsgo
 # `--build --extendedDiagnostics --verbose` output (captured fixture).
 #
-# It extracts the actual ts:check exec script from ts.nix via `nix eval`, runs
-# it with stub `tsgo`/`otel-span` binaries, and asserts that:
+# It builds the actual ts:check exec script from ts.nix into the store, runs it
+# with stub `tsgo`/`otel-span` binaries, and asserts that:
 #   - one child span per built project is emitted with correct per-project timing
 #   - tsgo's aggregate build summary is emitted as a single build-level span and
 #     is NOT mis-attributed to the last project
@@ -27,8 +27,15 @@ tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 mkdir -p "$tmpdir/bin"
 
-# Extract the real ts:check exec script so we test the shipped parser, not a copy.
-if ! nix eval --impure --raw --expr "
+# Build the real ts:check exec into the store so this test exercises the shipped
+# parser, not a copy. `nix eval --raw` would print the same script text, but
+# printing it strips Nix's string context: the `${pkgs.bc}/bin/bc` and coreutils
+# paths the parser embeds would be inert text with nothing forcing them to be
+# realized, so on a cold machine the extracted script dies on its first
+# arithmetic. Wrapping the exec in `writeText` keeps that context, which makes
+# every embedded tool an input derivation of the built file, so `nix build`
+# realizes the script's whole executable closure before we run it.
+if ! exec_script="$(nix build --no-link --print-out-paths --impure --expr "
   let
     flake = builtins.getFlake \"$NIX_FLAKE_REF\";
     pkgs = import flake.inputs.nixpkgs { system = builtins.currentSystem; };
@@ -48,14 +55,22 @@ if ! nix eval --impure --raw --expr "
         })
       ];
     };
-  in evaluated.config.tasks.\"ts:check\".exec
-" > "$tmpdir/ts-check.exec.sh" 2> "$tmpdir/nix-eval.err"; then
-  echo "---- nix eval stderr ----" >&2
-  cat "$tmpdir/nix-eval.err" >&2
-  echo "---- end nix eval stderr ----" >&2
-  fail "nix eval of the ts:check exec failed"
+  in pkgs.writeText \"ts-check-exec.sh\" evaluated.config.tasks.\"ts:check\".exec
+" 2> "$tmpdir/nix-build.err")"; then
+  echo "---- nix build stderr ----" >&2
+  cat "$tmpdir/nix-build.err" >&2
+  echo "---- end nix build stderr ----" >&2
+  fail "nix build of the ts:check exec failed"
 fi
-chmod +x "$tmpdir/ts-check.exec.sh"
+
+# Realization sentinel: every absolute tool the parser embeds must be executable
+# before the run. This is the exact regression a context-free extraction caused,
+# and it names the missing path instead of surfacing as a bare "bc: not found"
+# from deep inside the parser.
+while IFS= read -r tool; do
+  [ -x "$tool" ] \
+    || fail "the shipped ts:check exec references an unrealized tool: $tool"
+done < <(grep -oE '/nix/store/[a-z0-9]{32}-[^/]+/bin/[A-Za-z0-9._+-]+' "$exec_script")
 
 # Stub tsgo: ignore args, emit the captured diagnostics fixture, exit 0.
 cat > "$tmpdir/bin/tsgo" <<EOF
@@ -177,7 +192,7 @@ mkdir -p "$DEVENV_ROOT"
 # `set -e` would kill this test with the compiler/parser stream still trapped
 # inside the unassigned variable, leaving no diagnostic at all.
 exec_exit=0
-stdout="$(cd "$tmpdir" && bash "$tmpdir/ts-check.exec.sh" 2>&1)" || exec_exit=$?
+stdout="$(cd "$tmpdir" && bash "$exec_script" 2>&1)" || exec_exit=$?
 echo "$stdout" > "$tmpdir/stdout.txt"
 if [ "$exec_exit" -ne 0 ]; then
   echo "---- ts:check exec output (exit=$exec_exit) ----" >&2
