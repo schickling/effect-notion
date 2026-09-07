@@ -126,8 +126,11 @@ const runBuck2 = (...args: readonly string[]) =>
  * `Parsing target pattern` with `invalid target: ...)` and exit 3. Query expansion
  * therefore has to happen in a separate `uquery` invocation whose labels become the argv.
  *
- * A query that matches nothing is a graph or generator regression, not a green lane:
- * `buck2 build` with an empty argv succeeds, so zero labels fail loudly instead.
+ * The two failure modes stay distinguishable. `uquery` runs in a plain command substitution,
+ * so a nonzero exit aborts the step under `bash -e` with Buck's own diagnostic — process
+ * substitution would have hidden it, since `mapfile` reports its own success. Only once the
+ * query itself succeeded does an EMPTY result mean "matched nothing", which is a graph or
+ * generator regression rather than a green lane: `buck2 build` with an empty argv succeeds.
  */
 const buildBuck2QueryTargets = (query: string) =>
   [
@@ -135,8 +138,9 @@ const buildBuck2QueryTargets = (query: string) =>
     'buck2="$workspace/.megarepo/bin/buck2"',
     'test -x "$buck2"',
     'cd "$workspace"',
-    `mapfile -t targets < <("$buck2" uquery '${query}')`,
-    `[ "\${#targets[@]}" -gt 0 ] || { echo '::error::buck2 uquery matched no targets: ${query}'; exit 1; }`,
+    `targets_raw="$("$buck2" uquery '${query}')"`,
+    `[ -n "$targets_raw" ] || { echo '::error::buck2 uquery matched no targets: ${query}'; exit 1; }`,
+    'mapfile -t targets <<< "$targets_raw"',
     '"$buck2" build "${targets[@]}"',
   ].join('\n')
 const liveNetlifyCiToolsPreflightStep = {

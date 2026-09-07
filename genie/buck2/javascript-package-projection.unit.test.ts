@@ -215,9 +215,11 @@ describe('buck2/javascript.bzl test cache participation', () => {
     ]) {
       expect(javascriptRule).toContain(gated)
     }
-    // No cache switch may be wired back to the bare target attribute.
+    // No cache switch may be wired back to the target attribute, spelled either way: the
+    // whole point is that participation is the AND of determinism and root policy, so
+    // `= cacheable` and `= ctx.attrs.cacheable` are both the bug.
     expect(javascriptRule).not.toMatch(
-      /(?:remote_cache_enabled|allow_cache_uploads|supports_test_execution_caching) = cacheable,/u,
+      /(?:remote_cache_enabled|allow_cache_uploads|supports_test_execution_caching) = (?:ctx\.attrs\.)?cacheable\b/u,
     )
   })
 

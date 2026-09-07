@@ -552,8 +552,9 @@ jobs:
           buck2="$workspace/.megarepo/bin/buck2"
           test -x "$buck2"
           cd "$workspace"
-          mapfile -t targets < <("$buck2" uquery 'filter(":typecheck$", effect_utils//...)')
-          [ "${#targets[@]}" -gt 0 ] || { echo '::error::buck2 uquery matched no targets: filter(":typecheck$", effect_utils//...)'; exit 1; }
+          targets_raw="$("$buck2" uquery 'filter(":typecheck$", effect_utils//...)')"
+          [ -n "$targets_raw" ] || { echo '::error::buck2 uquery matched no targets: filter(":typecheck$", effect_utils//...)'; exit 1; }
+          mapfile -t targets <<< "$targets_raw"
           "$buck2" build "${targets[@]}"
       - name: Nix diagnostics summary
         if: failure()
@@ -1323,8 +1324,9 @@ jobs:
           buck2="$workspace/.megarepo/bin/buck2"
           test -x "$buck2"
           cd "$workspace"
-          mapfile -t targets < <("$buck2" uquery 'filter("(candidate-smoke|bundle_smoke_candidate)$", effect_utils//packages/@overeng/...)')
-          [ "${#targets[@]}" -gt 0 ] || { echo '::error::buck2 uquery matched no targets: filter("(candidate-smoke|bundle_smoke_candidate)$", effect_utils//packages/@overeng/...)'; exit 1; }
+          targets_raw="$("$buck2" uquery 'filter("(candidate-smoke|bundle_smoke_candidate)$", effect_utils//packages/@overeng/...)')"
+          [ -n "$targets_raw" ] || { echo '::error::buck2 uquery matched no targets: filter("(candidate-smoke|bundle_smoke_candidate)$", effect_utils//packages/@overeng/...)'; exit 1; }
+          mapfile -t targets <<< "$targets_raw"
           "$buck2" build "${targets[@]}"
       - name: Nix diagnostics summary
         if: failure()
