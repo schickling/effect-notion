@@ -74278,160 +74278,6 @@ var syncNixLocks = exports_Effect.fn("megarepo/nix-lock/sync")((options) => expo
   };
 }));
 
-// src/generators/vscode.ts
-var hexToRgb = (hex2) => {
-  const cleaned = hex2.replace("#", "");
-  return {
-    r: parseInt(cleaned.slice(0, 2), 16),
-    g: parseInt(cleaned.slice(2, 4), 16),
-    b: parseInt(cleaned.slice(4, 6), 16)
-  };
-};
-var rgbToHsl = ({ r, g, b }) => {
-  let rNorm = r / 255;
-  let gNorm = g / 255;
-  let bNorm = b / 255;
-  const max8 = Math.max(rNorm, gNorm, bNorm);
-  const min8 = Math.min(rNorm, gNorm, bNorm);
-  const l = (max8 + min8) / 2;
-  let h = 0;
-  let s = 0;
-  if (max8 !== min8) {
-    const d = max8 - min8;
-    s = l > 0.5 ? d / (2 - max8 - min8) : d / (max8 + min8);
-    switch (max8) {
-      case rNorm:
-        h = ((gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0)) / 6;
-        break;
-      case gNorm:
-        h = ((bNorm - rNorm) / d + 2) / 6;
-        break;
-      case bNorm:
-        h = ((rNorm - gNorm) / d + 4) / 6;
-        break;
-    }
-  }
-  return { h, s, l };
-};
-var hue2rgb = ({ p, q, t }) => {
-  let tNorm = t;
-  if (tNorm < 0)
-    tNorm += 1;
-  if (tNorm > 1)
-    tNorm -= 1;
-  if (tNorm < 1 / 6)
-    return p + (q - p) * 6 * tNorm;
-  if (tNorm < 1 / 2)
-    return q;
-  if (tNorm < 2 / 3)
-    return p + (q - p) * (2 / 3 - tNorm) * 6;
-  return p;
-};
-var hslToRgb = ({ h, s, l }) => {
-  let r, g, b;
-  if (s === 0) {
-    r = g = b = l;
-  } else {
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    r = hue2rgb({ p, q, t: h + 1 / 3 });
-    g = hue2rgb({ p, q, t: h });
-    b = hue2rgb({ p, q, t: h - 1 / 3 });
-  }
-  return {
-    r: Math.round(r * 255),
-    g: Math.round(g * 255),
-    b: Math.round(b * 255)
-  };
-};
-var toHex = (n) => n.toString(16).padStart(2, "0");
-var rgbToHex = ({ r, g, b }) => {
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-};
-var darkenHex = ({ hex: hex2, amount = 0.3 }) => {
-  const rgb = hexToRgb(hex2);
-  const { h, s, l } = rgbToHsl(rgb);
-  const newL = Math.max(0, l - amount);
-  const newRgb = hslToRgb({ h, s, l: newL });
-  return rgbToHex(newRgb);
-};
-var generateColorCustomizations = (color) => ({
-  "titleBar.activeBackground": color,
-  "titleBar.activeForeground": "#FFFFFF",
-  "titleBar.inactiveBackground": color,
-  "titleBar.inactiveForeground": "#CCCCCC",
-  "activityBar.background": darkenHex({ hex: color, amount: 0.15 }),
-  "activityBar.foreground": "#FFFFFF",
-  "activityBar.inactiveForeground": "#FFFFFF",
-  "statusBar.background": color,
-  "statusBar.foreground": "#FFFFFF"
-});
-var deepMerge = ({
-  target,
-  source
-}) => {
-  const result4 = { ...target };
-  for (const key of Object.keys(source)) {
-    const sourceVal = source[key];
-    const targetVal = result4[key];
-    if (sourceVal !== null && typeof sourceVal === "object" && Array.isArray(sourceVal) === false && targetVal !== null && typeof targetVal === "object" && Array.isArray(targetVal) === false) {
-      result4[key] = deepMerge({
-        target: targetVal,
-        source: sourceVal
-      });
-    } else {
-      result4[key] = sourceVal;
-    }
-  }
-  return result4;
-};
-var generateVscodeContent = (options) => {
-  const vscodeConfig = options.config.generators?.vscode;
-  const excludeSet = new Set(options.exclude ?? vscodeConfig?.exclude ?? []);
-  const folders = [
-    { path: "..", name: "(megarepo root)" },
-    ...Object.keys(options.config.members).filter((name) => !excludeSet.has(name)).map((name) => ({ path: `../${MEMBER_ROOT_DIR}/${name}`, name }))
-  ];
-  let settings = {
-    "files.exclude": {
-      "**/.git": true,
-      "**/node_modules": true,
-      "**/dist": true
-    }
-  };
-  const colorFromEnv = vscodeConfig?.colorEnvVar !== undefined ? process.env[vscodeConfig.colorEnvVar] : undefined;
-  const color = colorFromEnv ?? vscodeConfig?.color;
-  if (color !== undefined) {
-    settings = deepMerge({
-      target: settings,
-      source: {
-        "workbench.colorCustomizations": generateColorCustomizations(color)
-      }
-    });
-  }
-  if (vscodeConfig?.settings !== undefined) {
-    settings = deepMerge({
-      target: settings,
-      source: vscodeConfig.settings
-    });
-  }
-  const workspace2 = {
-    folders,
-    settings
-  };
-  return JSON.stringify(workspace2, null, 2) + `
-`;
-};
-var generateVscode = (options) => exports_Effect.gen(function* () {
-  const fs4 = yield* FileSystem;
-  const content = generateVscodeContent(options);
-  const vscodeDir = EffectPath.ops.join(options.megarepoRoot, EffectPath.unsafe.relativeDir(".vscode/"));
-  const outputPath = EffectPath.ops.join(vscodeDir, EffectPath.unsafe.relativeFile("megarepo.code-workspace"));
-  yield* fs4.makeDirectory(vscodeDir, { recursive: true });
-  yield* fs4.writeFileString(outputPath, content);
-  return { path: outputPath, content };
-});
-
 // src/composition/root/composition-root.ts
 import { createHash as createHash3 } from "node:crypto";
 import * as PosixPath2 from "node:path/posix";
@@ -74880,6 +74726,53 @@ var ROOT_PROJECT_IGNORES = [
   "repos/.staging-*",
   ".buck2/capabilities.candidate.*"
 ];
+var COMPOSITION_OWNED_PATHS = [
+  ".buckconfig",
+  ".buckroot",
+  ".megarepo/bin/buck2",
+  ".watchmanconfig",
+  "BUCK"
+];
+var isLiteralIgnoreDir = (pattern) => /[*?[\]{}]/u.test(pattern) === false;
+var watchRootVcsDirectories = {
+  ".git": true,
+  ".hg": true,
+  ".svn": true
+};
+var isWatchRootVcsIgnoreDir = (pattern) => watchRootVcsDirectories[pattern] === true;
+var watchmanChurnRank = [
+  ".editor-view",
+  "buck-out",
+  "node_modules",
+  ".devenv",
+  "target",
+  "tmp"
+];
+var churnRank = (dir2) => {
+  const rank = watchmanChurnRank.indexOf(PosixPath2.basename(dir2));
+  return rank === -1 ? watchmanChurnRank.length : rank;
+};
+var projectIgnoreEntries = (input) => canonicalStringSet([
+  ...ROOT_PROJECT_IGNORES,
+  ...input.additionalProjectIgnores,
+  ...input.members.flatMap(({ manifest }) => manifest.projectIgnore.map((pattern) => `${manifest.mount}/${pattern}`))
+]);
+var WatchmanConfigSchema = exports_Schema.Struct({
+  ignore_dirs: exports_Schema.Array(exports_Schema.String)
+}).annotate({ identifier: "Megarepo.WatchmanConfig" });
+var COMPOSITION_WATCHMAN_CONFIG_PATH = ".watchmanconfig";
+var renderWatchmanConfig = (input) => {
+  const ignoreDirs = projectIgnoreEntries(input).filter((pattern) => isLiteralIgnoreDir(pattern) && isWatchRootVcsIgnoreDir(pattern) === false).toSorted((left, right) => churnRank(left) - churnRank(right));
+  return `${JSON.stringify({ ignore_dirs: ignoreDirs }, undefined, 2)}
+`;
+};
+var generatedWatchmanIgnoreDirs = (output) => {
+  const file6 = output.files.find((entry) => entry.path === COMPOSITION_WATCHMAN_CONFIG_PATH);
+  if (file6 === undefined) {
+    throw new TypeError(`Generated output has no ${COMPOSITION_WATCHMAN_CONFIG_PATH}`);
+  }
+  return exports_Schema.decodeUnknownSync(WatchmanConfigSchema, strictParseOptions)(JSON.parse(new TextDecoder().decode(file6.bytes))).ignore_dirs;
+};
 var utf8 = (value5) => textEncoder3.encode(value5);
 var sha2562 = (bytes) => `sha256:${createHash3("sha256").update(bytes).digest("hex")}`;
 var shellQuote = (value5) => `'${value5.replaceAll("'", `'"'"'`)}'`;
@@ -74966,12 +74859,7 @@ var renderBuckconfig = (input) => {
     for (const entry of cacheSection.entries)
       lines2.push(`  ${entry.key} = ${entry.value}`);
   }
-  const memberIgnores = input.members.flatMap(({ manifest }) => manifest.projectIgnore.map((pattern) => `${manifest.mount}/${pattern}`));
-  lines2.push("", "[project]", `  ignore = ${canonicalStringSet([
-    ...ROOT_PROJECT_IGNORES,
-    ...input.additionalProjectIgnores,
-    ...memberIgnores
-  ]).join(",")}`, "");
+  lines2.push("", "[project]", `  ignore = ${projectIgnoreEntries(input).join(",")}`, "");
   return lines2.join(`
 `);
 };
@@ -75004,6 +74892,11 @@ var generateCompositionRoot = (rawInput) => {
       mode: 493,
       content: renderBuckWrapper(input)
     }),
+    generatedFile({
+      path: COMPOSITION_WATCHMAN_CONFIG_PATH,
+      mode: 420,
+      content: renderWatchmanConfig(input)
+    }),
     authority
   ];
   const manifest = generatedFile({
@@ -75017,7 +74910,162 @@ var generateCompositionRoot = (rawInput) => {
   ].toSorted((left, right) => compareCodeUnits2({ left: left.path, right: right.path }));
   return decodeCompositionRootOutput({ files: [...beforeAuthority, authority] });
 };
+
+// src/generators/vscode.ts
+var hexToRgb = (hex2) => {
+  const cleaned = hex2.replace("#", "");
+  return {
+    r: parseInt(cleaned.slice(0, 2), 16),
+    g: parseInt(cleaned.slice(2, 4), 16),
+    b: parseInt(cleaned.slice(4, 6), 16)
+  };
+};
+var rgbToHsl = ({ r, g, b }) => {
+  let rNorm = r / 255;
+  let gNorm = g / 255;
+  let bNorm = b / 255;
+  const max8 = Math.max(rNorm, gNorm, bNorm);
+  const min8 = Math.min(rNorm, gNorm, bNorm);
+  const l = (max8 + min8) / 2;
+  let h = 0;
+  let s = 0;
+  if (max8 !== min8) {
+    const d = max8 - min8;
+    s = l > 0.5 ? d / (2 - max8 - min8) : d / (max8 + min8);
+    switch (max8) {
+      case rNorm:
+        h = ((gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0)) / 6;
+        break;
+      case gNorm:
+        h = ((bNorm - rNorm) / d + 2) / 6;
+        break;
+      case bNorm:
+        h = ((rNorm - gNorm) / d + 4) / 6;
+        break;
+    }
+  }
+  return { h, s, l };
+};
+var hue2rgb = ({ p, q, t }) => {
+  let tNorm = t;
+  if (tNorm < 0)
+    tNorm += 1;
+  if (tNorm > 1)
+    tNorm -= 1;
+  if (tNorm < 1 / 6)
+    return p + (q - p) * 6 * tNorm;
+  if (tNorm < 1 / 2)
+    return q;
+  if (tNorm < 2 / 3)
+    return p + (q - p) * (2 / 3 - tNorm) * 6;
+  return p;
+};
+var hslToRgb = ({ h, s, l }) => {
+  let r, g, b;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb({ p, q, t: h + 1 / 3 });
+    g = hue2rgb({ p, q, t: h });
+    b = hue2rgb({ p, q, t: h - 1 / 3 });
+  }
+  return {
+    r: Math.round(r * 255),
+    g: Math.round(g * 255),
+    b: Math.round(b * 255)
+  };
+};
+var toHex = (n) => n.toString(16).padStart(2, "0");
+var rgbToHex = ({ r, g, b }) => {
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+};
+var darkenHex = ({ hex: hex2, amount = 0.3 }) => {
+  const rgb = hexToRgb(hex2);
+  const { h, s, l } = rgbToHsl(rgb);
+  const newL = Math.max(0, l - amount);
+  const newRgb = hslToRgb({ h, s, l: newL });
+  return rgbToHex(newRgb);
+};
+var generateColorCustomizations = (color) => ({
+  "titleBar.activeBackground": color,
+  "titleBar.activeForeground": "#FFFFFF",
+  "titleBar.inactiveBackground": color,
+  "titleBar.inactiveForeground": "#CCCCCC",
+  "activityBar.background": darkenHex({ hex: color, amount: 0.15 }),
+  "activityBar.foreground": "#FFFFFF",
+  "activityBar.inactiveForeground": "#FFFFFF",
+  "statusBar.background": color,
+  "statusBar.foreground": "#FFFFFF"
+});
+var deepMerge = ({
+  target,
+  source
+}) => {
+  const result4 = { ...target };
+  for (const key of Object.keys(source)) {
+    const sourceVal = source[key];
+    const targetVal = result4[key];
+    if (sourceVal !== null && typeof sourceVal === "object" && Array.isArray(sourceVal) === false && targetVal !== null && typeof targetVal === "object" && Array.isArray(targetVal) === false) {
+      result4[key] = deepMerge({
+        target: targetVal,
+        source: sourceVal
+      });
+    } else {
+      result4[key] = sourceVal;
+    }
+  }
+  return result4;
+};
+var generateVscodeContent = (options) => {
+  const vscodeConfig = options.config.generators?.vscode;
+  const excludeSet = new Set(options.exclude ?? vscodeConfig?.exclude ?? []);
+  const folders = [
+    { path: "..", name: "(megarepo root)" },
+    ...Object.keys(options.config.members).filter((name) => !excludeSet.has(name)).map((name) => ({ path: `../${MEMBER_ROOT_DIR}/${name}`, name }))
+  ];
+  let settings = {
+    "files.exclude": {
+      "**/.git": true,
+      "**/node_modules": true,
+      "**/dist": true
+    }
+  };
+  const colorFromEnv = vscodeConfig?.colorEnvVar !== undefined ? process.env[vscodeConfig.colorEnvVar] : undefined;
+  const color = colorFromEnv ?? vscodeConfig?.color;
+  if (color !== undefined) {
+    settings = deepMerge({
+      target: settings,
+      source: {
+        "workbench.colorCustomizations": generateColorCustomizations(color)
+      }
+    });
+  }
+  if (vscodeConfig?.settings !== undefined) {
+    settings = deepMerge({
+      target: settings,
+      source: vscodeConfig.settings
+    });
+  }
+  const workspace2 = {
+    folders,
+    settings
+  };
+  return JSON.stringify(workspace2, null, 2) + `
+`;
+};
+var generateVscode = (options) => exports_Effect.gen(function* () {
+  const fs4 = yield* FileSystem;
+  const content = generateVscodeContent(options);
+  const vscodeDir = EffectPath.ops.join(options.megarepoRoot, EffectPath.unsafe.relativeDir(".vscode/"));
+  const outputPath = EffectPath.ops.join(vscodeDir, EffectPath.unsafe.relativeFile("megarepo.code-workspace"));
+  yield* fs4.makeDirectory(vscodeDir, { recursive: true });
+  yield* fs4.writeFileString(outputPath, content);
+  return { path: outputPath, content };
+});
 // src/composition/root/composition-root-publisher.ts
+import { execFile as execFile2 } from "node:child_process";
 import { createHash as createHash4 } from "node:crypto";
 import { constants as constants3 } from "node:fs";
 import {
@@ -75032,7 +75080,10 @@ import {
   unlink
 } from "node:fs/promises";
 import * as NodePath3 from "node:path";
+import { promisify } from "node:util";
 var strictParseOptions2 = { errors: "all", onExcessProperty: "error" };
+var execFileAsync = promisify(execFile2);
+var WATCHMAN_PENDING_PATH = ".megarepo/composition-watchman-pending.json";
 var LOCK_PATH = ".megarepo/composition-publisher.lock.json";
 var TRANSACTION_PATH = ".megarepo/composition-publication.json";
 var COMMITTED_TRANSACTION_PATH = ".megarepo/composition-publication.committed.json";
@@ -75116,7 +75167,8 @@ class CompositionRootPublicationError extends exports_Schema.TaggedError()("Comp
     "LockHeld",
     "RecoveryRefused",
     "IoFailure",
-    "SimulatedProcessFault"
+    "SimulatedProcessFault",
+    "WatchmanInvalidationFailed"
   ]),
   path: exports_Schema.String,
   message: exports_Schema.String,
@@ -76597,6 +76649,138 @@ var planCompositionRootPublication = exports_Effect.fn("megarepo/composition-roo
     });
   }
 }));
+var notWatchedError = /\bis not watched\b/u;
+var WatchmanGetConfigResponse = exports_Schema.Struct({
+  config: exports_Schema.Struct({ ignore_dirs: exports_Schema.optional(exports_Schema.Array(exports_Schema.String)) })
+});
+var describeStreams = ({
+  stdout,
+  stderr
+}) => `stdout: ${stdout.trim() || "<empty>"}; stderr: ${stderr.trim() || "<empty>"}`;
+var runWatchmanCommand = async ({
+  workspaceRoot,
+  resolvedWatchmanExecutable,
+  command
+}) => {
+  const args2 = ["--no-spawn", "--no-local", "--no-pretty", command, workspaceRoot];
+  let streams;
+  try {
+    streams = await execFileAsync(resolvedWatchmanExecutable, args2);
+  } catch (cause) {
+    const exited = typeof cause === "object" && cause !== null && "code" in cause && "stdout" in cause && "stderr" in cause ? { code: cause.code, stdout: cause.stdout, stderr: cause.stderr } : undefined;
+    if (typeof exited?.code !== "number" || typeof exited.stdout !== "string" || typeof exited.stderr !== "string") {
+      throw failure2({
+        reason: "WatchmanInvalidationFailed",
+        path: workspaceRoot,
+        message: `Could not run the resolved Watchman executable: ${resolvedWatchmanExecutable}`,
+        cause
+      });
+    }
+    if (exited.stdout.trim() === "" && exited.stderr.trim() === "")
+      return { _tag: "Silent" };
+    throw failure2({
+      reason: "WatchmanInvalidationFailed",
+      path: workspaceRoot,
+      message: `Watchman ${command} failed with exit ${exited.code}; ${describeStreams({ stdout: exited.stdout, stderr: exited.stderr })}`,
+      cause
+    });
+  }
+  let body;
+  try {
+    body = JSON.parse(streams.stdout);
+  } catch (cause) {
+    throw failure2({
+      reason: "WatchmanInvalidationFailed",
+      path: workspaceRoot,
+      message: `Watchman ${command} returned an unreadable response; ${describeStreams(streams)}`,
+      cause
+    });
+  }
+  if (typeof body !== "object" || body === null || Array.isArray(body) === true) {
+    throw failure2({
+      reason: "WatchmanInvalidationFailed",
+      path: workspaceRoot,
+      message: `Watchman ${command} returned a non-object response; ${describeStreams(streams)}`
+    });
+  }
+  if ("error" in body) {
+    const message = String(body.error);
+    if (notWatchedError.test(message) === true)
+      return { _tag: "Response", body };
+    throw failure2({
+      reason: "WatchmanInvalidationFailed",
+      path: workspaceRoot,
+      message: `Watchman ${command} refused this root: ${message}; ${describeStreams(streams)}`
+    });
+  }
+  return { _tag: "Response", body };
+};
+var reconcileWatchmanRoot = async ({
+  workspaceRoot,
+  resolvedWatchmanExecutable,
+  publishedIgnoreDirs
+}) => {
+  const observed = await runWatchmanCommand({
+    workspaceRoot,
+    resolvedWatchmanExecutable,
+    command: "get-config"
+  });
+  if (observed._tag === "Silent")
+    return { _tag: "NoServer" };
+  if ("error" in observed.body)
+    return { _tag: "NotWatched" };
+  const loaded = exports_Schema.decodeUnknownSync(WatchmanGetConfigResponse)(observed.body).config.ignore_dirs ?? [];
+  if (loaded.length === publishedIgnoreDirs.length && loaded.every((dir2, index2) => dir2 === publishedIgnoreDirs[index2]) === true) {
+    return { _tag: "Unchanged" };
+  }
+  const deleted = await runWatchmanCommand({
+    workspaceRoot,
+    resolvedWatchmanExecutable,
+    command: "watch-del"
+  });
+  if (deleted._tag === "Silent")
+    return { _tag: "NoServer" };
+  return "error" in deleted.body ? { _tag: "NotWatched" } : { _tag: "Removed" };
+};
+var WatchmanPendingReconciliationSchema = exports_Schema.Struct({
+  schemaVersion: exports_Schema.Literal(COMPOSITION_ROOT_SCHEMA_VERSION),
+  ignoreDirs: exports_Schema.Array(exports_Schema.String)
+});
+var recordWatchmanReconciliation = async ({
+  workspaceRoot,
+  outcome,
+  publishedIgnoreDirs
+}) => {
+  const path8 = finalPathFor(workspaceRoot, WATCHMAN_PENDING_PATH);
+  const candidatePath = `${path8}.candidate`;
+  if (outcome._tag !== "NoServer") {
+    for (const stale of [candidatePath, path8]) {
+      try {
+        await unlink(stale);
+      } catch (cause) {
+        if (isErrno(cause, "ENOENT") === false)
+          throw cause;
+      }
+    }
+    await syncDirectory(NodePath3.dirname(path8));
+    return;
+  }
+  try {
+    await unlink(candidatePath);
+  } catch (cause) {
+    if (isErrno(cause, "ENOENT") === false)
+      throw cause;
+  }
+  await writeExclusive({
+    path: candidatePath,
+    bytes: encodeJson(WatchmanPendingReconciliationSchema, {
+      schemaVersion: COMPOSITION_ROOT_SCHEMA_VERSION,
+      ignoreDirs: publishedIgnoreDirs
+    })
+  });
+  await rename4(candidatePath, path8);
+  await syncDirectory(NodePath3.dirname(path8));
+};
 var publishCompositionRoot = exports_Effect.fn("megarepo/composition-root/publish")((options) => exports_Effect.tryPromise({
   try: async () => {
     const workspaceRoot = NodePath3.resolve(options.workspaceRoot);
@@ -76622,10 +76806,17 @@ var publishCompositionRoot = exports_Effect.fn("megarepo/composition-root/publis
         output: output.files,
         state: state2
       });
+      const watchmanIgnoreDirs = generatedWatchmanIgnoreDirs(output);
       if (transaction === undefined) {
         return {
-          changedPaths: [],
-          memberManifests: members.map(({ memberKey, manifest }) => ({ memberKey, manifest }))
+          result: {
+            changedPaths: [],
+            memberManifests: members.map(({ memberKey, manifest }) => ({
+              memberKey,
+              manifest
+            }))
+          },
+          watchmanIgnoreDirs
         };
       }
       let authorityCommitted = false;
@@ -76665,8 +76856,14 @@ var publishCompositionRoot = exports_Effect.fn("megarepo/composition-root/publis
           committedRecord
         });
         return {
-          changedPaths,
-          memberManifests: members.map(({ memberKey, manifest }) => ({ memberKey, manifest }))
+          result: {
+            changedPaths,
+            memberManifests: members.map(({ memberKey, manifest }) => ({
+              memberKey,
+              manifest
+            }))
+          },
+          watchmanIgnoreDirs
         };
       } catch (cause) {
         if (cause instanceof SimulatedProcessFault || authorityCommitted === true) {
@@ -76704,7 +76901,27 @@ var publishCompositionRoot = exports_Effect.fn("megarepo/composition-root/publis
     path: options.workspaceRoot,
     message: "Could not publish Buck2 composition root"
   })
-}));
+}).pipe(exports_Effect.flatMap((published) => exports_Effect.tryPromise({
+  try: async () => {
+    const workspaceRoot = NodePath3.resolve(options.workspaceRoot);
+    const watchmanInvalidation = await reconcileWatchmanRoot({
+      workspaceRoot,
+      resolvedWatchmanExecutable: options.resolvedWatchmanExecutable,
+      publishedIgnoreDirs: published.watchmanIgnoreDirs
+    });
+    await recordWatchmanReconciliation({
+      workspaceRoot,
+      outcome: watchmanInvalidation,
+      publishedIgnoreDirs: published.watchmanIgnoreDirs
+    });
+    return { ...published.result, watchmanInvalidation };
+  },
+  catch: (cause) => normalizeFailure({
+    cause,
+    path: options.workspaceRoot,
+    message: "Could not reconcile the published Watchman exclusion"
+  })
+}))));
 var validateTeardownState = async ({
   workspaceRoot
 }) => {
@@ -76725,7 +76942,7 @@ var validateTeardownState = async ({
     });
   }
   const manifest = decodeGenerationManifest({ snapshot: manifestSnapshot, path: manifestPath });
-  const canonical2 = [".buckconfig", ".buckroot", ".megarepo/bin/buck2", "BUCK"].toSorted();
+  const canonical2 = [...COMPOSITION_OWNED_PATHS];
   assertManifestShape({ manifest, expectedPaths: canonical2, path: manifestPath });
   const files = new Map;
   for (const record2 of manifest.files) {
@@ -76769,6 +76986,11 @@ var teardownCompositionRoot = exports_Effect.fn("megarepo/composition-root/teard
         expected: state2.manifestSnapshot
       });
       removedPaths.push(COMPOSITION_GENERATION_MANIFEST_PATH);
+      await recordWatchmanReconciliation({
+        workspaceRoot,
+        outcome: { _tag: "Unchanged" },
+        publishedIgnoreDirs: []
+      });
       for (const relativePath2 of OWNED_DIRECTORIES.filter((path8) => path8 !== ".megarepo")) {
         const path8 = finalPathFor(workspaceRoot, relativePath2);
         try {
@@ -76827,7 +77049,7 @@ var getEnabledGenerators = (config) => {
     generators.push(".vscode/megarepo.code-workspace");
   }
   if (config.generators?.composition?.enabled === true) {
-    generators.push(".buckroot", ".buckconfig", "BUCK", ".megarepo/bin/buck2");
+    generators.push(...COMPOSITION_OWNED_PATHS);
   }
   return generators;
 };
@@ -80640,7 +80862,7 @@ var finishSyncUI = (handle) => handle.cleanup();
 import { execFile as execFileCallback4 } from "node:child_process";
 import { readFile as readNodeFile } from "node:fs/promises";
 import * as NodePath19 from "node:path";
-import { promisify as promisify4 } from "node:util";
+import { promisify as promisify5 } from "node:util";
 // src/composition/apply/composition-apply.ts
 import { lstat as lstat8, readFile as readFile10, readdir as readdir7 } from "node:fs/promises";
 import * as NodePath15 from "node:path";
@@ -80667,7 +80889,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir as tmpdir2 } from "node:os";
 import * as NodePath7 from "node:path";
-import { promisify } from "node:util";
+import { promisify as promisify2 } from "node:util";
 
 // src/composition/capabilities/composition-capability-resolver-schema.ts
 import * as PosixPath3 from "node:path/posix";
@@ -80726,7 +80948,7 @@ class CompositionCapabilityResolutionError extends exports_Schema.TaggedError()(
 }
 
 // src/composition/capabilities/composition-capability-resolver.ts
-var execFile2 = promisify(execFileCallback);
+var execFile3 = promisify2(execFileCallback);
 var strictParseOptions4 = { errors: "all", onExcessProperty: "error" };
 var compositionCapabilityRuntimeFromEnv = (env = process.env) => {
   const nixPath = env["MR_CAPABILITY_NIX_BIN"];
@@ -80793,7 +81015,7 @@ var run8 = async ({
   reason
 }) => {
   try {
-    return await execFile2(value5.executable, [...value5.args], {
+    return await execFile3(value5.executable, [...value5.args], {
       encoding: "utf8",
       env,
       maxBuffer: 1024 * 1024
@@ -87030,15 +87252,15 @@ import { randomBytes as randomBytes10 } from "node:crypto";
 import { constants as constants5 } from "node:fs";
 import { access as access4, lstat as lstat9, mkdir as mkdir10, open as open9, realpath as realpath5, rm as rm7 } from "node:fs/promises";
 import * as NodePath17 from "node:path";
-import { promisify as promisify3 } from "node:util";
+import { promisify as promisify4 } from "node:util";
 
 // src/composition/capabilities/capability-gc-roots.ts
 import { execFile as execFileCallback2 } from "node:child_process";
 import { mkdtemp as mkdtemp3, mkdir as mkdir9, readFile as readFile11, readdir as readdir8, readlink as readlink5, rm as rm6, stat as stat8 } from "node:fs/promises";
 import { tmpdir as tmpdir3 } from "node:os";
 import * as NodePath16 from "node:path";
-import { promisify as promisify2 } from "node:util";
-var execFile3 = promisify2(execFileCallback2);
+import { promisify as promisify3 } from "node:util";
+var execFile4 = promisify3(execFileCallback2);
 var strictParseOptions10 = { errors: "all", onExcessProperty: "error" };
 var generationPattern = /^[0-9a-f]{64}$/u;
 var storePathPattern = /^\/nix\/store\/[^/\s]+$/u;
@@ -87170,7 +87392,7 @@ var registerIndirectRoot = async ({
     storePath
   ];
   try {
-    await execFile3(runtime3.nixPath, args2, { encoding: "utf8", env, maxBuffer: 1024 * 1024 });
+    await execFile4(runtime3.nixPath, args2, { encoding: "utf8", env, maxBuffer: 1024 * 1024 });
   } catch (cause) {
     throw failure6({
       reason: "RegistrationFailed",
@@ -87195,7 +87417,7 @@ var capabilityClosure = async ({
     storePath
   ];
   try {
-    const { stdout } = await execFile3(runtime3.nixPath, args2, {
+    const { stdout } = await execFile4(runtime3.nixPath, args2, {
       encoding: "utf8",
       env,
       maxBuffer: 1024 * 1024
@@ -87367,7 +87589,7 @@ var removeCapabilityGcRootGeneration = async ({
 };
 
 // src/composition/capabilities/owned-capability-projection.ts
-var execFile4 = promisify3(execFileCallback3);
+var execFile5 = promisify4(execFileCallback3);
 var generationPattern2 = /^[0-9a-f]{64}$/u;
 
 class OwnedCapabilityProjectionError extends exports_Schema.TaggedError()("OwnedCapabilityProjectionError", {
@@ -87474,7 +87696,7 @@ var runExact = async ({
   executable,
   args: args2
 }) => {
-  await execFile4(executable, [...args2], { maxBuffer: 1024 * 1024 });
+  await execFile5(executable, [...args2], { maxBuffer: 1024 * 1024 });
 };
 var planOwnedCapabilityProjection = async ({
   memberKey,
@@ -87920,7 +88142,7 @@ var readCompositionLockFile = ({
     return ownedLock;
   return yield* readLockFile(EffectPath.unsafe.absoluteFile(NodePath19.join(workspaceRoot, LOCK_FILE_NAME)));
 });
-var execFile5 = promisify4(execFileCallback4);
+var execFile6 = promisify5(execFileCallback4);
 var OwnedManifestJson = exports_Schema.fromJsonString(OwnedWorktreeRootManifest);
 var AcquisitionJournalJson = exports_Schema.fromJsonString(OwnedWorktreeAcquisitionJournal);
 
@@ -88193,7 +88415,7 @@ var assertLockedSourceCleanPromise = async ({
   lockedCommit,
   gitPath
 }) => {
-  const run10 = (args2) => execFile5(gitPath, ["-C", sourcePath, ...args2], { encoding: "utf8", maxBuffer: 1024 * 1024 });
+  const run10 = (args2) => execFile6(gitPath, ["-C", sourcePath, ...args2], { encoding: "utf8", maxBuffer: 1024 * 1024 });
   const head4 = (await run10(["rev-parse", "HEAD"])).stdout.trim();
   if (head4 !== lockedCommit)
     throw cutoverFailure({
