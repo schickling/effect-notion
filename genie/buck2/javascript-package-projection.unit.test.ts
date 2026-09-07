@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { GenieContext } from '../../packages/@overeng/genie/src/runtime/core.ts'
 import {
+  BUCK2_VITEST_COLLECT_SUFFIX,
   buck2JavaScriptPackageProjection,
   type Buck2JavaScriptTestTarget,
 } from './javascript-package-projection.ts'
@@ -43,7 +44,7 @@ describe('buck2JavaScriptPackageProjection', () => {
     })
     const rendered = projection.stringify(genieContext)
 
-    expect(rendered).toContain('load("//buck2:javascript.bzl", "vitest_test")')
+    expect(rendered).toContain('load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")')
     expect(rendered).toContain('"vitest.config.ts": "vitest.config.ts",')
     expect(rendered).toContain('vitest_test(\n    name = "test",')
     expect(rendered).toContain('excludes = ["src/live.integration.test.ts"],')
@@ -184,6 +185,56 @@ describe('buck2JavaScriptPackageProjection', () => {
       'devenv-modules:test',
     ])
   })
+
+  it('gives every Vitest lane exactly one collection companion carrying the same declarations', () => {
+    const rendered = buck2JavaScriptPackageProjection(admission, {
+      targets: [
+        {
+          name: 'test',
+          runner: 'vitest',
+          excludes: ['src/live.integration.test.ts'],
+          tools: { NODE_BIN: 'node' },
+          vitestRuntime: 'node',
+          timeoutMs: 120_000,
+          hookTimeoutMs: 120_000,
+        },
+        { name: 'test_extra', runner: 'vitest', testFiles: ['src/extra.test.ts'] },
+      ],
+    }).stringify(genieContext)
+
+    expect(rendered).toContain('load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")')
+    // One companion per lane, never more and never fewer.
+    expect(rendered.match(/^vitest_test\(/gmu)).toHaveLength(2)
+    expect(rendered.match(/^vitest_collect\(/gmu)).toHaveLength(2)
+    expect(rendered).toContain(`    name = "test${BUCK2_VITEST_COLLECT_SUFFIX}",`)
+    expect(rendered).toContain(`    name = "test_extra${BUCK2_VITEST_COLLECT_SUFFIX}",`)
+
+    // The companion must select and configure exactly what the lane runs, or it would prove
+    // collection of a different suite.
+    const companionStart = rendered.indexOf(
+      `vitest_collect(\n    name = "test${BUCK2_VITEST_COLLECT_SUFFIX}",`,
+    )
+    expect(companionStart).toBeGreaterThan(-1)
+    const companion = rendered.slice(
+      companionStart,
+      rendered.indexOf('\n)\n', companionStart) + '\n)\n'.length,
+    )
+    expect(companion).toContain('    config = "vitest.config.ts",')
+    expect(companion).toContain('    excludes = ["src/live.integration.test.ts"],')
+    expect(companion).toContain('    tools = {"NODE_BIN": "//buck2/toolchains:tool_node"},')
+    expect(companion).toContain('    vitest_runtime = "node",')
+    // Enumeration runs no test, so execution timeouts must never key its action.
+    expect(companion.includes('timeout_ms')).toBe(false)
+  })
+
+  it('never projects a collection companion for a Bun test lane', () => {
+    const rendered = buck2JavaScriptPackageProjection(admission, {
+      targets: [{ name: 'test', runner: 'bun', testFiles: ['src/a.test.ts'] }],
+    }).stringify(genieContext)
+
+    expect(rendered).toContain('load("//buck2:javascript.bzl", "bun_test")')
+    expect(rendered).not.toContain('vitest_collect')
+  })
 })
 
 describe('buck2/javascript.bzl test cache participation', () => {
@@ -232,5 +283,20 @@ describe('buck2/javascript.bzl test cache participation', () => {
     expect(javascriptRule).toContain(
       'if ctx.attrs.execution_mode == "unsandboxed-local" and ctx.attrs.cacheable:',
     )
+  })
+
+  it('keeps collection a declared build output rather than a cached test execution', () => {
+    // The gate reads this artifact through `buck2 build --show-json-output`, so it must be a
+    // declared output of an ordinary action: a cached `buck2 test` run produces no bytes at all.
+    expect(javascriptRule).toContain('def _vitest_collect_impl(ctx):')
+    expect(javascriptRule).toContain(
+      'collection = ctx.actions.declare_output("{}.json".format(ctx.attrs.name))',
+    )
+    expect(javascriptRule).toContain('args.add("--collect-output", collection.as_output())')
+    expect(javascriptRule).toContain('category = "vitest_collect",')
+    expect(javascriptRule).toContain('return [DefaultInfo(default_output = collection)]')
+    // Enumeration must never be declared as a test, or it would inherit test-execution caching
+    // and stop materializing an artifact.
+    expect(javascriptRule).not.toMatch(/_vitest_collect_impl[\s\S]*?ExternalRunnerTestInfo/u)
   })
 })

@@ -1,7 +1,7 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 # Projection source: packages/@overeng/restate-effect/BUCK.genie.ts
 # Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
@@ -296,12 +296,33 @@ vitest_test(
     visibility = ["PUBLIC"],
 )
 
+vitest_collect(
+    name = "test_collect",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    excludes = ["src/scheduling/scheduled-durability.integration.test.ts"],
+    visibility = ["PUBLIC"],
+)
+
 vitest_test(
     name = "test_restate_integration",
     package_tree = ":package_tree",
     config = "vitest.config.ts",
     hook_timeout_ms = 300000,
     timeout_ms = 300000,
+    test_files = ["src"],
+    configured_external_inputs = {"RESTATE_SERVER_BIN": read_config("test_capabilities", "restate-server", "")},
+    capabilities = ["loopback", "subprocess"],
+    execution_mode = "unsandboxed-local",
+    cacheable = False,
+    labels = ["local-only", "live", "native-tool"],
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_restate_integration_collect",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
     test_files = ["src"],
     configured_external_inputs = {"RESTATE_SERVER_BIN": read_config("test_capabilities", "restate-server", "")},
     capabilities = ["loopback", "subprocess"],

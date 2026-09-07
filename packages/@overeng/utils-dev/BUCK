@@ -1,11 +1,11 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 # Projection source: packages/@overeng/utils-dev/BUCK.genie.ts
 # Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:2f9595bc21c5bf7e8bf2a9f58b5c90e2c491306263c2e0d23f46ce8c4f0a49a6
+# Semantic fingerprint: sha256:0f3baed3334abb29fe4bfb5be9a7f336b4d8a33fe6345a4b5c604cb918b68f97
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/utils-dev/*.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils-dev/src/**/*.cts, packages/@overeng/utils-dev/src/**/*.js, packages/@overeng/utils-dev/src/**/*.jsx, packages/@overeng/utils-dev/src/**/*.mts, packages/@overeng/utils-dev/src/**/*.ndjson, packages/@overeng/utils-dev/src/**/*.ts, packages/@overeng/utils-dev/src/**/*.tsx, packages/@overeng/utils-dev/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
@@ -26,6 +26,8 @@ export_file(
 )
 
 export_materialization_inputs([
+    "src/baseline-test-collection.ts",
+    "src/baseline-test-collection.unit.test.ts",
     "src/cli-contract.test.ts",
     "src/cli-contract.ts",
     "src/node-vitest/Vitest.ts",
@@ -67,6 +69,8 @@ filegroup(
         "BUCK.genie.ts": "BUCK.genie.ts",
         "package.json": "package.json",
         "package.json.genie.ts": "package.json.genie.ts",
+        "src/baseline-test-collection.ts": "src/baseline-test-collection.ts",
+        "src/baseline-test-collection.unit.test.ts": "src/baseline-test-collection.unit.test.ts",
         "src/cli-contract.test.ts": "src/cli-contract.test.ts",
         "src/cli-contract.ts": "src/cli-contract.ts",
         "src/node-vitest/Vitest.ts": "src/node-vitest/Vitest.ts",
@@ -109,6 +113,8 @@ package_view(
     files = {
         "vitest.config.ts": "vitest.config.ts",
         "package.json": "package.json",
+        "src/baseline-test-collection.ts": "src/baseline-test-collection.ts",
+        "src/baseline-test-collection.unit.test.ts": "src/baseline-test-collection.unit.test.ts",
         "src/cli-contract.test.ts": "src/cli-contract.test.ts",
         "src/cli-contract.ts": "src/cli-contract.ts",
         "src/node-vitest/Vitest.ts": "src/node-vitest/Vitest.ts",
@@ -168,6 +174,15 @@ vitest_test(
     config = "vitest.config.ts",
     hook_timeout_ms = 30000,
     timeout_ms = 30000,
+    tools = {"BUN_BIN": "//buck2/toolchains:tool_bun", "FALSE_BIN": "//buck2/toolchains:tool_coreutils_false", "OTELITE_BIN": "//buck2/toolchains:tool_test_otelite", "PS_BIN": "//buck2/toolchains:tool_test_procps", "TRUE_BIN": "//buck2/toolchains:tool_coreutils_true"},
+    capabilities = ["subprocess"],
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
     tools = {"BUN_BIN": "//buck2/toolchains:tool_bun", "FALSE_BIN": "//buck2/toolchains:tool_coreutils_false", "OTELITE_BIN": "//buck2/toolchains:tool_test_otelite", "PS_BIN": "//buck2/toolchains:tool_test_procps", "TRUE_BIN": "//buck2/toolchains:tool_coreutils_true"},
     capabilities = ["subprocess"],
     visibility = ["PUBLIC"],

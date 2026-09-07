@@ -3,7 +3,7 @@
 
 load("//buck2:package_tools.bzl", "node_package_bin", "package_bin", "package_bin_artifact", "package_bin_build", "package_bin_check", "storybook_candidates")
 load("//buck2:products.bzl", "bun_cli_product", "cli_product", "module_product")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 # Projection source: packages/@overeng/npm-release/BUCK.genie.ts
 # Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
@@ -113,6 +113,15 @@ vitest_test(
     config = "vitest.config.ts",
     hook_timeout_ms = 30000,
     timeout_ms = 30000,
+    tools = {"BUN_BIN": "//buck2/toolchains:tool_bun"},
+    capabilities = ["subprocess"],
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
     tools = {"BUN_BIN": "//buck2/toolchains:tool_bun"},
     capabilities = ["subprocess"],
     visibility = ["PUBLIC"],

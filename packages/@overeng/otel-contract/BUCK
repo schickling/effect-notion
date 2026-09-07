@@ -1,7 +1,7 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 # Projection source: packages/@overeng/otel-contract/BUCK.genie.ts
 # Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
@@ -136,12 +136,36 @@ vitest_test(
     visibility = ["PUBLIC"],
 )
 
+vitest_collect(
+    name = "test_collect",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    excludes = ["src/raw-otel-boundary.unit.test.ts", "src/registry-live-check.integration.test.ts", "src/registry-seam.unit.test.ts"],
+    tools = {"NODE_BIN": "//buck2/toolchains:tool_node", "OTELITE_BIN": "//buck2/toolchains:tool_test_otelite", "OTEL_SCRAPE_BIN": "//buck2/toolchains:tool_test_otel_scrape"},
+    capabilities = ["subprocess"],
+    visibility = ["PUBLIC"],
+)
+
 vitest_test(
     name = "weaver_live_check",
     package_tree = ":package_tree",
     config = "vitest.config.ts",
     hook_timeout_ms = 30000,
     timeout_ms = 120000,
+    test_files = ["src/registry-live-check.integration.test.ts"],
+    configured_external_inputs = {"WEAVER_BIN": read_config("test_capabilities", "weaver", ""), "WEAVER_REGISTRY_DIR": read_config("test_capabilities", "weaver-registry", ""), "WEAVER_SEMCONV_MODEL": read_config("test_capabilities", "weaver-semconv-model", "")},
+    tools = {"OTELITE_BIN": "//buck2/toolchains:tool_test_otelite"},
+    capabilities = ["loopback", "subprocess"],
+    execution_mode = "unsandboxed-local",
+    cacheable = False,
+    labels = ["local-only", "live", "native-tool"],
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "weaver_live_check_collect",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
     test_files = ["src/registry-live-check.integration.test.ts"],
     configured_external_inputs = {"WEAVER_BIN": read_config("test_capabilities", "weaver", ""), "WEAVER_REGISTRY_DIR": read_config("test_capabilities", "weaver-registry", ""), "WEAVER_SEMCONV_MODEL": read_config("test_capabilities", "weaver-semconv-model", "")},
     tools = {"OTELITE_BIN": "//buck2/toolchains:tool_test_otelite"},

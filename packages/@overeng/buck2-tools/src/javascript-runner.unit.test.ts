@@ -21,8 +21,10 @@ import {
   parseJavaScriptRunOptions,
   planScratch,
   vitestArgv,
+  vitestCollectArgv,
 } from './javascript-runner.ts'
 import { DARWIN_SANDBOX_LAUNCHER, type SandboxOptions } from './typescript-runner.ts'
+import { collectionArtifactBytes } from './vitest-collect-entry.ts'
 
 const bun = '/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bun/bin/bun'
 
@@ -202,6 +204,51 @@ describe('parseJavaScriptRunOptions', () => {
       ]),
     ).toThrow('environment values must be literal action inputs')
   })
+
+  it('parses the collection action positionals and its declared build output', () => {
+    const options = parseJavaScriptRunOptions([
+      'vitest-collect',
+      bun,
+      '/buck/package-tree',
+      'vitest.config.ts',
+      '--exclude',
+      'src/live.integration.test.ts',
+      '--collect-output',
+      '/buck/buck-out/gen/pkg/test_collect.json',
+      ...sandboxFlags,
+    ])
+
+    expect(options).toMatchObject({
+      command: 'vitest-collect',
+      config: 'vitest.config.ts',
+      excludes: ['src/live.integration.test.ts'],
+      collectOutput: '/buck/buck-out/gen/pkg/test_collect.json',
+    })
+
+    // The declared output is the whole point of the lane, and it belongs to no other command.
+    expect(() =>
+      parseJavaScriptRunOptions([
+        'vitest-collect',
+        bun,
+        '/buck/package-tree',
+        'vitest.config.ts',
+        ...sandboxFlags,
+      ]),
+    ).toThrow('vitest-collect requires the declared --collect-output build output')
+    expect(() =>
+      parseJavaScriptRunOptions([
+        'vitest',
+        bun,
+        '/buck/package-tree',
+        'vitest.config.ts',
+        '30000',
+        '30000',
+        '--collect-output',
+        '/buck/buck-out/gen/pkg/test_collect.json',
+        ...sandboxFlags,
+      ]),
+    ).toThrow('--collect-output is only admissible for vitest-collect, not vitest')
+  })
 })
 
 describe('vitestArgv', () => {
@@ -255,6 +302,80 @@ describe('vitestArgv', () => {
   })
 })
 
+describe('vitestCollectArgv', () => {
+  it('drives the exit-owning collector entry with the same view, config, and selection', () => {
+    expect(
+      vitestCollectArgv({
+        runtime: bun,
+        entry: '/buck/runner/vitest-collect-entry.ts',
+        packageTree: '/buck/package-tree',
+        config: 'vitest.config.ts',
+        report: '/buck/scratch/results/vitest-collection.json',
+        tests: ['src/a.unit.test.ts'],
+        excludes: ['src/live.integration.test.ts'],
+      }),
+    ).toEqual([
+      bun,
+      '/buck/runner/vitest-collect-entry.ts',
+      '/buck/package-tree',
+      'vitest.config.ts',
+      '/buck/scratch/results/vitest-collection.json',
+      '--test',
+      'src/a.unit.test.ts',
+      '--exclude',
+      'src/live.integration.test.ts',
+    ])
+  })
+
+  it('publishes byte-identical package-relative artifacts from different executor roots', () => {
+    const entry = {
+      file: 'src/a.unit.test.ts',
+      name: 'suite > case',
+    }
+    const firstRoot = '/buck/executor-a/package-tree'
+    const secondRoot = '/private/checkout-b/package-tree'
+    const first = collectionArtifactBytes({
+      packageTree: firstRoot,
+      entries: [{ ...entry, file: join(firstRoot, entry.file) }],
+    })
+    const second = collectionArtifactBytes({
+      packageTree: secondRoot,
+      entries: [{ ...entry, file: join(secondRoot, entry.file) }],
+    })
+    expect(first).toBe(second)
+    expect(JSON.parse(first)).toEqual([{ file: entry.file, name: entry.name }])
+    expect(first).not.toContain(firstRoot)
+    expect(second).not.toContain(secondRoot)
+  })
+
+  it('fails closed when Vitest reports a module outside the declared package tree', () => {
+    expect(() =>
+      collectionArtifactBytes({
+        packageTree: '/buck/package-tree',
+        entries: [{ file: '/buck/sibling/a.unit.test.ts', name: 'suite > case' }],
+      }),
+    ).toThrow(
+      'vitest collect: test module is outside the package tree: /buck/sibling/a.unit.test.ts',
+    )
+  })
+
+  // `vitest list` writes its artifact and then never exits, so the lane must never launch it.
+  it('never launches the vitest list CLI', () => {
+    const argv = vitestCollectArgv({
+      runtime: bun,
+      entry: '/buck/runner/vitest-collect-entry.ts',
+      packageTree: '/buck/package-tree',
+      config: 'vitest.config.ts',
+      report: '/buck/scratch/results/vitest-collection.json',
+      tests: [],
+      excludes: [],
+    })
+
+    expect(argv).not.toContain('list')
+    expect(argv).not.toContain('/buck/package-tree/node_modules/vitest/vitest.mjs')
+  })
+})
+
 describe('planScratch', () => {
   it('keeps the executor-declared scratch for build and run actions', () => {
     expect(
@@ -287,6 +408,17 @@ describe('planScratch', () => {
         declaredResults: undefined,
       })
     }
+  })
+
+  // A collection lane is a Buck *action* with a declared output, so it must never fall back to a
+  // private scratch it would then have to publish from.
+  it('refuses a collection action with no executor scratch', () => {
+    expect(() => planScratch({ command: 'vitest-collect', env: {} })).toThrow(
+      'BUCK_SCRATCH_PATH must be declared by the executor for the vitest-collect action',
+    )
+    expect(
+      planScratch({ command: 'vitest-collect', env: { BUCK_SCRATCH_PATH: '/buck/scratch/c' } }),
+    ).toEqual({ root: '/buck/scratch/c', declaredResults: undefined })
   })
 
   it('still refuses an action with no executor scratch', () => {

@@ -120,7 +120,7 @@ def _configured_args(ctx, command, positional):
     for capability in sorted(ctx.attrs.capabilities):
         args.add("--capability", capability)
     args.add("--execution-mode", ctx.attrs.execution_mode)
-    if command == "vitest":
+    if command == "vitest" or command == "vitest-collect":
         args.add("--vitest-runtime", ctx.attrs.vitest_runtime)
     for read_root in package_tree.read_roots:
         args.add("--read-root", read_root)
@@ -288,6 +288,48 @@ _VITEST_TEST_ATTRS.update({
 vitest_test = rule(
     impl = _vitest_test_impl,
     attrs = _VITEST_TEST_ATTRS,
+)
+
+
+def _vitest_collect_impl(ctx):
+    """One declared collection artifact per Vitest lane.
+
+    `buck2 test` results are cached, and a cached test execution runs nothing: no report is
+    written, so collection can never be proven by a side effect of running the suite. This is an
+    ordinary build action instead, so its `vitest list --json` output is a declared artifact that
+    materializes from the cache exactly as it does on a cold runner.
+    """
+    _require_relative_path(ctx.attrs.config, "config")
+    if ctx.attrs.vitest_runtime == "node" and "NODE_BIN" not in ctx.attrs.tools:
+        fail("vitest_runtime = \"node\" requires a declared NODE_BIN tool")
+    collection = ctx.actions.declare_output("{}.json".format(ctx.attrs.name))
+    args, _, _, _ = _configured_args(ctx, "vitest-collect", [ctx.attrs.config])
+    args.add("--collect-output", collection.as_output())
+    ctx.actions.run(
+        args,
+        category = "vitest_collect",
+        identifier = ctx.attrs.name,
+        # Placement is local because the tool closures are host Nix realizations, not CAS
+        # inputs; reuse is orthogonal, and a non-deterministic lane must not populate the cache.
+        local_only = True,
+        allow_cache_upload = ctx.attrs.cacheable,
+    )
+    return [DefaultInfo(default_output = collection)]
+
+
+# Collection carries the lane's whole declared environment minus its execution timeouts: it loads
+# the same config and selects the same files, but never runs a test.
+_VITEST_COLLECT_ATTRS = dict(_TEST_ATTRS)
+_VITEST_COLLECT_ATTRS.update({
+    "config": attrs.string(default = "vitest.config.ts"),
+    "vitest_runtime": attrs.enum(["bun", "node"], default = "bun"),
+})
+
+# Enumeration is a build output, never a test: `buck2 build` on this target is what the
+# baseline-collection gate consumes through `--show-json-output`.
+vitest_collect = rule(
+    impl = _vitest_collect_impl,
+    attrs = _VITEST_COLLECT_ATTRS,
 )
 
 

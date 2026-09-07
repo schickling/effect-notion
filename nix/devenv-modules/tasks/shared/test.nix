@@ -38,7 +38,6 @@
   installTask ? "pnpm:install",
   extraTests ? [ ],
   packageConcurrency ? null,
-  retainVitestJson ? false,
   buckAfter ? [ ],
 }:
 { lib, pkgs, ... }:
@@ -90,22 +89,6 @@ let
     else
       packageConcurrency;
   packagesWithIndexes = lib.imap0 (index: pkg: pkg // { __testIndex = index; }) packages;
-  taskFileStem =
-    taskName:
-    builtins.replaceStrings
-      [
-        ":"
-        "/"
-        " "
-        "."
-      ]
-      [
-        "-"
-        "-"
-        "-"
-        "_"
-      ]
-      taskName;
 
   # Do not force preserve-symlinks here. pnpm's projected workspace graph
   # relies on realpath-based resolution, and preserve-symlinks caused Vitest to
@@ -116,9 +99,7 @@ let
   # vitest `--reporter=json` SIDE-CHANNEL it injects itself (decision 0017), so the
   # human reporter output stays on the terminal unchanged. `run_package_bin` is a
   # shell function, so it is resolved to a real bin path first (experiment 0007)
-  # and otel-scrape wraps that path directly. When retainVitestJson is enabled,
-  # the managed task owns the JSON output path, so otel-scrape reads but does not
-  # delete the job-local report. Its public summary remains counts-only.
+  # and otel-scrape wraps that path directly. Its public summary remains counts-only.
   vitestExec =
     {
       name,
@@ -132,17 +113,7 @@ let
         adapter = "vitest";
         inherit name;
       }}
-      _vitest_collection_args=()
-      ${lib.optionalString retainVitestJson ''
-        _vitest_collection_dir="''${VITEST_COLLECTION_REPORT_DIR:-''${DEVENV_ROOT:-$PWD}/tmp/otel-scrape/summaries}"
-        mkdir -p "$_vitest_collection_dir"
-        _vitest_collection_args=(
-          --reporter=default
-          --reporter=json
-          "--outputFile.json=$_vitest_collection_dir/${taskFileStem name}.vitest.json"
-        )
-      ''}
-      "''${_otel_instr[@]}" "$(resolve_package_bin vitest vitest)" run --testTimeout 30000 --hookTimeout 30000 "''${_vitest_collection_args[@]}" ${extraArgs}
+      "''${_otel_instr[@]}" "$(resolve_package_bin vitest vitest)" run --testTimeout 30000 --hookTimeout 30000 ${extraArgs}
     '';
   vitestWatchExec = ''
     set -euo pipefail

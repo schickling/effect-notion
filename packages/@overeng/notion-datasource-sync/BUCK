@@ -1,7 +1,7 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 # Projection source: packages/@overeng/notion-datasource-sync/BUCK.genie.ts
 # Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
@@ -375,12 +375,37 @@ vitest_test(
     visibility = ["PUBLIC"],
 )
 
+vitest_collect(
+    name = "test_collect",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    excludes = ["src/e2e/live-notion.e2e.test.ts"],
+    tools = {"NODE_BIN": "//buck2/toolchains:tool_node"},
+    vitest_runtime = "node",
+    visibility = ["PUBLIC"],
+)
+
 vitest_test(
     name = "test_notion_live",
     package_tree = ":package_tree",
     config = "vitest.config.ts",
     hook_timeout_ms = 300000,
     timeout_ms = 300000,
+    test_files = ["src/e2e/live-notion.e2e.test.ts"],
+    env = {"NOTION_DATASOURCE_SYNC_LIVE": "1"},
+    inherited_env = ["NOTION_API_TOKEN", "NOTION_DATASOURCE_SYNC_PARENT_PAGE_ID"],
+    writable_directories = {"NOTION_DATASOURCE_SYNC_LEDGER_PATH": "notion-ledger/ledger.json"},
+    capabilities = ["network"],
+    execution_mode = "unsandboxed-local",
+    cacheable = False,
+    labels = ["local-only", "live", "network", "secret"],
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_notion_live_collect",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
     test_files = ["src/e2e/live-notion.e2e.test.ts"],
     env = {"NOTION_DATASOURCE_SYNC_LIVE": "1"},
     inherited_env = ["NOTION_API_TOKEN", "NOTION_DATASOURCE_SYNC_PARENT_PAGE_ID"],

@@ -34,5 +34,5 @@ export default createGenieOutput({
   meta: projection.meta,
   ...(projection.validate === undefined ? {} : { validate: projection.validate }),
   stringify: (context) =>
-    `${projection.stringify(context)}\n# Runtime targets stay package-local; root aliases preserve the established public labels.\nfilegroup(\n    name = "package_tree_runtime",\n    srcs = {\n        "package-tree.ts": "src/package-tree.ts",\n        "real-path.ts": "src/real-path.ts",\n    },\n    visibility = ["PUBLIC"],\n)\n\nfilegroup(\n    name = "javascript_action_runtime",\n    srcs = {\n        "javascript-runner.ts": "src/javascript-runner.ts",\n        "typescript-runner.ts": "src/typescript-runner.ts",\n    },\n    visibility = ["PUBLIC"],\n)\n`,
+    `${projection.stringify(context)}\n# Runtime targets stay package-local; root aliases preserve the established public labels.\nfilegroup(\n    name = "package_tree_runtime",\n    srcs = {\n        "package-tree.ts": "src/package-tree.ts",\n        "real-path.ts": "src/real-path.ts",\n    },\n    visibility = ["PUBLIC"],\n)\n\nfilegroup(\n    name = "javascript_action_runtime",\n    srcs = {\n        "javascript-runner.ts": "src/javascript-runner.ts",\n        "typescript-runner.ts": "src/typescript-runner.ts",\n        "vitest-collect-entry.ts": "src/vitest-collect-entry.ts",\n    },\n    visibility = ["PUBLIC"],\n)\n`,
 })
