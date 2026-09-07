@@ -1402,15 +1402,17 @@ const assertManifestShape = ({
   readonly expectedPaths: ReadonlyArray<string>
   readonly path: string
 }): void => {
-  const actual = manifest.files.map((file) => file.path)
-  if (
-    actual.length !== expectedPaths.length ||
-    actual.some((value, index) => value !== expectedPaths[index]) === true
-  ) {
+  const owned: Readonly<Record<string, true>> = Object.fromEntries(
+    expectedPaths.map((path) => [path, true]),
+  )
+  // A manifest written by an older generation owns fewer paths than this generator emits, which
+  // is exactly the state teardown has to be able to clean. Only an unknown path is a refusal.
+  const unknown = manifest.files.find((file) => owned[file.path] !== true)
+  if (unknown !== undefined) {
     throw failure({
       reason: 'InvalidGenerationManifest',
       path,
-      message: `Generation manifest does not own the canonical file set: ${path}`,
+      message: `Generation manifest owns an unknown path ${unknown.path}: ${path}`,
     })
   }
 }
@@ -1496,6 +1498,7 @@ const validatePublicationState = async ({
   const manifestPath = finalPathFor(workspaceRoot, COMPOSITION_GENERATION_MANIFEST_PATH)
   const manifestSnapshot = await snapshotMaybe(manifestPath)
   let manifest: CompositionGenerationManifest | undefined
+  let manifestPaths: ReadonlySet<string> = new Set()
   if (manifestSnapshot !== undefined) {
     if (manifestSnapshot.mode !== 0o644) {
       throw failure({
@@ -1505,16 +1508,7 @@ const validatePublicationState = async ({
       })
     }
     manifest = decodeGenerationManifest({ snapshot: manifestSnapshot, path: manifestPath })
-    const manifestPaths = new Set(manifest.files.map((file) => file.path))
-    for (const expectedPath of expectedGeneratedPaths(files)) {
-      if (manifestPaths.has(expectedPath) === false) {
-        throw failure({
-          reason: 'InvalidGenerationManifest',
-          path: manifestPath,
-          message: `Generation manifest does not own required path ${expectedPath}: ${manifestPath}`,
-        })
-      }
-    }
+    manifestPaths = new Set(manifest.files.map((file) => file.path))
   }
   const configPath = finalPathFor(workspaceRoot, '.buckconfig')
   if (manifest === undefined && (await snapshotMaybe(configPath)) !== undefined) {
@@ -1564,15 +1558,20 @@ const validatePublicationState = async ({
         ? manifestSnapshot
         : await snapshotMaybe(path)
     snapshots.set(file.path, snapshot)
+    // A path this generator emits but the manifest does not own is unowned, whether that is a
+    // first create or a workspace published before the generated set grew. Either way it may
+    // only be adopted when nothing is there or the bytes are already exactly what we publish.
+    const unowned =
+      file.path !== COMPOSITION_GENERATION_MANIFEST_PATH && manifestPaths.has(file.path) === false
     if (
-      manifest === undefined &&
+      (manifest === undefined || unowned === true) &&
       snapshot !== undefined &&
       snapshotMatchesFile(snapshot, file) === false
     ) {
       throw failure({
         reason: 'ForeignPath',
         path,
-        message: `Refusing unowned first-create path: ${path}`,
+        message: `Refusing unowned generated path: ${path}`,
       })
     }
   }

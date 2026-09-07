@@ -20,7 +20,7 @@ import * as NodePath from 'node:path'
 import { promisify } from 'node:util'
 
 import { describe, it } from '@effect/vitest'
-import { Effect, Fiber } from 'effect'
+import { Effect, Fiber, Schema } from 'effect'
 import { expect } from 'vitest'
 
 import { CompositionGeneratorConfig, EffectPath } from '../../core/config.ts'
@@ -37,13 +37,19 @@ import {
 import {
   BUCK_MEMBER_MANIFEST_FILENAME,
   COMPOSITION_GENERATION_MANIFEST_PATH,
+  CompositionGenerationManifestSchema,
   encodeBuckMemberManifestJson,
   generateCompositionRoot,
   generatedWatchmanIgnoreDirs,
   type BuckMemberManifest,
+  type CompositionGenerationManifest,
 } from './composition-root.ts'
 
 const execFilePromise = promisify(execFile)
+const decodeGenerationManifestJson = (json: string): CompositionGenerationManifest =>
+  Schema.decodeUnknownSync(CompositionGenerationManifestSchema, { onExcessProperty: 'error' })(
+    JSON.parse(json),
+  )
 const generatedPaths = [
   '.buckroot',
   '.megarepo/bin/buck2',
@@ -1924,6 +1930,101 @@ describe('composition root publisher', () => {
         )
         expect(error.reason).toBe('WatchmanInvalidationFailed')
         expect(error.message).toContain('Could not run the resolved Watchman executable')
+      }),
+    ),
+  )
+
+  /**
+   * Reproduces a workspace published by a generator that did not own `.watchmanconfig` yet: the
+   * manifest lists the older file set and the new file is absent. Publication must converge it
+   * without any upgrade shim.
+   */
+  const degradeToOlderGeneration = (fixture: Fixture): Effect.Effect<void> =>
+    Effect.promise(async () => {
+      const manifestPath = NodePath.join(fixture.root, COMPOSITION_GENERATION_MANIFEST_PATH)
+      const manifest = decodeGenerationManifestJson(await readFile(manifestPath, 'utf8'))
+      await writeFile(
+        manifestPath,
+        `${JSON.stringify(
+          {
+            ...manifest,
+            files: manifest.files.filter((file) => file.path !== '.watchmanconfig'),
+          },
+          undefined,
+          2,
+        )}\n`,
+      )
+      await rm(NodePath.join(fixture.root, '.watchmanconfig'), { force: true })
+    })
+
+  it.effect('converges a workspace whose manifest predates the watchman config', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fixture = yield* makeFixture({ members: ['alpha'] })
+        yield* publishCompositionRoot(optionsFor({ fixture, memberKeys: ['alpha'] }))
+        yield* degradeToOlderGeneration(fixture)
+
+        const converged = yield* publishCompositionRoot(
+          optionsFor({ fixture, memberKeys: ['alpha'], lockToken: 'older-generation' }),
+        )
+        expect(converged.changedPaths).toContain('.watchmanconfig')
+        expect(JSON.parse((yield* readGenerated(fixture, '.watchmanconfig')).toString())).toEqual({
+          ignore_dirs: expect.any(Array),
+        })
+        const manifest = decodeGenerationManifestJson(
+          (yield* readGenerated(fixture, COMPOSITION_GENERATION_MANIFEST_PATH)).toString(),
+        )
+        expect(manifest.files.map((file) => file.path)).toContain('.watchmanconfig')
+
+        // And the converged root then stays a no-op.
+        const repeat = yield* publishCompositionRoot(
+          optionsFor({ fixture, memberKeys: ['alpha'], lockToken: 'older-generation-repeat' }),
+        )
+        expect(repeat.changedPaths).toEqual([])
+      }),
+    ),
+  )
+
+  it.effect('refuses a foreign file at a generated path the manifest does not own', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fixture = yield* makeFixture({ members: ['alpha'] })
+        yield* publishCompositionRoot(optionsFor({ fixture, memberKeys: ['alpha'] }))
+        yield* degradeToOlderGeneration(fixture)
+        yield* Effect.promise(() =>
+          writeFile(
+            NodePath.join(fixture.root, '.watchmanconfig'),
+            '{"ignore_dirs":["foreign"]}\n',
+          ),
+        )
+
+        const error = yield* failureReason(
+          publishCompositionRoot(
+            optionsFor({ fixture, memberKeys: ['alpha'], lockToken: 'foreign-unowned' }),
+          ),
+        )
+        expect(error.reason).toBe('ForeignPath')
+        expect((yield* readGenerated(fixture, '.watchmanconfig')).toString()).toBe(
+          '{"ignore_dirs":["foreign"]}\n',
+        )
+      }),
+    ),
+  )
+
+  it.effect('tears down a workspace whose manifest predates the watchman config', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fixture = yield* makeFixture({ members: ['alpha'] })
+        yield* publishCompositionRoot(optionsFor({ fixture, memberKeys: ['alpha'] }))
+        yield* degradeToOlderGeneration(fixture)
+
+        const result = yield* teardownCompositionRoot({
+          workspaceRoot: fixture.workspaceRoot,
+          lock: { owner: 'publisher-test', token: 'older-teardown' },
+        })
+        expect(result.removedPaths).toContain('.buckconfig')
+        expect(result.removedPaths).not.toContain('.watchmanconfig')
+        expect(yield* exists(NodePath.join(fixture.root, '.buckconfig'))).toBe(false)
       }),
     ),
   )
