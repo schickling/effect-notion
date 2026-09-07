@@ -16,7 +16,15 @@ import {
   type SandboxOptions,
 } from './typescript-runner.ts'
 
-type JavaScriptCommand = 'exec' | 'vitest' | 'bun-test' | 'shell-tests'
+type JavaScriptCommand = 'exec' | 'vitest' | 'vitest-collect' | 'bun-test' | 'shell-tests'
+
+/**
+ * File name of the collection artifact the inner invocation writes into its scratch results.
+ *
+ * A `vitest_collect` action's declared Buck output lives outside the sandbox write boundary, so
+ * the contained child writes here and the outer invocation publishes the bytes once it exits.
+ */
+const COLLECTION_REPORT_NAME = 'vitest-collection.json'
 
 /**
  * Capabilities that name a host service rather than a declared input: the outbound network,
@@ -68,6 +76,8 @@ export type JavaScriptRunOptions = CommonOptions & {
   readonly excludes: readonly string[]
   readonly args: readonly string[]
   readonly vitestRuntime: VitestRuntime
+  /** Declared Buck output of a `vitest-collect` action; every other command must leave it unset. */
+  readonly collectOutput: string | undefined
 }
 
 const fail = (message: string): never => {
@@ -146,7 +156,13 @@ const requireVitestRuntime = (value: string): VitestRuntime => {
 }
 
 const requireJavaScriptCommand = (value: string): JavaScriptCommand => {
-  if (value === 'exec' || value === 'vitest' || value === 'bun-test' || value === 'shell-tests') {
+  if (
+    value === 'exec' ||
+    value === 'vitest' ||
+    value === 'vitest-collect' ||
+    value === 'bun-test' ||
+    value === 'shell-tests'
+  ) {
     return value
   }
   return fail(`unknown command: ${value}`)
@@ -187,6 +203,14 @@ export const parseJavaScriptRunOptions = (args: readonly string[]): JavaScriptRu
       value: requireArgument({ args, index: index + 2, name: 'hook timeout' }),
     })
     index += 3
+  } else if (command === 'vitest-collect') {
+    // Collection only loads and enumerates suites, so it declares no execution timeouts: its
+    // action key stays keyed to the package view, config, and selection alone.
+    config = requireRelativePath({
+      field: 'config',
+      value: requireArgument({ args, index, name: 'config' }),
+    })
+    index += 1
   } else {
     timeoutMs = requireTimeout({
       field: 'test timeout',
@@ -212,6 +236,7 @@ export const parseJavaScriptRunOptions = (args: readonly string[]): JavaScriptRu
   let executionMode: ExecutionMode = 'sandboxed'
   // Pinned Bun runs a suite unless the rule names the Node runtime explicitly.
   let vitestRuntime: VitestRuntime = 'bun'
+  let collectOutput: string | undefined
 
   while (index < args.length) {
     const flag = requireArgument({ args, index, name: 'flag' })
@@ -267,6 +292,7 @@ export const parseJavaScriptRunOptions = (args: readonly string[]): JavaScriptRu
     else if (flag === '--darwin-kernel-major') darwinKernelMajors.push(value)
     else if (flag === '--execution-mode') executionMode = requireExecutionMode(value)
     else if (flag === '--vitest-runtime') vitestRuntime = requireVitestRuntime(value)
+    else if (flag === '--collect-output') collectOutput = resolve(value)
     else fail(`unexpected argument: ${flag}`)
     index += 2
   }
@@ -277,6 +303,12 @@ export const parseJavaScriptRunOptions = (args: readonly string[]): JavaScriptRu
     toolClosure: [...new Set(toolClosure)].toSorted(),
     darwinKernelMajors: [...new Set(darwinKernelMajors)].toSorted(),
   })
+  if (command === 'vitest-collect' && collectOutput === undefined) {
+    fail('vitest-collect requires the declared --collect-output build output')
+  }
+  if (command !== 'vitest-collect' && collectOutput !== undefined) {
+    fail(`--collect-output is only admissible for vitest-collect, not ${command}`)
+  }
   return {
     command,
     bun,
@@ -289,6 +321,7 @@ export const parseJavaScriptRunOptions = (args: readonly string[]): JavaScriptRu
     excludes,
     args: forwardedArgs,
     vitestRuntime,
+    collectOutput,
     readRoots: [...new Set(readRoots)].toSorted(),
     environment,
     externalInputs,
@@ -339,6 +372,33 @@ export const vitestArgv = (options: {
 ]
 
 /**
+ * Exact suite-enumeration command behind a `vitest_collect` action.
+ *
+ * It drives `vitest-collect-entry.ts` next to this runner rather than `vitest list`, because the
+ * `list` CLI writes its artifact and then never exits (it closes the Vitest context but, unlike
+ * `run`, never calls `exit()`, so any config plugin holding a handle keeps the action alive). The
+ * entry emits the same `{name, file}` records and owns the exit, and `runtime` is the same exact
+ * executable that runs the suite so enumeration imports it the same way.
+ */
+export const vitestCollectArgv = (options: {
+  readonly runtime: string
+  readonly entry: string
+  readonly packageTree: string
+  readonly config: string
+  readonly report: string
+  readonly tests: readonly string[]
+  readonly excludes: readonly string[]
+}): readonly string[] => [
+  options.runtime,
+  options.entry,
+  options.packageTree,
+  options.config,
+  options.report,
+  ...options.tests.flatMap((path) => ['--test', path]),
+  ...options.excludes.flatMap((path) => ['--exclude', path]),
+]
+
+/**
  * Buck declares `BUCK_SCRATCH_PATH` for build and run *actions*, but `ExternalRunnerTestInfo`
  * commands are launched by the test executor, which declares neither a scratch path nor a result
  * artifact directory. Test invocations therefore own their scratch: the runner allocates one
@@ -355,6 +415,8 @@ export type ScratchPlan = {
 const externalTestCommand: Record<JavaScriptCommand, boolean> = {
   exec: false,
   vitest: true,
+  // Collection is a build action with a declared output, so the executor declares its scratch.
+  'vitest-collect': false,
   'bun-test': true,
   'shell-tests': true,
 }
@@ -533,14 +595,17 @@ const runInner = async (parameters: {
     CI: options.environment['CI'] ?? 'true',
   }
   if (options.command === 'shell-tests') return runShellTests({ environment, options })
+  // Pinned Bun evaluates a suite unless the lane declared the attested Node runtime; every
+  // non-Vitest command leaves the runtime at its Bun default.
+  const vitestExecutable =
+    options.vitestRuntime === 'bun'
+      ? options.bun
+      : (options.externalInputs['NODE_BIN'] ??
+        fail('vitest runtime "node" requires the declared NODE_BIN tool'))
   const command =
     options.command === 'vitest'
       ? vitestArgv({
-          runtime:
-            options.vitestRuntime === 'bun'
-              ? options.bun
-              : (options.externalInputs['NODE_BIN'] ??
-                fail('vitest runtime "node" requires the declared NODE_BIN tool')),
+          runtime: vitestExecutable,
           packageTree: options.packageTree,
           config: options.config ?? fail('missing config'),
           timeoutMs: options.timeoutMs,
@@ -549,13 +614,23 @@ const runInner = async (parameters: {
           tests: options.tests,
           excludes: options.excludes,
         })
-      : options.command === 'bun-test'
-        ? [options.bun, 'test', '--timeout', String(options.timeoutMs), ...options.tests]
-        : [
-            options.bun,
-            join(options.packageTree, options.entrypoint ?? fail('missing entrypoint')),
-            ...options.args,
-          ]
+      : options.command === 'vitest-collect'
+        ? vitestCollectArgv({
+            runtime: vitestExecutable,
+            entry: join(dirname(fileURLToPath(import.meta.url)), 'vitest-collect-entry.ts'),
+            packageTree: options.packageTree,
+            config: options.config ?? fail('missing config'),
+            report: join(results, COLLECTION_REPORT_NAME),
+            tests: options.tests,
+            excludes: options.excludes,
+          })
+        : options.command === 'bun-test'
+          ? [options.bun, 'test', '--timeout', String(options.timeoutMs), ...options.tests]
+          : [
+              options.bun,
+              join(options.packageTree, options.entrypoint ?? fail('missing entrypoint')),
+              ...options.args,
+            ]
   const child = Bun.spawn([...command], {
     cwd: options.packageTree,
     env: environment,
@@ -600,20 +675,28 @@ export const javaScriptSandboxInvocation = ({
   })
 }
 
+/**
+ * Launches the contained invocation of this same runner.
+ *
+ * The inner process receives the ALREADY-RESOLVED options rather than the raw argv. Buck passes
+ * project-relative paths to build actions and absolute paths to external test commands, so a
+ * second parse inside the sandbox — whose working directory is the package view, not the project
+ * root — would resolve a relative package tree against the wrong base and spawn with a
+ * non-existent working directory.
+ */
 const runSandboxed = async (parameters: {
-  readonly args: readonly string[]
   readonly options: JavaScriptRunOptions
   readonly results: string
   readonly scratch: string
 }): Promise<number> => {
-  const { args, options, results, scratch } = parameters
+  const { options, results, scratch } = parameters
   const innerCommand = [
     options.bun,
     fileURLToPath(import.meta.url),
     '__inner',
     scratch,
     results,
-    ...args,
+    JSON.stringify(options),
   ]
   const inputRoots = [
     dirname(fileURLToPath(import.meta.url)),
@@ -676,20 +759,57 @@ const runSandboxed = async (parameters: {
 }
 
 /**
+ * Publishes a `vitest_collect` artifact from scratch to its declared Buck output.
+ *
+ * The contained child may only write inside the scratch boundary, so the enumeration lands in the
+ * result directory and the bytes are moved here, outside containment. A missing artifact is a
+ * failed action rather than an empty output: an unwritten declared output would be indistinguishable
+ * from a suite that collected nothing.
+ */
+const publishCollection = async (parameters: {
+  readonly output: string
+  readonly results: string
+}): Promise<void> => {
+  const { output, results } = parameters
+  const collected = Bun.file(join(results, COLLECTION_REPORT_NAME))
+  if ((await collected.exists()) === false) {
+    fail(`vitest list wrote no ${COLLECTION_REPORT_NAME} collection artifact`)
+  }
+  await mkdir(dirname(output), { recursive: true })
+  await Bun.write(output, collected)
+}
+
+/**
  * Runs one command inside its scratch boundary. Build and run actions reuse the executor-declared
  * scratch; external test invocations own a private one that is released once the child exits.
  */
 const runOuter = async (parameters: {
-  readonly args: readonly string[]
   readonly options: JavaScriptRunOptions
 }): Promise<number> => {
-  const { args, options } = parameters
+  const { options } = parameters
   const lease = await acquireScratch(planScratch({ command: options.command, env: process.env }))
   try {
-    return await runSandboxed({ args, options, results: lease.results, scratch: lease.root })
+    const status = await runSandboxed({ options, results: lease.results, scratch: lease.root })
+    if (status === 0 && options.collectOutput !== undefined) {
+      await publishCollection({ output: options.collectOutput, results: lease.results })
+    }
+    return status
   } finally {
     lease.release()
   }
+}
+
+/**
+ * Reads the options the outer invocation of this same module already resolved and validated.
+ *
+ * The producer is `runSandboxed`, one process away, so the shape is an invariant rather than an
+ * external input; the command is still checked so a corrupted hand-off fails closed.
+ */
+export const decodeInnerRunOptions = (value: string): JavaScriptRunOptions => {
+  const decoded = JSON.parse(value) as JavaScriptRunOptions
+  requireJavaScriptCommand(decoded.command)
+  requireBun(decoded.bun)
+  return decoded
 }
 
 /** Runs one Buck JavaScript command without inheriting ambient tools or environment. */
@@ -697,9 +817,12 @@ export const runJavaScriptCli = async (args: readonly string[]): Promise<number>
   if (args[0] === '__inner') {
     const scratch = resolve(requireArgument({ args, index: 1, name: 'inner scratch root' }))
     const results = resolve(requireArgument({ args, index: 2, name: 'inner result directory' }))
-    return runInner({ options: parseJavaScriptRunOptions(args.slice(3)), results, scratch })
+    const options = decodeInnerRunOptions(
+      requireArgument({ args, index: 3, name: 'inner resolved options' }),
+    )
+    return runInner({ options, results, scratch })
   }
-  return runOuter({ args, options: parseJavaScriptRunOptions(args) })
+  return runOuter({ options: parseJavaScriptRunOptions(args) })
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

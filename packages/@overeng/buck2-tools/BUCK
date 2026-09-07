@@ -5,7 +5,7 @@ load("//buck2:javascript.bzl", "bun_test")
 # Projection source: packages/@overeng/buck2-tools/BUCK.genie.ts
 # Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:bc6a64a042c25c6643637aaca11e0375f88081847e2b30ced165c9258b67fc70
+# Semantic fingerprint: sha256:fff423f8fb1ab6ab708d8987cb0aa576b65153246eb2a4653ccf781b62aca92c
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/*.genie.ts, packages/@overeng/buck2-tools/BUCK.genie.ts, packages/@overeng/buck2-tools/BUCK.genie.ts, packages/@overeng/buck2-tools/package.json.genie.ts, packages/@overeng/buck2-tools/src/**/*.cts, packages/@overeng/buck2-tools/src/**/*.js, packages/@overeng/buck2-tools/src/**/*.jsx, packages/@overeng/buck2-tools/src/**/*.mts, packages/@overeng/buck2-tools/src/**/*.ts, packages/@overeng/buck2-tools/src/**/*.tsx, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
@@ -47,6 +47,7 @@ export_materialization_inputs([
     "src/real-path.ts",
     "src/typescript-runner.ts",
     "src/typescript-runner.unit.test.ts",
+    "src/vitest-collect-entry.ts",
 ])
 
 # Projection inputs this package owns, exported as one tree.
@@ -77,6 +78,7 @@ filegroup(
         "src/real-path.ts": "src/real-path.ts",
         "src/typescript-runner.ts": "src/typescript-runner.ts",
         "src/typescript-runner.unit.test.ts": "src/typescript-runner.unit.test.ts",
+        "src/vitest-collect-entry.ts": "src/vitest-collect-entry.ts",
         "tsconfig.json": "tsconfig.json",
         "tsconfig.json.genie.ts": "tsconfig.json.genie.ts",
     },
@@ -115,6 +117,7 @@ package_view(
         "src/real-path.ts": "src/real-path.ts",
         "src/typescript-runner.ts": "src/typescript-runner.ts",
         "src/typescript-runner.unit.test.ts": "src/typescript-runner.unit.test.ts",
+        "src/vitest-collect-entry.ts": "src/vitest-collect-entry.ts",
         "tsconfig.json": "tsconfig.json",
     },
     runtime = "//:package_tree_runtime",
@@ -169,6 +172,7 @@ filegroup(
     srcs = {
         "javascript-runner.ts": "src/javascript-runner.ts",
         "typescript-runner.ts": "src/typescript-runner.ts",
+        "vitest-collect-entry.ts": "src/vitest-collect-entry.ts",
     },
     visibility = ["PUBLIC"],
 )

@@ -233,13 +233,35 @@ let
       }
       // (packageTestOverrides.${name} or { })
     ) packageNames;
-  baselineTestTaskRegistry = pkgs.writeText "effect4-baseline-test-task-registry.json" (
-    builtins.toJSON (
-      map (pkg: {
+  # Single source of truth linking one managed Buck test task to the package whose baseline files
+  # it owns and to the companion collection target that proves what it collected. The `_collect`
+  # suffix is the generated companion of `:test` (`BUCK2_VITEST_COLLECT_SUFFIX` in
+  # `genie/buck2/javascript-package-projection.ts`); its declared output is what the gate reads,
+  # because a cached Buck test execution runs nothing and writes no report.
+  # A companion exists only for a Vitest lane: `@overeng/buck2-tools` runs under `bun test`,
+  # which cannot enumerate suites. The generated BUCK file is the authority for that, so the
+  # registry can never name a target the projection did not emit; a baseline file inside a
+  # package without a companion stays unowned and fails the gate instead of being skipped.
+  collectTargetDeclaration = "vitest_collect(\n    name = \"test_collect\",\n";
+  baselineTestCollectionRegistrations =
+    map
+      (pkg: {
+        packageName = "@overeng/${pkg.name}";
         packagePath = pkg.path;
         taskName = "test:${pkg.name}";
-      }) packagesWithTests
-    )
+        collectionTarget = "effect_utils//${pkg.path}:test_collect";
+      })
+      (
+        builtins.filter (
+          pkg:
+          let
+            buckFile = ./. + "/${pkg.path}/BUCK";
+          in
+          builtins.pathExists buckFile && lib.hasInfix collectTargetDeclaration (builtins.readFile buckFile)
+        ) packagesWithTests
+      );
+  baselineTestTaskRegistry = pkgs.writeText "effect4-baseline-test-task-registry.json" (
+    builtins.toJSON baselineTestCollectionRegistrations
   );
 
   # Packages that have storybook (subset of allPackages)
@@ -1177,13 +1199,33 @@ in
     "dependency-materialization:evidence:check"
   ];
 
-  # `test:run` executes after its package-task dependencies, so the
-  # baseline-collection gate sees the complete managed-test summary directory in CI.
+  # `test:run` executes after its package-task dependencies, then builds the declared collection
+  # output of every registered managed test task and gates on that manifest. The proof is a build
+  # artifact rather than a run side effect: Buck caches test executions, and a cached execution
+  # runs nothing, so no report is written on the runs CI actually performs.
   tasks."test:run".exec = lib.mkForce (
     trace.exec "test:run" ''
       set -euo pipefail
+      root="''${DEVENV_ROOT:-$PWD}"
+      workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
+      manifest="$(${pkgs.coreutils}/bin/mktemp "$root/.devenv/baseline-test-collection.XXXXXX.json")"
+      cleanup_baseline_manifest() {
+        status=$?
+        ${pkgs.coreutils}/bin/rm -f -- "$manifest" || status=$?
+        trap - EXIT
+        exit "$status"
+      }
+      trap cleanup_baseline_manifest EXIT
+      (
+        cd "$workspace_root"
+        "$workspace_root/.megarepo/bin/buck2" build --show-json-output ${
+          lib.escapeShellArgs (map (entry: entry.collectionTarget) baselineTestCollectionRegistrations)
+        } >"$manifest"
+      )
       ${pkgs.bun}/bin/bun packages/@overeng/utils-dev/check-baseline-test-collection.ts \
-        --task-registry ${baselineTestTaskRegistry}
+        --task-registry ${baselineTestTaskRegistry} \
+        --workspace-root "$workspace_root" \
+        --build-manifest "$manifest"
     ''
   );
 

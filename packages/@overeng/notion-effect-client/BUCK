@@ -1,7 +1,7 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 # Projection source: packages/@overeng/notion-effect-client/BUCK.genie.ts
 # Projection schema version: 5
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
@@ -259,12 +259,33 @@ vitest_test(
     visibility = ["PUBLIC"],
 )
 
+vitest_collect(
+    name = "test_collect",
+    package_tree = ":package_tree",
+    config = "vitest.config.ts",
+    tools = {"OTELITE_BIN": "//buck2/toolchains:tool_test_otelite"},
+    capabilities = ["subprocess"],
+    visibility = ["PUBLIC"],
+)
+
 vitest_test(
     name = "test_notion_live",
     package_tree = ":package_tree",
     config = "vitest.integration.config.ts",
     hook_timeout_ms = 120000,
     timeout_ms = 120000,
+    inherited_env = ["NOTION_API_TOKEN", "NOTION_TEST_PARENT_PAGE_ID"],
+    capabilities = ["network"],
+    execution_mode = "unsandboxed-local",
+    cacheable = False,
+    labels = ["local-only", "live", "network", "secret"],
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_notion_live_collect",
+    package_tree = ":package_tree",
+    config = "vitest.integration.config.ts",
     inherited_env = ["NOTION_API_TOKEN", "NOTION_TEST_PARENT_PAGE_ID"],
     capabilities = ["network"],
     execution_mode = "unsandboxed-local",

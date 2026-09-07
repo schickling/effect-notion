@@ -84,6 +84,14 @@ export type Buck2JavaScriptTestProjectionMetadata = {
   readonly blockers: readonly Buck2JavaScriptTestBlocker[]
 }
 
+/**
+ * Suffix of the generated collection companion of one Vitest test target.
+ *
+ * `devenv.nix` builds `<test label><suffix>` for every registered managed test task, so the name
+ * is part of the contract between this projection and the baseline-collection gate's registry.
+ */
+export const BUCK2_VITEST_COLLECT_SUFFIX = '_collect'
+
 const compare = (left: string, right: string): number =>
   left < right ? -1 : left > right ? 1 : 0
 
@@ -186,29 +194,23 @@ const renderTarget = (target: Buck2JavaScriptTestTarget): string => {
       )
     }
   }
-  const lines = [
-    `${target.runner === 'vitest' ? 'vitest_test' : 'bun_test'}(`,
-    `    name = ${starlarkString(target.name)},`,
-    '    package_tree = ":package_tree",',
-  ]
-  if (target.runner === 'vitest') {
-    lines.push(`    config = ${starlarkString(target.config ?? 'vitest.config.ts')},`)
-    lines.push(`    hook_timeout_ms = ${target.hookTimeoutMs ?? 30_000},`)
-  }
-  lines.push(`    timeout_ms = ${target.timeoutMs ?? 30_000},`)
-  if (testFiles.length > 0) lines.push(`    test_files = ${starlarkList(testFiles)},`)
-  if (excludes.length > 0) lines.push(`    excludes = ${starlarkList(excludes)},`)
-  if (target.env !== undefined) lines.push(`    env = ${starlarkDict(target.env)},`)
+  // Attribute lines shared by the test lane and its collection companion: the same package view,
+  // config, file selection, declared inputs, and executor. Only the execution timeouts differ,
+  // because enumeration runs no test.
+  const shared: string[] = []
+  if (testFiles.length > 0) shared.push(`    test_files = ${starlarkList(testFiles)},`)
+  if (excludes.length > 0) shared.push(`    excludes = ${starlarkList(excludes)},`)
+  if (target.env !== undefined) shared.push(`    env = ${starlarkDict(target.env)},`)
   if (target.externalInputs !== undefined) {
-    lines.push(`    external_inputs = ${starlarkDict(target.externalInputs)},`)
+    shared.push(`    external_inputs = ${starlarkDict(target.externalInputs)},`)
   }
   if (Object.keys(configuredExternalInputs).length > 0) {
-    lines.push(
+    shared.push(
       `    configured_external_inputs = ${starlarkConfiguredInputs(configuredExternalInputs)},`,
     )
   }
   if (Object.keys(tools).length > 0) {
-    lines.push(
+    shared.push(
       `    tools = ${starlarkDict(
         Object.fromEntries(
           Object.entries(tools).map(([name, toolId]) => [
@@ -220,24 +222,54 @@ const renderTarget = (target: Buck2JavaScriptTestTarget): string => {
     )
   }
   if (target.inheritedEnv !== undefined) {
-    lines.push(`    inherited_env = ${starlarkList(target.inheritedEnv)},`)
+    shared.push(`    inherited_env = ${starlarkList(target.inheritedEnv)},`)
   }
   if (Object.keys(writableDirectories).length > 0) {
-    lines.push(`    writable_directories = ${starlarkDict(writableDirectories)},`)
+    shared.push(`    writable_directories = ${starlarkDict(writableDirectories)},`)
   }
   if (target.capabilities !== undefined) {
-    lines.push(`    capabilities = ${starlarkList(target.capabilities)},`)
+    shared.push(`    capabilities = ${starlarkList(target.capabilities)},`)
   }
   if (executionMode !== 'sandboxed') {
-    lines.push(`    execution_mode = ${starlarkString(executionMode)},`)
+    shared.push(`    execution_mode = ${starlarkString(executionMode)},`)
   }
   if (vitestRuntime !== 'bun') {
-    lines.push(`    vitest_runtime = ${starlarkString(vitestRuntime)},`)
+    shared.push(`    vitest_runtime = ${starlarkString(vitestRuntime)},`)
   }
-  if (target.cacheable === false) lines.push('    cacheable = False,')
-  if (target.labels !== undefined) lines.push(`    labels = ${starlarkList(target.labels)},`)
-  lines.push('    visibility = ["PUBLIC"],', ')')
-  return lines.join('\n')
+  if (target.cacheable === false) shared.push('    cacheable = False,')
+  if (target.labels !== undefined) shared.push(`    labels = ${starlarkList(target.labels)},`)
+
+  const config =
+    target.runner === 'vitest'
+      ? [`    config = ${starlarkString(target.config ?? 'vitest.config.ts')},`]
+      : []
+  const test = [
+    `${target.runner === 'vitest' ? 'vitest_test' : 'bun_test'}(`,
+    `    name = ${starlarkString(target.name)},`,
+    '    package_tree = ":package_tree",',
+    ...config,
+    ...(target.runner === 'vitest'
+      ? [`    hook_timeout_ms = ${target.hookTimeoutMs ?? 30_000},`]
+      : []),
+    `    timeout_ms = ${target.timeoutMs ?? 30_000},`,
+    ...shared,
+    '    visibility = ["PUBLIC"],',
+    ')',
+  ].join('\n')
+  if (target.runner !== 'vitest') return test
+
+  // Exactly one collection companion per Vitest lane. `buck2 test` results are cached and a
+  // cached test execution runs nothing, so collection proof must be a declared BUILD output.
+  const collect = [
+    'vitest_collect(',
+    `    name = ${starlarkString(`${target.name}${BUCK2_VITEST_COLLECT_SUFFIX}`)},`,
+    '    package_tree = ":package_tree",',
+    ...config,
+    ...shared,
+    '    visibility = ["PUBLIC"],',
+    ')',
+  ].join('\n')
+  return `${test}\n\n${collect}`
 }
 
 const stageConfigs = (output: string, targets: readonly Buck2JavaScriptTestTarget[]): string => {
@@ -275,7 +307,13 @@ export const buck2JavaScriptPackageProjection = (
       ? { ...admission, sourceRoots: [...admission.sourceRoots, 'test'] }
       : admission,
   )
-  const runners = [...new Set(plan.targets.map(({ runner }) => `${runner}_test`))].toSorted(compare)
+  const runners = [
+    ...new Set(
+      plan.targets.flatMap(({ runner }) =>
+        runner === 'vitest' ? ['vitest_test', 'vitest_collect'] : ['bun_test'],
+      ),
+    ),
+  ].toSorted(compare)
   return createGenieOutput({
     data: projection.data,
     meta: {
