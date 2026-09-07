@@ -120,9 +120,13 @@ before its first worktree write until after it has published the manifest. The l
 `$MEGAREPO_STORE/.state/deletion-leases/<sha256-of-owner-path>.lease`, taken by hard-linking onto
 that path — atomic on POSIX, so the loser fails closed instead of proceeding on a stale snapshot.
 Every plan-bound deletion takes it, whole worktrees and archive reaps included, since an activation
-of the worktree being deleted is exactly what the lease has to exclude. After linking, the acquirer
-re-reads the record and requires its own token: concurrent recovery of one dead holder can otherwise
-let a loser's removal delete the winner's fresh lease, and a mismatch refuses without removing.
+of the worktree being deleted is exactly what the lease has to exclude.
+
+Reclaiming a dead holder's lease is the only step that can destroy another holder's lease, so it is
+serialized by a per-owner recovery lock (`<sha256>.recover`, hardlink-create-only and never itself
+recovered) and, inside that lock, may remove only the exact record it proved dead. Without both, two
+recoverers of one dead lease can interleave into two believed holders. A crash while holding the
+recovery lock blocks only future recovery — plain acquisition and release stay live.
 
 Activation needs no protocol code of its own; wrap it:
 

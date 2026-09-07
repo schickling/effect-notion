@@ -256,6 +256,78 @@ describe('store deletion lease', () => {
   )
 
   it.effect(
+    'serializes recovery so a fully verified holder is never removed by a later recoverer',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const f = yield* fixture()
+        const ownerPath = yield* canonicalizeOwnerPath(f.owner)
+        const leasePath = yield* writeLease({
+          storePath: f.storePath,
+          ownerPath,
+          content: encodeJson({
+            version: 1,
+            ownerPath,
+            host: hostname(),
+            pid: deadPid(),
+            token: 'stale-token',
+            acquiredAtMs: NOW - 60_000,
+          }),
+        })
+
+        // The interleaving a post-link claim check cannot catch: a second
+        // recoverer (A) completes recover + link + verify and believes it holds
+        // the lease, and only THEN does the first recoverer's (B) removal land,
+        // deleting A's fresh lease before linking its own. Driving A from inside
+        // B's `remove` reproduces exactly that order.
+        let interleaved = false
+        let nestedTag: string | undefined
+        let nestedToken: string | undefined
+        const interleavingFs: FileSystem.FileSystem = {
+          ...fs,
+          remove: (path: string, options?: Parameters<typeof fs.remove>[1]) => {
+            if (path !== leasePath || interleaved === true) return fs.remove(path, options)
+            interleaved = true
+            return acquireDeletionLease({
+              storeBasePath: f.storePath,
+              ownerPath,
+              now: NOW,
+            }).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.result,
+              Effect.tap((result) =>
+                Effect.sync(() => {
+                  nestedTag = result._tag
+                  nestedToken = result._tag === 'Success' ? result.success.token : undefined
+                }),
+              ),
+              Effect.andThen(fs.remove(path, options)),
+            )
+          },
+        }
+
+        const outer = yield* acquireDeletionLease({
+          storeBasePath: f.storePath,
+          ownerPath,
+          now: NOW,
+        }).pipe(Effect.provideService(FileSystem.FileSystem, interleavingFs), Effect.result)
+
+        expect(interleaved).toBe(true)
+        const holders = [nestedTag, outer._tag].filter((tag) => tag === 'Success')
+        expect(holders).toHaveLength(1)
+
+        const holderToken = outer._tag === 'Success' ? outer.success.token : nestedToken
+        expect(yield* fs.readFileString(leasePath)).toContain(holderToken)
+
+        // The recovery lock is released, so later recovery is still possible.
+        expect(yield* fs.exists(`${leasePath}.recover`)).toBe(false)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
     'never recovers a foreign-host, live-pid, or unreadable lease',
     Effect.fnUntraced(
       function* () {

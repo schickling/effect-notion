@@ -200,12 +200,8 @@ export const acquireDeletionLease = ({
       })
     }
 
-    // Link, then prove the lease at the path is OURS. Recovery makes `link`
-    // alone insufficient: two acquirers can judge the same dead record
-    // releasable, and the loser's `remove` can delete the winner's fresh lease
-    // before linking its own (ABA). The record's token is the only ownership
-    // proof, so a mismatch fails closed and — critically — removes nothing,
-    // leaving the actual holder untouched.
+    // Uncontended acquisition is one `link`; the claim check below only guards
+    // the recovery path, where a removal happened at all.
     const linkAndClaim = Effect.gen(function* () {
       const linked = yield* fs.link(stagingPath, leasePath).pipe(
         Effect.as(true),
@@ -215,17 +211,50 @@ export const acquireDeletionLease = ({
       const current = yield* readLeaseRecord({ fs, leasePath })
       return current?.token === token
     })
+
+    // Recovery — remove someone else's lease, then link ours — is the ONLY step
+    // that can destroy another holder's lease, and a post-link claim check
+    // cannot make it safe on its own: two recoverers that both judged the same
+    // dead record releasable can interleave as "A removes, links, verifies" then
+    // "B removes A's fresh lease, links, verifies", leaving two believed holders.
+    //
+    // So recovery runs inside a per-owner recovery lock, and inside it the lease
+    // is re-read and must still be the exact record proven dead. The recovery
+    // lock is hardlink-create-only — never removed by anyone but its holder,
+    // never itself recovered — so it cannot reproduce the problem it solves. A
+    // crash while holding it therefore blocks only future recovery (fail-closed,
+    // and visible as `<sha>.recover`); plain acquisition and release stay live.
+    const recoveryLockPath = `${leasePath}.recover`
+    const withRecoveryLock = (recover: Effect.Effect<boolean>) =>
+      Effect.gen(function* () {
+        const locked = yield* fs.link(stagingPath, recoveryLockPath).pipe(
+          Effect.as(true),
+          Effect.orElseSucceed(() => false),
+        )
+        if (locked === false) return false
+        return yield* Effect.ensuring(
+          recover,
+          fs.remove(recoveryLockPath).pipe(Effect.orElseSucceed(() => undefined)),
+        )
+      })
+
     const acquired = yield* Effect.gen(function* () {
       if ((yield* linkAndClaim) === true) return true
-      // Contended: recover only a provably dead same-host holder, then retry once.
       const existing = yield* readLeaseRecord({ fs, leasePath })
       if (existing === undefined || isProvablyReleasable(existing) === false) return false
-      const removed = yield* fs.remove(leasePath).pipe(
-        Effect.as(true),
-        Effect.orElseSucceed(() => false),
+      return yield* withRecoveryLock(
+        Effect.gen(function* () {
+          const current = yield* readLeaseRecord({ fs, leasePath })
+          if (current === undefined || current.token !== existing.token) return false
+          if (isProvablyReleasable(current) === false) return false
+          const removed = yield* fs.remove(leasePath).pipe(
+            Effect.as(true),
+            Effect.orElseSucceed(() => false),
+          )
+          if (removed === false) return false
+          return yield* linkAndClaim
+        }),
       )
-      if (removed === false) return false
-      return yield* linkAndClaim
     })
 
     yield* fs.remove(stagingPath).pipe(Effect.orElseSucceed(() => undefined))
