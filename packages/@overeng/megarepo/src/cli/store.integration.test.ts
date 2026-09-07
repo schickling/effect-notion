@@ -489,6 +489,28 @@ describe('mr store gc', () => {
           expect(decodeStoreGcJsonOutput(applied.stdout).results).toHaveLength(1)
           expect(yield* fs.exists(candidate)).toBe(false)
           expect(yield* fs.exists(sibling)).toBe(true)
+
+          const secondPlanRun = yield* runMrCommand({
+            cwd,
+            command: ['store', 'gc', '--dry-run', '--output', 'json'],
+            env: { MEGAREPO_STORE: storePath },
+          })
+          const secondPlan = decodeStoreGcJsonOutput(secondPlanRun.stdout)
+          const textApplied = yield* runMrCommand({
+            cwd,
+            command: [
+              'store',
+              'gc',
+              '--expected-plan',
+              secondPlan.planSha256!,
+              '--candidate-path',
+              sibling,
+            ],
+            env: { MEGAREPO_STORE: storePath },
+          })
+          expect(textApplied.exitCode).toBe(0)
+          expect(textApplied.stdout.length).toBeGreaterThan(0)
+          expect(yield* fs.exists(sibling)).toBe(false)
         },
         Effect.provide(NodeServices.layer),
         Effect.scoped,
