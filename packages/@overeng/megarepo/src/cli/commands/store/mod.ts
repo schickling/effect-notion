@@ -999,6 +999,7 @@ const coldReclaimRepo = ({
   now,
   dryRun,
   candidatePath,
+  lockAlreadyHeld = false,
 }: {
   store: Effect.Success<typeof Store>
   storeLock: Effect.Success<typeof StoreLock>
@@ -1014,6 +1015,7 @@ const coldReclaimRepo = ({
   now: number
   dryRun: boolean
   candidatePath?: string | undefined
+  lockAlreadyHeld?: boolean | undefined
 }) =>
   Effect.gen(function* () {
     const results: StoreGcResult[] = []
@@ -1163,32 +1165,34 @@ const coldReclaimRepo = ({
           continue
         }
 
-        const archiveOutcome = yield* storeLock
-          .withWorktreeLock(worktree.path)(
-            Effect.gen(function* () {
-              const freshLiveSet = yield* reReconcileLiveSet({ store, root, now })
-              if (
-                isPathProtected({ liveSet: freshLiveSet, path: worktree.path }) === true ||
-                isPathProtected({ liveSet: freshLiveSet, path: actualBranchPath }) === true
-              ) {
-                return { _tag: 'kept-live' as const }
-              }
-              const outcome = yield* archiveRefMismatchWorktree({
-                repoRoot: repoFullPath,
-                bareRepoPath,
-                worktreePath: worktree.path,
-                pathRef: worktree.ref,
-                actualHeadBranch,
-                commit: worktreeHead,
-                now,
-              })
-              return {
-                _tag: 'archived' as const,
-                recoverPath: outcome.destPath,
-                warnings: outcome.warnings,
-              }
-            }),
-          )
+        const archiveAction = Effect.gen(function* () {
+          const freshLiveSet = yield* reReconcileLiveSet({ store, root, now })
+          if (
+            isPathProtected({ liveSet: freshLiveSet, path: worktree.path }) === true ||
+            isPathProtected({ liveSet: freshLiveSet, path: actualBranchPath }) === true
+          ) {
+            return { _tag: 'kept-live' as const }
+          }
+          const outcome = yield* archiveRefMismatchWorktree({
+            repoRoot: repoFullPath,
+            bareRepoPath,
+            worktreePath: worktree.path,
+            pathRef: worktree.ref,
+            actualHeadBranch,
+            commit: worktreeHead,
+            now,
+          })
+          return {
+            _tag: 'archived' as const,
+            recoverPath: outcome.destPath,
+            warnings: outcome.warnings,
+          }
+        })
+        const archiveOutcome = yield* (
+          lockAlreadyHeld === true
+            ? archiveAction
+            : storeLock.withWorktreeLock(worktree.path)(archiveAction)
+        )
           .pipe(
             Effect.catch((error) =>
               Effect.succeed({
@@ -1280,29 +1284,31 @@ const coldReclaimRepo = ({
         continue
       }
 
-      const archiveOutcome = yield* storeLock
-        .withWorktreeLock(worktree.path)(
-          Effect.gen(function* () {
-            const freshLiveSet = yield* reReconcileLiveSet({ store, root, now })
-            if (isPathProtected({ liveSet: freshLiveSet, path: worktree.path }) === true) {
-              return { _tag: 'kept-live' as const }
-            }
-            const outcome = yield* archiveWorktree({
-              repoRoot: repoFullPath,
-              bareRepoPath,
-              worktreePath: worktree.path,
-              branch: worktree.ref,
-              commit: worktreeHead,
-              reason: decision.reason,
-              now,
-            })
-            return {
-              _tag: 'archived' as const,
-              recoverPath: outcome.destPath,
-              warnings: outcome.warnings,
-            }
-          }),
-        )
+      const archiveAction = Effect.gen(function* () {
+        const freshLiveSet = yield* reReconcileLiveSet({ store, root, now })
+        if (isPathProtected({ liveSet: freshLiveSet, path: worktree.path }) === true) {
+          return { _tag: 'kept-live' as const }
+        }
+        const outcome = yield* archiveWorktree({
+          repoRoot: repoFullPath,
+          bareRepoPath,
+          worktreePath: worktree.path,
+          branch: worktree.ref,
+          commit: worktreeHead,
+          reason: decision.reason,
+          now,
+        })
+        return {
+          _tag: 'archived' as const,
+          recoverPath: outcome.destPath,
+          warnings: outcome.warnings,
+        }
+      })
+      const archiveOutcome = yield* (
+        lockAlreadyHeld === true
+          ? archiveAction
+          : storeLock.withWorktreeLock(worktree.path)(archiveAction)
+      )
         .pipe(
           Effect.catch((error) =>
             Effect.succeed({
@@ -1368,17 +1374,19 @@ const coldReclaimRepo = ({
         continue
       }
 
-      const reapOutcome = yield* storeLock
-        .withWorktreeLock(entry.path)(
-          Effect.gen(function* () {
-            const freshLiveSet = yield* reReconcileLiveSet({ store, root, now })
-            if (isPathProtected({ liveSet: freshLiveSet, path: entry.path }) === true) {
-              return { _tag: 'kept-live' as const }
-            }
-            yield* reapArchive({ bareRepoPath, path: entry.path })
-            return { _tag: 'reaped' as const }
-          }),
-        )
+      const reapAction = Effect.gen(function* () {
+        const freshLiveSet = yield* reReconcileLiveSet({ store, root, now })
+        if (isPathProtected({ liveSet: freshLiveSet, path: entry.path }) === true) {
+          return { _tag: 'kept-live' as const }
+        }
+        yield* reapArchive({ bareRepoPath, path: entry.path })
+        return { _tag: 'reaped' as const }
+      })
+      const reapOutcome = yield* (
+        lockAlreadyHeld === true
+          ? reapAction
+          : storeLock.withWorktreeLock(entry.path)(reapAction)
+      )
         .pipe(
           Effect.catch((error) =>
             Effect.succeed({
@@ -1900,7 +1908,13 @@ const storeGcCommand = Cli.Command.make(
 
       let tuiDispatch: ((action: StoreAction) => void) | undefined
 
-      const executeGc = ({ progressive }: { progressive: boolean }) =>
+      const executeGc = ({
+        progressive,
+        ownerLockHeld = false,
+      }: {
+        progressive: boolean
+        ownerLockHeld?: boolean | undefined
+      }) =>
         Effect.gen(function* () {
           if (progressive === true) {
             yield* dispatchGc({ done: false, forceDispatch: true })
@@ -2103,11 +2117,23 @@ const storeGcCommand = Cli.Command.make(
                   const canonicalCandidate = yield* fs.realPath(freshCandidate.path)
                   if (
                     freshCandidate.artifactClass === undefined ||
+                    freshCandidate.workspacePath === undefined ||
                     normalizeStorePath(canonicalCandidate) !==
                       normalizeStorePath(`${canonicalOwner}/${freshCandidate.artifactClass}`)
                   ) {
                     return yield* new StoreCommandError({
                       message: 'candidate containment changed under owner lock',
+                    })
+                  }
+                  const removalLiveSet = yield* reReconcileLiveSet({ store, root, now })
+                  if (
+                    isPathProtected({
+                      liveSet: removalLiveSet,
+                      path: freshCandidate.workspacePath,
+                    }) === true
+                  ) {
+                    return yield* new StoreCommandError({
+                      message: 'candidate owner became live before deletion',
                     })
                   }
                   yield* fs.remove(freshCandidate.path, { recursive: true })
@@ -2375,6 +2401,17 @@ const storeGcCommand = Cli.Command.make(
               })
             }
 
+            if (ownerLockHeld === false) {
+              results.splice(0, results.length)
+              completedRepoCount = 0
+              discoveredWorktreeCount = 0
+              repoCount = undefined
+              planSha256 = undefined
+              return yield* storeLock.withWorktreeLock(candidate.path)(
+                executeGc({ progressive: false, ownerLockHeld: true }),
+              )
+            }
+
             let applied: StoreGcResult
             if (candidate.status === 'removed') {
               const worktree = owner.worktrees.filter(
@@ -2385,29 +2422,25 @@ const storeGcCommand = Cli.Command.make(
                   message: 'candidate worktree is missing or ambiguous',
                 })
               }
-              applied = yield* storeLock.withWorktreeLock(candidate.path)(
-                Effect.gen(function* () {
-                  const freshLiveSet = yield* reReconcileLiveSet({ store, root, now })
-                  const decision = yield* classifyGcWorktree({
-                    worktree: worktree[0]!,
-                    liveSet: freshLiveSet,
-                    all,
+              applied = yield* Effect.gen(function* () {
+                const freshLiveSet = yield* reReconcileLiveSet({ store, root, now })
+                const decision = yield* classifyGcWorktree({
+                  worktree: worktree[0]!,
+                  liveSet: freshLiveSet,
+                  all,
+                })
+                if (
+                  decision.action !== 'check' ||
+                  (force === false &&
+                    (decision.status.isDirty === true || decision.status.hasUnpushed === true))
+                ) {
+                  return yield* new StoreCommandError({
+                    message: 'candidate is live, dirty, or no longer inspectable',
                   })
-                  if (
-                    decision.action !== 'check' ||
-                    (force === false &&
-                      (decision.status.isDirty === true ||
-                        decision.status.hasUnpushed === true))
-                  ) {
-                    return yield* new StoreCommandError({
-                      message: 'candidate is live, dirty, or no longer inspectable',
-                    })
-                  }
-                  yield* fs.remove(candidate.path, { recursive: true })
-                  return candidate
-                }),
-              )
-              yield* Git.pruneWorktrees(owner.bareRepoPath)
+                }
+                yield* fs.remove(candidate.path, { recursive: true })
+                return candidate
+              })
             } else {
               const config = yield* loadStoreGcConfig({ storeBasePath: store.basePath })
               const injectedResolver = yield* Effect.serviceOption(PrStateResolver)
@@ -2444,6 +2477,7 @@ const storeGcCommand = Cli.Command.make(
                 now,
                 dryRun: false,
                 candidatePath: candidate.path,
+                lockAlreadyHeld: ownerLockHeld,
               })
               const matching = appliedResults.filter(
                 (result) =>
