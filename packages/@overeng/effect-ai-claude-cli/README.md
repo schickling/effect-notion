@@ -9,7 +9,7 @@ Use your existing **Claude Code subscription** instead of paying for API calls. 
 ## Installation
 
 ```bash
-pnpm add @overeng/effect-ai-claude-cli @effect/ai @effect/platform effect
+pnpm add @overeng/effect-ai-claude-cli @effect/platform-node effect
 ```
 
 Requires the `claude` CLI to be installed and authenticated:
@@ -25,8 +25,8 @@ claude auth
 ## Usage
 
 ```ts
-import { Chat } from '@effect/ai'
-import { NodeCommandExecutor } from '@effect/platform-node'
+import { NodeServices } from '@effect/platform-node'
+import { Chat } from 'effect/unstable/ai'
 import { ClaudeCli } from '@overeng/effect-ai-claude-cli'
 import { Effect, Layer } from 'effect'
 
@@ -36,7 +36,7 @@ const program = Effect.gen(function* () {
   console.log(response.text)
 })
 
-const layer = ClaudeCli.layer({ model: 'sonnet' }).pipe(Layer.provide(NodeCommandExecutor.layer))
+const layer = ClaudeCli.layer({ model: 'sonnet' }).pipe(Layer.provide(NodeServices.layer))
 
 Effect.runPromise(program.pipe(Effect.provide(layer)))
 ```
@@ -76,9 +76,8 @@ The CLI accepts short model names:
 
 ## Dependencies
 
-- `@effect/ai` - Effect AI LanguageModel interface
-- `@effect/platform` - CommandExecutor for CLI invocation
-- `effect` - Core Effect library
+- `effect` - Effect AI and child-process service interfaces
+- `@effect/platform-node` - Node implementations of the required platform services
 
 ## When to use this vs `@effect/ai-anthropic`
 

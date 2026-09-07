@@ -6,8 +6,8 @@
  *
  * @example
  * ```ts
+ * import { NodeServices } from '@effect/platform-node'
  * import { Chat } from 'effect/unstable/ai'
- * import { NodeCommandExecutor } from '@effect/platform-node'
  * import { ClaudeCli } from '@overeng/effect-ai-claude-cli'
  * import { Effect, Layer } from 'effect'
  *
@@ -19,9 +19,7 @@
  *   console.log(response.text)
  * })
  *
- * const layer = ClaudeCli.layer({ model: 'sonnet' }).pipe(
- *   Layer.provide(NodeCommandExecutor.layer),
- * )
+ * const layer = ClaudeCli.layer({ model: 'sonnet' }).pipe(Layer.provide(NodeServices.layer))
  *
  * Effect.runPromise(program.pipe(Effect.provide(layer)))
  * ```
