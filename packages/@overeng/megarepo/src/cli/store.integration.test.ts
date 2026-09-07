@@ -4,6 +4,9 @@
  * Tests the store GC, ls, and fetch commands with realistic store fixtures.
  */
 
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+
 import { NodeServices } from '@effect/platform-node'
 import { describe, it } from '@effect/vitest'
 import { Effect, Exit, Option, Schema } from 'effect'
@@ -640,6 +643,77 @@ describe('mr store lease', () => {
         expect(applied.exitCode).toBe(0)
         expect(yield* fs.exists(candidate)).toBe(false)
         expect(yield* fs.exists(held.leasePath)).toBe(false)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  // Run through a REAL `mr` process: the probe deliberately excludes its own
+  // descendants (a `git` child megarepo spawns inside the worktree must not
+  // self-veto), so an in-process CLI call could never observe a holder spawned
+  // by this test. A separate process tree is exactly production's shape.
+  it.effect(
+    'refuses whole-worktree application while a live process works inside the candidate',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const commit = 'fedcba9876543210fedcba9876543210fedcba98'
+        const { storePath, worktreePaths } = yield* createStoreFixture([
+          {
+            host: 'github.com',
+            owner: 'test-owner',
+            repo: 'inuse-repo',
+            branches: ['main'],
+            commits: [commit],
+          },
+        ])
+        const candidate = worktreePaths[`github.com/test-owner/inuse-repo#${commit}`]!
+        const cliPath = fileURLToPath(new URL('../../bin/mr.ts', import.meta.url))
+        const runCli = (...args: ReadonlyArray<string>) =>
+          spawnSync('bun', [cliPath, ...args], {
+            encoding: 'utf8',
+            env: { ...process.env, MEGAREPO_STORE: storePath, NO_COLOR: '1' },
+          })
+
+        const plan = decodeStoreGcJsonOutput(
+          runCli('store', 'gc', '--dry-run', '--output', 'json').stdout,
+        )
+        const applyArgs = [
+          'store',
+          'gc',
+          '--expected-plan',
+          plan.planSha256!,
+          '--candidate-path',
+          candidate,
+          '--output',
+          'json',
+        ] as const
+
+        // A session that never took a lease is still working inside the
+        // worktree; deleting it would yank that live cwd.
+        const holder = yield* Effect.promise(() => {
+          const { promise, resolve, reject } = Promise.withResolvers<ChildProcess>()
+          const child = spawn('sleep', ['120'], { cwd: candidate, stdio: 'ignore' })
+          child.once('spawn', () => resolve(child))
+          child.once('error', reject)
+          return promise
+        })
+        const refused = runCli(...applyArgs)
+        expect(refused.status).toBe(1)
+        expect(yield* fs.exists(candidate)).toBe(true)
+
+        // Once the session is gone the SAME plan applies, so the veto — not the
+        // plan, the lease, or liveness — was the only thing refusing.
+        yield* Effect.promise(() => {
+          const { promise, resolve } = Promise.withResolvers<void>()
+          holder.once('exit', () => resolve())
+          holder.kill('SIGKILL')
+          return promise
+        })
+        const applied = runCli(...applyArgs)
+        expect(applied.status).toBe(0)
+        expect(yield* fs.exists(candidate)).toBe(false)
       },
       Effect.provide(NodeServices.layer),
       Effect.scoped,

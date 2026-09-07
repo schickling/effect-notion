@@ -111,23 +111,57 @@ const fixture = () =>
     return { ...created, worktree, outside, manifest, config }
   })
 
+const CATALOG = '/var/lib/st2/catalog'
+const HOST = 'test-host'
+
+/**
+ * Write the gc config plus, when a manifest path is given, a native
+ * `st2.workspace-activity.v1` snapshot claiming `activeWorkspacePaths`.
+ */
 const configure = ({
   config,
   manifest,
   activeWorkspacePaths = [],
-  expiresAtMs = NOW + DAY_MS,
+  expiresAtMs,
+  complete = true,
+  errors = [],
+  epoch = { catalog: CATALOG, host: HOST, catalogGeneration: 1 },
+  omitConfigEpoch = false,
 }: {
   config: string
   manifest?: string | undefined
   activeWorkspacePaths?: ReadonlyArray<string>
   expiresAtMs?: number
+  complete?: boolean
+  errors?: ReadonlyArray<string>
+  epoch?: {
+    readonly catalog: string
+    readonly host: string
+    readonly catalogGeneration: number | null
+  }
+  omitConfigEpoch?: boolean
 }) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     if (manifest !== undefined) {
+      const capturedAtMs = Date.now()
       yield* fs.writeFileString(
         manifest,
-        encodeJson({ version: 1, expiresAtMs, activeWorkspacePaths }),
+        encodeJson({
+          schemaVersion: 'st2.workspace-activity.v1',
+          producer: 'st2',
+          epoch,
+          capturedAt: new Date(capturedAtMs).toISOString(),
+          expiresAt: new Date(expiresAtMs ?? capturedAtMs + 60_000).toISOString(),
+          complete,
+          errors,
+          claims: [...activeWorkspacePaths].toSorted().map((workspace) => ({
+            workspace,
+            agents: ['test.agent'],
+            activeRuntimeIds: ['test.agent'],
+            active: true,
+          })),
+        }),
       )
     }
     yield* fs.writeFileString(
@@ -137,7 +171,14 @@ const configure = ({
           enabled: true,
           retentionMs: DAY_MS,
           allowlist: ['node_modules', 'dist'],
-          ...(manifest !== undefined ? { agentLivenessManifest: manifest } : {}),
+          ...(manifest !== undefined
+            ? {
+                agentLivenessManifest: manifest,
+                ...(omitConfigEpoch === true
+                  ? {}
+                  : { agentLivenessEpoch: { catalog: CATALOG, host: HOST } }),
+              }
+            : {}),
         },
       }),
     )
@@ -219,6 +260,65 @@ describe('mr store gc --generated-artifacts', () => {
           expect(result.completedRepoCount).toBe(1)
           expect(result.discoveredWorktreeCount).toBe(1)
           expect(result.activeWorktreeCount).toBe(0)
+        }
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
+    'keeps an artifact whose worktree is canonically claimed active by st2',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const f = yield* fixture()
+        yield* oldIgnoredArtifact(f.worktree)
+        yield* configure({
+          config: f.config,
+          manifest: f.manifest,
+          activeWorkspacePaths: [yield* fs.realPath(f.worktree)],
+        })
+        const result = yield* runGc({ cwd: f.outside, storePath: f.storePath, args: ['--dry-run'] })
+        expect(generated(result.results, 'node_modules')).toMatchObject({
+          outcome: 'keep',
+          reason: 'live',
+        })
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
+    'refuses snapshots outside the admitted epoch or with an incomplete capture',
+    Effect.fnUntraced(
+      function* () {
+        const f = yield* fixture()
+        yield* oldIgnoredArtifact(f.worktree)
+
+        // Each case is evidence megarepo must not trust: a snapshot produced for
+        // another host or catalog, a partial capture, a capture that reported
+        // errors, and a manifest with no configured epoch to admit it at all.
+        const cases = [
+          { epoch: { catalog: CATALOG, host: 'other-host', catalogGeneration: 1 } },
+          { epoch: { catalog: '/var/lib/st2/other', host: HOST, catalogGeneration: 1 } },
+          { complete: false },
+          { errors: ['catalog read failed'] },
+          { omitConfigEpoch: true },
+        ] as const
+
+        for (const override of cases) {
+          yield* configure({ config: f.config, manifest: f.manifest, ...override })
+          const result = yield* runGc({
+            cwd: f.outside,
+            storePath: f.storePath,
+            args: ['--dry-run'],
+          })
+          expect(generated(result.results, 'node_modules')).toMatchObject({
+            outcome: 'unknown',
+            reason: 'agent-liveness-unavailable',
+          })
         }
       },
       Effect.provide(NodeServices.layer),

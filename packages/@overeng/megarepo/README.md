@@ -87,23 +87,39 @@ Configure the host at `$MEGAREPO_STORE/.state/gc-config.json`:
     "enabled": true,
     "retentionMs": 86400000,
     "allowlist": ["node_modules", ".direnv", "target"],
-    "agentLivenessManifest": "/run/megarepo/agent-liveness.json"
+    "agentLivenessManifest": "/run/megarepo/st2-workspace-activity.json",
+    "agentLivenessEpoch": { "catalog": "/var/lib/st2/catalog", "host": "dev3" }
   }
 }
 ```
 
-The allowlist may contain only the compiled canonical classes. The liveness manifest is a
-short-lived snapshot produced by the host's agent manager:
+The allowlist may contain only the compiled canonical classes. The liveness manifest must be a
+native, short-lived `st2 workspace-activity --json` snapshot:
 
 ```json
 {
-  "version": 1,
-  "expiresAtMs": 1786572000000,
-  "activeWorkspacePaths": ["/absolute/path/to/a/store/worktree"]
+  "schemaVersion": "st2.workspace-activity.v1",
+  "producer": "st2",
+  "epoch": { "catalog": "/var/lib/st2/catalog", "host": "dev3", "catalogGeneration": 42 },
+  "capturedAt": "2026-09-07T08:00:00.000Z",
+  "expiresAt": "2026-09-07T08:01:00.000Z",
+  "complete": true,
+  "errors": [],
+  "claims": [
+    {
+      "workspace": "/absolute/path/to/a/store/worktree",
+      "agents": ["dev3.example.agent"],
+      "activeRuntimeIds": ["dev3.example.agent"],
+      "active": true
+    }
+  ]
 }
 ```
 
-Missing, invalid, or expired liveness data produces `unknown`. A candidate
+Missing, invalid, incomplete, erroneous, expired, or non-canonical liveness data produces
+`unknown`. The configured catalog and host admit the expected epoch, its catalog generation must
+not move between the pre-scan and post-scan reads, and claims must be sorted, unique, and named by
+canonical path. A candidate
 must also be Git-ignored, older than the retention window, absent from Megarepo's live set, and
 inside a clean registered worktree. A capped, timed recursive scan uses the newest nested mtime;
 symlinks or incomplete scans produce `unknown`. JSON results distinguish
@@ -137,6 +153,16 @@ mr store lease --owner-path /path/to/store/worktree -- <activation command>
 A lease is reclaimed only when its record is decodable, names this host, and names a pid that is
 provably gone. A foreign host, a live pid, or an unreadable record keeps the lease and refuses the
 caller. `mr store lease` propagates the wrapped command's own exit code.
+
+### Live-process veto
+
+The lease only excludes an activation that takes it, and a shell or agent session that was already
+sitting inside a worktree announces nothing. On Linux a rename is invisible to a process already in
+that directory — its cwd silently follows the inode into `.archive/` — so every destructive
+worktree step additionally refuses when a live process has its cwd inside the target, reporting
+`kept` with `reason: process-in-use` (a plan-bound application fails instead). Evidence is
+`/proc/<pid>/cwd`; megarepo's own process and its children are excluded so a `git` child cannot
+self-veto. A host without `/proc`, or a scan that cannot be read, is `unknown` and keeps.
 
 ## Documentation
 
