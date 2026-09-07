@@ -1748,6 +1748,49 @@ describe('effect-utils CI composition workspace', () => {
     }
   }, 20_000)
 
+  /**
+   * `buck2:typescript:materialize-dist` publishes READ-ONLY Buck trees into the composed
+   * member, and `git worktree remove` unlinks with the permissions it finds: a read-only
+   * directory makes the unlink fail with `Permission denied` and strands the whole
+   * job-local store. That is exactly how buck2 job 101579327940 failed with every prior
+   * step green — cleanup alone.
+   */
+  it('removes a store whose published Buck trees are read-only', async () => {
+    const fixture = makeFixture('Linux')
+    const published: string[] = []
+    try {
+      const result = await runComposition(fixture)
+      expect(result.status, result.stderr).toBe(0)
+      const store = fixture.env.MEGAREPO_STORE!
+      const workspace = join(
+        store,
+        'github.com/overengineeringstudio/effect-utils/refs/heads/ci-100-2-unit_job',
+      )
+
+      // A read-only FILE is still removable; a read-only DIRECTORY is what blocks the
+      // unlink of its children, so both the member and the workspace root get one.
+      for (const owner of [join(workspace, 'repos/effect-utils'), workspace]) {
+        const tree = join(owner, 'dist-published')
+        mkdirSync(tree, { recursive: true })
+        writeFileSync(join(tree, 'mod.js'), 'export {}\n')
+        chmodSync(join(tree, 'mod.js'), 0o444)
+        chmodSync(tree, 0o555)
+        published.push(tree)
+      }
+
+      const cleanup = await cleanupComposition(fixture)
+      expect(cleanup.status, cleanup.stderr).toBe(0)
+      expect(existsSync(store)).toBe(false)
+    } finally {
+      // A failing assertion leaves the read-only trees behind, and the fixture teardown
+      // would then hit the very `Permission denied` under test.
+      for (const tree of published) {
+        if (existsSync(tree)) chmodSync(tree, 0o755)
+      }
+      rmSync(fixture.root, { force: true, recursive: true, maxRetries: 10, retryDelay: 20 })
+    }
+  }, 20_000)
+
   it('refuses a registered partial workspace on an unrelated branch', async () => {
     const fixture = makeFixture('Linux')
     try {
