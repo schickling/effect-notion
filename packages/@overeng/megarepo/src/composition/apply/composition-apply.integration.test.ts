@@ -303,13 +303,21 @@ const fixture = async (options: FixtureOptions = {}) => {
       }
       if (options.rootMode === 'nochange') {
         calls.push('root:nochange')
-        return { changedPaths: [], memberManifests: [] }
+        return {
+          changedPaths: [],
+          memberManifests: [],
+          watchmanInvalidation: { _tag: 'Unchanged' },
+        }
       }
       try {
         calls.push('root:authority')
         await input.afterAuthorityPublished?.()
         calls.push('root:commit')
-        return { changedPaths: ['.buckconfig'], memberManifests: [] }
+        return {
+          changedPaths: ['.buckconfig'],
+          memberManifests: [],
+          watchmanInvalidation: { _tag: 'Unchanged' },
+        }
       } catch (cause) {
         calls.push('root:rollback')
         throw cause

@@ -726,7 +726,8 @@ describe('watchman ignore projection', () => {
     "repos/alpha/target",
     "target",
     "repos/alpha/tmp",
-    "tmp"
+    "tmp",
+    "repos/alpha/.git"
   ]
 }
 `)
@@ -758,7 +759,9 @@ describe('watchman ignore projection', () => {
     expect(new Set(dirs).size).toBe(dirs.length)
   })
 
-  it('carries only literal directories and leaves version-control roots to watchman', () => {
+  // `ignore_vcs` shallow-watches only the VCS directories of the watch root itself, so a member
+  // mount's VCS directory is still fully crawled unless it stays a literal `ignore_dirs` entry.
+  it('carries only literal directories and drops only watch-root version-control dirs', () => {
     const dirs = watchmanIgnoreDirs(
       input({
         members: [effectLikeMember],
@@ -769,7 +772,7 @@ describe('watchman ignore projection', () => {
     expect(dirs.filter((dir) => /[*?[\]{}]/u.test(dir))).toEqual([])
     expect(dirs).toContain('repos/effect')
     expect(dirs).not.toContain('.git')
-    expect(dirs).not.toContain('repos/effect-utils/.git')
+    expect(dirs).toContain('repos/effect-utils/.git')
   })
 
   // macOS grants kernel-level exclusion to only the first eight entries, so the trees that
@@ -788,7 +791,7 @@ describe('watchman ignore projection', () => {
       'node_modules',
       'node_modules',
     ])
-    expect(dirs.at(-1)).toBe('repos/effect-utils/.buck2/capability-gcroots')
+    expect(dirs.at(-1)).toBe('repos/effect-utils/.git')
   })
 
   it('is byte-identical under permuted member and ignore ordering', () => {

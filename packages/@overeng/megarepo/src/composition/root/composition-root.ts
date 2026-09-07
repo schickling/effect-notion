@@ -775,11 +775,20 @@ export const COMPOSITION_OWNED_PATHS = [
  */
 const isLiteralIgnoreDir = (pattern: string): boolean => /[*?[\]{}]/u.test(pattern) === false
 
-/** Watchman excludes version-control directories itself through `ignore_vcs`. */
-const vcsDirectories: Readonly<Record<string, true>> = { '.git': true, '.hg': true, '.svn': true }
+/**
+ * Watchman's own `ignore_vcs` default (`.git`, `.hg`, `.svn`) shallow-watches those directories,
+ * but only the ones directly at the watch root, and `ignore_dirs` takes precedence over it. So the
+ * watch root's own VCS directory is left to Watchman — keeping Watchman's cookie placement intact —
+ * while a member mount's VCS directory is still fully crawled unless it stays a literal entry here.
+ */
+const watchRootVcsDirectories: Readonly<Record<string, true>> = {
+  '.git': true,
+  '.hg': true,
+  '.svn': true,
+}
 
-const isVcsIgnoreDir = (pattern: string): boolean =>
-  pattern.split('/').some((segment) => vcsDirectories[segment] === true)
+const isWatchRootVcsIgnoreDir = (pattern: string): boolean =>
+  watchRootVcsDirectories[pattern] === true
 
 /**
  * Highest-churn generated directory basenames first. macOS grants kernel-level exclusion to only
@@ -817,7 +826,7 @@ const projectIgnoreEntries = (input: NormalizedCompositionRootInput): ReadonlyAr
  */
 const renderWatchmanConfig = (input: NormalizedCompositionRootInput): string => {
   const ignoreDirs = projectIgnoreEntries(input)
-    .filter((pattern) => isLiteralIgnoreDir(pattern) && isVcsIgnoreDir(pattern) === false)
+    .filter((pattern) => isLiteralIgnoreDir(pattern) && isWatchRootVcsIgnoreDir(pattern) === false)
     .toSorted((left, right) => churnRank(left) - churnRank(right))
   return `${JSON.stringify({ ignore_dirs: ignoreDirs }, undefined, 2)}\n`
 }

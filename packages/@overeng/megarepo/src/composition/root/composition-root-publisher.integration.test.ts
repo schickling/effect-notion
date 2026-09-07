@@ -69,11 +69,74 @@ const memberManifest = ({
   capabilities: [],
 })
 
+type WatchmanStubMode = 'removed' | 'notWatched' | 'noServer' | 'unexpected'
+
+/**
+ * Stands in for the resolved Watchman executable with the outcomes a real `watch-del` produces:
+ * a JSON response and exit 0 when the watch is removed, a JSON `error` and exit 0 for a root the
+ * service does not watch, and — under `--no-spawn --no-local` with no service listening — a
+ * non-zero exit with no response at all.
+ */
+const watchmanStubSource = ({
+  argvFile,
+  mode,
+}: {
+  readonly argvFile: string
+  readonly mode: WatchmanStubMode
+}): string => {
+  const body: Readonly<Record<WatchmanStubMode, string>> = {
+    removed: `printf '{"version":"stub","watch-del":true,"root":"%s"}\\n' "\${@: -1}"`,
+    notWatched: `printf '{"version":"stub","error":"watchman::RootResolveError: failed to resolve root: unable to resolve root %s: failed to resolve root: directory %s is not watched"}\\n' "\${@: -1}" "\${@: -1}"`,
+    noServer: 'exit 1',
+    unexpected: `printf '{"version":"stub","error":"unable to resolve root %s: path uses the \\"nfs\\" filesystem and is disallowed by global config illegal_fstypes"}\\n' "\${@: -1}"`,
+  }
+  return `#!${requireTool('BASH_BIN')}
+printf '%s\\n' "$*" >> ${JSON.stringify(argvFile)}
+${body[mode]}
+`
+}
+
+const installWatchmanStub = ({
+  fixture,
+  name,
+  mode,
+}: {
+  readonly fixture: Fixture
+  readonly name: string
+  readonly mode: WatchmanStubMode
+}): Effect.Effect<{ readonly executable: string; readonly argvFile: string }> =>
+  Effect.promise(async () => {
+    const executable = NodePath.join(fixture.root, `fake-watchman-${name}`)
+    const argvFile = NodePath.join(fixture.root, `watchman-argv-${name}`)
+    await writeFile(executable, watchmanStubSource({ argvFile, mode }))
+    await chmod(executable, 0o755)
+    return { executable, argvFile }
+  })
+
+const watchmanInvocations = (argvFile: string): Effect.Effect<ReadonlyArray<string>> =>
+  Effect.promise(() =>
+    readFile(argvFile, 'utf8').then(
+      (contents) => contents.split('\n').filter((line) => line !== ''),
+      (cause: unknown) => {
+        if (
+          typeof cause === 'object' &&
+          cause !== null &&
+          'code' in cause &&
+          cause.code === 'ENOENT'
+        ) {
+          return []
+        }
+        throw cause
+      },
+    ),
+  )
+
 interface Fixture {
   readonly root: string
   readonly workspaceRoot: ReturnType<typeof EffectPath.unsafe.absoluteDir>
   readonly buckExecutable: string
   readonly watchmanExecutable: string
+  readonly watchmanArgvFile: string
 }
 
 const makeFixture = ({
@@ -100,13 +163,18 @@ const makeFixture = ({
       await writeFile(buckExecutable, `#!${requireTool('BASH_BIN')}\nprintf "%s\\n" "$@"\n`)
       await chmod(buckExecutable, 0o755)
       const watchmanExecutable = NodePath.join(root, 'fake-watchman')
-      await writeFile(watchmanExecutable, `#!${requireTool('BASH_BIN')}\nprintf 'watchman\\n'\n`)
+      const watchmanArgvFile = NodePath.join(root, 'watchman-argv')
+      await writeFile(
+        watchmanExecutable,
+        watchmanStubSource({ argvFile: watchmanArgvFile, mode: 'removed' }),
+      )
       await chmod(watchmanExecutable, 0o755)
       return {
         root,
         workspaceRoot: EffectPath.unsafe.absoluteDir(`${root}/`),
         buckExecutable,
         watchmanExecutable,
+        watchmanArgvFile,
       }
     }),
     ({ root }) => Effect.promise(() => rm(root, { recursive: true, force: true })),
@@ -1560,6 +1628,130 @@ describe('composition root publisher', () => {
         expect(error.reason).toBe('ForeignPath')
         expect(yield* exists(NodePath.join(fixture.root, '.buckconfig'))).toBe(true)
         expect((yield* readGenerated(fixture, 'BUCK')).toString()).toBe('foreign\n')
+      }),
+    ),
+  )
+
+  it.effect('removes only this workspace root watch when the published config changed', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fixture = yield* makeFixture({ members: ['alpha'] })
+        const result = yield* publishCompositionRoot(optionsFor({ fixture, memberKeys: ['alpha'] }))
+        expect(result.changedPaths).toContain('.watchmanconfig')
+        expect(result.watchmanInvalidation).toEqual({ _tag: 'Removed' })
+        expect(yield* watchmanInvocations(fixture.watchmanArgvFile)).toEqual([
+          `--no-spawn --no-local --no-pretty watch-del ${fixture.root}`,
+        ])
+      }),
+    ),
+  )
+
+  it.effect('leaves the watch alone when a publication does not change the config', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fixture = yield* makeFixture({ members: ['alpha'] })
+        yield* publishCompositionRoot(optionsFor({ fixture, memberKeys: ['alpha'] }))
+        const converged = yield* publishCompositionRoot(
+          optionsFor({
+            fixture,
+            memberKeys: ['alpha'],
+            cacheValue: 'grpc://cache.example:1234',
+          }),
+        )
+        expect(converged.changedPaths).toContain('.buckconfig')
+        expect(converged.changedPaths).not.toContain('.watchmanconfig')
+        expect(converged.watchmanInvalidation).toEqual({ _tag: 'Unchanged' })
+        expect(yield* watchmanInvocations(fixture.watchmanArgvFile)).toHaveLength(1)
+
+        const repeat = yield* publishCompositionRoot(
+          optionsFor({
+            fixture,
+            memberKeys: ['alpha'],
+            cacheValue: 'grpc://cache.example:1234',
+          }),
+        )
+        expect(repeat.changedPaths).toEqual([])
+        expect(repeat.watchmanInvalidation).toEqual({ _tag: 'Unchanged' })
+        expect(yield* watchmanInvocations(fixture.watchmanArgvFile)).toHaveLength(1)
+      }),
+    ),
+  )
+
+  it.effect('tolerates a service that holds no watch on this root', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fixture = yield* makeFixture({ members: ['alpha'] })
+        const stub = yield* installWatchmanStub({
+          fixture,
+          name: 'not-watched',
+          mode: 'notWatched',
+        })
+        const result = yield* publishCompositionRoot(
+          optionsFor({ fixture, memberKeys: ['alpha'], watchmanExecutable: stub.executable }),
+        )
+        expect(result.watchmanInvalidation).toEqual({ _tag: 'NotWatched' })
+        expect(yield* watchmanInvocations(stub.argvFile)).toEqual([
+          `--no-spawn --no-local --no-pretty watch-del ${fixture.root}`,
+        ])
+      }),
+    ),
+  )
+
+  // `--no-spawn --no-local` refuses client-side without a response body rather than starting a
+  // service and paying a crawl nobody asked for.
+  it.effect('tolerates the absence of a running watchman service', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fixture = yield* makeFixture({ members: ['alpha'] })
+        const stub = yield* installWatchmanStub({ fixture, name: 'no-server', mode: 'noServer' })
+        const result = yield* publishCompositionRoot(
+          optionsFor({ fixture, memberKeys: ['alpha'], watchmanExecutable: stub.executable }),
+        )
+        expect(result.watchmanInvalidation).toEqual({ _tag: 'NoServer' })
+        expect(yield* watchmanInvocations(stub.argvFile)).toEqual([
+          `--no-spawn --no-local --no-pretty watch-del ${fixture.root}`,
+        ])
+      }),
+    ),
+  )
+
+  it.effect('surfaces an unexpected refusal without parking the published root', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fixture = yield* makeFixture({ members: ['alpha'] })
+        const stub = yield* installWatchmanStub({ fixture, name: 'refusal', mode: 'unexpected' })
+        const error = yield* failureReason(
+          publishCompositionRoot(
+            optionsFor({ fixture, memberKeys: ['alpha'], watchmanExecutable: stub.executable }),
+          ),
+        )
+        expect(error.reason).toBe('WatchmanInvalidationFailed')
+        expect(error.message).toContain('disallowed by global config illegal_fstypes')
+        // The root is published and the publisher lock is released: only the watch is stale.
+        expect((yield* readGenerated(fixture, '.buckconfig')).toString()).toContain('[cells]')
+        expect(yield* exists(NodePath.join(fixture.root, '.watchmanconfig'))).toBe(true)
+        expect(
+          yield* exists(NodePath.join(fixture.root, '.megarepo/composition-publisher.lock.json')),
+        ).toBe(false)
+      }),
+    ),
+  )
+
+  it.effect('surfaces a resolved watchman executable that cannot run', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fixture = yield* makeFixture({ members: ['alpha'] })
+        const error = yield* failureReason(
+          publishCompositionRoot(
+            optionsFor({
+              fixture,
+              memberKeys: ['alpha'],
+              watchmanExecutable: NodePath.join(fixture.root, 'absent-watchman'),
+            }),
+          ),
+        )
+        expect(error.reason).toBe('WatchmanInvalidationFailed')
+        expect(error.message).toContain('Could not run the resolved Watchman executable')
       }),
     ),
   )

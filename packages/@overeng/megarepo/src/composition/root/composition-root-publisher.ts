@@ -1,5 +1,6 @@
 /* eslint-disable no-await-in-loop -- Locking, rollback, fsync, and authority order are protocol requirements. */
 
+import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { constants } from 'node:fs'
 import {
@@ -15,6 +16,7 @@ import {
   type FileHandle,
 } from 'node:fs/promises'
 import * as NodePath from 'node:path'
+import { promisify } from 'node:util'
 
 import { Effect, Schema } from 'effect'
 
@@ -35,6 +37,8 @@ import {
 } from './composition-root.ts'
 
 const strictParseOptions = { errors: 'all', onExcessProperty: 'error' } as const
+const execFileAsync = promisify(execFile)
+const WATCHMAN_CONFIG_PATH = '.watchmanconfig' as const
 const LOCK_PATH = '.megarepo/composition-publisher.lock.json' as const
 const TRANSACTION_PATH = '.megarepo/composition-publication.json' as const
 const COMMITTED_TRANSACTION_PATH = '.megarepo/composition-publication.committed.json' as const
@@ -149,6 +153,7 @@ export class CompositionRootPublicationError extends Schema.TaggedError<Composit
       'RecoveryRefused',
       'IoFailure',
       'SimulatedProcessFault',
+      'WatchmanInvalidationFailed',
     ]),
     path: Schema.String,
     message: Schema.String,
@@ -262,6 +267,24 @@ export type CompositionRootPublicationPlan =
       readonly configLast: false
     }
 
+/**
+ * Scoped outcome of the post-publication watch invalidation.
+ *
+ * Watchman reads `.watchmanconfig` only while constructing a Root, so a republished config is
+ * inert for an already-watched workspace until that root's watch is removed. Removing only this
+ * root leaves every other watch and the service itself untouched; the next `watch-project` from
+ * Buck reconstructs the root and reads the new config, so no fresh watch is forced here.
+ */
+export type CompositionRootWatchmanInvalidation =
+  /** `.watchmanconfig` bytes did not change, so the live watch already matches the config. */
+  | { readonly _tag: 'Unchanged' }
+  /** This root's watch was removed; the next `watch-project` rereads the config. */
+  | { readonly _tag: 'Removed' }
+  /** A service is running but holds no watch on this root, so nothing was stale. */
+  | { readonly _tag: 'NotWatched' }
+  /** No service is running, so no in-memory root can hold the previous config. */
+  | { readonly _tag: 'NoServer' }
+
 /** Observable result of an idempotent composition publication. */
 export interface CompositionRootPublicationResult {
   readonly changedPaths: ReadonlyArray<string>
@@ -269,6 +292,7 @@ export interface CompositionRootPublicationResult {
     readonly memberKey: string
     readonly manifest: BuckMemberManifest
   }>
+  readonly watchmanInvalidation: CompositionRootWatchmanInvalidation
 }
 
 /** Explicit workspace and lock used for generated composition teardown. */
@@ -2162,13 +2186,103 @@ export const planCompositionRootPublication = Effect.fn('megarepo/composition-ro
 )
 
 /**
+ * Filesystem publication only; the watch lifecycle is applied by {@link publishCompositionRoot}
+ * after the lock is released.
+ */
+type PublishedComposition = Omit<CompositionRootPublicationResult, 'watchmanInvalidation'>
+
+/**
+ * A running service reports an unresolvable root as a JSON `error` and still exits zero, so a root
+ * this publisher never watched is a tolerated outcome rather than a failure. Only the definitive
+ * not-watched marker is tolerated: other root-resolution refusals (a disallowed filesystem type, a
+ * vanished path) share the `unable to resolve root` prefix and must surface.
+ */
+const notWatchedError = /\bis not watched\b/u
+
+/**
+ * Remove only this workspace root's watch so the freshly published `.watchmanconfig` is read when
+ * the root is next constructed.
+ *
+ * `--no-spawn --no-local` keeps this from starting a service or answering from client mode: with
+ * no service there is no in-memory root holding the previous config, and starting one here would
+ * pay a full crawl nobody asked for. A fresh watch is deliberately not forced; Buck's next
+ * `watch-project` reconstructs the root with the new config.
+ */
+const invalidateWatchmanRoot = async ({
+  workspaceRoot,
+  resolvedWatchmanExecutable,
+}: {
+  readonly workspaceRoot: string
+  readonly resolvedWatchmanExecutable: string
+}): Promise<CompositionRootWatchmanInvalidation> => {
+  const args = ['--no-spawn', '--no-local', '--no-pretty', 'watch-del', workspaceRoot]
+  let stdout: string
+  try {
+    stdout = (await execFileAsync(resolvedWatchmanExecutable, args)).stdout
+  } catch (cause) {
+    // A process that ran and exited non-zero reports its numeric exit status; a process that
+    // never started reports a spawn errno string (`ENOENT`, `EACCES`) and must surface.
+    const exited =
+      typeof cause === 'object' && cause !== null && 'code' in cause && 'stdout' in cause
+        ? { code: cause.code, stdout: cause.stdout }
+        : undefined
+    if (typeof exited?.code !== 'number' || typeof exited.stdout !== 'string') {
+      throw failure({
+        reason: 'WatchmanInvalidationFailed',
+        path: workspaceRoot,
+        message: `Could not run the resolved Watchman executable: ${resolvedWatchmanExecutable}`,
+        cause,
+      })
+    }
+    const captured = exited.stdout
+    // Under `--no-spawn --no-local` an absent service is a client-side refusal with no response
+    // body at all, so there is no in-memory root holding the previous config.
+    if (captured.trim() === '') return { _tag: 'NoServer' }
+    throw failure({
+      reason: 'WatchmanInvalidationFailed',
+      path: workspaceRoot,
+      message: `Watchman refused to release the republished root: ${captured.trim()}`,
+      cause,
+    })
+  }
+  let response: unknown
+  try {
+    response = JSON.parse(stdout)
+  } catch (cause) {
+    throw failure({
+      reason: 'WatchmanInvalidationFailed',
+      path: workspaceRoot,
+      message: `Watchman returned an unreadable watch-del response: ${stdout.trim()}`,
+      cause,
+    })
+  }
+  if (typeof response !== 'object' || response === null || Array.isArray(response) === true) {
+    throw failure({
+      reason: 'WatchmanInvalidationFailed',
+      path: workspaceRoot,
+      message: `Watchman returned a non-object watch-del response: ${stdout.trim()}`,
+    })
+  }
+  if ('error' in response) {
+    const message = String(response.error)
+    if (notWatchedError.test(message) === true) return { _tag: 'NotWatched' }
+    throw failure({
+      reason: 'WatchmanInvalidationFailed',
+      path: workspaceRoot,
+      message: `Watchman refused to release the republished root: ${message}`,
+    })
+  }
+  return { _tag: 'Removed' }
+}
+
+/**
  * Publish a serialized, rollback-capable Buck2 composition root. This primitive performs only
  * filesystem publication; it invokes no Git, Nix, mount, or command operation.
  */
 export const publishCompositionRoot = Effect.fn('megarepo/composition-root/publish')(
   (options: PublishCompositionRootOptions) =>
     Effect.tryPromise({
-      try: async (): Promise<CompositionRootPublicationResult> => {
+      try: async (): Promise<PublishedComposition> => {
         const workspaceRoot = NodePath.resolve(options.workspaceRoot)
         await validateWorkspaceRoot(workspaceRoot)
         await ensureDirectory(workspaceRoot, '.megarepo')
@@ -2283,7 +2397,30 @@ export const publishCompositionRoot = Effect.fn('megarepo/composition-root/publi
           path: options.workspaceRoot,
           message: 'Could not publish Buck2 composition root',
         }),
-    }),
+    }).pipe(
+      // The watch lifecycle belongs to publication, not to rendering, and it runs only after the
+      // publisher lock is released: a Watchman refusal must not leave a fully published root
+      // parked for recovery.
+      Effect.flatMap((published) =>
+        published.changedPaths.includes(WATCHMAN_CONFIG_PATH) === false
+          ? Effect.succeed({ ...published, watchmanInvalidation: { _tag: 'Unchanged' } as const })
+          : Effect.tryPromise({
+              try: async (): Promise<CompositionRootPublicationResult> => ({
+                ...published,
+                watchmanInvalidation: await invalidateWatchmanRoot({
+                  workspaceRoot: NodePath.resolve(options.workspaceRoot),
+                  resolvedWatchmanExecutable: options.resolvedWatchmanExecutable,
+                }),
+              }),
+              catch: (cause) =>
+                normalizeFailure({
+                  cause,
+                  path: options.workspaceRoot,
+                  message: 'Could not invalidate the republished Watchman root',
+                }),
+            }),
+      ),
+    ),
 )
 
 const validateTeardownState = async ({
