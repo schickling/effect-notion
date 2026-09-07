@@ -102,6 +102,7 @@ export const rootTestDataFiles = [
   'BUCK',
   'buck2/dependencies/BUCK',
   'buck2/dependencies/pnpm-lock.sha256.json',
+  'buck2/javascript.bzl',
   'buck2/materialization.bzl',
   'buck2/platforms/defs.bzl',
   'buck2/products/defs.bzl',

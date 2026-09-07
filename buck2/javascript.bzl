@@ -2,13 +2,15 @@
 
 The package tree and its normalized read roots are the complete JavaScript dependency input.
 Commands execute locally because Nix tool closures are host realizations, while deterministic test
-results opt into Buck's shared test cache. The runner applies the same platform sandbox contract as
+results opt into Buck's shared test cache — but only while the synthesized root admits caching at
+all. The runner applies the same platform sandbox contract as
 TypeScript: explicit read roots, scratch-only writes, no network, and a cleared environment.
 """
 
 load("//buck2/materialization.bzl", "PackageTreeInfo")
 load("//buck2/toolchains:defs.bzl", "EffectTsgoToolchainInfo", "SandboxToolchainInfo")
 load("//buck2/toolchains:configured.bzl", "BuckSupportToolInfo")
+load("//buck2/platforms:defs.bzl", "root_allow_cache_uploads", "root_remote_cache_enabled")
 
 JavaScriptExecutableInfo = provider(fields = {
     "package_tree": Artifact,
@@ -186,11 +188,21 @@ bun_executable = rule(
 
 def _test_info(ctx, command, positional):
     args, _, _, _ = _configured_args(ctx, command, positional)
-    cacheable = ctx.attrs.cacheable
+
+    # Determinism is a property of the TARGET alone, so these refusals read the raw attr: a
+    # lane that inherits ambient env, talks to the network, or runs unsandboxed is not
+    # reproducible and must never be declared cacheable, whatever the root policy says.
     if (ctx.attrs.inherited_env or "network" in ctx.attrs.capabilities) and ctx.attrs.cacheable:
         fail("inherited environment and network tests must set cacheable = False")
     if ctx.attrs.execution_mode == "unsandboxed-local" and ctx.attrs.cacheable:
         fail("an unsandboxed local test lane must set cacheable = False")
+
+    # Participation is determinism AND root policy. Execution platforms already consult the
+    # root switch, but `ExternalRunnerTestInfo` carries its own executor, so without this a
+    # `BUCK2_NO_REMOTE_CACHE=1` run still asked for action-cache lookup and test-execution
+    # caching with no RE engine configured, and the test failed with `No engine address`.
+    cache_enabled = ctx.attrs.cacheable and root_remote_cache_enabled()
+    cache_uploads = ctx.attrs.cacheable and root_allow_cache_uploads()
     return [
         DefaultInfo(),
         RunInfo(args = args),
@@ -203,12 +215,12 @@ def _test_info(ctx, command, positional):
             default_executor = CommandExecutorConfig(
                 local_enabled = True,
                 remote_enabled = False,
-                remote_cache_enabled = cacheable,
-                allow_cache_uploads = cacheable,
+                remote_cache_enabled = cache_enabled,
+                allow_cache_uploads = cache_uploads,
             ),
             run_from_project_root = False,
             use_project_relative_paths = False,
-            supports_test_execution_caching = cacheable,
+            supports_test_execution_caching = cache_enabled,
         ),
     ]
 
