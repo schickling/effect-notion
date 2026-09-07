@@ -819,6 +819,18 @@ const projectIgnoreEntries = (input: NormalizedCompositionRootInput): ReadonlyAr
   ])
 
 /**
+ * The generated `.watchmanconfig` document. Watchman loads it verbatim when it constructs the
+ * root, so this is also the shape a live root's `get-config` response must be compared against.
+ */
+export const WatchmanConfigSchema = Schema.Struct({
+  ignore_dirs: Schema.Array(Schema.String),
+}).annotate({ identifier: 'Megarepo.WatchmanConfig' })
+export type WatchmanConfig = typeof WatchmanConfigSchema.Type
+
+/** Generated composition-root path of the Watchman configuration. */
+export const COMPOSITION_WATCHMAN_CONFIG_PATH = '.watchmanconfig' as const
+
+/**
  * The generated `.buckconfig` pins `buck2.file_watcher = watchman`, so the same generator that
  * owns the Buck project ignores owns the watch exclusion derived from them. Both projections read
  * one ignore set, so a member's literal high-churn directory can never be excluded from Buck while
@@ -829,6 +841,23 @@ const renderWatchmanConfig = (input: NormalizedCompositionRootInput): string => 
     .filter((pattern) => isLiteralIgnoreDir(pattern) && isWatchRootVcsIgnoreDir(pattern) === false)
     .toSorted((left, right) => churnRank(left) - churnRank(right))
   return `${JSON.stringify({ ignore_dirs: ignoreDirs }, undefined, 2)}\n`
+}
+
+/**
+ * The watch exclusion this output publishes, in published order. Publication compares it against
+ * the config a live watched root actually loaded, so the two never drift apart silently.
+ */
+export const generatedWatchmanIgnoreDirs = (
+  output: CompositionRootOutput,
+): ReadonlyArray<string> => {
+  const file = output.files.find((entry) => entry.path === COMPOSITION_WATCHMAN_CONFIG_PATH)
+  if (file === undefined) {
+    throw new TypeError(`Generated output has no ${COMPOSITION_WATCHMAN_CONFIG_PATH}`)
+  }
+  return Schema.decodeUnknownSync(
+    WatchmanConfigSchema,
+    strictParseOptions,
+  )(JSON.parse(new TextDecoder().decode(file.bytes))).ignore_dirs
 }
 
 const utf8 = (value: string): Uint8Array => textEncoder.encode(value)
@@ -990,7 +1019,7 @@ export const generateCompositionRoot = (rawInput: CompositionRootInput): Composi
       content: renderBuckWrapper(input),
     }),
     generatedFile({
-      path: '.watchmanconfig',
+      path: COMPOSITION_WATCHMAN_CONFIG_PATH,
       mode: 0o644,
       content: renderWatchmanConfig(input),
     }),

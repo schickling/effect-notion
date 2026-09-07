@@ -20,7 +20,9 @@ import {
   encodeCompositionRootInput,
   encodeCompositionRootOutput,
   generateCompositionRoot,
+  generatedWatchmanIgnoreDirs,
   resolveCompositionToolchainRequirements,
+  WatchmanConfigSchema,
   type BuckMemberCapability,
   type BuckMemberManifest,
   type CompositionRootInput,
@@ -696,8 +698,6 @@ const effectLikeMember = {
   }),
 } as const
 
-const WatchmanConfigSchema = Schema.Struct({ ignore_dirs: Schema.Array(Schema.String) })
-
 const watchmanIgnoreDirs = (rawInput: CompositionRootInput): ReadonlyArray<string> =>
   Schema.decodeUnknownSync(WatchmanConfigSchema, { onExcessProperty: 'error' })(
     JSON.parse(text(filesByPath(rawInput).get('.watchmanconfig')!)),
@@ -818,6 +818,21 @@ describe('watchman ignore projection', () => {
     expect(paths).toContain('.watchmanconfig')
     expect(paths.indexOf('.watchmanconfig')).toBeLessThan(paths.indexOf('.buckconfig'))
     expect(paths.at(-1)).toBe('.buckconfig')
+  })
+
+  // Publication compares this against the config a live watched root actually loaded, so it must
+  // read the published bytes rather than recompute the projection.
+  it('reports the exclusion it published, in published order', () => {
+    const rawInput = input({ members: [effectLikeMember], platformHubCell: 'effect_utils' })
+    const output = generateCompositionRoot(rawInput)
+    expect(generatedWatchmanIgnoreDirs(output)).toEqual(watchmanIgnoreDirs(rawInput))
+    expect(generatedWatchmanIgnoreDirs(output).slice(0, 4).map(basename)).toEqual([
+      '.editor-view',
+      '.editor-view',
+      '.editor-view',
+      '.editor-view',
+    ])
+    expect(() => generatedWatchmanIgnoreDirs({ files: [] })).toThrow(/\.watchmanconfig/u)
   })
 })
 
