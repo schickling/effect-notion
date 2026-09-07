@@ -303,7 +303,7 @@ describe('mr store gc --generated-artifacts', () => {
   )
 
   it.effect(
-    'rejects mutation and expected-plan until a deletion transaction exists',
+    'requires a complete plan-bound candidate selector for mutation',
     Effect.fnUntraced(
       function* () {
         const f = yield* fixture()
@@ -317,6 +317,116 @@ describe('mr store gc --generated-artifacts', () => {
             args: ['--dry-run', '--expected-plan', '0'.repeat(64)],
           })).exitCode,
         ).toBe(1)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
+    'applies exactly one generated-artifact candidate from an unchanged plan',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const f = yield* fixture()
+        yield* configure({ config: f.config, manifest: f.manifest })
+        const artifact = yield* oldIgnoredArtifact(f.worktree)
+        yield* fs.writeFileString(`${f.worktree}/.gitignore`, 'node_modules/\ndist/\n')
+        yield* Git.runCommand({ args: ['add', '.gitignore'], cwd: f.worktree })
+        yield* Git.runCommand({ args: ['commit', '-m', 'ignore dist'], cwd: f.worktree })
+        const sibling = `${f.worktree}/dist`
+        yield* fs.makeDirectory(sibling, { recursive: true })
+        yield* fs.writeFileString(`${sibling}/fixture.txt`, 'generated sibling')
+        yield* Effect.promise(() =>
+          utimes(sibling, new Date(NOW - 2 * DAY_MS), new Date(NOW - 2 * DAY_MS)),
+        )
+
+        const plan = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--dry-run'],
+        })
+        const candidate = generated(plan.results, 'node_modules')!
+        const applied = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--expected-plan', plan.planSha256!, '--candidate-path', candidate.path],
+        })
+
+        expect(applied.exitCode).toBe(0)
+        expect(applied.results).toHaveLength(1)
+        expect(applied.results[0]).toMatchObject({ path: candidate.path, outcome: 'deleted' })
+        expect(yield* fs.exists(artifact)).toBe(false)
+        expect(yield* fs.exists(sibling)).toBe(true)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
+    'refuses missing and newly-live generated-artifact candidates',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const f = yield* fixture()
+        yield* configure({ config: f.config, manifest: f.manifest })
+        const artifact = yield* oldIgnoredArtifact(f.worktree)
+        const plan = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--dry-run'],
+        })
+
+        const missing = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--expected-plan', plan.planSha256!, '--candidate-path', `${f.outside}missing`],
+        })
+        expect(missing.exitCode).toBe(1)
+        expect(yield* fs.exists(artifact)).toBe(true)
+
+        yield* configure({
+          config: f.config,
+          manifest: f.manifest,
+          activeWorkspacePaths: [f.worktree.replace(/\/+$/u, '')],
+        })
+        const live = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--expected-plan', plan.planSha256!, '--candidate-path', artifact],
+        })
+        expect(live.exitCode).toBe(1)
+        expect(yield* fs.exists(artifact)).toBe(true)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
+    'refuses application when any part of the canonical plan changed',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const f = yield* fixture()
+        yield* configure({ config: f.config, manifest: f.manifest })
+        const artifact = yield* oldIgnoredArtifact(f.worktree)
+        const plan = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--dry-run'],
+        })
+        yield* fs.writeFileString(`${artifact}/changed-after-plan.txt`, 'new evidence')
+
+        const changed = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--expected-plan', plan.planSha256!, '--candidate-path', artifact],
+        })
+
+        expect(changed.exitCode).toBe(1)
+        expect(yield* fs.exists(artifact)).toBe(true)
       },
       Effect.provide(NodeServices.layer),
       Effect.scoped,
@@ -355,7 +465,7 @@ describe('mr store gc --generated-artifacts', () => {
           args: ['--dry-run'],
           generatedArtifacts: false,
         })
-        expect(result.planSha256).toBeUndefined()
+        expect(result.planSha256).toMatch(/^[0-9a-f]{64}$/)
         expect(result.results.some((row) => row.kind === 'generated-artifact')).toBe(false)
         expect(yield* FileSystem.FileSystem.pipe(Effect.flatMap((fs) => fs.exists(artifact)))).toBe(
           true,

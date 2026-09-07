@@ -302,10 +302,11 @@ const make = ({
             EffectPath.ops.join(dir, EffectPath.unsafe.relativeFile('.git')),
           )
           if (hasGit === true) return
-          const isNestedStore = yield* Effect.all([
+          const [hasNestedState, hasNestedLocks] = yield* Effect.all([
             fs.exists(EffectPath.ops.join(dir, EffectPath.unsafe.relativeDir('.state/'))),
             fs.exists(EffectPath.ops.join(dir, EffectPath.unsafe.relativeDir('.locks/'))),
-          ]).pipe(Effect.map(([state, locks]) => state === true || locks === true))
+          ])
+          const isNestedStore = hasNestedState === true && hasNestedLocks === true
           if (isNestedStore === true) return
 
           // Backstop: never descend past the layout's plausible repo depth, so a
@@ -329,8 +330,8 @@ const make = ({
                   dir,
                   EffectPath.unsafe.relativeDir(`${entry}/`),
                 )
-                const entryStat = yield* fs.stat(entryPath).pipe(Effect.orElseSucceed(() => null))
-                if (entryStat?.type !== 'Directory') return
+                const entryStat = yield* fs.stat(entryPath)
+                if (entryStat.type !== 'Directory') return
 
                 yield* walk({ dir: entryPath, depth: depth + 1 })
               }),
@@ -351,8 +352,8 @@ const make = ({
               basePath,
               EffectPath.unsafe.relativeDir(`${entry}/`),
             )
-            const entryStat = yield* fs.stat(entryPath).pipe(Effect.orElseSucceed(() => null))
-            if (entryStat?.type !== 'Directory') return
+            const entryStat = yield* fs.stat(entryPath)
+            if (entryStat.type !== 'Directory') return
 
             yield* walk({ dir: entryPath, depth: 1 })
           }),

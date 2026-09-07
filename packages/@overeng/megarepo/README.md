@@ -71,11 +71,12 @@ Branch worktrees use raw Git ref paths in the store, for example `feature/foo` b
 
 ## Generated artifact cleanup
 
-`mr store gc` can plan old generated directories in registered, clean, inactive store worktrees.
-This first slice is deliberately non-mutating:
+`mr store gc` can plan old generated directories in registered, clean, inactive store worktrees,
+then apply exactly one candidate from that immutable plan:
 
 ```bash
 mr store gc --generated-artifacts --dry-run --output json
+mr store gc --generated-artifacts --expected-plan <sha256> --candidate-path <path> --output json
 ```
 
 Configure the host at `$MEGAREPO_STORE/.state/gc-config.json`:
@@ -106,8 +107,9 @@ Missing, invalid, or expired liveness data produces `unknown`. A candidate
 must also be Git-ignored, older than the retention window, absent from Megarepo's live set, and
 inside a clean registered worktree. A capped, timed recursive scan uses the newest nested mtime;
 symlinks or incomplete scans produce `unknown`. JSON results distinguish
-`would-delete`, `keep`, and `unknown` and include a deterministic `planSha256`. Mutation and
-`--expected-plan` are rejected until the deletion transaction has a separately verified design.
+`would-delete`, `deleted`, `keep`, and `unknown` and include a deterministic `planSha256`.
+Application recomputes the complete plan, requires the exact digest and a unique candidate, then
+revalidates and removes only that candidate under its owner-worktree lock.
 
 ## Documentation
 

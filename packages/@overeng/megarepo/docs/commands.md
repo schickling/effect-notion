@@ -106,9 +106,16 @@ mr store fetch [--json]
 ### `mr store gc`
 
 ```bash
-mr store gc [--dry-run] [--force] [--all]
+mr store gc [--dry-run] [--force] [--all] [--generated-artifacts]
+mr store gc [--generated-artifacts] --expected-plan <sha256> --candidate-path <absolute-path>
 ```
 
 Removes clean unrooted `refs/commits/*` worktrees. Named `refs/heads/*` and
 `refs/tags/*` worktrees are kept by default. Dirty worktrees are preserved
 unless `--force` is used. `--all` also considers named refs for removal.
+
+Dry-run output includes a canonical `planSha256`. Supplying that digest with one
+candidate path recomputes the complete plan and applies only the selected
+worktree, archive, or generated-artifact action after an owner-locked
+revalidation. Missing, ambiguous, changed, or unknown evidence refuses the
+application.

@@ -37,6 +37,8 @@ const StoreGcJsonOutput = Schema.Struct({
       message: Schema.optional(Schema.String),
     }),
   ),
+  censusStatus: Schema.optional(Schema.Literals(['complete', 'unknown'])),
+  planSha256: Schema.optional(Schema.String),
 })
 
 const decodeStoreGcJsonOutput = Schema.decodeUnknownSync(Schema.fromJsonString(StoreGcJsonOutput))
@@ -439,6 +441,59 @@ describe('mr store gc', () => {
         Effect.scoped,
       ),
     )
+    it.effect(
+      'applies exactly one whole-worktree candidate from an unchanged dry-run plan',
+      Effect.fnUntraced(
+        function* () {
+          const fs = yield* FileSystem.FileSystem
+          const first = 'abcdef1234567890abcdef1234567890abcdef12'
+          const second = '1234567890abcdef1234567890abcdef12345678'
+          const { storePath, worktreePaths } = yield* createStoreFixture([
+            {
+              host: 'github.com',
+              owner: 'test-owner',
+              repo: 'targeted-repo',
+              branches: ['main'],
+              commits: [first, second],
+            },
+          ])
+          const candidate = worktreePaths[`github.com/test-owner/targeted-repo#${first}`]!
+          const sibling = worktreePaths[`github.com/test-owner/targeted-repo#${second}`]!
+          const tmpDir = EffectPath.unsafe.absoluteDir(`${yield* fs.makeTempDirectoryScoped()}/`)
+          const cwd = EffectPath.ops.join(tmpDir, EffectPath.unsafe.relativeDir('outside/'))
+          yield* fs.makeDirectory(cwd, { recursive: true })
+
+          const planned = yield* runMrCommand({
+            cwd,
+            command: ['store', 'gc', '--dry-run', '--output', 'json'],
+            env: { MEGAREPO_STORE: storePath },
+          })
+          const plan = decodeStoreGcJsonOutput(planned.stdout)
+          expect(plan.planSha256).toMatch(/^[0-9a-f]{64}$/)
+          const applied = yield* runMrCommand({
+            cwd,
+            command: [
+              'store',
+              'gc',
+              '--expected-plan',
+              plan.planSha256!,
+              '--candidate-path',
+              candidate,
+              '--output',
+              'json',
+            ],
+            env: { MEGAREPO_STORE: storePath },
+          })
+
+          expect(applied.exitCode).toBe(0)
+          expect(decodeStoreGcJsonOutput(applied.stdout).results).toHaveLength(1)
+          expect(yield* fs.exists(candidate)).toBe(false)
+          expect(yield* fs.exists(sibling)).toBe(true)
+        },
+        Effect.provide(NodeServices.layer),
+        Effect.scoped,
+      ),
+    )
   })
 })
 
@@ -471,6 +526,9 @@ describe('store discovery is bounded to the layout', () => {
         // Legit member at depth 2 (a bare repo placed directly under a pseudo-host
         // dir, like the real store's `other/contrib-bare`) — must be INCLUDED.
         yield* mkdirp('other/contrib/.bare')
+        // Host namespaces may carry their own metadata; a lone `.state` must not
+        // make the host look like a nested store and hide all repos below it.
+        yield* mkdirp('github.com/.state')
         // `_`-prefixed co-tenant namespace holding a NESTED store with a deep working
         // tree: root-skipped, so its `.bare` is never discovered AND its subtree
         // never walked.
@@ -539,7 +597,8 @@ describe('store discovery is bounded to the layout', () => {
           command: ['store', 'gc', '--dry-run', '--output', 'json'],
           env: { MEGAREPO_STORE: storePath },
         })
-        const { results } = decodeStoreGcJsonOutput(stdout)
+        const { results, censusStatus } = decodeStoreGcJsonOutput(stdout)
+        expect(censusStatus).toBe('complete')
 
         // Exactly one result for the broken worktree root, and NONE for paths
         // inside its working tree (pre-fix the walk emitted one per leaf dir).

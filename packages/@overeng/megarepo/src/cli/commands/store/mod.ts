@@ -158,6 +158,25 @@ type GeneratedArtifactRepoWorktrees = ReadonlyArray<{
 
 const encodeCanonicalPlan = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))
 
+const planSha256For = (results: ReadonlyArray<StoreGcResult>): string => {
+  const canonicalPlan = results
+    .map((result) => ({
+      repo: result.repo,
+      ref: result.ref,
+      refType: result.refType,
+      path: result.path,
+      status: result.status,
+      reason: result.reason,
+      kind: result.kind,
+      artifactClass: result.artifactClass,
+      workspacePath: result.workspacePath,
+      outcome: result.outcome,
+      mtimeMs: result.mtimeMs,
+    }))
+    .toSorted((left, right) => compareCanonicalPlanPaths({ left: left.path, right: right.path }))
+  return createHash('sha256').update(encodeCanonicalPlan(canonicalPlan)).digest('hex')
+}
+
 const planGeneratedArtifacts = ({
   config,
   fs,
@@ -371,22 +390,9 @@ const planGeneratedArtifacts = ({
       }
       if (onRepoCompleted !== undefined) yield* onRepoCompleted()
     }
-    const canonicalPlan = generatedResults
-      .map((result) => ({
-        repo: result.repo,
-        ref: result.ref,
-        refType: result.refType,
-        artifactClass: result.artifactClass,
-        path: result.path,
-        workspacePath: result.workspacePath,
-        reason: result.reason,
-        outcome: result.outcome,
-        mtimeMs: result.mtimeMs,
-      }))
-      .toSorted((left, right) => compareCanonicalPlanPaths({ left: left.path, right: right.path }))
     return {
       results: generatedResults,
-      planSha256: createHash('sha256').update(encodeCanonicalPlan(canonicalPlan)).digest('hex'),
+      planSha256: planSha256For(generatedResults),
     }
   })
 
@@ -558,6 +564,7 @@ const toStoreGcAction = ({
   activeWorktreeCount,
   statusMessage,
   done,
+  censusStatus: repoCount === undefined ? 'unknown' : 'complete',
   ...(planSha256 !== undefined ? { planSha256 } : {}),
 })
 
@@ -991,6 +998,7 @@ const coldReclaimRepo = ({
   config,
   now,
   dryRun,
+  candidatePath,
 }: {
   store: Effect.Success<typeof Store>
   storeLock: Effect.Success<typeof StoreLock>
@@ -1005,6 +1013,7 @@ const coldReclaimRepo = ({
   config: StoreGcConfig
   now: number
   dryRun: boolean
+  candidatePath?: string | undefined
 }) =>
   Effect.gen(function* () {
     const results: StoreGcResult[] = []
@@ -1048,6 +1057,7 @@ const coldReclaimRepo = ({
         : undefined
 
     for (const target of namedWorktrees) {
+      if (candidatePath !== undefined && target.worktree.path !== candidatePath) continue
       if (classify === false) break
       const { worktree } = target
       // Only `refs/heads/*` carries a branch identity to reclaim; tags have no
@@ -1338,6 +1348,7 @@ const coldReclaimRepo = ({
       Effect.orElseSucceed(() => [] as never[]),
     )
     for (const entry of archives) {
+      if (candidatePath !== undefined && entry.path !== candidatePath) continue
       if (now - entry.archivedAtMs < config.archiveRetentionMs) continue
 
       const reapTarget: NamedWorktreeTarget = {
@@ -1668,8 +1679,12 @@ const storeGcCommand = Cli.Command.make(
       Cli.Flag.withDescription('Apply only the exact generated-artifact dry-run plan'),
       Cli.Flag.optional,
     ),
+    candidatePath: Cli.Flag.string('candidate-path').pipe(
+      Cli.Flag.withDescription('Apply exactly one candidate from the expected dry-run plan'),
+      Cli.Flag.optional,
+    ),
   },
-  ({ output, dryRun, force, all, generatedArtifacts, expectedPlan }) =>
+  ({ output, dryRun, force, all, generatedArtifacts, expectedPlan, candidatePath }) =>
     Effect.gen(function* () {
       const cwd = yield* Cwd
       const store = yield* Store
@@ -1682,20 +1697,41 @@ const storeGcCommand = Cli.Command.make(
       let repoCount: number | undefined
       let repoConcurrencyForMetrics = 1
       let planSha256: string | undefined
+      const targetedApply =
+        Option.isSome(expectedPlan) === true || Option.isSome(candidatePath) === true
+      const planningOnly = dryRun === true || targetedApply === true
 
       if (generatedArtifacts === true && (all === true || force === true)) {
         return yield* new StoreCommandError({
           message: '--generated-artifacts is incompatible with --all and --force',
         })
       }
-      if (generatedArtifacts === true && dryRun === false) {
-        return yield* new StoreCommandError({
-          message: '--generated-artifacts currently requires --dry-run',
-        })
+      if (targetedApply === true) {
+        if (
+          dryRun === true ||
+          Option.isNone(expectedPlan) === true ||
+          Option.isNone(candidatePath) === true
+        ) {
+          return yield* new StoreCommandError({
+            message:
+              '--expected-plan and --candidate-path must be provided together for a non-dry-run application',
+          })
+        }
+        if (/^[0-9a-f]{64}$/u.test(expectedPlan.value) === false) {
+          return yield* new StoreCommandError({
+            message: '--expected-plan must be a lowercase SHA-256 digest',
+          })
+        }
+        if (isNormalizedAbsolutePath(normalizeStorePath(candidatePath.value)) === false) {
+          return yield* new StoreCommandError({
+            message: '--candidate-path must be a normalized absolute path',
+          })
+        }
       }
-      if (Option.isSome(expectedPlan) === true) {
+      if (generatedArtifacts === true && dryRun === false && targetedApply === false) {
         return yield* new StoreCommandError({
-          message: '--expected-plan is not supported by planning-only GC',
+          message:
+            '--generated-artifacts mutation requires --expected-plan and --candidate-path',
         })
       }
 
@@ -1751,7 +1787,7 @@ const storeGcCommand = Cli.Command.make(
             } satisfies StoreGcResult
           }
 
-          if (dryRun === false) {
+          if (planningOnly === false) {
             const removeResult = yield* storeLock
               .withWorktreeLock(worktree.path)(
                 Effect.gen(function* () {
@@ -1903,8 +1939,8 @@ const storeGcCommand = Cli.Command.make(
             ...(Option.isSome(root) === true ? { currentWorkspaceRoot: root.value } : {}),
             // Generated-artifact mode is a read-only planner. Do not refresh,
             // reconcile, or prune the shared liveness registry while planning.
-            pruneStaleRegistry: generatedArtifacts === false && dryRun === false,
-            refreshCurrentWorkspace: generatedArtifacts === false && dryRun === false,
+            pruneStaleRegistry: generatedArtifacts === false && planningOnly === false,
+            refreshCurrentWorkspace: generatedArtifacts === false && planningOnly === false,
             ...(all === false && generatedArtifacts === false
               ? { reconcileAllWorkspaces: true }
               : {}),
@@ -1970,7 +2006,7 @@ const storeGcCommand = Cli.Command.make(
               fs,
               liveSet,
               now,
-              ...(progressive === true
+              ...(progressive === true && targetedApply === false
                 ? {
                     onArtifact: (result: StoreGcResult) =>
                       Effect.gen(function* () {
@@ -1988,9 +2024,97 @@ const storeGcCommand = Cli.Command.make(
               repoWorktrees,
             })
             planSha256 = generatedPlan.planSha256
-            if (progressive === false) {
-              for (const result of generatedPlan.results) results.push(result)
+            if (progressive === false || targetedApply === true) {
+              results.push(...generatedPlan.results)
               completedRepoCount += repoWorktrees.length
+            }
+
+            if (
+              targetedApply === true &&
+              Option.isSome(expectedPlan) === true &&
+              Option.isSome(candidatePath) === true
+            ) {
+              if (generatedPlan.planSha256 !== expectedPlan.value) {
+                return yield* new StoreCommandError({
+                  message: 'store gc plan changed; refusing candidate application',
+                })
+              }
+              const selected = generatedPlan.results.filter(
+                (result) =>
+                  normalizeStorePath(result.path) === normalizeStorePath(candidatePath.value) &&
+                  result.outcome === 'would-delete',
+              )
+              if (selected.length !== 1 || selected[0]!.workspacePath === undefined) {
+                return yield* new StoreCommandError({
+                  message: 'candidate is missing, ambiguous, or no longer eligible',
+                })
+              }
+              const ownerPath = selected[0]!.workspacePath
+              const applied = yield* storeLock.withWorktreeLock(ownerPath)(
+                Effect.gen(function* () {
+                  const freshLiveSet = yield* reReconcileLiveSet({ store, root, now })
+                  const freshConfig = yield* loadStoreGcConfig({
+                    storeBasePath: store.basePath,
+                  })
+                  const freshRepos = yield* store.listRepos
+                  const freshRepoWorktrees = yield* Effect.all(
+                    freshRepos.map((repo) =>
+                      Effect.gen(function* () {
+                        const bareRepoPath = EffectPath.ops.join(
+                          repo.fullPath,
+                          EffectPath.unsafe.relativeDir('.bare/'),
+                        )
+                        const worktrees = yield* collectRepoStoreWorktrees({
+                          fs,
+                          repoPath: repo.fullPath,
+                          bareRepoPath,
+                        })
+                        return { repo, worktrees }
+                      }),
+                    ),
+                    { concurrency: repoConcurrency },
+                  )
+                  const freshPlan = yield* planGeneratedArtifacts({
+                    config: freshConfig,
+                    fs,
+                    liveSet: freshLiveSet,
+                    now,
+                    readCurrentTimeMillis: Clock.currentTimeMillis,
+                    repoWorktrees: freshRepoWorktrees,
+                  })
+                  if (freshPlan.planSha256 !== expectedPlan.value) {
+                    return yield* new StoreCommandError({
+                      message: 'store gc plan changed under owner lock; refusing deletion',
+                    })
+                  }
+                  const freshCandidates = freshPlan.results.filter(
+                    (result) =>
+                      normalizeStorePath(result.path) ===
+                        normalizeStorePath(candidatePath.value) &&
+                      result.outcome === 'would-delete',
+                  )
+                  if (freshCandidates.length !== 1) {
+                    return yield* new StoreCommandError({
+                      message: 'candidate is missing, ambiguous, or no longer eligible',
+                    })
+                  }
+                  const freshCandidate = freshCandidates[0]!
+                  const canonicalOwner = yield* fs.realPath(ownerPath)
+                  const canonicalCandidate = yield* fs.realPath(freshCandidate.path)
+                  if (
+                    freshCandidate.artifactClass === undefined ||
+                    normalizeStorePath(canonicalCandidate) !==
+                      normalizeStorePath(`${canonicalOwner}/${freshCandidate.artifactClass}`)
+                  ) {
+                    return yield* new StoreCommandError({
+                      message: 'candidate containment changed under owner lock',
+                    })
+                  }
+                  yield* fs.remove(freshCandidate.path, { recursive: true })
+                  return { ...freshCandidate, outcome: 'deleted' as const }
+                }),
+              )
+              results.splice(0, results.length, applied)
             }
           }
 
@@ -2026,7 +2150,7 @@ const storeGcCommand = Cli.Command.make(
             // without the lock) — a planning run must not advance the absence-grace
             // clock and so cause a later real run to archive.
             const ledger =
-              dryRun === true
+              planningOnly === true
                 ? nextObservationLedger({
                     current: yield* readObservationLedger({ storeBasePath: store.basePath }),
                     coldPaths,
@@ -2088,7 +2212,7 @@ const storeGcCommand = Cli.Command.make(
                       ledger,
                       config,
                       now,
-                      dryRun,
+                      dryRun: planningOnly,
                     }).pipe(
                       Effect.ensuring(
                         Effect.sync(() => {
@@ -2150,7 +2274,7 @@ const storeGcCommand = Cli.Command.make(
                                 repoRelativePath: repo.relativePath,
                                 bareRepoPath,
                               })
-                              if (result.status === 'removed' && dryRun === false) {
+                              if (result.status === 'removed' && planningOnly === false) {
                                 removedForRepo += 1
                               }
                               results.push(result)
@@ -2212,6 +2336,128 @@ const storeGcCommand = Cli.Command.make(
                 repoConcurrency,
               }),
             )
+          }
+
+          if (generatedArtifacts === false && planningOnly === true) {
+            planSha256 = planSha256For(results)
+          }
+
+          if (
+            generatedArtifacts === false &&
+            targetedApply === true &&
+            Option.isSome(expectedPlan) === true &&
+            Option.isSome(candidatePath) === true
+          ) {
+            if (planSha256 !== expectedPlan.value) {
+              return yield* new StoreCommandError({
+                message: 'store gc plan changed; refusing candidate application',
+              })
+            }
+            const candidates = results.filter(
+              (result) =>
+                normalizeStorePath(result.path) === normalizeStorePath(candidatePath.value) &&
+                (result.status === 'removed' ||
+                  result.status === 'archived' ||
+                  result.status === 'reaped'),
+            )
+            if (candidates.length !== 1) {
+              return yield* new StoreCommandError({
+                message: 'candidate is missing, ambiguous, or no longer eligible',
+              })
+            }
+            const candidate = candidates[0]!
+            const owner = repoWorktrees.find(
+              ({ repo }) => repo.relativePath === candidate.repo,
+            )
+            if (owner === undefined) {
+              return yield* new StoreCommandError({
+                message: 'candidate owner repository is missing',
+              })
+            }
+
+            let applied: StoreGcResult
+            if (candidate.status === 'removed') {
+              const worktree = owner.worktrees.filter(
+                (entry) => entry.path === candidate.path,
+              )
+              if (worktree.length !== 1) {
+                return yield* new StoreCommandError({
+                  message: 'candidate worktree is missing or ambiguous',
+                })
+              }
+              applied = yield* storeLock.withWorktreeLock(candidate.path)(
+                Effect.gen(function* () {
+                  const freshLiveSet = yield* reReconcileLiveSet({ store, root, now })
+                  const decision = yield* classifyGcWorktree({
+                    worktree: worktree[0]!,
+                    liveSet: freshLiveSet,
+                    all,
+                  })
+                  if (
+                    decision.action !== 'check' ||
+                    (force === false &&
+                      (decision.status.isDirty === true ||
+                        decision.status.hasUnpushed === true))
+                  ) {
+                    return yield* new StoreCommandError({
+                      message: 'candidate is live, dirty, or no longer inspectable',
+                    })
+                  }
+                  yield* fs.remove(candidate.path, { recursive: true })
+                  return candidate
+                }),
+              )
+              yield* Git.pruneWorktrees(owner.bareRepoPath)
+            } else {
+              const config = yield* loadStoreGcConfig({ storeBasePath: store.basePath })
+              const injectedResolver = yield* Effect.serviceOption(PrStateResolver)
+              const prResolver =
+                Option.isSome(injectedResolver) === true
+                  ? injectedResolver.value
+                  : yield* PrStateResolver.pipe(Effect.provide(makePrStateResolverLayer()))
+              const ledger = yield* readObservationLedger({ storeBasePath: store.basePath })
+              const namedWorktrees = owner.worktrees
+                .filter(
+                  (worktree) =>
+                    worktree.broken === false &&
+                    isNamedRefWorktree(worktree) === true &&
+                    worktree.path === candidate.path,
+                )
+                .map((worktree) => ({
+                  repoRelativePath: owner.repo.relativePath,
+                  repoFullPath: owner.repo.fullPath,
+                  bareRepoPath: owner.bareRepoPath,
+                  worktree,
+                }))
+              const appliedResults = yield* coldReclaimRepo({
+                store,
+                storeLock,
+                prResolver,
+                root,
+                repoRelativePath: owner.repo.relativePath,
+                repoFullPath: owner.repo.fullPath,
+                bareRepoPath: owner.bareRepoPath,
+                namedWorktrees,
+                liveSet,
+                ledger,
+                config,
+                now,
+                dryRun: false,
+                candidatePath: candidate.path,
+              })
+              const matching = appliedResults.filter(
+                (result) =>
+                  result.path === candidate.path &&
+                  (result.status === 'archived' || result.status === 'reaped'),
+              )
+              if (matching.length !== 1) {
+                return yield* new StoreCommandError({
+                  message: 'candidate changed during owner-locked revalidation',
+                })
+              }
+              applied = matching[0]!
+            }
+            results.splice(0, results.length, applied)
           }
 
           statusMessage = undefined
