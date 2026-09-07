@@ -162,6 +162,7 @@ SUBCOMMANDS
   fetch       Fetch all repositories in the store
   gc          Garbage collect unused worktrees
   fix         Fix store issues
+  lease       Run a command while holding a store deletion lease
   worktree    Manage worktrees in the store
 ",
 }
