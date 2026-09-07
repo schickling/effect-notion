@@ -97,6 +97,23 @@ if [ "${TEST_OXLINT_LOUD_FAILURE:-0}" = 1 ]; then
   echo "fixture.ts:1:1: error: no-debugger"
   exit 1
 fi
+# The real tsgolint crash shape: oxlint prints its report to STDOUT with NO
+# trailing newline and exits nonzero. devenv relays a failing task's output by
+# lines and drops the chunk after the last newline at EOF, so this exact tail
+# was the fatal-but-invisible CI failure. printf (not echo) keeps the byte
+# stream newline-less on purpose — do not "fix" it.
+if [ "${TEST_OXLINT_TSGOLINT_SIGKILL:-0}" = 1 ]; then
+  printf '%s' 'Error running tsgolint: "exit status: signal: 9 (SIGKILL)"'
+  exit 1
+fi
+# A failing tool whose stdout ends in a literal NUL byte (a truncated/holed
+# write). This byte is NOT a newline, so the failure path must still complete
+# the line. Text-based tail inspection cannot see it: command substitution
+# drops NUL bytes, making the tail look newline-terminated.
+if [ "${TEST_OXLINT_NUL_TAIL:-0}" = 1 ]; then
+  printf 'partial finding\000'
+  exit 1
+fi
 printf '%s\n' "$@" > "${TEST_OXLINT_ARGS:?}"
 EOF
 cat > "$tmpdir/bin/oxfmt" <<'EOF'
@@ -448,6 +465,145 @@ if ! grep -qF -- "stdout_bytes=$finding_bytes" "$log_stderr"; then
   exit 1
 fi
 echo "  ok: reported stdout_bytes matches the streamed bytes"
+
+echo ""
+echo "Test 10: a newline-less failing stdout tail survives EOF and is terminated"
+export TEST_OXLINT_TSGOLINT_SIGKILL=1
+tsgolint_text='Error running tsgolint: "exit status: signal: 9 (SIGKILL)"'
+tsgolint_stdout="$tmpdir/oxlint-tsgolint.stdout"
+tsgolint_stderr="$tmpdir/oxlint-tsgolint.stderr"
+tsgolint_status=0
+(
+  cd "$workspace"
+  bash "$tmpdir/lint-check-oxlint.sh"
+) > "$tsgolint_stdout" 2> "$tsgolint_stderr" || tsgolint_status=$?
+unset TEST_OXLINT_TSGOLINT_SIGKILL
+
+if [ "$tsgolint_status" -eq 0 ]; then
+  echo "FAIL: a crashing lint child must keep the task nonzero"
+  exit 1
+fi
+echo "  ok: status stays nonzero ($tsgolint_status)"
+
+# The tail must be a COMPLETE line: identical text plus the terminating newline
+# the tool never wrote, and nothing else.
+if [ "$(cat "$tsgolint_stdout")" != "$tsgolint_text" ]; then
+  echo "FAIL: the crash text must reach stdout verbatim"
+  echo "  actual stdout:"
+  cat "$tsgolint_stdout"
+  exit 1
+fi
+echo "  ok: crash text reaches stdout verbatim"
+
+tsgolint_bytes="$(wc -c < "$tsgolint_stdout" | tr -d ' ')"
+tsgolint_text_bytes="$(printf '%s' "$tsgolint_text" | wc -c | tr -d ' ')"
+if [ "$tsgolint_bytes" != "$((tsgolint_text_bytes + 1))" ]; then
+  echo "FAIL: stdout must be the crash text plus exactly one added newline"
+  echo "  text bytes: $tsgolint_text_bytes, stdout bytes: $tsgolint_bytes"
+  exit 1
+fi
+if [ "$(tail -c 1 "$tsgolint_stdout" | od -An -c | tr -d ' ')" != '\n' ]; then
+  echo "FAIL: the failing stdout tail must end in a newline for devenv's line relay"
+  exit 1
+fi
+echo "  ok: tail is newline-terminated (${tsgolint_bytes} = ${tsgolint_text_bytes} + 1 bytes)"
+
+for needle in \
+  "stdout_bytes=$tsgolint_text_bytes" \
+  "stdout_tail=no-newline"; do
+  if ! grep -qF -- "$needle" "$tsgolint_stderr"; then
+    echo "FAIL: failure diagnostic must contain: $needle"
+    echo "  actual stderr:"
+    sed -n '1,40p' "$tsgolint_stderr"
+    exit 1
+  fi
+  echo "  ok: diagnostic names $needle"
+done
+
+# Memory evidence turns "probably OOM" into a fact (or an explicit
+# unavailability). Either shape is acceptable — the host may not expose cgroup
+# v2 — but the diagnostic must never be silent about it.
+if grep -qE 'lint-oxc: lane=lint:check:oxlint stage=run cgroup=\S+ memory\.events=\[.*\] memory\.peak=\S+ memory\.max=\S+' "$tsgolint_stderr"; then
+  echo "  ok: cgroup v2 memory evidence is reported"
+  grep -oE 'memory\.events=\[[^]]*\] memory\.peak=\S+ memory\.max=\S+' "$tsgolint_stderr" | sed 's/^/    /'
+elif grep -qF -- 'memory=unavailable (no readable cgroup v2)' "$tsgolint_stderr"; then
+  echo "  ok: memory evidence is explicitly labelled unavailable on this host"
+else
+  echo "FAIL: failure diagnostic must report cgroup memory evidence or label it unavailable"
+  sed -n '1,40p' "$tsgolint_stderr"
+  exit 1
+fi
+
+# A successful run must stay byte-identical: no added newline, no diagnostics.
+success_stdout="$tmpdir/oxlint-success.stdout"
+success_stderr="$tmpdir/oxlint-success.stderr"
+(
+  cd "$workspace"
+  bash "$tmpdir/lint-check-oxlint.sh"
+) > "$success_stdout" 2> "$success_stderr"
+if grep -qE 'stdout_tail=|memory\.events=|memory=unavailable' "$success_stderr"; then
+  echo "FAIL: a passing lint run must not emit failure diagnostics"
+  sed -n '1,40p' "$success_stderr"
+  exit 1
+fi
+echo "  ok: a passing run emits no failure diagnostics"
+
+echo ""
+echo "Test 11: a NUL-terminated failing stdout tail is classified as no-newline"
+# Regression: the tail byte used to be inspected as TEXT via command
+# substitution, which strips trailing newlines and drops NUL bytes alike. A
+# stream ending in a literal NUL therefore looked newline-terminated, the
+# line-completing newline was suppressed, and devenv dropped the final chunk
+# again. Classification must be byte-exact (LF = 10), not text-emptiness.
+export TEST_OXLINT_NUL_TAIL=1
+nul_text='partial finding'
+nul_stdout="$tmpdir/oxlint-nul.stdout"
+nul_stderr="$tmpdir/oxlint-nul.stderr"
+nul_status=0
+(
+  cd "$workspace"
+  bash "$tmpdir/lint-check-oxlint.sh"
+) > "$nul_stdout" 2> "$nul_stderr" || nul_status=$?
+unset TEST_OXLINT_NUL_TAIL
+
+if [ "$nul_status" -eq 0 ]; then
+  echo "FAIL: a failing lint child must keep the task nonzero"
+  exit 1
+fi
+echo "  ok: status stays nonzero ($nul_status)"
+
+# Streamed bytes = text + the NUL itself; stdout then carries one added newline.
+nul_stream_bytes="$(printf '%s\000' "$nul_text" | wc -c | tr -d ' ')"
+nul_stdout_bytes="$(wc -c < "$nul_stdout" | tr -d ' ')"
+if [ "$nul_stdout_bytes" != "$((nul_stream_bytes + 1))" ]; then
+  echo "FAIL: stdout must be the NUL-terminated payload plus exactly one added newline"
+  echo "  stream bytes: $nul_stream_bytes, stdout bytes: $nul_stdout_bytes"
+  od -An -c "$nul_stdout" | sed 's/^/    /'
+  exit 1
+fi
+if [ "$(tail -c 1 "$nul_stdout" | od -An -tu1 | tr -d ' ')" != 10 ]; then
+  echo "FAIL: a NUL tail must still be completed with a newline for devenv's line relay"
+  od -An -c "$nul_stdout" | sed 's/^/    /'
+  exit 1
+fi
+if [ "$(tail -c 2 "$nul_stdout" | head -c 1 | od -An -tu1 | tr -d ' ')" != 0 ]; then
+  echo "FAIL: the original NUL byte must survive verbatim before the added newline"
+  od -An -c "$nul_stdout" | sed 's/^/    /'
+  exit 1
+fi
+echo "  ok: NUL byte survives and the line is completed (${nul_stdout_bytes} = ${nul_stream_bytes} + 1 bytes)"
+
+for needle in \
+  "stdout_bytes=$nul_stream_bytes" \
+  "stdout_tail=no-newline"; do
+  if ! grep -qF -- "$needle" "$nul_stderr"; then
+    echo "FAIL: failure diagnostic must contain: $needle"
+    echo "  actual stderr:"
+    sed -n '1,40p' "$nul_stderr"
+    exit 1
+  fi
+  echo "  ok: diagnostic names $needle"
+done
 
 echo ""
 echo "All lint-oxc file list tests passed"
