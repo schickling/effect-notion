@@ -124,10 +124,16 @@ product_platform = rule(
     },
 )
 
-def _remote_cache_enabled():
+# Root cache policy, read from the synthesized root buckconfig rather than from a rule attr:
+# `mr apply` materializes `[buck2] remote_cache_enabled/allow_cache_uploads` into the root
+# before the first overlay action, which is the only CI-reachable injection point (a `-c`
+# override cannot express it). Exported so every executor config in the kernel — execution
+# platforms AND per-test executors in `//buck2:javascript.bzl` — consults ONE switch; a
+# second copy is how a lane ends up asking for caching that has no engine behind it.
+def root_remote_cache_enabled():
     return read_root_config("buck2", "remote_cache_enabled", "true") == "true"
 
-def _allow_cache_uploads():
+def root_allow_cache_uploads():
     return read_root_config("buck2", "allow_cache_uploads", "true") == "true"
 
 def _native_execution_platform_impl(ctx):
@@ -142,8 +148,8 @@ def _native_execution_platform_impl(ctx):
         executor_config = CommandExecutorConfig(
             local_enabled = True,
             remote_enabled = False,
-            remote_cache_enabled = _remote_cache_enabled(),
-            allow_cache_uploads = _allow_cache_uploads(),
+            remote_cache_enabled = root_remote_cache_enabled(),
+            allow_cache_uploads = root_allow_cache_uploads(),
             use_windows_path_separators = False,
         ),
     )

@@ -23,6 +23,7 @@ ROOT_TEST_SOURCE_TREES = {
         "workflows/ci.yml.genie.ts": ".github/workflows/ci.yml.genie.ts",
     },
     "buck2": {
+        "javascript.bzl": "buck2/javascript.bzl",
         "materialization.bzl": "buck2/materialization.bzl",
         "root_test_layout.bzl": "buck2/root_test_layout.bzl",
         "typescript.bzl": "buck2/typescript.bzl",

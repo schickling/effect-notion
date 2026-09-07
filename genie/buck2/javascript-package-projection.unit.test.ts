@@ -1,9 +1,9 @@
+import { readFileSync } from 'node:fs'
 import process from 'node:process'
 
 import { describe, expect, it } from 'vitest'
-import type { GenieContext } from '../../packages/@overeng/genie/src/runtime/core.ts'
 
-import type { Buck2TypeScriptAdmission } from './typescript-admissions.ts'
+import type { GenieContext } from '../../packages/@overeng/genie/src/runtime/core.ts'
 import {
   buck2JavaScriptPackageProjection,
   type Buck2JavaScriptTestTarget,
@@ -12,6 +12,7 @@ import {
   javascriptTestTargetCensus,
   rootJavaScriptTestBlockers,
 } from './javascript-test-targets.ts'
+import type { Buck2TypeScriptAdmission } from './typescript-admissions.ts'
 
 const admission = {
   dependencyImporter: '//buck2/dependencies:importer_packages_overeng_buck2_tools_e521acf736cf',
@@ -182,5 +183,52 @@ describe('buck2JavaScriptPackageProjection', () => {
     expect(rootJavaScriptTestBlockers.map(({ surface }) => surface)).toEqual([
       'devenv-modules:test',
     ])
+  })
+})
+
+describe('buck2/javascript.bzl test cache participation', () => {
+  const javascriptRule = readFileSync('buck2/javascript.bzl', 'utf8')
+  const platformDefs = readFileSync('buck2/platforms/defs.bzl', 'utf8')
+
+  it('gates every test-executor cache switch on the root policy, not on the target attr alone', () => {
+    // `mr apply` materializes `[buck2] remote_cache_enabled = false` into the synthesized
+    // root before the first overlay action, and CI runs that way with NO RE engine
+    // configured. Execution platforms already consult that switch, but
+    // `ExternalRunnerTestInfo` carries its own executor: a rule that reads only `cacheable`
+    // asks for action-cache lookup and test-execution caching against an engine that does
+    // not exist, and the test dies with `No engine address`.
+    expect(platformDefs).toContain('def root_remote_cache_enabled():')
+    expect(platformDefs).toContain('def root_allow_cache_uploads():')
+    expect(javascriptRule).toContain(
+      'load("//buck2/platforms:defs.bzl", "root_allow_cache_uploads", "root_remote_cache_enabled")',
+    )
+    expect(javascriptRule).toContain(
+      'cache_enabled = ctx.attrs.cacheable and root_remote_cache_enabled()',
+    )
+    expect(javascriptRule).toContain(
+      'cache_uploads = ctx.attrs.cacheable and root_allow_cache_uploads()',
+    )
+    for (const gated of [
+      'remote_cache_enabled = cache_enabled,',
+      'allow_cache_uploads = cache_uploads,',
+      'supports_test_execution_caching = cache_enabled,',
+    ]) {
+      expect(javascriptRule).toContain(gated)
+    }
+    // No cache switch may be wired back to the bare target attribute.
+    expect(javascriptRule).not.toMatch(
+      /(?:remote_cache_enabled|allow_cache_uploads|supports_test_execution_caching) = cacheable,/u,
+    )
+  })
+
+  it('keeps determinism a target-only refusal that the root switch cannot soften', () => {
+    // Root policy decides PARTICIPATION; it must never turn a non-reproducible lane into a
+    // cacheable one, so both refusals stay on the raw attribute.
+    expect(javascriptRule).toContain(
+      'if (ctx.attrs.inherited_env or "network" in ctx.attrs.capabilities) and ctx.attrs.cacheable:',
+    )
+    expect(javascriptRule).toContain(
+      'if ctx.attrs.execution_mode == "unsandboxed-local" and ctx.attrs.cacheable:',
+    )
   })
 })
