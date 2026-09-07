@@ -224,22 +224,34 @@ let
       # all" is what separates a real finding from a tool that died mute — the
       # ambiguity that made a red CI oxlint task unattributable (devenv dumps a
       # failing task's stdout, and there was none). Bytes are COUNTED as they
-      # stream past (tee duplicates onto the real stdout via fd 3, wc consumes
-      # the pipe); no lint output is ever buffered in memory or on disk. Skipped
-      # when stdout is a terminal so interactive tty/colour behaviour is
-      # untouched.
+      # stream past; no lint output is ever buffered in memory or on disk, and
+      # the branch is skipped entirely when stdout is a terminal so interactive
+      # tty/colour behaviour is untouched.
+      #
+      # The real stdout is reached with `>&3`, which DUPLICATES the inherited
+      # descriptor. It must never be named as a path: `tee /dev/fd/3` reopens the
+      # file with O_TRUNC on Linux, so a task whose stdout is a redirected
+      # regular file (a CI log) lost everything written before this point and
+      # left a NUL hole where the outer offset had advanced. The counter
+      # therefore gets a FIFO — a path tee may safely open — with `wc` reading it
+      # in a known background job that is waited on before the count is read.
       lint_status=0
       lint_stdout_bytes=unknown
       if [ -t 1 ]; then
         _run_lint || lint_status=$?
       else
-        lint_bytes=$(mktemp)
-        trap 'rm -f "$files" "$lint_bytes"' EXIT
+        lint_probe_dir=$(mktemp -d)
+        trap 'rm -f "$files"; rm -rf "$lint_probe_dir"' EXIT
+        lint_bytes="$lint_probe_dir/bytes"
+        lint_fifo="$lint_probe_dir/stdout"
+        ${pkgs.coreutils}/bin/mkfifo "$lint_fifo"
+        ${pkgs.coreutils}/bin/wc -c < "$lint_fifo" > "$lint_bytes" &
+        lint_wc_pid=$!
         {
-          _run_lint | ${pkgs.coreutils}/bin/tee /dev/fd/3 \
-            | ${pkgs.coreutils}/bin/wc -c > "$lint_bytes"
+          _run_lint | ${pkgs.coreutils}/bin/tee "$lint_fifo" >&3
         } 3>&1 || lint_status=$?
-        lint_stdout_bytes=$(${pkgs.coreutils}/bin/cat "$lint_bytes")
+        wait "$lint_wc_pid"
+        lint_stdout_bytes=$(${pkgs.coreutils}/bin/tr -d ' ' < "$lint_bytes")
       fi
       if [ "$lint_status" -ne 0 ]; then
         # `xargs` never forwards the child's own status; translate its documented
