@@ -345,11 +345,13 @@ const readRegistryRecords = ({
     for (const entry of entries) {
       if (entry.endsWith('.json') === false) continue
       const recordPath = EffectPath.ops.join(registryDir, EffectPath.unsafe.relativeFile(entry))
-      const parsed = yield* fs.readFileString(recordPath).pipe(
-        Effect.flatMap((content) =>
-          Schema.decodeUnknownEffect(Schema.fromJsonString(StoreWorkspaceRecord))(content),
-        ),
-      )
+      const parsed = yield* fs
+        .readFileString(recordPath)
+        .pipe(
+          Effect.flatMap((content) =>
+            Schema.decodeUnknownEffect(Schema.fromJsonString(StoreWorkspaceRecord))(content),
+          ),
+        )
 
       const workspaceRoot = EffectPath.unsafe.absoluteDir(`${parsed.workspaceRoot}/`)
       const workspaceExists = yield* fs.exists(parsed.workspaceRoot)

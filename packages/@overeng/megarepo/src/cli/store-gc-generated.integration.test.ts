@@ -10,6 +10,11 @@ import { expect } from 'vitest'
 import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
 
 import * as Git from '../core/git.ts'
+import {
+  acquireDeletionLease,
+  canonicalizeOwnerPath,
+  releaseDeletionLease,
+} from '../store/store-deletion-lease.ts'
 import { makeConsoleCapture } from '../test-utils/consoleCapture.ts'
 import { decodeJson, encodeJson } from '../test-utils/json.ts'
 import { createStoreFixture } from '../test-utils/store-setup.ts'
@@ -365,6 +370,53 @@ describe('mr store gc --generated-artifacts', () => {
   )
 
   it.effect(
+    'refuses to delete while an activation holds the owner deletion lease',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const f = yield* fixture()
+        yield* configure({ config: f.config, manifest: f.manifest })
+        const artifact = yield* oldIgnoredArtifact(f.worktree)
+        const plan = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--dry-run'],
+        })
+
+        const candidatePath = generated(plan.results, 'node_modules')!.path
+        // Stand in for `mr store lease -- <activation>`: hold the owner lease
+        // across the whole apply attempt.
+        const ownerPath = yield* canonicalizeOwnerPath(f.worktree)
+        const held = yield* acquireDeletionLease({
+          storeBasePath: f.storePath,
+          ownerPath,
+          now: NOW,
+        })
+        const refused = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--expected-plan', plan.planSha256!, '--candidate-path', candidatePath],
+        })
+        expect(refused.exitCode).toBe(1)
+        expect(yield* fs.exists(artifact)).toBe(true)
+
+        // Activation finished (and published its manifest): the same plan applies.
+        yield* releaseDeletionLease(held)
+        const applied = yield* runGc({
+          cwd: f.outside,
+          storePath: f.storePath,
+          args: ['--expected-plan', plan.planSha256!, '--candidate-path', candidatePath],
+        })
+        expect(applied.exitCode).toBe(0)
+        expect(yield* fs.exists(artifact)).toBe(false)
+        expect(yield* fs.exists(held.leasePath)).toBe(false)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
     'refuses missing and newly-live generated-artifact candidates',
     Effect.fnUntraced(
       function* () {
@@ -377,6 +429,7 @@ describe('mr store gc --generated-artifacts', () => {
           storePath: f.storePath,
           args: ['--dry-run'],
         })
+        const candidatePath = generated(plan.results, 'node_modules')!.path
 
         const missing = yield* runGc({
           cwd: f.outside,
@@ -394,7 +447,7 @@ describe('mr store gc --generated-artifacts', () => {
         const live = yield* runGc({
           cwd: f.outside,
           storePath: f.storePath,
-          args: ['--expected-plan', plan.planSha256!, '--candidate-path', artifact],
+          args: ['--expected-plan', plan.planSha256!, '--candidate-path', candidatePath],
         })
         expect(live.exitCode).toBe(1)
         expect(yield* fs.exists(artifact)).toBe(true)

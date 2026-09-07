@@ -429,10 +429,7 @@ describe('store-liveness', () => {
         const fs = yield* FileSystem.FileSystem
         const { storePath } = yield* createStoreFixture([])
         const store = yield* Effect.provide(Store, makeStoreLayer({ basePath: storePath }))
-        const stateDir = EffectPath.ops.join(
-          storePath,
-          EffectPath.unsafe.relativeDir('.state/'),
-        )
+        const stateDir = EffectPath.ops.join(storePath, EffectPath.unsafe.relativeDir('.state/'))
         yield* fs.makeDirectory(stateDir, { recursive: true })
         yield* fs.writeFileString(
           EffectPath.ops.join(stateDir, EffectPath.unsafe.relativeFile('workspaces')),

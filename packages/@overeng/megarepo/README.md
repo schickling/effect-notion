@@ -109,7 +109,26 @@ inside a clean registered worktree. A capped, timed recursive scan uses the newe
 symlinks or incomplete scans produce `unknown`. JSON results distinguish
 `would-delete`, `deleted`, `keep`, and `unknown` and include a deterministic `planSha256`.
 Application recomputes the complete plan, requires the exact digest and a unique candidate, then
-revalidates and removes only that candidate under its owner-worktree lock.
+revalidates and removes only that candidate under its owner-worktree lock and its deletion lease.
+
+### Deletion lease
+
+The liveness manifest is written by an external agent manager, so rereading it cannot exclude an
+activation that starts immediately afterwards. A lease per canonical owner worktree closes that
+window: reclamation holds it across final classification and deletion, and activation holds it from
+before its first worktree write until after it has published the manifest. The lease is one file at
+`$MEGAREPO_STORE/.state/deletion-leases/<sha256-of-owner-path>.lease`, taken by hard-linking onto
+that path — atomic on POSIX, so the loser fails closed instead of proceeding on a stale snapshot.
+
+Activation needs no protocol code of its own; wrap it:
+
+```bash
+mr store lease --owner-path /path/to/store/worktree -- <activation command>
+```
+
+A lease is reclaimed only when its record is decodable, names this host, and names a pid that is
+provably gone. A foreign host, a live pid, or an unreadable record keeps the lease and refuses the
+caller.
 
 ## Documentation
 

@@ -16,6 +16,7 @@ import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
 import { parseSourceString, isRemoteSource } from '../core/config.ts'
 import * as Git from '../core/git.ts'
 import { LOCK_FILE_NAME, readLockFile } from '../core/lock.ts'
+import { canonicalizeOwnerPath, deletionLeasePath } from '../store/store-deletion-lease.ts'
 import { refreshWorkspaceRegistry } from '../store/store-liveness.ts'
 import { makeStoreLayer, Store } from '../store/store.ts'
 import { makeConsoleCapture } from '../test-utils/consoleCapture.ts'
@@ -517,6 +518,47 @@ describe('mr store gc', () => {
       ),
     )
   })
+})
+
+describe('mr store lease', () => {
+  it.effect(
+    'holds the owner lease for the wrapped command and releases it on both outcomes',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const { storePath, worktreePaths } = yield* createStoreFixture([
+          { host: 'github.com', owner: 'test-owner', repo: 'leased-repo', branches: ['main'] },
+        ])
+        const owner = worktreePaths['github.com/test-owner/leased-repo#main']!
+        const cwd = EffectPath.unsafe.absoluteDir(`${yield* fs.makeTempDirectoryScoped()}/`)
+        const leasePath = deletionLeasePath({
+          storeBasePath: storePath,
+          ownerPath: yield* canonicalizeOwnerPath(owner),
+        })
+
+        // The wrapped command observes its own lease, proving external activation
+        // is covered from before its first write until after it exits.
+        const observed = yield* runMrCommand({
+          cwd,
+          command: ['store', 'lease', '--owner-path', owner, '--', 'test', '-f', leasePath],
+          env: { MEGAREPO_STORE: storePath },
+        })
+        expect(observed.exitCode).toBe(0)
+        expect(yield* fs.exists(leasePath)).toBe(false)
+
+        // A failing command propagates failure and still frees the lease.
+        const failed = yield* runMrCommand({
+          cwd,
+          command: ['store', 'lease', '--owner-path', owner, '--', 'false'],
+          env: { MEGAREPO_STORE: storePath },
+        })
+        expect(failed.exitCode).toBe(1)
+        expect(yield* fs.exists(leasePath)).toBe(false)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
 })
 
 describe('store discovery is bounded to the layout', () => {

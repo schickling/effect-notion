@@ -12,8 +12,8 @@ import { isAbsolute, normalize } from 'node:path'
 import { Clock, Effect, Option, Schedule, Schema, Stream } from 'effect'
 import * as FileSystem from 'effect/FileSystem'
 import { type PlatformError } from 'effect/PlatformError'
-import type * as Scope from 'effect/Scope'
 import * as Cli from 'effect/unstable/cli'
+import * as ChildProcess from 'effect/unstable/process/ChildProcess'
 import type { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 import React from 'react'
 
@@ -36,6 +36,7 @@ import {
   reapArchive,
   scanArchives,
 } from '../../../store/store-archive.ts'
+import { canonicalizeOwnerPath, withDeletionLease } from '../../../store/store-deletion-lease.ts'
 import {
   loadStoreGcConfig,
   type StoreGcConfig,
@@ -1884,7 +1885,7 @@ const storeGcCommand = Cli.Command.make(
       }: {
         progressive: boolean
         ownerLockHeld?: boolean | undefined
-      }): Effect.Effect<void, unknown, FileSystem.FileSystem | Scope.Scope | ChildProcessSpawner> =>
+      }) =>
         Effect.gen(function* () {
           if (progressive === true) {
             yield* dispatchGc({ done: false, forceDispatch: true })
@@ -2034,124 +2035,133 @@ const storeGcCommand = Cli.Command.make(
                 })
               }
               const ownerPath = selected[0]!.workspacePath
-              const applied = yield* storeLock.withWorktreeLock(ownerPath)(
-                Effect.gen(function* () {
-                  const freshLiveSet = yield* reReconcileLiveSet({ store, root, now })
-                  const freshConfig = yield* loadStoreGcConfig({
-                    storeBasePath: store.basePath,
+              const leaseOwnerPath = yield* canonicalizeOwnerPath(ownerPath)
+              // The owner lock serializes megarepo's own reclaimers; the deletion
+              // lease additionally excludes external activation of this worktree,
+              // so the final liveness classification below cannot be overtaken.
+              const applied = yield* Effect.gen(function* () {
+                const freshLiveSet = yield* reReconcileLiveSet({ store, root, now })
+                const freshConfig = yield* loadStoreGcConfig({
+                  storeBasePath: store.basePath,
+                })
+                const freshRepos = yield* store.listRepos
+                const freshRepoWorktrees = yield* Effect.all(
+                  freshRepos.map((repo) =>
+                    Effect.gen(function* () {
+                      const bareRepoPath = EffectPath.ops.join(
+                        repo.fullPath,
+                        EffectPath.unsafe.relativeDir('.bare/'),
+                      )
+                      const worktrees = yield* collectRepoStoreWorktrees({
+                        fs,
+                        repoPath: repo.fullPath,
+                        bareRepoPath,
+                      })
+                      return { repo, worktrees }
+                    }),
+                  ),
+                  { concurrency: repoConcurrency },
+                )
+                const freshPlan = yield* planGeneratedArtifacts({
+                  config: freshConfig,
+                  fs,
+                  liveSet: freshLiveSet,
+                  now,
+                  readCurrentTimeMillis: Clock.currentTimeMillis,
+                  repoWorktrees: freshRepoWorktrees,
+                })
+                if (freshPlan.planSha256 !== expectedPlan.value) {
+                  return yield* new StoreCommandError({
+                    message: 'store gc plan changed under owner lock; refusing deletion',
                   })
-                  const freshRepos = yield* store.listRepos
-                  const freshRepoWorktrees = yield* Effect.all(
-                    freshRepos.map((repo) =>
-                      Effect.gen(function* () {
-                        const bareRepoPath = EffectPath.ops.join(
-                          repo.fullPath,
-                          EffectPath.unsafe.relativeDir('.bare/'),
-                        )
-                        const worktrees = yield* collectRepoStoreWorktrees({
-                          fs,
-                          repoPath: repo.fullPath,
-                          bareRepoPath,
-                        })
-                        return { repo, worktrees }
-                      }),
-                    ),
-                    { concurrency: repoConcurrency },
-                  )
-                  const freshPlan = yield* planGeneratedArtifacts({
-                    config: freshConfig,
-                    fs,
-                    liveSet: freshLiveSet,
-                    now,
-                    readCurrentTimeMillis: Clock.currentTimeMillis,
-                    repoWorktrees: freshRepoWorktrees,
+                }
+                const freshCandidates = freshPlan.results.filter(
+                  (result) =>
+                    normalizeStorePath(result.path) === normalizeStorePath(candidatePath.value) &&
+                    result.outcome === 'would-delete',
+                )
+                if (freshCandidates.length !== 1) {
+                  return yield* new StoreCommandError({
+                    message: 'candidate is missing, ambiguous, or no longer eligible',
                   })
-                  if (freshPlan.planSha256 !== expectedPlan.value) {
-                    return yield* new StoreCommandError({
-                      message: 'store gc plan changed under owner lock; refusing deletion',
-                    })
-                  }
-                  const freshCandidates = freshPlan.results.filter(
-                    (result) =>
-                      normalizeStorePath(result.path) === normalizeStorePath(candidatePath.value) &&
-                      result.outcome === 'would-delete',
-                  )
-                  if (freshCandidates.length !== 1) {
-                    return yield* new StoreCommandError({
-                      message: 'candidate is missing, ambiguous, or no longer eligible',
-                    })
-                  }
-                  const freshCandidate = freshCandidates[0]!
-                  const canonicalOwner = yield* fs.realPath(ownerPath)
-                  const canonicalCandidate = yield* fs.realPath(freshCandidate.path)
-                  if (
-                    freshCandidate.artifactClass === undefined ||
-                    freshCandidate.workspacePath === undefined ||
-                    normalizeStorePath(canonicalCandidate) !==
-                      normalizeStorePath(`${canonicalOwner}/${freshCandidate.artifactClass}`)
-                  ) {
-                    return yield* new StoreCommandError({
-                      message: 'candidate containment changed under owner lock',
-                    })
-                  }
-                  const removalLiveSet = yield* reReconcileLiveSet({ store, root, now })
-                  if (
-                    isPathProtected({
-                      liveSet: removalLiveSet,
-                      path: freshCandidate.workspacePath,
-                    }) === true
-                  ) {
-                    return yield* new StoreCommandError({
-                      message: 'candidate owner became live before deletion',
-                    })
-                  }
-                  const manifestPath = freshConfig.generatedArtifacts.agentLivenessManifest
-                  if (manifestPath === undefined) {
-                    return yield* new StoreCommandError({
-                      message: 'agent liveness became unavailable before deletion',
-                    })
-                  }
-                  const manifestContent = yield* fs
-                    .readFileString(manifestPath)
-                    .pipe(Effect.orElseSucceed(() => undefined))
-                  const manifest =
-                    manifestContent === undefined
-                      ? undefined
-                      : yield* Schema.decodeUnknownEffect(
-                          Schema.fromJsonString(AgentLivenessManifest),
-                        )(manifestContent).pipe(Effect.orElseSucceed(() => undefined))
-                  const removalTime = yield* Clock.currentTimeMillis
-                  if (
-                    manifest === undefined ||
-                    manifest.expiresAtMs < removalTime ||
-                    manifest.activeWorkspacePaths.some(
-                      (path) => isNormalizedAbsolutePath(path) === false,
-                    ) === true
-                  ) {
-                    return yield* new StoreCommandError({
-                      message: 'agent liveness became unknown before deletion',
-                    })
-                  }
-                  const activeAgentPaths = yield* Effect.forEach(
-                    manifest.activeWorkspacePaths,
-                    (path) => fs.realPath(path).pipe(Effect.orElseSucceed(() => undefined)),
-                    { concurrency: 1 },
-                  )
-                  if (
-                    activeAgentPaths.some((path) => path === undefined) === true ||
-                    activeAgentPaths.some(
-                      (path) =>
-                        path !== undefined &&
-                        normalizeStorePath(path) === normalizeStorePath(canonicalOwner),
-                    ) === true
-                  ) {
-                    return yield* new StoreCommandError({
-                      message: 'candidate owner is live or liveness is unknown before deletion',
-                    })
-                  }
-                  yield* fs.remove(freshCandidate.path, { recursive: true })
-                  return { ...freshCandidate, outcome: 'deleted' as const }
+                }
+                const freshCandidate = freshCandidates[0]!
+                const canonicalOwner = yield* fs.realPath(ownerPath)
+                const canonicalCandidate = yield* fs.realPath(freshCandidate.path)
+                if (
+                  freshCandidate.artifactClass === undefined ||
+                  freshCandidate.workspacePath === undefined ||
+                  normalizeStorePath(canonicalCandidate) !==
+                    normalizeStorePath(`${canonicalOwner}/${freshCandidate.artifactClass}`)
+                ) {
+                  return yield* new StoreCommandError({
+                    message: 'candidate containment changed under owner lock',
+                  })
+                }
+                const removalLiveSet = yield* reReconcileLiveSet({ store, root, now })
+                if (
+                  isPathProtected({
+                    liveSet: removalLiveSet,
+                    path: freshCandidate.workspacePath,
+                  }) === true
+                ) {
+                  return yield* new StoreCommandError({
+                    message: 'candidate owner became live before deletion',
+                  })
+                }
+                const manifestPath = freshConfig.generatedArtifacts.agentLivenessManifest
+                if (manifestPath === undefined) {
+                  return yield* new StoreCommandError({
+                    message: 'agent liveness became unavailable before deletion',
+                  })
+                }
+                const manifestContent = yield* fs
+                  .readFileString(manifestPath)
+                  .pipe(Effect.orElseSucceed(() => undefined))
+                const manifest =
+                  manifestContent === undefined
+                    ? undefined
+                    : yield* Schema.decodeUnknownEffect(
+                        Schema.fromJsonString(AgentLivenessManifest),
+                      )(manifestContent).pipe(Effect.orElseSucceed(() => undefined))
+                const removalTime = yield* Clock.currentTimeMillis
+                if (
+                  manifest === undefined ||
+                  manifest.expiresAtMs < removalTime ||
+                  manifest.activeWorkspacePaths.some(
+                    (path) => isNormalizedAbsolutePath(path) === false,
+                  ) === true
+                ) {
+                  return yield* new StoreCommandError({
+                    message: 'agent liveness became unknown before deletion',
+                  })
+                }
+                const activeAgentPaths = yield* Effect.forEach(
+                  manifest.activeWorkspacePaths,
+                  (path) => fs.realPath(path).pipe(Effect.orElseSucceed(() => undefined)),
+                  { concurrency: 1 },
+                )
+                if (
+                  activeAgentPaths.some((path) => path === undefined) === true ||
+                  activeAgentPaths.some(
+                    (path) =>
+                      path !== undefined &&
+                      normalizeStorePath(path) === normalizeStorePath(canonicalOwner),
+                  ) === true
+                ) {
+                  return yield* new StoreCommandError({
+                    message: 'candidate owner is live or liveness is unknown before deletion',
+                  })
+                }
+                yield* fs.remove(freshCandidate.path, { recursive: true })
+                return { ...freshCandidate, outcome: 'deleted' as const }
+              }).pipe(
+                withDeletionLease({
+                  storeBasePath: store.basePath,
+                  ownerPath: leaseOwnerPath,
+                  now,
                 }),
+                storeLock.withWorktreeLock(ownerPath),
               )
               results.splice(0, results.length, applied)
             }
@@ -2412,16 +2422,9 @@ const storeGcCommand = Cli.Command.make(
               })
             }
 
-            if (ownerLockHeld === false) {
-              results.splice(0, results.length)
-              completedRepoCount = 0
-              discoveredWorktreeCount = 0
-              repoCount = undefined
-              planSha256 = undefined
-              return yield* storeLock.withWorktreeLock(candidate.path)(
-                executeGc({ progressive: false, ownerLockHeld: true }),
-              )
-            }
+            // First pass: hand the candidate back so the caller can retake the
+            // plan under this candidate's owner lock (see `runGcTransaction`).
+            if (ownerLockHeld === false) return candidate.path
 
             let applied: StoreGcResult
             if (candidate.status === 'removed') {
@@ -2519,14 +2522,35 @@ const storeGcCommand = Cli.Command.make(
           if (progressive === true || ownerLockHeld === true) {
             yield* dispatchGc({ done: true, forceDispatch: true })
           }
+          return undefined
         })
 
+      /**
+       * Plan-bound application runs the whole GC twice: the first pass computes
+       * the canonical plan and names the candidate, the second recomputes the
+       * complete plan under that candidate's owner lock and only then mutates.
+       * Nothing else may observe the first pass's results, so the accumulators
+       * are reset before the locked pass.
+       */
+      const runGcTransaction = ({ progressive }: { progressive: boolean }) =>
+        Effect.gen(function* () {
+          const lockCandidate = yield* executeGc({ progressive })
+          if (lockCandidate === undefined) return
+          results.splice(0, results.length)
+          completedRepoCount = 0
+          discoveredWorktreeCount = 0
+          repoCount = undefined
+          planSha256 = undefined
+          yield* storeLock.withWorktreeLock(lockCandidate)(
+            executeGc({ progressive: false, ownerLockHeld: true }),
+          )
+        })
       // Final JSON callers want one stable document, not progress states. Run the
       // GC first and serialize only the final StoreApp state.
       const mode = yield* OutputModeTag.pipe(Effect.provide(outputModeLayer(output as never)))
 
       if (mode._tag === 'json' && mode.timing === 'final') {
-        yield* executeGc({ progressive: false })
+        yield* runGcTransaction({ progressive: false })
         yield* runStoreCommand({
           output,
           action: toStoreGcAction({
@@ -2550,7 +2574,7 @@ const storeGcCommand = Cli.Command.make(
           (tui) =>
             Effect.gen(function* () {
               tuiDispatch = tui.dispatch
-              yield* executeGc({ progressive: true })
+              yield* runGcTransaction({ progressive: true })
             }),
           { view: React.createElement(StoreView, { stateAtom: StoreApp.stateAtom }) },
         ).pipe(Effect.provide(outputModeLayer(output as never)))
@@ -3164,6 +3188,56 @@ const storeWorktreeCommand = Cli.Command.make('worktree', {}).pipe(
   Cli.Command.withDescription('Manage worktrees in the store'),
 )
 
+/**
+ * `mr store lease --owner-path <path> -- <command…>`
+ *
+ * Runs a command while holding the deletion lease for one owner worktree, so an
+ * external activation needs no protocol code of its own: wrap the activation
+ * (which must publish its liveness manifest before exiting) and reclamation can
+ * neither observe a stale manifest nor delete underneath it. The child's exit
+ * code is propagated, and the lease is released on every exit path.
+ */
+const storeLeaseCommand = Cli.Command.make(
+  'lease',
+  {
+    ownerPath: Cli.Flag.string('owner-path').pipe(
+      Cli.Flag.withDescription('Store worktree path whose reclamation the lease must exclude'),
+    ),
+    command: Cli.Argument.string('command').pipe(
+      Cli.Argument.withDescription('Command and arguments to run while holding the lease'),
+      Cli.Argument.atLeast(1),
+    ),
+  },
+  ({ ownerPath, command }) =>
+    Effect.gen(function* () {
+      const store = yield* Store
+      const now = yield* Clock.currentTimeMillis
+      const leaseOwnerPath = yield* canonicalizeOwnerPath(ownerPath)
+      const exitCode = yield* withDeletionLease({
+        storeBasePath: store.basePath,
+        ownerPath: leaseOwnerPath,
+        now,
+      })(
+        Effect.gen(function* () {
+          const child = yield* ChildProcess.make(command[0]!, command.slice(1), {
+            stderr: 'inherit',
+            stdin: 'inherit',
+            stdout: 'inherit',
+          })
+          return yield* child.exitCode
+        }).pipe(Effect.scoped),
+      )
+      if (exitCode !== 0) {
+        return yield* new StoreCommandError({
+          message: `leased command exited with code ${exitCode}`,
+        })
+      }
+    }).pipe(
+      Effect.provide(StoreLayer),
+      Observability.withCommandSpan({ name: 'megarepo/store/lease', command: 'store lease' }),
+    ),
+).pipe(Cli.Command.withDescription('Run a command while holding a store deletion lease'))
+
 /** Store subcommand group */
 export const storeCommand = Cli.Command.make('store', {}).pipe(
   Cli.Command.withSubcommands([
@@ -3173,6 +3247,7 @@ export const storeCommand = Cli.Command.make('store', {}).pipe(
     storeFetchCommand,
     storeGcCommand,
     storeFixCommand,
+    storeLeaseCommand,
     storeWorktreeCommand,
   ]),
   Cli.Command.withDescription('Manage the shared git store'),

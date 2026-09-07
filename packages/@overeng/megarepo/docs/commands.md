@@ -119,3 +119,18 @@ candidate path recomputes the complete plan and applies only the selected
 worktree, archive, or generated-artifact action after an owner-locked
 revalidation. Missing, ambiguous, changed, or unknown evidence refuses the
 application.
+
+Generated-artifact deletion additionally holds the owner's deletion lease, so an
+activation wrapped in `mr store lease` can never be overtaken.
+
+### `mr store lease`
+
+```bash
+mr store lease --owner-path <path> -- <command> [args…]
+```
+
+Runs the command while holding the deletion lease for one store worktree and
+propagates its exit code. Wrap workspace activation with it: acquire before the
+first worktree write, publish the agent-liveness manifest inside, and the lease
+is released when the command exits. If reclamation holds the lease, the wrapper
+fails instead of racing it.
