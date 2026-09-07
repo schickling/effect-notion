@@ -48,10 +48,6 @@ let
     inherit pkgs oxlintNpm;
   };
   nodePtyNative = import ./nix/node-pty-native.nix { inherit pkgs; };
-  # Nested weaver flake realizations, needed as explicit capabilities by the
-  # non-cacheable Weaver live-check Buck lane.
-  weaverFlake = builtins.getFlake "path:${toString ./nix/weaver-flake}";
-  weaverPackages = weaverFlake.packages.${currentSystem};
   # The activated Devenv CLI, handed to the devenv-module Buck lane as data: its task-graph case
   # asserts the graph of *this* activation, which only the real CLI can enumerate.
   devenvCli = "${inputs.devenv.packages.${currentSystem}.devenv}/bin/devenv";
@@ -533,8 +529,6 @@ in
     # local `check:all` on capture reliability.
     (taskModules.weaver-live-check {
       target = "effect_utils//packages/@overeng/otel-contract:weaver_live_check";
-      weaverBin = "${weaverPackages.weaver}/bin/weaver";
-      semconvModel = weaverPackages.semconv-model;
       registry = "${repoFlake}/genie/weaver-registry";
     })
     # Version-pin consistency smoke (SC-DQ4): catches weaver/semconv pin drift the content
