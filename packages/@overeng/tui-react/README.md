@@ -193,9 +193,7 @@ Create a TuiApp factory with state/action schemas and reducer:
 const MyApp = createTuiApp({
   stateSchema: MyState, // Effect Schema for state
   actionSchema: MyAction, // Effect Schema for actions
-  initial: {
-    /* ... */
-  }, // Initial state value
+  initial: {/* ... */}, // Initial state value
   reducer: myReducer, // (state, action) => state
 })
 

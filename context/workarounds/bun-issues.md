@@ -33,12 +33,13 @@ Using `file:../path` dependencies is extremely slow (6-35+ seconds per package) 
 - [#25202 - bun i never exits, spikes cpu and memory on local file dependency](https://github.com/oven-sh/bun/issues/25202)
 
 **Benchmarks (example monorepo with local file: deps):**
-| Package | Registry Deps | Local `file:` Deps | Fresh Install Time |
-|---------|---------------|--------------------|--------------------|
-| `@example/shared` | 2 | 0 | 7ms |
-| `@example/utils` | 143 | 0 | 441ms |
-| `@example/common` | 216 | 3 | 6.5s |
-| `@example/cli` | 267 | 6 | 35s |
+
+| Package           | Registry Deps | Local `file:` Deps | Fresh Install Time |
+| ----------------- | ------------- | ------------------ | ------------------ |
+| `@example/shared` | 2             | 0                  | 7ms                |
+| `@example/utils`  | 143           | 0                  | 441ms              |
+| `@example/common` | 216           | 3                  | 6.5s               |
+| `@example/cli`    | 267           | 6                  | 35s                |
 
 **Solution:** Use `workspace:*` protocol instead of `file:` - workspaces create a single symlink to the package root.
 

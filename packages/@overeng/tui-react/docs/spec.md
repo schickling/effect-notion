@@ -276,9 +276,7 @@ const App = createTuiApp({
   reducer,
   ndjson: {
     eventSchema: MyEvent,
-    fromAction: ({ action, prevState }) => [
-      /* events */
-    ],
+    fromAction: ({ action, prevState }) => [/* events */],
   },
 })
 ```
@@ -1058,15 +1056,7 @@ const outputOption: Cli.Options<OutputModeValue>
 const outputModeLayer: (value: OutputModeValue) => Layer<OutputMode>
 
 type OutputModeValue =
-  | 'auto'
-  | 'tty'
-  | 'alt-screen'
-  | 'ci'
-  | 'ci-plain'
-  | 'pipe'
-  | 'log'
-  | 'json'
-  | 'ndjson'
+  'auto' | 'tty' | 'alt-screen' | 'ci' | 'ci-plain' | 'pipe' | 'log' | 'json' | 'ndjson'
 ```
 
 **Note:** `outputModeLayer` configures logging behavior per mode:

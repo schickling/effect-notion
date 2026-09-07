@@ -1,8 +1,15 @@
 {
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/oxc-config"
+    ]
+  },
   "name": "@overeng/oxc-config",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "private": true,
   "exports": {
     "./plugin": "./src/mod.ts",
     "./stylex-upstream-plugin": "./src/stylex-upstream-plugin.ts"
@@ -17,12 +24,5 @@
     "oxlint-tsgolint": "0.23.0",
     "typescript": "6.0.3",
     "vitest": "4.1.9"
-  },
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/oxc-config"
-    ]
   }
 }

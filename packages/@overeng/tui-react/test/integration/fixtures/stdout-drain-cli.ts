@@ -5,8 +5,12 @@
  * shape that truncated real CLI output (`--output json` on a failing command
  * piped into a slower consumer).
  *
- * `DRAIN_STRATEGY=stream` selects the old `process.stdout.write` path, kept as
- * a control so the test can show the difference rather than assert it blindly.
+ * `DRAIN_STRATEGY=stream` selects the old, unfixed `process.stdout.write` path
+ * and keeps it exercisable as a control: the write is queued behind the stream
+ * and `process.exit(1)` runs in the same tick, so whatever the kernel pipe
+ * could not take is thrown away. Whether that loses bytes depends on the
+ * reader — the parent supplies the backpressure (see `pauseReaderUntilExit` in
+ * the test), so this fixture only has to pick the path, never fake a loss.
  */
 
 import { writeStdoutSync } from '../../../src/effect/stdout.node.ts'

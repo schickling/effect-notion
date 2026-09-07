@@ -1,18 +1,21 @@
 {
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/pty-effect",
+      "packages/@overeng/utils-dev"
+    ]
+  },
   "name": "@overeng/pty-effect",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "private": true,
   "exports": {
     ".": "./src/mod.ts",
     "./client": "./src/client.ts"
-  },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js",
-      "./client": "./dist/client.js"
-    }
   },
   "scripts": {
     "bundle:smoke": "bun ../../../genie/ci-scripts/bundle-smoke.ts"
@@ -33,14 +36,11 @@
   "peerDependencies": {
     "effect": "^4.0.0-rc.111"
   },
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/pty-effect",
-      "packages/@overeng/utils-dev"
-    ]
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js",
+      "./client": "./dist/client.js"
+    }
   }
 }

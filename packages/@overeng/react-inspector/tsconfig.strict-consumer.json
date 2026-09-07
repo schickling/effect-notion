@@ -3,7 +3,10 @@
 {
   "compilerOptions": {
     "target": "ES2024",
-    "lib": ["ES2023", "DOM"],
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "allowImportingTsExtensions": true,
@@ -46,6 +49,10 @@
     "composite": true,
     "noEmit": true
   },
-  "include": ["src/schema/effectSchema.tsx", "src/schema/lineage.ts", "test-d/**/*"],
+  "include": [
+    "src/schema/effectSchema.tsx",
+    "src/schema/lineage.ts",
+    "test-d/**/*"
+  ],
   "references": []
 }

@@ -3,7 +3,7 @@ inputs:
   devenv:
     url: github:cachix/devenv/v2.2.1
   nixpkgs:
-    url: github:NixOS/nixpkgs/release-26.05
+    url: github:NixOS/nixpkgs/nixos-unstable
   git-hooks:
     url: github:cachix/git-hooks.nix
     inputs:

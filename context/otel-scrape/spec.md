@@ -567,12 +567,7 @@ Profile artifacts use the reusable [content-address VRS](../content-address/spec
 ```ts
 interface ProfileLink {
   readonly type:
-    | 'pprof'
-    | 'cpuprofile'
-    | 'rustc-self-profile'
-    | 'tsc-trace'
-    | 'cargo-timings'
-    | string
+    'pprof' | 'cpuprofile' | 'rustc-self-profile' | 'tsc-trace' | 'cargo-timings' | string
   readonly digest: `sha256:${string}`
   readonly uri: `cas:sha256/${string}/${string}`
   readonly ui?: string

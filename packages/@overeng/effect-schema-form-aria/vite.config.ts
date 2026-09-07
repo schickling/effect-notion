@@ -38,7 +38,7 @@ export default defineConfig({
       fileName: 'mod',
       cssFileName: 'styles',
     },
-    rollupOptions: {
+    rolldownOptions: {
       external: [
         /^@overeng\/effect-schema-form(?:\/|$)/,
         /^@stylexjs\/stylex(?:\/|$)/,

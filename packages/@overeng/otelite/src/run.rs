@@ -341,6 +341,11 @@ async fn spawn_and_wait(rx: &RunningReceiver, opts: &RunOpts) -> std::io::Result
         cmd.env("OTEL_SERVICE_NAME", svc);
     }
 
+    #[cfg(unix)]
+    let mut interrupts = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
+    // Register before spawning. A fast child can emit readiness before the wait
+    // loop starts; installing the handler in that loop leaves a default-action
+    // window where the shared process-group SIGINT also kills otelite.
     // Child stdout → our stderr (keep our stdout clean for the summary JSON);
     // child stderr inherits our stderr; stdin inherits.
     cmd.stdin(Stdio::inherit());
@@ -356,6 +361,7 @@ async fn spawn_and_wait(rx: &RunningReceiver, opts: &RunOpts) -> std::io::Result
         })
     });
 
+    #[cfg(unix)]
     let status = loop {
         tokio::select! {
             s = child.wait() => break s?,
@@ -363,6 +369,13 @@ async fn spawn_and_wait(rx: &RunningReceiver, opts: &RunOpts) -> std::io::Result
             // swallow it here and keep waiting to drain. Limitation: a SIGTERM
             // sent directly to otelite's PID (not the group) is not caught — the
             // child is then orphaned. A forwarding SIGTERM handler is future work.
+            _ = interrupts.recv() => continue,
+        }
+    };
+    #[cfg(not(unix))]
+    let status = loop {
+        tokio::select! {
+            s = child.wait() => break s?,
             _ = tokio::signal::ctrl_c() => continue,
         }
     };

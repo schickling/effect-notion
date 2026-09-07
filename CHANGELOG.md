@@ -124,6 +124,17 @@ All notable changes to this project will be documented in this file.
   `$script_dir/...` siblings sourced by an emitted script — and each failure
   names the unavailable script together with the file that asks for it.
 
+### Removed
+
+- **@overeng/megarepo**: the deprecated `MegarepoStore` members `getRepoPath`
+  and `hasRepo` are gone. Both were aliases kept only for the rename:
+  `getRepoPath` returned exactly what `getRepoBasePath` returns, and `hasRepo`
+  was `hasBareRepo` under its old name. Migration is a rename at the call site
+  — `store.getRepoPath(source)` → `store.getRepoBasePath(source)` and
+  `store.hasRepo(source)` → `store.hasBareRepo(source)` — including in any
+  hand-written `MegarepoStore` test double, which no longer needs to supply
+  the two dropped members. No behavior change.
+
 ### Fixed
 
 - **@overeng/tui-react**: stop truncating `runResult` values and JSON error

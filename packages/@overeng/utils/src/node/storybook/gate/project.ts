@@ -250,17 +250,20 @@ const createProject = ({
     test: {
       name: projectName,
       setupFiles: ['@overeng/utils/node/storybook/gate/setup'],
+      // Capturing several stories concurrently in one browser context
+      // corrupted frames nondeterministically — a few stories per run showed
+      // a stale duplicate band from racing full-page captures. Sequential
+      // capture was byte-stable across runs and the concurrency saving was
+      // under a quarter of the runtime, so it buys nothing.
+      //
+      // Vitest deprecated the `browser.fileParallelism` mirror; the top-level
+      // option is the one that governs browser-mode runs.
+      fileParallelism: false,
       browser: {
         enabled: true,
         headless,
         provider: playwright(),
         instances: [{ browser: 'chromium' }],
-        // Capturing several stories concurrently in one browser context
-        // corrupted frames nondeterministically — a few stories per run showed
-        // a stale duplicate band from racing full-page captures. Sequential
-        // capture was byte-stable across runs and the concurrency saving was
-        // under a quarter of the runtime, so it buys nothing.
-        fileParallelism: false,
         expect: {
           toMatchScreenshot: {
             comparatorName: 'pixelmatch',

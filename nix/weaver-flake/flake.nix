@@ -6,8 +6,9 @@
   # upstream release. nixpkgs currently pins 0.23.0; building ourselves lets us
   # stay ahead of that. This flake targets v0.24.2.
   #
-  # nixpkgs (release-26.05) is used only for the build toolchain (rustPlatform,
-  # pnpm, node, openssl, python) - the Weaver sources come from `src` below.
+  # nixpkgs (nixos-unstable — same authority as the repo root) is used only for the
+  # build toolchain (rustPlatform, pnpm, node, openssl, python) - the Weaver sources
+  # come from `src` below.
   #
   # Weaver bundles a Vite/pnpm web UI whose built output (`ui/dist`) is embedded
   # into the binary at compile time via `include_dir!("ui/dist")`, so the UI
@@ -37,7 +38,7 @@
   description = "OpenTelemetry Weaver, built from source (latest upstream)";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/release-26.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
   outputs =

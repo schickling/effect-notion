@@ -50,13 +50,6 @@ const makeTestStore = (basePath: AbsoluteDirPath): MegarepoStore => ({
   hasWorktree: () => Effect.succeed(true),
   listRepos: Effect.succeed([]),
   listWorktrees: () => Effect.succeed([]),
-  getRepoPath: (source) => {
-    if (source.type === 'github') {
-      return EffectPath.unsafe.absoluteDir(`${basePath}github.com/${source.owner}/${source.repo}/`)
-    }
-    return EffectPath.unsafe.absoluteDir(`${basePath}other/`)
-  },
-  hasRepo: () => Effect.succeed(true),
 })
 
 const makeTestConfig = (members: Record<string, string>): MegarepoConfig =>

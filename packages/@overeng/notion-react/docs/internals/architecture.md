@@ -82,21 +82,21 @@ Return: `SyncResult { appends, updates, removes, inserts, fallbackReason? }`.
 
 ## Where each requirement lives
 
-| Requirement                    | Implementation                                                                                                          |
+| Requirement | Implementation |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| R01 1:1 block fidelity         | `components/blocks.tsx`, `renderer/host-config.ts` (`blockProps`)                                                       |
-| R02 Rich text via composition  | `components/inline.tsx`, `renderer/flatten-rich-text.ts`                                                                |
-| R03 Component reuse            | Plain React — no library machinery                                                                                      |
-| R04-R06 Op-minimal sync        | `renderer/sync-diff.ts` (LCS + hash), `renderer/sync.ts` (coalescing)                                                   |
-| R07 Keyed identity             | `renderer/host-config.ts` (reads `blockKey` prop), `renderer/keys.ts`, `renderer/sync-diff.ts` (LCS over `(key, type)`) |
-| R08 Effect return type         | `renderer/render-to-notion.ts`, `renderer/sync.ts`                                                                      |
-| R09 No ambient state           | All dependencies flow through `NotionConfig                                                                             | HttpClient` in the Effect env |
-| R10-R13 Pluggable cache        | `cache/types.ts`, `cache/fs-cache.ts`, `cache/in-memory-cache.ts`                                                       |
-| R14-R15 Uploads                | `renderer/upload-registry.ts` (pre-resolve; Suspense stubs in place)                                                    |
-| R16-R18 Fallbacks              | `renderer/sync.ts` (schema + cold-cache + page-id drift), `SyncResult.fallbackReason`                                   |
-| R19-R20 Testing                | `src/test/integration/` (mock-client + e2e)                                                                             |
-| R21 Web renderer               | `src/web/` (DOM + CSS + stories)                                                                                        |
-| R22-R23 Bounded upstream churn | Pinned versions in `package.json`; host-config hidden behind `renderer/mod.ts`                                          |
+| R01 1:1 block fidelity | `components/blocks.tsx`, `renderer/host-config.ts` (`blockProps`) |
+| R02 Rich text via composition | `components/inline.tsx`, `renderer/flatten-rich-text.ts` |
+| R03 Component reuse | Plain React — no library machinery |
+| R04-R06 Op-minimal sync | `renderer/sync-diff.ts` (LCS + hash), `renderer/sync.ts` (coalescing) |
+| R07 Keyed identity | `renderer/host-config.ts` (reads `blockKey` prop), `renderer/keys.ts`, `renderer/sync-diff.ts` (LCS over `(key, type)`) |
+| R08 Effect return type | `renderer/render-to-notion.ts`, `renderer/sync.ts` |
+| R09 No ambient state | All dependencies flow through `NotionConfig                                                                             | HttpClient` in the Effect env |
+| R10-R13 Pluggable cache | `cache/types.ts`, `cache/fs-cache.ts`, `cache/in-memory-cache.ts` |
+| R14-R15 Uploads | `renderer/upload-registry.ts` (pre-resolve; Suspense stubs in place) |
+| R16-R18 Fallbacks | `renderer/sync.ts` (schema + cold-cache + page-id drift), `SyncResult.fallbackReason` |
+| R19-R20 Testing | `src/test/integration/` (mock-client + e2e) |
+| R21 Web renderer | `src/web/` (DOM + CSS + stories) |
+| R22-R23 Bounded upstream churn | Pinned versions in `package.json`; host-config hidden behind `renderer/mod.ts` |
 
 ## External dependencies
 

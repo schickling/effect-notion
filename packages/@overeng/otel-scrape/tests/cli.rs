@@ -8,6 +8,7 @@ use std::{
     thread,
 };
 
+#[cfg(target_os = "linux")]
 use sha2::{Digest, Sha256};
 
 #[cfg(unix)]
@@ -1476,12 +1477,14 @@ fn main() {
     binary
 }
 
+#[cfg(target_os = "linux")]
 fn stable_hash(value: impl AsRef<[u8]>) -> String {
     let mut hasher = Sha256::new();
     hasher.update(value.as_ref());
     format!("sha256:{}", hex(&hasher.finalize()))
 }
 
+#[cfg(target_os = "linux")]
 fn hex(bytes: &[u8]) -> String {
     let mut out = String::with_capacity(bytes.len() * 2);
     for byte in bytes {

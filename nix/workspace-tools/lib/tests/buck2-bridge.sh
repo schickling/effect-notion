@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Every fixture below is a Linux ELF build product: buck2-bridge.nix hardcodes
+# `platform.os = "linux"` with glibc/musl ABIs, compiles the fixtures with the
+# host `stdenv`/`pkgsStatic` C compilers, patches host ELF interpreters, and the
+# import path executes the built entrypoint. On a non-Linux host the same
+# expressions produce Mach-O binaries described as linux/glibc, so the ELF
+# class, machine, interpreter, DT_NEEDED, and symbol-version assertions cannot
+# be executed at all. The platform-neutral descriptor contract is covered by
+# buck2-build-product-contract.sh, which the gate runs before this script on
+# every platform.
+host_os="$(uname -s)"
+if [ "$host_os" != Linux ]; then
+  echo "buck2-bridge-test: SKIP host=$host_os reason=ELF fixture build, runtime inspection, and artifact import require a Linux host; platform-neutral descriptor coverage runs in buck2-build-product-contract.sh"
+  exit 0
+fi
+
 repo_root="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd -P)}"
 export BUCK2_BRIDGE_REPO="$repo_root"
 
