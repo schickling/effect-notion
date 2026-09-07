@@ -69,6 +69,15 @@ done < <(git --git-dir="$bare_repo" worktree list --porcelain -z)
 [ "$(git -C "$owned_worktree" rev-parse --path-format=absolute --git-common-dir)" = "$bare_repo" ]
 [ "$(git -C "$owned_worktree" symbolic-ref --quiet HEAD)" = "$branch_ref" ]
 
+# `buck2:typescript:materialize-dist` publishes read-only Buck trees into the member, and
+# `git worktree remove` deletes files with the permissions it finds: a read-only directory
+# makes the unlink fail with `Permission denied` and strands the whole store. Restore write
+# permission first — after every ownership guard above, so this can only ever touch a
+# verified job-local worktree. GNU chmod does not follow symlinks it encounters during the
+# walk, so this cannot escape the store, and a failure here must abort rather than leave a
+# half-writable tree for the removal below.
+chmod -R u+w -- "$store_root"
+
 git --git-dir="$bare_repo" worktree remove --force "$owned_worktree"
 rm -rf -- "$workspace_root"
 git --git-dir="$bare_repo" update-ref -d "$branch_ref"
