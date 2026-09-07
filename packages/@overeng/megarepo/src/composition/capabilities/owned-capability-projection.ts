@@ -130,6 +130,14 @@ const captureContainedDirectory = async ({
   return { path, realpath: canonicalPath, device: info.dev, inode: info.ino }
 }
 
+/**
+ * Both identities are rendered in the refusal: this guard is fail-closed and never retries, so
+ * the thrown message is the only forensic record of what replaced the path. `realpath` alone is
+ * not enough — a delete-and-recreate keeps the path and the device and moves only the inode.
+ */
+const describeIdentity = (identity: DirectoryIdentity): string =>
+  `realpath '${identity.realpath}' device ${String(identity.device)} inode ${String(identity.inode)}`
+
 const assertDirectoryIdentity = async (identity: DirectoryIdentity): Promise<void> => {
   const current = await captureContainedDirectory({
     path: identity.path,
@@ -140,7 +148,9 @@ const assertDirectoryIdentity = async (identity: DirectoryIdentity): Promise<voi
     current.device !== identity.device ||
     current.inode !== identity.inode
   ) {
-    throw new TypeError(`Directory identity changed at '${identity.path}'`)
+    throw new TypeError(
+      `Directory identity changed at '${identity.path}': expected ${describeIdentity(identity)}, observed ${describeIdentity(current)}`,
+    )
   }
 }
 
