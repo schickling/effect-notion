@@ -1005,10 +1005,12 @@ describe('ci workflow standard job helpers', () => {
 
   /**
    * `buck2 build`/`test`/`run` parse every positional as a target PATTERN, never as a query
-   * expression — not even as the sole argument. Run 34067718982 died in both query lanes with
-   * `Parsing target pattern filter(...)` / `Invalid target name '...)'` and exit 3. A query
-   * must therefore be expanded by a separate `uquery`, and an expansion that matched nothing
-   * must fail loudly: `buck2 build` with an empty argv succeeds and would fake a green lane.
+   * expression — not even as the sole argument, where it dies in `Parsing target pattern`
+   * with `Invalid target name '...)'`. A query must therefore be expanded by a separate
+   * `uquery`, and the two ways that expansion can go wrong must stay distinguishable: a
+   * FAILING query has to surface Buck's own nonzero exit, while a SUCCEEDING query that
+   * matched nothing has to fail on its own, because `buck2 build` with an empty argv
+   * succeeds and would fake a green lane.
    */
   it('expands Buck queries through uquery instead of passing them where a target pattern is parsed', () => {
     const invocations = [
@@ -1021,9 +1023,14 @@ describe('ci workflow standard job helpers', () => {
       expect(invocation.groups?.positionals, invocation[0]).not.toContain('(')
     }
 
+    // A plain command substitution propagates a nonzero `uquery` exit under `bash -e`.
+    // `mapfile -t targets < <(...)` would swallow it, because `mapfile` reports its own
+    // status and never the producer's, so the two failure modes would be conflated into
+    // "matched no targets" — the wrong diagnostic and the wrong exit code.
+    expect(generatedCiWorkflowYamlSource).not.toContain('mapfile -t targets < <(')
     const expansions = [
       ...generatedCiWorkflowYamlSource.matchAll(
-        /mapfile -t targets < <\("\$buck2" uquery '(?<query>[^']+)'\)/gmu,
+        /targets_raw="\$\("\$buck2" uquery '(?<query>[^']+)'\)"/gmu,
       ),
     ]
     expect(expansions.map((expansion) => expansion.groups?.query)).toEqual([
@@ -1031,10 +1038,16 @@ describe('ci workflow standard job helpers', () => {
       'filter("(candidate-smoke|bundle_smoke_candidate)$", effect_utils//packages/@overeng/...)',
     ])
     for (const expansion of expansions) {
+      // Emptiness is checked on the captured output, so it can only be reached once the
+      // query itself exited zero.
       expect(generatedCiWorkflowYamlSource, expansion[0]).toContain(
-        `[ "\${#targets[@]}" -gt 0 ] || { echo '::error::buck2 uquery matched no targets: ${expansion.groups?.query}'; exit 1; }`,
+        `[ -n "$targets_raw" ] || { echo '::error::buck2 uquery matched no targets: ${expansion.groups?.query}'; exit 1; }`,
       )
     }
+    // The array is split from the already-captured output, never from a fresh subshell.
+    expect(
+      generatedCiWorkflowYamlSource.split('mapfile -t targets <<< "$targets_raw"').length - 1,
+    ).toBe(expansions.length)
 
     // `package_bin_check` returns no `ExternalRunnerTestInfo`, so the smoke candidates are
     // build-only; one query covers both candidate naming schemes that used to need a
