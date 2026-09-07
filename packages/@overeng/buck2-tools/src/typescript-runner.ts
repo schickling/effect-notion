@@ -732,7 +732,8 @@ export const seatbeltArgv = ({
   ...command,
 ]
 
-interface SandboxInvocation {
+/** The exact launcher argv, cleared environment, and profile bytes one action launches with. */
+export interface SandboxInvocation {
   readonly argv: readonly string[]
   readonly environment: Readonly<Record<string, string>>
   readonly profile: { readonly path: string; readonly bytes: string } | undefined

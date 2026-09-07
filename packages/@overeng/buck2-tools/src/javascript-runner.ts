@@ -7,9 +7,12 @@ import { fileURLToPath } from 'node:url'
 
 import {
   actionEnvironment,
+  darwinOsMetadataLinks,
   hashDeclaredInputRoots,
+  requireAdmittedDarwinRelease,
   requireSandbox,
   sandboxInvocation,
+  type SandboxInvocation,
   type SandboxOptions,
 } from './typescript-runner.ts'
 
@@ -563,6 +566,40 @@ const runInner = async (parameters: {
   return child.exited
 }
 
+/**
+ * The complete launch decision for one JavaScript command, mirroring the TypeScript runner.
+ *
+ * A Seatbelt launch is admissible only on a kernel major the Darwin containment gate has passed,
+ * and its profile must carry the canonical spellings of the OS metadata paths the pinned Bun
+ * runtime reads before any JavaScript evaluates. Both are resolved here rather than at the spawn
+ * site so no JavaScript lane can reach `sandboxInvocation` with an unadmitted host or an
+ * unresolved metadata boundary; Bubblewrap and unsandboxed lanes are unaffected.
+ *
+ * `kernelRelease` and `metadataPaths` default to the live host exactly as the underlying
+ * `requireAdmittedDarwinRelease` and `darwinOsMetadataLinks` contracts do.
+ */
+export const javaScriptSandboxInvocation = ({
+  kernelRelease,
+  metadataPaths,
+  ...options
+}: {
+  readonly command: readonly string[]
+  readonly inputRoots: readonly string[]
+  readonly kernelRelease?: string | undefined
+  readonly metadataPaths?: readonly string[] | undefined
+  readonly outputRoots: readonly string[]
+  readonly sandbox: SandboxOptions
+  readonly scratchRoot: string
+  readonly workingDirectory: string
+}): SandboxInvocation => {
+  requireAdmittedDarwinRelease({ kernelRelease, sandbox: options.sandbox })
+  return sandboxInvocation({
+    ...options,
+    darwinMetadataLinks:
+      options.sandbox.kind === 'seatbelt' ? darwinOsMetadataLinks(metadataPaths) : [],
+  })
+}
+
 const runSandboxed = async (parameters: {
   readonly args: readonly string[]
   readonly options: JavaScriptRunOptions
@@ -605,7 +642,7 @@ const runSandboxed = async (parameters: {
     options.sandbox.kind === 'none' && options.executionMode === 'sandboxed'
       ? await hashDeclaredInputRoots(inputRoots)
       : undefined
-  const invocation = sandboxInvocation({
+  const invocation = javaScriptSandboxInvocation({
     command: innerCommand,
     inputRoots,
     // Scratch is already writable, so a result directory inside it needs no second bind.
