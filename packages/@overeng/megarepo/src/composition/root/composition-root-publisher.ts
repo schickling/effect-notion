@@ -22,6 +22,7 @@ import type { AbsoluteDirPath, CompositionGeneratorConfig } from '../../core/con
 import {
   BUCK_MEMBER_MANIFEST_FILENAME,
   COMPOSITION_GENERATION_MANIFEST_PATH,
+  COMPOSITION_OWNED_PATHS,
   COMPOSITION_ROOT_SCHEMA_VERSION,
   CompositionGenerationManifestSchema,
   GeneratedCompositionFileSchema,
@@ -2311,7 +2312,7 @@ const validateTeardownState = async ({
     })
   }
   const manifest = decodeGenerationManifest({ snapshot: manifestSnapshot, path: manifestPath })
-  const canonical = ['.buckconfig', '.buckroot', '.megarepo/bin/buck2', 'BUCK'].toSorted()
+  const canonical = [...COMPOSITION_OWNED_PATHS]
   assertManifestShape({ manifest, expectedPaths: canonical, path: manifestPath })
   const files = new Map<string, FileSnapshot>()
   for (const record of manifest.files) {

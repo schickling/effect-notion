@@ -47,6 +47,7 @@ const generatedPaths = [
   '.buckroot',
   '.megarepo/bin/buck2',
   COMPOSITION_GENERATION_MANIFEST_PATH,
+  '.watchmanconfig',
   'BUCK',
   '.buckconfig',
 ] as const
