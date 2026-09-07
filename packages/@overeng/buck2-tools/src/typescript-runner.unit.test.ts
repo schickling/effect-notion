@@ -416,6 +416,48 @@ describe('platform sandbox contract', () => {
       '(allow file-read* file-write* (subpath (param "WRITE_ROOT_0")) (subpath (param "WRITE_ROOT_1")))',
     ])
 
+    // Resolution walks a declared root from `/` down, so the ancestors of every declared root —
+    // read and write alike — are traversable: directory metadata plus the directory listing, in
+    // one grant derived from the same parameters. `path-ancestors` names only those directory
+    // entries, so a sibling under an ancestor is never granted.
+    expect(profile).toContain(
+      '(allow file-read-metadata file-read-data (path-ancestors (param "READ_ROOT_0")) (path-ancestors (param "READ_ROOT_1")) (path-ancestors (param "WRITE_ROOT_0")) (path-ancestors (param "WRITE_ROOT_1")))',
+    )
+    // Exactly one traversal line, and it grants no write and no subtree.
+    const ancestorLines = profile
+      .split('\n')
+      .filter((line) => line.includes('path-ancestors') === true)
+    expect(ancestorLines).toEqual([
+      '(allow file-read-metadata file-read-data (path-ancestors (param "READ_ROOT_0")) (path-ancestors (param "READ_ROOT_1")) (path-ancestors (param "WRITE_ROOT_0")) (path-ancestors (param "WRITE_ROOT_1")))',
+    ])
+    expect(ancestorLines[0]).not.toContain('file-write')
+    expect(ancestorLines[0]).not.toContain('file-read*')
+    expect(ancestorLines[0]).not.toContain('subpath')
+    // Traversal is derived from the declared roots only: no ancestor directory is turned into a
+    // readable subtree, and no shared parent is named as a path in its own right.
+    expect(profile).not.toContain('(subpath "/")')
+    for (const shared of ['/Users', '/private/tmp', '/tmp', '/nix/store', '/var/folders']) {
+      expect(profile).not.toContain(shared)
+    }
+    // Ancestors of a write root stay read-only: every write grant still names subpaths of the
+    // declared write roots and nothing else.
+    expect(profile.split('\n').filter((line) => line.includes('file-write') === true)).toEqual([
+      '(allow file-write-data (literal "/dev/null"))',
+      '(allow file-read* file-write* (subpath (param "WRITE_ROOT_0")) (subpath (param "WRITE_ROOT_1")))',
+    ])
+
+    // With no declared roots there is nothing to traverse to, so the grant is absent entirely.
+    expect(seatbeltProfile({ metadataLinks: [], readRoots: [], writeRoots: [] })).not.toContain(
+      'path-ancestors',
+    )
+    // One mode alone contributes only its own ancestors.
+    expect(seatbeltProfile({ metadataLinks: [], readRoots: ['/tree'], writeRoots: [] })).toContain(
+      '(allow file-read-metadata file-read-data (path-ancestors (param "READ_ROOT_0")))',
+    )
+    expect(
+      seatbeltProfile({ metadataLinks: [], readRoots: [], writeRoots: ['/out/dist'] }),
+    ).toContain('(allow file-read-metadata file-read-data (path-ancestors (param "WRITE_ROOT_0")))')
+
     const argv = seatbeltArgv({
       command: [TSGO],
       launcher: DARWIN_SANDBOX_LAUNCHER,
