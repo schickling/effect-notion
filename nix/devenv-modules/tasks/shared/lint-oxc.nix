@@ -88,6 +88,14 @@ let
     {
       command,
       includeCase,
+      # Task identity ("lane") reported in failure diagnostics, so a nonzero
+      # status arriving at the task boundary names which task produced it.
+      lane,
+      # Human-readable form of `command` for those diagnostics. Defaults to the
+      # command itself; call sites whose command carries shell plumbing (the
+      # otel-scrape `_otel_instr` array expansions) pass the concrete tool line
+      # so the diagnostic names the tool, not the plumbing.
+      commandLabel ? command,
       emptySelectionDiagnostic ? null,
       # Optional shell prelude injected before the file scan (e.g. trace.instr,
       # which defines the _otel_instr / _otel_instr_flags arrays the command uses).
@@ -95,10 +103,24 @@ let
     }:
     ''
       set -euo pipefail
+
+      # Failure attribution. A nonzero status used to leave this exec with no
+      # stdout and no stderr whatsoever: `xargs` collapses any child status in
+      # 1..125 to 123, and a setup/scan step failing under `errexit` aborted the
+      # exec without naming itself — so a red CI task showed only "exit 1" with
+      # nothing to distinguish a real lint finding from a broken wrapper. The
+      # diagnostics below NEVER alter the status, NEVER buffer tool output, and
+      # print one line to stderr; lint findings keep streaming as before.
+      lint_lane=${lib.escapeShellArg lane}
+      lint_cmd_label=${lib.escapeShellArg commandLabel}
+      lint_stage=setup
+      trap 'lint_rc=$?; printf "lint-oxc: lane=%s stage=%s aborted at line %s with status %s (command: %s)\n" "$lint_lane" "$lint_stage" "$LINENO" "$lint_rc" "$lint_cmd_label" >&2' ERR
+
       ${prelude}
       lint_pathspec_args=()
       ${lintPathspecsSetup}
 
+      lint_stage=scan
       files=$(mktemp)
       trap 'rm -f "$files"' EXIT
         {
@@ -117,6 +139,15 @@ let
         echo "No lint files matched"
         exit 0
       fi
+
+      lint_file_count=$(${pkgs.coreutils}/bin/tr -cd '\0' < "$files" | ${pkgs.coreutils}/bin/wc -c)
+      lint_stage=run
+
+      # The invocation lives in a function so its exact form (including the
+      # `< "$files"` redirect and the outer-shell `_otel_instr` array) is
+      # unchanged, while its status can be captured instead of aborting the exec
+      # anonymously under `errexit`.
+      _run_lint() {
 
         ${
           if emptySelectionDiagnostic == null then
@@ -187,6 +218,45 @@ let
                 "''${#_otel_instr[@]}" "''${_otel_instr[@]}" < "$files"
             ''
         }
+      }
+
+      # oxlint/oxfmt findings go to STDOUT, so "did the tool print anything at
+      # all" is what separates a real finding from a tool that died mute — the
+      # ambiguity that made a red CI oxlint task unattributable (devenv dumps a
+      # failing task's stdout, and there was none). Bytes are COUNTED as they
+      # stream past (tee duplicates onto the real stdout via fd 3, wc consumes
+      # the pipe); no lint output is ever buffered in memory or on disk. Skipped
+      # when stdout is a terminal so interactive tty/colour behaviour is
+      # untouched.
+      lint_status=0
+      lint_stdout_bytes=unknown
+      if [ -t 1 ]; then
+        _run_lint || lint_status=$?
+      else
+        lint_bytes=$(mktemp)
+        trap 'rm -f "$files" "$lint_bytes"' EXIT
+        {
+          _run_lint | ${pkgs.coreutils}/bin/tee /dev/fd/3 \
+            | ${pkgs.coreutils}/bin/wc -c > "$lint_bytes"
+        } 3>&1 || lint_status=$?
+        lint_stdout_bytes=$(${pkgs.coreutils}/bin/cat "$lint_bytes")
+      fi
+      if [ "$lint_status" -ne 0 ]; then
+        # `xargs` never forwards the child's own status; translate its documented
+        # codes so the line says what actually happened rather than "123".
+        lint_hint=""
+        case "$lint_status" in
+          123) lint_hint=" (xargs: a child command exited 1-125)" ;;
+          124) lint_hint=" (xargs: a child command exited 255)" ;;
+          125) lint_hint=" (xargs: a child command was killed by a signal)" ;;
+          126) lint_hint=" (xargs: command found but not executable)" ;;
+          127) lint_hint=" (xargs: command not found)" ;;
+        esac
+        printf "lint-oxc: lane=%s stage=run status=%s files=%s stdout_bytes=%s command=%s%s\n" \
+          "$lint_lane" "$lint_status" "$lint_file_count" "$lint_stdout_bytes" \
+          "$lint_cmd_label" "$lint_hint" >&2
+        exit "$lint_status"
+      fi
     '';
 
   oxlintIncludeCase = ''
@@ -213,6 +283,7 @@ let
   # so a repo without otel-scrape never sees raw JSON on the terminal.
   mkOxlintCmd =
     {
+      lane,
       extraFlags ? "",
       instrName ? null,
     }:
@@ -220,11 +291,13 @@ let
       flags = "${warningsFlag} ${extraFlags}";
     in
     mkLintExec {
+      inherit lane;
       command =
         if instrName != null then
           ''"''${_otel_instr[@]}" oxlint "''${_otel_instr_flags[@]}" --import-plugin ${flags} ${typeAwareFlags}''
         else
           "oxlint --import-plugin ${flags} ${typeAwareFlags}";
+      commandLabel = "oxlint --import-plugin ${flags} ${typeAwareFlags}";
       includeCase = oxlintIncludeCase;
       prelude = lib.optionalString (instrName != null) (
         trace.instr {
@@ -247,6 +320,7 @@ let
       # emptySelectionDiagnostic branch of mkLintExec). Arrays are empty (command
       # runs bare, empty-selection diagnostic still swallowed) without otel-scrape.
       exec = trace.exec "lint:check:format" (mkLintExec {
+        lane = "lint:check:format";
         command = "${resolvedOxfmtPkg}/bin/oxfmt --check";
         includeCase = oxfmtIncludeCase;
         emptySelectionDiagnostic = "Expected at least one target file";
@@ -261,6 +335,7 @@ let
       guard = "oxlint";
       description = "Run oxlint linter";
       exec = trace.exec "lint:check:oxlint" (mkOxlintCmd {
+        lane = "lint:check:oxlint";
         instrName = "lint:check:oxlint";
       });
       execIfModified = [ ];
@@ -269,6 +344,7 @@ let
       guard = "oxfmt";
       description = "Fix code formatting with oxfmt";
       exec = trace.exec "lint:fix:format" (mkLintExec {
+        lane = "lint:fix:format";
         command = "${resolvedOxfmtPkg}/bin/oxfmt";
         includeCase = oxfmtIncludeCase;
         emptySelectionDiagnostic = "Expected at least one target file";
@@ -278,6 +354,7 @@ let
       guard = "oxlint";
       description = "Fix lint issues with oxlint";
       exec = trace.exec "lint:fix:oxlint" (mkOxlintCmd {
+        lane = "lint:fix:oxlint";
         extraFlags = "--fix";
       });
     };

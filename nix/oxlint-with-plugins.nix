@@ -32,6 +32,20 @@ pkgs.writeShellApplication {
     pkgs.flock
   ];
   text = ''
+    # Failure attribution. Everything between "this config mentions overeng/*"
+    # and "run oxlint" executes under `set -o errexit`, so any failing setup step
+    # (lock, jq render, atomic publish, arg rewrite) used to abort the wrapper
+    # with NO output and a status indistinguishable from a lint finding — the
+    # `((i++))` defect below was exactly that, and it made a red CI oxlint task
+    # unattributable. The trap only names stage/line/status on stderr; it never
+    # swallows a status and never touches oxlint's own output.
+    stage=startup
+    _report_abort() {
+      printf "oxlint-with-plugins: aborted in stage=%s at line %s with status %s\n" \
+        "$stage" "$1" "$2" >&2
+    }
+    trap '_report_abort "$LINENO" "$?"' ERR
+
     # Rule development escape hatch: the default plugin is a Nix build-time
     # snapshot, so edits to packages/@overeng/oxc-config/src/*.ts are invisible and
     # a newly added rule reports "not found in plugin 'overeng'". Overriding this
@@ -39,6 +53,7 @@ pkgs.writeShellApplication {
     # source (the host runtime is Bun, which imports .ts directly).
     pluginPath="''${OVERENG_OXC_CONFIG_PLUGIN:-${oxlintNpm.pluginPath}}"
 
+    stage=config-discovery
     # Find the config file: explicit -c/--config arg, or default .oxlintrc.json
     config_file=""
     args=("$@")
@@ -66,6 +81,8 @@ pkgs.writeShellApplication {
       # apply. The published copy DELIBERATELY outlives the process; see below.
       config_dir=$(dirname "$config_file")
 
+      stage=lock
+
       # Publish a persistent, git-ignored root cache atomically, and serialize
       # concurrent wrappers by locking the source config itself (without
       # creating another repository-local lock file). Keeping the complete file
@@ -75,6 +92,8 @@ pkgs.writeShellApplication {
       tmpconfig="$config_dir/.oxlint-with-plugins.json"
       staged_config=$(mktemp "''${TMPDIR:-/tmp}/oxlint-with-plugins.XXXXXX.json")
       trap 'rm -f "$staged_config"' EXIT
+
+      stage=config-render
       # Substitute OUR entry in place rather than replacing the whole list.
       # Replacing it wholesale made every third-party plugin declared beside ours
       # unresolvable ("Plugin 'x' not found"), which is why consumers grew local
@@ -102,8 +121,10 @@ pkgs.writeShellApplication {
             end
         )
       ' "$config_file" > "$staged_config"
+      stage=config-publish
       mv "$staged_config" "$tmpconfig"
 
+      stage=arg-rewrite
       # Replace the config arg, or prepend -c if using default
       new_args=()
       replaced=false
@@ -129,8 +150,15 @@ pkgs.writeShellApplication {
       fi
 
       # Run as a child so the staged-file cleanup trap remains effective.
+      stage=lint
       status=0
       ${oxlintNpm}/bin/oxlint "''${new_args[@]}" || status=$?
+      if [ "$status" -ne 0 ]; then
+        # Names the lane even when oxlint itself printed nothing, so a nonzero
+        # status is never anonymous. Findings still come from oxlint verbatim.
+        printf "oxlint-with-plugins: oxlint exited %s (injected config: %s)\n" \
+          "$status" "$tmpconfig" >&2
+      fi
       exit "$status"
     else
       exec ${oxlintNpm}/bin/oxlint "$@"

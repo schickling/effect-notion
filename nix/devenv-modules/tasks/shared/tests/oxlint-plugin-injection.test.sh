@@ -235,4 +235,27 @@ assert_contains "overeng(live-source-only)" "$out_live" "live plugin source is l
 assert_equals "1" "$status_live" "a violation from live source still fails the run"
 
 echo ""
+# Every step between "config mentions overeng/*" and "run oxlint" — the lock, the
+# jq render, the atomic publish, the arg rewrite — runs under `set -o errexit`.
+# A failure in any of them aborted the wrapper with no output and a status that
+# looks exactly like a lint finding, which is how a red CI oxlint task became
+# unattributable. The wrapper must name the stage, line and status instead.
+echo "Test 6: a wrapper setup failure names its stage, line and status"
+cat > .oxlintrc.json <<'EOF'
+{
+  "jsPlugins": ["./oxc-config/src/mod.ts"],
+  "rules": { "overeng/no-raw-nondeterminism": "error"
+EOF
+status_render=0
+out_render="$("$wrapper" fixture.ts --config .oxlintrc.json 2>&1)" || status_render=$?
+assert_contains "oxlint-with-plugins: aborted in stage=config-render" "$out_render" \
+  "an unrenderable config is attributed to the render stage"
+assert_contains "with status $status_render" "$out_render" \
+  "the reported status matches the wrapper's exit status"
+if [ "$status_render" -eq 0 ]; then
+  fail "unrenderable config must fail" "wrapper exited 0"
+fi
+echo "  ok: unrenderable config keeps a nonzero status ($status_render)"
+
+echo ""
 echo "All oxlint plugin injection tests passed"
