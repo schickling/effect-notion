@@ -24,6 +24,12 @@ let
   cfg = config.effectUtils.genie;
   trace = import ../lib/trace.nix { inherit lib; };
   cliGuard = import ../lib/cli-guard.nix { inherit pkgs; };
+  editorViewDirectoryName = ".editor-view";
+  genieSourcePathspecs = lib.escapeShellArgs [
+    ":(glob)*.genie.ts"
+    ":(glob)**/*.genie.ts"
+    ":(exclude,glob)**/${editorViewDirectoryName}/**"
+  ];
   megarepoStoreEnv = builtins.getEnv "MEGAREPO_STORE";
   genieTaskEnv = lib.optionalAttrs (megarepoStoreEnv != "") {
     MEGAREPO_STORE = megarepoStoreEnv;
@@ -41,8 +47,8 @@ let
         # output as a semantic authority.
         if ${pkgs.git}/bin/git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
           {
-            ${pkgs.git}/bin/git ls-files -z --recurse-submodules -- ':(glob)*.genie.ts' ':(glob)**/*.genie.ts'
-            ${pkgs.git}/bin/git ls-files -z --others --exclude-standard -- ':(glob)*.genie.ts' ':(glob)**/*.genie.ts'
+            ${pkgs.git}/bin/git ls-files -z --recurse-submodules -- ${genieSourcePathspecs}
+            ${pkgs.git}/bin/git ls-files -z --others --exclude-standard -- ${genieSourcePathspecs}
           } | while IFS= read -r -d $'\0' source; do
             [ -f "$source" ] || continue
             output="''${source%.genie.ts}"
@@ -56,6 +62,7 @@ let
             -name '*.genie.ts' \
             -not -path './.git/*' \
             -not -path './.devenv/*' \
+            -not -path '*/${editorViewDirectoryName}/*' \
             -not -path './node_modules/*' \
             -print0 \
             | while IFS= read -r -d $'\0' source; do
@@ -72,6 +79,7 @@ let
           --glob '!tmp/**' \
           --glob '!.git/**' \
           --glob '!.devenv/**' \
+          --glob '!**/${editorViewDirectoryName}/**' \
           --glob '!node_modules/**' \
           --glob '!*.genie.ts' \
           --glob '!**/*.genie.ts' \
@@ -84,6 +92,7 @@ let
           --glob '!tmp/**' \
           --glob '!.git/**' \
           --glob '!.devenv/**' \
+          --glob '!**/${editorViewDirectoryName}/**' \
           --glob '!node_modules/**' \
           --glob '!*.genie.ts' \
           --glob '!**/*.genie.ts' \
@@ -167,9 +176,9 @@ let
           # so warm status checks catch manual drift without booting the full
           # CLI. Follow Git's tracked + untracked/non-ignored view in worktrees.
           if ${pkgs.git}/bin/git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-            ${pkgs.git}/bin/git ls-files -z --recurse-submodules -- ':(glob)*.genie.ts' ':(glob)**/*.genie.ts' \
+            ${pkgs.git}/bin/git ls-files -z --recurse-submodules -- ${genieSourcePathspecs} \
               | tr '\0' '\n'
-            ${pkgs.git}/bin/git ls-files -z --others --exclude-standard -- ':(glob)*.genie.ts' ':(glob)**/*.genie.ts' \
+            ${pkgs.git}/bin/git ls-files -z --others --exclude-standard -- ${genieSourcePathspecs} \
               | tr '\0' '\n'
           else
             ${pkgs.findutils}/bin/find . \
@@ -177,6 +186,7 @@ let
               -name '*.genie.ts' \
               -not -path './.git/*' \
               -not -path './.devenv/*' \
+              -not -path '*/${editorViewDirectoryName}/*' \
               -not -path './node_modules/*' \
               -print
           fi

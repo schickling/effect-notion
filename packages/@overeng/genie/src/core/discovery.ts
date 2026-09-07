@@ -91,9 +91,12 @@ export const ensureImportMapResolver = Effect.gen(function* () {
   })
 }).pipe(Observability.withImportMapResolverSpan)
 
+const editorViewDirectoryName = '.editor-view'
+
 /** Directories to skip when searching for .genie.ts files */
 const shouldSkipDirectory = (name: string): boolean => {
   if (name === 'node_modules' || name === 'dist' || name === 'tmp') return true
+  if (name === editorViewDirectoryName) return true
   if (name === '.pnpm' || name === '.pnpm-store' || name === '.pnpm-home') return true
   if (name === '.git' || name === '.devenv') return true
   // Megarepo member root (symlinked peer repos).
@@ -106,7 +109,11 @@ const shouldSkipDirectory = (name: string): boolean => {
 /** Check if a filename is a genie template file (*.genie.ts) */
 export const isGenieFile = (file: string): boolean => file.endsWith('.genie.ts')
 
-const gitGeniePathspecs = ['*.genie.ts', ':(glob)**/*.genie.ts'] as const
+const gitGeniePathspecs = [
+  '*.genie.ts',
+  ':(glob)**/*.genie.ts',
+  `:(exclude,glob)**/${editorViewDirectoryName}/**`,
+] as const
 
 const gitListGenieFiles = ({
   args,

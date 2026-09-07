@@ -28,6 +28,7 @@
     "**/patches/**",
     "**/.cache/**",
     "**/.turbo/**",
+    "**/.editor-view/**",
     "genie/weaver-registry/**"
   ],
   "categories": {

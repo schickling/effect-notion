@@ -56,6 +56,8 @@ export const baseOxlintIgnorePatterns = [
   '**/patches/**',
   '**/.cache/**',
   '**/.turbo/**',
+  // Generated editor dependency views are immutable content-addressed snapshots.
+  '**/.editor-view/**',
 ] as const
 
 /** Standard plugins enabled across all repos */

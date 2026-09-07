@@ -70,11 +70,18 @@ printf '{"value":1}\n' > "$test_dir/contract.json"
 mkdir -p "$test_dir/nested"
 printf 'export default {}\n' > "$test_dir/nested/contract.json.genie.ts"
 printf '{"nested":true}\n' > "$test_dir/nested/contract.json"
+mkdir -p "$test_dir/packages/widget/.editor-view/.store/snapshot"
+printf 'export default {}\n' \
+  > "$test_dir/packages/widget/.editor-view/.store/snapshot/contract.json.genie.ts"
+printf '{"snapshot":true}\n' \
+  > "$test_dir/packages/widget/.editor-view/.store/snapshot/contract.json"
 printf 'direct one\n' > "$test_dir/semantic/direct.ts"
 printf 'nested one\n' > "$test_dir/semantic/nested/input.ts"
 git -C "$test_dir" add \
   contract.json.genie.ts contract.json \
   nested/contract.json.genie.ts nested/contract.json \
+  packages/widget/.editor-view/.store/snapshot/contract.json.genie.ts \
+  packages/widget/.editor-view/.store/snapshot/contract.json \
   semantic/direct.ts semantic/nested/input.ts
 
 module_config='{ effectUtils.genie.extraInputGlobs = [ "semantic/**/*.ts" ]; }'
@@ -93,6 +100,11 @@ if ! grep -qxF 'contract.json' "$test_dir/.devenv/task-cache/genie-run/generated
 fi
 if ! grep -qxF 'nested/contract.json' "$test_dir/.devenv/task-cache/genie-run/generated-files.txt"; then
   echo "FAIL: nested commentless JSON paired with a .genie.ts source was not collected"
+  exit 1
+fi
+if grep -qxF 'packages/widget/.editor-view/.store/snapshot/contract.json' \
+  "$test_dir/.devenv/task-cache/genie-run/generated-files.txt"; then
+  echo "FAIL: tracked editor-view projection was collected as a Genie-owned output"
   exit 1
 fi
 

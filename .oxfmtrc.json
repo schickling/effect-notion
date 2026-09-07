@@ -22,6 +22,7 @@
     "**/storybook-static/**",
     "**/.turbo/**",
     "**/tmp/**",
+    "**/.editor-view/**",
     "**/*.gen.ts",
     "**/*.gen.tsx",
     "**/*.generated.ts",

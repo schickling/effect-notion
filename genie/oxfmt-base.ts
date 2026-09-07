@@ -36,6 +36,8 @@ export const baseOxfmtIgnorePatterns = [
   '**/storybook-static/**',
   '**/.turbo/**',
   '**/tmp/**',
+  // Generated editor dependency views are immutable content-addressed snapshots.
+  '**/.editor-view/**',
   // Generated code files
   '**/*.gen.ts',
   '**/*.gen.tsx',

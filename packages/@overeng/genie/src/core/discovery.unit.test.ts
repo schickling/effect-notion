@@ -77,6 +77,40 @@ describe('findGenieFiles', () => {
     }
   })
 
+  it('excludes tracked editor-view snapshots without hiding source generators', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genie-discovery-'))
+
+    try {
+      execFileSync(gitBin, ['init'], { cwd: root, stdio: 'ignore' })
+      await writeFile({
+        filePath: path.join(root, 'packages', 'widget', 'package.json.genie.ts'),
+        content: 'export default {}\n',
+      })
+      await writeFile({
+        filePath: path.join(
+          root,
+          'packages',
+          'widget',
+          '.editor-view',
+          '.store',
+          'snapshot',
+          'package.json.genie.ts',
+        ),
+        content: 'throw new Error("editor-view snapshot should not be discovered")\n',
+      })
+      execFileSync(gitBin, ['add', '.'], { cwd: root, stdio: 'ignore' })
+
+      const discovered = await Effect.runPromise(
+        findGenieFiles(root).pipe(Effect.provide(NodeServices.layer)),
+      )
+      const relative = await toCanonicalRelative({ root, files: discovered })
+
+      expect(relative).toEqual(['packages/widget/package.json.genie.ts'])
+    } finally {
+      await fs.rm(root, { recursive: true, force: true })
+    }
+  })
+
   it('discovers tracked genie files inside checked-out git submodules', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genie-discovery-'))
     const submoduleSource = await fs.mkdtemp(path.join(os.tmpdir(), 'genie-submodule-'))
