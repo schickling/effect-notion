@@ -335,8 +335,10 @@ export const catalog = defineCatalog({
   '@types/katex': '0.16.8',
 
   // Build tools
-  // npm TypeScript is kept for JS compiler API consumers; ts:check uses Nix-managed tsgo.
-  typescript: '6.0.3',
+  // TypeScript 7's npm package provides the native compiler plus its process-backed unstable API.
+  typescript: '7.0.2',
+  // TypeScript 7 removed its classic in-process JSONC helper; this is VS Code's zero-dependency parser.
+  'jsonc-parser': '3.3.1',
   '@playwright/test': '1.61.0',
   vite: '8.2.2',
   vitest: '4.1.9',
@@ -503,8 +505,8 @@ export const commonPnpmPolicySettings = {
   peerDependencyRules: {
     allowedVersions: {
       // bun-ffi-structs@0.2.3 (via @myobie/pty) declares typescript ^5 but the
-      // repo compiles with TS 6; resolution is proven fine.
-      typescript: '>=6.0.0',
+      // repo compiles with TS 7; resolution is proven fine.
+      typescript: '>=7.0.0',
       eslint: '>=10.0.0',
       vitest: '>=4.0.0',
       // @stylexjs/unplugin@0.19 declares unplugin ^2 but works with v3;

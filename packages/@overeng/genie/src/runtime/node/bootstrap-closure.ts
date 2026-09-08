@@ -6,27 +6,46 @@
  * runtime-only package — e.g. through a wide barrel that `export *`s a module importing `effect` — pulls
  * that package into the generator's bootstrap import closure and breaks `genie:run` on a fresh clone.
  *
- * This walker reuses TypeScript's own parser (`ts.createSourceFile`) and resolver (`ts.resolveModuleName`)
- * — the bug-prone parts — and injects genie's OWN `#`/`#mr` resolution ({@link resolveImportMapSpecifierForImporterSync})
- * so lock-pinned megarepo-member imports resolve exactly as genie resolves them at bootstrap. It owns only
- * the transitive walk and the bootstrap policy. It never descends into `node_modules`: a bare (non-relative,
- * non-`#`, non-`node:`-builtin) specifier is a closure boundary — the reported violation — not an edge to
- * follow, so the check has no dependency on install state and never parses a `.d.ts` closure.
+ * This walker reuses TypeScript's own parser and module resolution through the TypeScript 7 compiler API
+ * ({@link withTsFileAnalysis}) — the bug-prone parts — and injects genie's OWN `#`/`#mr` resolution
+ * ({@link resolveImportMapSpecifierForImporterSync}) so lock-pinned megarepo-member imports resolve exactly as
+ * genie resolves them at bootstrap. It owns only the transitive walk and the bootstrap policy. It never descends
+ * into `node_modules`: a bare (non-relative, non-`#`, non-`node:`-builtin) specifier is a closure boundary — the
+ * reported violation — not an edge to follow, so the check has no dependency on install state and never parses a
+ * `.d.ts` closure.
  *
  * Type-only edges (`import type`, `export type`, and per-specifier `{ type X }`) are erased at runtime and
  * are excluded from the closure.
  */
 
-import { readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { isBuiltin } from 'node:module'
 import path from 'node:path'
 
-import ts from 'typescript'
+import type {
+  NamedExportBindings,
+  NamedImportBindings,
+  Node,
+  SourceFile,
+  StringLiteral,
+} from 'typescript/unstable/ast'
+import {
+  isCallExpression,
+  isExportDeclaration,
+  isImportDeclaration,
+  isNamedExports,
+  isNamedImports,
+  isNamespaceImport,
+  isStringLiteral,
+  SyntaxKind,
+} from 'typescript/unstable/ast'
 
 import {
   isImportMapSpecifier,
   resolveImportMapSpecifierForImporterSync,
 } from '../../core/import-map/sync-resolver.ts'
+import { withTsFileAnalysis } from './ts-api.ts'
+import type { TsFileAnalysis, TsFileAnalysisSession } from './ts-api.ts'
 
 /** A transitive edge from a `.genie.ts` source to a runtime-only package, with the importer chain. */
 export type BootstrapClosureViolation = {
@@ -44,12 +63,6 @@ export type BootstrapClosureResult = {
   violations: readonly BootstrapClosureViolation[]
   /** Every `.genie.ts` source that was walked. */
   checkedSources: readonly string[]
-}
-
-const RESOLUTION_OPTIONS: ts.CompilerOptions = {
-  moduleResolution: ts.ModuleResolutionKind.Bundler,
-  allowImportingTsExtensions: true,
-  resolveJsonModule: true,
 }
 
 const isRelativeSpecifier = (specifier: string): boolean =>
@@ -71,74 +84,59 @@ const isViolationSpecifier = (specifier: string): boolean =>
 
 /** True when every named binding carries an inline `type` keyword (`import { type A, type B }`), making the whole edge type-only. */
 const allNamedBindingsAreTypeOnly = (
-  bindings: ts.NamedImportBindings | ts.NamedExportBindings | undefined,
+  bindings: NamedImportBindings | NamedExportBindings | undefined,
 ): boolean => {
   if (bindings === undefined) return false
-  if (ts.isNamedImports(bindings) === true) {
-    const elements = (bindings as ts.NamedImports).elements
-    return elements.length > 0 && elements.every((element) => element.isTypeOnly === true)
-  }
-  if (ts.isNamedExports(bindings) === true) {
-    const elements = (bindings as ts.NamedExports).elements
+  if (isNamedImports(bindings) === true || isNamedExports(bindings) === true) {
+    const { elements } = bindings
     return elements.length > 0 && elements.every((element) => element.isTypeOnly === true)
   }
   return false
 }
 
-/** Extract the RUNTIME (value, non-type-only) module specifiers a source file imports/re-exports/dynamically-imports. */
-const runtimeSpecifiersOf = ({
-  fileName,
-  sourceText,
-}: {
-  fileName: string
-  sourceText: string
-}): readonly string[] => {
-  const sourceFile = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.ESNext, true)
-  const specifiers: string[] = []
+/** Extract the RUNTIME (value, non-type-only) module specifier literals a source file imports/re-exports/dynamically-imports. */
+const runtimeSpecifiersOf = (sourceFile: SourceFile): readonly StringLiteral[] => {
+  const specifiers: StringLiteral[] = []
 
-  const visit = (node: ts.Node): void => {
+  const visit = (node: Node): void => {
     // import ... from 'x'
-    if (
-      ts.isImportDeclaration(node) === true &&
-      ts.isStringLiteral(node.moduleSpecifier) === true
-    ) {
+    if (isImportDeclaration(node) === true && isStringLiteral(node.moduleSpecifier) === true) {
       const clause = node.importClause
       // `import type ...` (phaseModifier === TypeKeyword) is fully type-only; `import defer ...`
-      // (DeferKeyword) is a runtime edge. `ImportClause.isTypeOnly` is deprecated in favor of `phaseModifier`.
-      // A value default binding (`import helper, { type X }`) or a namespace import (`import * as x`) is a
-      // runtime edge even when every named binding is inline-`type`, so those must NOT be skipped.
+      // (DeferKeyword) is a runtime edge. A value default binding (`import helper, { type X }`) or a
+      // namespace import (`import * as x`) is a runtime edge even when every named binding is
+      // inline-`type`, so those must NOT be skipped.
       const hasValueDefault = clause?.name !== undefined
-      const isNamespaceImport =
-        clause?.namedBindings !== undefined && ts.isNamespaceImport(clause.namedBindings) === true
+      const isNamespaceBinding =
+        clause?.namedBindings !== undefined && isNamespaceImport(clause.namedBindings) === true
       const typeOnly =
-        clause?.phaseModifier === ts.SyntaxKind.TypeKeyword ||
+        clause?.phaseModifier === SyntaxKind.TypeKeyword ||
         (hasValueDefault === false &&
-          isNamespaceImport === false &&
+          isNamespaceBinding === false &&
           allNamedBindingsAreTypeOnly(clause?.namedBindings) === true)
-      if (typeOnly === false) specifiers.push((node.moduleSpecifier as ts.StringLiteral).text)
+      if (typeOnly === false) specifiers.push(node.moduleSpecifier)
     }
 
     // export ... from 'x'  (covers `export * from` and `export { ... } from`)
     if (
-      ts.isExportDeclaration(node) === true &&
+      isExportDeclaration(node) === true &&
       node.moduleSpecifier !== undefined &&
-      ts.isStringLiteral(node.moduleSpecifier) === true
+      isStringLiteral(node.moduleSpecifier) === true
     ) {
       const typeOnly = node.isTypeOnly === true || allNamedBindingsAreTypeOnly(node.exportClause)
-      if (typeOnly === false) specifiers.push((node.moduleSpecifier as ts.StringLiteral).text)
+      if (typeOnly === false) specifiers.push(node.moduleSpecifier)
     }
 
     // dynamic import('x') with a string-literal argument
-    if (
-      ts.isCallExpression(node) === true &&
-      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.length > 0 &&
-      ts.isStringLiteral(node.arguments[0]!) === true
-    ) {
-      specifiers.push((node.arguments[0] as ts.StringLiteral).text)
+    if (isCallExpression(node) === true && node.expression.kind === SyntaxKind.ImportKeyword) {
+      const [first] = node.arguments
+      if (first !== undefined && isStringLiteral(first) === true) specifiers.push(first)
     }
 
-    ts.forEachChild(node, visit)
+    node.forEachChild((child) => {
+      visit(child)
+      return undefined
+    })
   }
 
   visit(sourceFile)
@@ -147,32 +145,24 @@ const runtimeSpecifiersOf = ({
 
 /**
  * Resolve a bootstrap-safe specifier (relative or `#`/`#mr`) to an absolute file path, using genie's own
- * resolver for `#`/`#mr` and TypeScript's resolver for relative paths. Bare specifiers are never resolved
+ * resolver for `#`/`#mr` and the compiler's resolution for relative paths. Bare specifiers are never resolved
  * (they are violations, not edges to follow) so this never touches `node_modules`.
  */
 const resolveFollowableSpecifier = ({
   specifier,
   importerFile,
-  moduleResolutionHost,
-  moduleResolutionCache,
+  analysis,
 }: {
-  specifier: string
+  specifier: StringLiteral
   importerFile: string
-  moduleResolutionHost: ts.ModuleResolutionHost
-  moduleResolutionCache: ts.ModuleResolutionCache
-}): string | undefined => {
-  if (isImportMapSpecifier(specifier) === true) {
-    return resolveImportMapSpecifierForImporterSync({ specifier, importerPath: importerFile })
-  }
-  const resolved = ts.resolveModuleName(
-    specifier,
-    importerFile,
-    RESOLUTION_OPTIONS,
-    moduleResolutionHost,
-    moduleResolutionCache,
-  )
-  return resolved.resolvedModule?.resolvedFileName
-}
+  analysis: TsFileAnalysis
+}): string | undefined =>
+  isImportMapSpecifier(specifier.text) === true
+    ? resolveImportMapSpecifierForImporterSync({
+        specifier: specifier.text,
+        importerPath: importerFile,
+      })
+    : analysis.resolveModuleSpecifier(specifier)
 
 /**
  * Walk the transitive runtime import closure of each `.genie.ts` source and report those that reach a
@@ -184,13 +174,6 @@ export const checkBootstrapClosure = ({
   /** Absolute paths of the `.genie.ts` sources to check. */
   genieFiles: readonly string[]
 }): BootstrapClosureResult => {
-  const moduleResolutionHost: ts.ModuleResolutionHost = ts.sys
-  const moduleResolutionCache = ts.createModuleResolutionCache(
-    ts.sys.getCurrentDirectory(),
-    (fileName) => fileName,
-    RESOLUTION_OPTIONS,
-  )
-
   /** Per-file analysis, memoized globally — the runtime import graph is identical across all roots. */
   type FileEdges = {
     /** Bare runtime-only specifiers directly imported by this file (closure boundaries). */
@@ -199,27 +182,30 @@ export const checkBootstrapClosure = ({
     readonly followTargets: readonly string[]
   }
   const edgesCache = new Map<string, FileEdges>()
-  const edgesOf = (file: string): FileEdges => {
+  const edgesOf = ({
+    file,
+    session,
+  }: {
+    file: string
+    session: TsFileAnalysisSession
+  }): FileEdges => {
     const cached = edgesCache.get(file)
     if (cached !== undefined) return cached
     const violationSpecifiers: string[] = []
     const followTargets: string[] = []
-    if (moduleResolutionHost.fileExists(file) === true) {
-      for (const specifier of runtimeSpecifiersOf({
-        fileName: file,
-        sourceText: readFileSync(file, 'utf8'),
-      })) {
-        if (isViolationSpecifier(specifier) === true) {
-          violationSpecifiers.push(specifier)
+    const analysis = existsSync(file) === true ? session.analyze(file) : undefined
+    if (analysis !== undefined) {
+      for (const specifier of runtimeSpecifiersOf(analysis.sourceFile)) {
+        if (isViolationSpecifier(specifier.text) === true) {
+          violationSpecifiers.push(specifier.text)
         } else if (
-          isRelativeSpecifier(specifier) === true ||
-          isImportMapSpecifier(specifier) === true
+          isRelativeSpecifier(specifier.text) === true ||
+          isImportMapSpecifier(specifier.text) === true
         ) {
           const resolved = resolveFollowableSpecifier({
             specifier,
             importerFile: file,
-            moduleResolutionHost,
-            moduleResolutionCache,
+            analysis,
           })
           if (resolved !== undefined) followTargets.push(resolved)
         }
@@ -231,7 +217,13 @@ export const checkBootstrapClosure = ({
   }
 
   /** BFS from a root; returns the shortest chain to the first runtime-only specifier, or undefined. */
-  const findViolation = (root: string): BootstrapClosureViolation | undefined => {
+  const findViolation = ({
+    root,
+    session,
+  }: {
+    root: string
+    session: TsFileAnalysisSession
+  }): BootstrapClosureViolation | undefined => {
     const seen = new Set<string>()
     const queue: (readonly string[])[] = [[root]]
     while (queue.length > 0) {
@@ -240,7 +232,7 @@ export const checkBootstrapClosure = ({
       if (seen.has(current) === true) continue
       seen.add(current)
 
-      const { violationSpecifiers, followTargets } = edgesOf(current)
+      const { violationSpecifiers, followTargets } = edgesOf({ file: current, session })
       if (violationSpecifiers.length > 0) {
         return { source: root, specifier: violationSpecifiers[0]!, chain }
       }
@@ -252,11 +244,14 @@ export const checkBootstrapClosure = ({
   }
 
   const sortedGenieFiles = [...genieFiles].toSorted()
-  const violations: BootstrapClosureViolation[] = []
-  for (const root of sortedGenieFiles) {
-    const violation = findViolation(root)
-    if (violation !== undefined) violations.push(violation)
-  }
+  const violations = withTsFileAnalysis({
+    cwd: process.cwd(),
+    use: (session) =>
+      sortedGenieFiles.flatMap((root) => {
+        const violation = findViolation({ root, session })
+        return violation === undefined ? [] : [violation]
+      }),
+  })
 
   return { violations, checkedSources: sortedGenieFiles }
 }

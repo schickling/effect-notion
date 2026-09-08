@@ -262,6 +262,16 @@ All notable changes to this project will be documented in this file.
   recognized, and the full live install policy flag set and `.npmrc` policy
   lines are accepted. `packageImportMethod: auto` now prefers hardlinks over
   reflinks on Linux, a behavior change with no source change.
+- **TypeScript 7**: move the npm compiler/API package from 6.0.3 to 7.0.2 and
+  refresh the Effect-TS `tsgo` flake input. The existing nixpkgs
+  `tsgolint` 7.0.2001 pin is already the latest release built against
+  TypeScript 7.0.2. The five classic compiler-API consumers now use TypeScript
+  7's process-backed `typescript/unstable/sync` project snapshots and
+  `typescript/unstable/ast` nodes: Genie import-closure resolution,
+  export-environment syntax scans, and generated-constant type proofs share an
+  explicitly closed native compiler session; the OTEL boundary uses the new
+  scanner API; and JSONC validation uses `jsonc-parser` because the classic
+  config-text parser was removed.
 
   One pnpm 12 resolution change needed a source decision: with the repo's
   load-bearing `injectWorkspacePackages: true`, pnpm 12 resolved

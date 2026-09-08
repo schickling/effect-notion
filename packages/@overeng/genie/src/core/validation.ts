@@ -1,6 +1,7 @@
 import { Effect, FileSystem, Path } from 'effect'
 import type { PlatformError } from 'effect/PlatformError'
-import ts from 'typescript'
+import { parse } from 'jsonc-parser'
+import type { ParseError } from 'jsonc-parser'
 
 import type { GenieContext, GenieJsoncParser } from '../runtime/mod.ts'
 import { nodeGenieIO, runActionlint } from '../runtime/node/mod.ts'
@@ -8,14 +9,15 @@ import { nodePackageJsonValidationRuntime } from '../runtime/package-json/node/e
 import { formatValidationIssues, type ValidationIssue } from '../runtime/package-json/validation.ts'
 
 /**
- * Engine-side JSONC parser injected as the {@link GenieContext.parseJsonc} capability. Backed by the
- * TypeScript compiler's JSONC-aware parse so validators (e.g. tsconfig references) tolerate comment-headed
- * config files exactly as the previous `ts.readConfigFile` path did. Lives here (`src/core/`, the node engine)
- * rather than `src/runtime/` so the dependency-free runtime never value-imports typescript (issue #138).
+ * Engine-side JSONC parser injected as the {@link GenieContext.parseJsonc} capability. TypeScript 7
+ * removed the classic in-process `parseConfigFileTextToJson` API, so use VS Code's zero-dependency
+ * JSONC parser directly. Lives here (`src/core/`, the node engine) rather than `src/runtime/` so the
+ * dependency-free runtime never value-imports parser machinery (issue #138).
  */
-const nodeJsoncParser: GenieJsoncParser = ({ path, text }) => {
-  const { config, error } = ts.parseConfigFileTextToJson(path, text)
-  return error !== undefined ? undefined : config
+const nodeJsoncParser: GenieJsoncParser = ({ text }) => {
+  const errors: ParseError[] = []
+  const value: unknown = parse(text, errors)
+  return errors.length === 0 ? value : undefined
 }
 import { findGenieFiles } from './discovery.ts'
 import { GenieValidationError } from './errors.ts'

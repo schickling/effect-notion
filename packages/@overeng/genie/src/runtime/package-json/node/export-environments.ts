@@ -14,7 +14,40 @@ import { isBuiltin } from 'node:module'
 import path from 'node:path'
 import { performance } from 'node:perf_hooks'
 
-import ts from 'typescript'
+import type { BindingName, Identifier, Node, SourceFile } from 'typescript/unstable/ast'
+import {
+  isBindingElement,
+  isBlock,
+  isCallExpression,
+  isCaseBlock,
+  isCatchClause,
+  isClassDeclaration,
+  isExportDeclaration,
+  isExportSpecifier,
+  isExternalModuleReference,
+  isFunctionDeclaration,
+  isFunctionLikeDeclaration,
+  isIdentifier,
+  isImportClause,
+  isImportDeclaration,
+  isImportSpecifier,
+  isInterfaceDeclaration,
+  isMethodDeclaration,
+  isModuleBlock,
+  isNamespaceImport,
+  isParameterDeclaration,
+  isPropertyAccessExpression,
+  isPropertyAssignment,
+  isPropertyDeclaration,
+  isSourceFile,
+  isStringLiteral,
+  isTypeAliasDeclaration,
+  isVariableDeclaration,
+  SyntaxKind,
+} from 'typescript/unstable/ast'
+
+import { withTsFileAnalysis } from '../../node/ts-api.ts'
+import type { TsFileAnalysisSession } from '../../node/ts-api.ts'
 
 import type { ExportEnvironmentContract, PackageJsonValidationRuntime } from '../mod.ts'
 import type { ValidationIssue } from '../validation.ts'
@@ -175,20 +208,19 @@ const resolveRelativeImport = ({
 
 const findForbiddenGlobals = ({
   file,
-  source,
+  sourceFile,
   profile,
   packageName,
   exportPath,
 }: {
   file: string
-  source: string
+  sourceFile: SourceFile
   profile: EnvironmentProfile
   packageName: string
   exportPath: string
 }): ValidationIssue[] => {
   if (profile.forbiddenGlobals.length === 0) return []
 
-  const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
   const issues: ValidationIssue[] = []
   const forbiddenGlobals = new Set(profile.forbiddenGlobals)
 
@@ -197,95 +229,101 @@ const findForbiddenGlobals = ({
     name,
   }: {
     target: Set<string>
-    name: ts.BindingName
+    name: BindingName
   }): void => {
-    if (ts.isIdentifier(name) === true) {
+    if (isIdentifier(name) === true) {
       target.add(name.text)
       return
     }
     for (const element of name.elements) {
-      if (ts.isBindingElement(element) === true) addBindingNames({ target, name: element.name })
+      if (isBindingElement(element) === true) addBindingNames({ target, name: element.name })
     }
   }
 
-  const isScopeBoundary = (node: ts.Node): boolean =>
-    ts.isSourceFile(node) === true ||
-    ts.isBlock(node) === true ||
-    ts.isModuleBlock(node) === true ||
-    ts.isCaseBlock(node) === true ||
-    ts.isCatchClause(node) === true ||
-    ts.isFunctionLike(node) === true
+  const isScopeBoundary = (node: Node): boolean =>
+    isSourceFile(node) === true ||
+    isBlock(node) === true ||
+    isModuleBlock(node) === true ||
+    isCaseBlock(node) === true ||
+    isCatchClause(node) === true ||
+    isFunctionLikeDeclaration(node) === true
 
-  const collectScopeDeclarations = (node: ts.Node): Set<string> => {
+  const collectScopeDeclarations = (node: Node): Set<string> => {
     const declarations = new Set<string>()
-    if (ts.isFunctionLike(node) === true) {
+    if (isFunctionLikeDeclaration(node) === true) {
       for (const parameter of node.parameters) {
         addBindingNames({ target: declarations, name: parameter.name })
       }
     }
-    if (ts.isCatchClause(node) === true && node.variableDeclaration !== undefined) {
+    if (isCatchClause(node) === true && node.variableDeclaration !== undefined) {
       addBindingNames({ target: declarations, name: node.variableDeclaration.name })
     }
 
-    const visitDeclaration = (child: ts.Node): void => {
+    const visitDeclaration = (child: Node): void => {
       if (child !== node && isScopeBoundary(child) === true) return
-      if (ts.isImportSpecifier(child) === true) declarations.add(child.name.text)
-      if (ts.isImportClause(child) === true && child.name !== undefined)
+      if (isImportSpecifier(child) === true) declarations.add(child.name.text)
+      if (isImportClause(child) === true && child.name !== undefined)
         declarations.add(child.name.text)
-      if (ts.isNamespaceImport(child) === true) declarations.add(child.name.text)
-      if (ts.isVariableDeclaration(child) === true)
+      if (isNamespaceImport(child) === true) declarations.add(child.name.text)
+      if (isVariableDeclaration(child) === true)
         addBindingNames({ target: declarations, name: child.name })
       if (
-        (ts.isFunctionDeclaration(child) === true ||
-          ts.isClassDeclaration(child) === true ||
-          ts.isInterfaceDeclaration(child) === true ||
-          ts.isTypeAliasDeclaration(child) === true) &&
+        (isFunctionDeclaration(child) === true ||
+          isClassDeclaration(child) === true ||
+          isInterfaceDeclaration(child) === true ||
+          isTypeAliasDeclaration(child) === true) &&
         child.name !== undefined
       ) {
         declarations.add(child.name.text)
       }
-      ts.forEachChild(child, visitDeclaration)
+      child.forEachChild((grandChild) => {
+        visitDeclaration(grandChild)
+        return undefined
+      })
     }
 
-    ts.forEachChild(node, visitDeclaration)
+    node.forEachChild((child) => {
+      visitDeclaration(child)
+      return undefined
+    })
     return declarations
   }
 
-  const isDeclarationName = (node: ts.Identifier): boolean => {
+  const isDeclarationName = (node: Identifier): boolean => {
     const parent = node.parent
     return (
       parent !== undefined &&
-      ((ts.isBindingElement(parent) === true && parent.name === node) ||
-        (ts.isImportSpecifier(parent) === true && parent.name === node) ||
-        (ts.isImportClause(parent) === true && parent.name === node) ||
-        (ts.isNamespaceImport(parent) === true && parent.name === node) ||
-        (ts.isVariableDeclaration(parent) === true && parent.name === node) ||
-        (ts.isFunctionDeclaration(parent) === true && parent.name === node) ||
-        (ts.isParameter(parent) === true && parent.name === node) ||
-        (ts.isClassDeclaration(parent) === true && parent.name === node) ||
-        (ts.isInterfaceDeclaration(parent) === true && parent.name === node) ||
-        (ts.isTypeAliasDeclaration(parent) === true && parent.name === node))
+      ((isBindingElement(parent) === true && parent.name === node) ||
+        (isImportSpecifier(parent) === true && parent.name === node) ||
+        (isImportClause(parent) === true && parent.name === node) ||
+        (isNamespaceImport(parent) === true && parent.name === node) ||
+        (isVariableDeclaration(parent) === true && parent.name === node) ||
+        (isFunctionDeclaration(parent) === true && parent.name === node) ||
+        (isParameterDeclaration(parent) === true && parent.name === node) ||
+        (isClassDeclaration(parent) === true && parent.name === node) ||
+        (isInterfaceDeclaration(parent) === true && parent.name === node) ||
+        (isTypeAliasDeclaration(parent) === true && parent.name === node))
     )
   }
 
-  const isPropertyName = (node: ts.Identifier): boolean => {
+  const isPropertyName = (node: Identifier): boolean => {
     const parent = node.parent
     return (
       parent !== undefined &&
-      ((ts.isPropertyAccessExpression(parent) === true && parent.name === node) ||
-        (ts.isPropertyAssignment(parent) === true && parent.name === node) ||
-        (ts.isPropertyDeclaration(parent) === true && parent.name === node) ||
-        (ts.isMethodDeclaration(parent) === true && parent.name === node) ||
-        (ts.isExportSpecifier(parent) === true && parent.name === node))
+      ((isPropertyAccessExpression(parent) === true && parent.name === node) ||
+        (isPropertyAssignment(parent) === true && parent.name === node) ||
+        (isPropertyDeclaration(parent) === true && parent.name === node) ||
+        (isMethodDeclaration(parent) === true && parent.name === node) ||
+        (isExportSpecifier(parent) === true && parent.name === node))
     )
   }
 
-  const visit = ({ node, scopes }: { node: ts.Node; scopes: readonly Set<string>[] }): void => {
+  const visit = ({ node, scopes }: { node: Node; scopes: readonly Set<string>[] }): void => {
     const nextScopes =
       isScopeBoundary(node) === true ? [...scopes, collectScopeDeclarations(node)] : scopes
 
     if (
-      ts.isIdentifier(node) === true &&
+      isIdentifier(node) === true &&
       forbiddenGlobals.has(node.text) === true &&
       isDeclarationName(node) === false &&
       isPropertyName(node) === false &&
@@ -300,11 +338,55 @@ const findForbiddenGlobals = ({
         }),
       )
     }
-    ts.forEachChild(node, (child) => visit({ node: child, scopes: nextScopes }))
+    node.forEachChild((child) => {
+      visit({ node: child, scopes: nextScopes })
+      return undefined
+    })
   }
 
   visit({ node: sourceFile, scopes: [] })
   return issues
+}
+
+/**
+ * Every module specifier a file names: imports (type-only included), re-exports, dynamic `import()`,
+ * `import x = require(...)`, and CommonJS `require(...)`. This is the TypeScript 7 replacement for
+ * `ts.preProcessFile(source, true, true).importedFiles`; triple-slash `referencedFiles` and
+ * `typeReferenceDirectives` were never followed by this walk and stay out of it.
+ */
+const importedSpecifiersOf = (sourceFile: SourceFile): readonly string[] => {
+  const specifiers: string[] = []
+
+  const visit = (node: Node): void => {
+    if (isImportDeclaration(node) === true || isExportDeclaration(node) === true) {
+      const { moduleSpecifier } = node
+      if (moduleSpecifier !== undefined && isStringLiteral(moduleSpecifier) === true) {
+        specifiers.push(moduleSpecifier.text)
+      }
+    }
+
+    if (isExternalModuleReference(node) === true && isStringLiteral(node.expression) === true) {
+      specifiers.push(node.expression.text)
+    }
+
+    if (isCallExpression(node) === true) {
+      const isModuleCall =
+        node.expression.kind === SyntaxKind.ImportKeyword ||
+        (isIdentifier(node.expression) === true && node.expression.text === 'require')
+      const [first] = node.arguments
+      if (isModuleCall === true && first !== undefined && isStringLiteral(first) === true) {
+        specifiers.push(first.text)
+      }
+    }
+
+    node.forEachChild((child) => {
+      visit(child)
+      return undefined
+    })
+  }
+
+  visit(sourceFile)
+  return specifiers
 }
 
 const scanGraph = ({
@@ -312,11 +394,13 @@ const scanGraph = ({
   profile,
   packageName,
   exportPath,
+  session,
 }: {
   entry: string
   profile: EnvironmentProfile
   packageName: string
   exportPath: string
+  session: TsFileAnalysisSession
 }): GraphResult => {
   const seen = new Set<string>()
   const pending = [entry]
@@ -327,11 +411,10 @@ const scanGraph = ({
     if (file === undefined || seen.has(file) === true) continue
     seen.add(file)
 
-    const source = readFileSync(file, 'utf8')
-    const preprocessed = ts.preProcessFile(source, true, true)
+    const analysis = session.analyze(file)
+    if (analysis === undefined) continue
 
-    for (const imported of preprocessed.importedFiles) {
-      const specifier = imported.fileName
+    for (const specifier of importedSpecifiersOf(analysis.sourceFile)) {
       const forbiddenPattern = profile.forbiddenImports.find((pattern) =>
         matchesForbiddenImport({ specifier, pattern }),
       )
@@ -351,7 +434,15 @@ const scanGraph = ({
       if (resolved !== undefined) pending.push(resolved)
     }
 
-    issues.push(...findForbiddenGlobals({ file, source, profile, packageName, exportPath }))
+    issues.push(
+      ...findForbiddenGlobals({
+        file,
+        sourceFile: analysis.sourceFile,
+        profile,
+        packageName,
+        exportPath,
+      }),
+    )
   }
 
   return { files: [...seen].toSorted(), issues }
@@ -675,99 +766,106 @@ const typecheck = ({
 export const createNodePackageJsonValidationRuntime = ({
   typeProofCompiler: configuredTypeProofCompiler,
 }: NodePackageJsonValidationRuntimeOptions = {}): PackageJsonValidationRuntime => ({
-  validateExportEnvironments: (args) => {
-    const start = performance.now()
-    const issues: ValidationIssue[] = []
-    let hits = 0
-    let misses = 0
-    const typeProofCompiler = resolveTypeProofCompiler(configuredTypeProofCompiler)
+  // One compiler session serves every export of the package: it parses each graph file and answers the
+  // module resolution the walk needs, and is torn down before the runtime returns.
+  validateExportEnvironments: (args) =>
+    withTsFileAnalysis({
+      cwd: args.cwd,
+      use: (session) => {
+        const start = performance.now()
+        const issues: ValidationIssue[] = []
+        let hits = 0
+        let misses = 0
+        const typeProofCompiler = resolveTypeProofCompiler(configuredTypeProofCompiler)
 
-    for (const [exportPath, contracts] of Object.entries(args.contracts)) {
-      for (const contract of contracts) {
-        const profile = builtinEnvironmentProfiles[contract.environment]
-        if (profile === undefined) {
-          issues.push(
-            issue({
-              packageName: args.packageName,
-              dependency: exportPath,
-              message: `Unknown export environment "${contract.environment}".`,
-              rule: 'package-json-export-environment-unknown',
-            }),
-          )
-          continue
+        for (const [exportPath, contracts] of Object.entries(args.contracts)) {
+          for (const contract of contracts) {
+            const profile = builtinEnvironmentProfiles[contract.environment]
+            if (profile === undefined) {
+              issues.push(
+                issue({
+                  packageName: args.packageName,
+                  dependency: exportPath,
+                  message: `Unknown export environment "${contract.environment}".`,
+                  rule: 'package-json-export-environment-unknown',
+                }),
+              )
+              continue
+            }
+
+            const exportEntry = args.exports[exportPath]
+            if (exportEntry === undefined) continue
+
+            const target = resolveExportTarget({ entry: exportEntry, profile })
+            if (target === undefined) {
+              issues.push(
+                issue({
+                  packageName: args.packageName,
+                  dependency: exportPath,
+                  message: `Export "${exportPath}" has no target for environment "${contract.environment}" using conditions ${profile.conditions.join(', ')}.`,
+                  rule: 'package-json-export-environment-target',
+                }),
+              )
+              continue
+            }
+
+            const entries = resolveTargetEntries({
+              cwd: args.cwd,
+              location: args.location,
+              target,
+            })
+            if (entries.length === 0) {
+              issues.push(
+                issue({
+                  packageName: args.packageName,
+                  dependency: exportPath,
+                  message: `Export "${exportPath}" target does not exist: ${path.relative(args.cwd, path.resolve(args.cwd, args.location, target))}`,
+                  rule: 'package-json-export-environment-target-exists',
+                }),
+              )
+              continue
+            }
+
+            for (const entry of entries) {
+              const graph = scanGraph({
+                entry,
+                profile,
+                packageName: args.packageName,
+                exportPath,
+                session,
+              })
+              issues.push(...graph.issues)
+
+              const typecheckResult = typecheck({
+                cwd: args.cwd,
+                entry,
+                files: graph.files,
+                cacheInputs: [
+                  path.join(args.cwd, 'pnpm-lock.yaml'),
+                  path.join(args.cwd, 'package.json'),
+                  path.join(args.cwd, args.location, 'package.json'),
+                  path.join(args.cwd, args.location, 'tsconfig.json'),
+                ],
+                contract,
+                profile,
+                compiler: typeProofCompiler,
+                packageName: args.packageName,
+                exportPath,
+              })
+              hits += typecheckResult.cache.hits
+              misses += typecheckResult.cache.misses
+              issues.push(...typecheckResult.issues)
+            }
+          }
         }
 
-        const exportEntry = args.exports[exportPath]
-        if (exportEntry === undefined) continue
-
-        const target = resolveExportTarget({ entry: exportEntry, profile })
-        if (target === undefined) {
-          issues.push(
-            issue({
-              packageName: args.packageName,
-              dependency: exportPath,
-              message: `Export "${exportPath}" has no target for environment "${contract.environment}" using conditions ${profile.conditions.join(', ')}.`,
-              rule: 'package-json-export-environment-target',
-            }),
-          )
-          continue
+        return {
+          issues,
+          durationMs: performance.now() - start,
+          cache: { hits, misses },
         }
-
-        const entries = resolveTargetEntries({
-          cwd: args.cwd,
-          location: args.location,
-          target,
-        })
-        if (entries.length === 0) {
-          issues.push(
-            issue({
-              packageName: args.packageName,
-              dependency: exportPath,
-              message: `Export "${exportPath}" target does not exist: ${path.relative(args.cwd, path.resolve(args.cwd, args.location, target))}`,
-              rule: 'package-json-export-environment-target-exists',
-            }),
-          )
-          continue
-        }
-
-        for (const entry of entries) {
-          const graph = scanGraph({
-            entry,
-            profile,
-            packageName: args.packageName,
-            exportPath,
-          })
-          issues.push(...graph.issues)
-
-          const typecheckResult = typecheck({
-            cwd: args.cwd,
-            entry,
-            files: graph.files,
-            cacheInputs: [
-              path.join(args.cwd, 'pnpm-lock.yaml'),
-              path.join(args.cwd, 'package.json'),
-              path.join(args.cwd, args.location, 'package.json'),
-              path.join(args.cwd, args.location, 'tsconfig.json'),
-            ],
-            contract,
-            profile,
-            compiler: typeProofCompiler,
-            packageName: args.packageName,
-            exportPath,
-          })
-          hits += typecheckResult.cache.hits
-          misses += typecheckResult.cache.misses
-          issues.push(...typecheckResult.issues)
-        }
-      }
-    }
-
-    return {
-      issues,
-      durationMs: performance.now() - start,
-      cache: { hits, misses },
-    }
-  },
+      },
+    }),
 })
 
 /** Package-json-owned node validation runtime injected during Genie validation. */

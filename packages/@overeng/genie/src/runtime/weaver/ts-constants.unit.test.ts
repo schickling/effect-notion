@@ -1,9 +1,11 @@
-import ts from 'typescript'
+import path from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import type { Provenance, Registry } from './mod.ts'
 import { renderRustConstants, renderTsConstants } from './mod.ts'
 import { otelScrapeFixtureRegistry } from './otel-scrape.fixture.ts'
+import { withTsVirtualProject } from '../node/ts-api.ts'
 
 const registry = otelScrapeFixtureRegistry
 
@@ -13,31 +15,28 @@ const FIXTURE_PROVENANCE: Provenance = {
 }
 
 const typecheck = (files: ReadonlyMap<string, string>, rootNames: ReadonlyArray<string>): void => {
-  const options: ts.CompilerOptions = {
-    allowImportingTsExtensions: true,
-    module: ts.ModuleKind.NodeNext,
-    moduleResolution: ts.ModuleResolutionKind.NodeNext,
-    noEmit: true,
-    strict: true,
-    target: ts.ScriptTarget.ES2024,
-  }
-  const host = ts.createCompilerHost(options)
-  const fallbackGetSourceFile = host.getSourceFile.bind(host)
-  const fallbackFileExists = host.fileExists.bind(host)
-  const fallbackReadFile = host.readFile.bind(host)
-  host.getSourceFile = (fileName, languageVersion) => {
-    const text = files.get(fileName)
-    if (text !== undefined) return ts.createSourceFile(fileName, text, languageVersion, true)
-    return fallbackGetSourceFile(fileName, languageVersion)
-  }
-  host.fileExists = (fileName) => files.has(fileName) || fallbackFileExists(fileName)
-  host.readFile = (fileName) => files.get(fileName) ?? fallbackReadFile(fileName)
-  host.writeFile = () => undefined
+  const root = path.resolve('/genie-virtual/weaver')
+  const normalizedFiles = new Map(
+    [...files].map(([file, text]) => [path.resolve(root, file.replace(/^\/+/, '')), text]),
+  )
+  const normalizedRootNames = rootNames.map((file) => path.resolve(root, file.replace(/^\/+/, '')))
 
-  const program = ts.createProgram(rootNames, options, host)
-  const diagnostics = ts.getPreEmitDiagnostics(program)
-
-  expect(diagnostics.map((d) => ts.flattenDiagnosticMessageText(d.messageText, '\n'))).toEqual([])
+  withTsVirtualProject({
+    root,
+    files: normalizedFiles,
+    rootFiles: normalizedRootNames,
+    compilerOptions: {
+      allowImportingTsExtensions: true,
+      module: 'nodenext',
+      moduleResolution: 'nodenext',
+      noEmit: true,
+      strict: true,
+      target: 'es2024',
+    },
+    use: (project) => {
+      expect(project.diagnosticMessages()).toEqual([])
+    },
+  })
 }
 
 describe('renderTsConstants (otel-scrape fixture)', () => {

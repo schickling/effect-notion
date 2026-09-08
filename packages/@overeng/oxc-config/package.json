@@ -22,7 +22,7 @@
     "@typescript-eslint/utils": "8.61.1",
     "eslint": "10.5.0",
     "oxlint-tsgolint": "0.23.0",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "vitest": "4.1.9"
   }
 }

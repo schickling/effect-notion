@@ -25,7 +25,7 @@
     "@effect/vitest": "4.0.0-rc.111",
     "@overeng/utils-dev": "workspace:^",
     "@types/node": "26.5.0",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "vitest": "4.1.9"
   },
   "publishConfig": {

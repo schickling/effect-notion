@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { relative, resolve } from 'node:path'
 
-import ts from 'typescript'
+import { createScanner, SyntaxKind } from 'typescript/unstable/ast'
 import { describe, expect, it } from 'vitest'
 
 const repoRoot = resolve(import.meta.dirname, '../../..', '..')
@@ -42,14 +42,24 @@ const sourceFiles = (dir: string): ReadonlyArray<string> =>
     return isProductionSource(path) === true ? [path] : []
   })
 
-const removeComments = (source: string) =>
-  ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.ESNext,
-      removeComments: true,
-      target: ts.ScriptTarget.ESNext,
-    },
-  }).outputText
+const removeComments = (source: string): string => {
+  const scanner = createScanner(false, undefined, source)
+  const chunks: string[] = []
+  let position = 0
+  for (let token = scanner.scan(); token !== SyntaxKind.EndOfFile; token = scanner.scan()) {
+    const start = scanner.getTokenStart()
+    chunks.push(source.slice(position, start))
+    const tokenText = source.slice(start, scanner.getTokenEnd())
+    chunks.push(
+      token === SyntaxKind.SingleLineCommentTrivia || token === SyntaxKind.MultiLineCommentTrivia
+        ? tokenText.replace(/[^\r\n]/g, ' ')
+        : tokenText,
+    )
+    position = scanner.getTokenEnd()
+  }
+  chunks.push(source.slice(position))
+  return chunks.join('')
+}
 
 describe('raw OTEL boundary', () => {
   it('routes production span instrumentation through schema-backed helpers', () => {

@@ -187,9 +187,9 @@ Genie does not materialize missing megarepo members itself. Repository task wiri
 
 Satisfies R06 (runtime independence of the transitive closure) and R30 (bootstrap-closure enforcement). The check walks the transitive _runtime_ import closure of every `.genie.ts` source and reports any source that reaches a package unavailable before install, with the importer chain.
 
-**Walk.** For each `.genie.ts` root, a breadth-first walk follows only bootstrap-safe edges. Edges are extracted per file with the TypeScript parser (`ts.createSourceFile`) — the reused, authoritative parser — covering `import`/`export … from`, `export *`, and dynamic `import('…')` with a string-literal argument. The per-file edge set is memoized globally, since the runtime graph is identical across roots.
+**Walk.** For each `.genie.ts` root, a breadth-first walk follows only bootstrap-safe edges. Edges are extracted per file from TypeScript 7's process-backed project snapshots and decoded AST, covering `import`/`export … from`, `export *`, and dynamic `import('…')` with a string-literal argument. The per-file edge set is memoized globally, since the runtime graph is identical across roots.
 
-**Resolution.** The check reuses genie's own resolvers so a specifier resolves exactly as it does at bootstrap: `#`/`#mr` specifiers go through {@link resolveImportMapSpecifierForImporterSync} (lock-pinned member identity, per _Import Resolution_ above); relative specifiers go through `ts.resolveModuleName`. Bare specifiers are never resolved — they are closure boundaries, not edges — so the check never descends into `node_modules` and has no dependency on install state.
+**Resolution.** The check reuses genie's own resolvers so a specifier resolves exactly as it does at bootstrap: `#`/`#mr` specifiers go through {@link resolveImportMapSpecifierForImporterSync} (lock-pinned member identity, per _Import Resolution_ above); relative specifiers use the owning configured or inferred TypeScript 7 project. Bare specifiers are never followed — they are closure boundaries, not edges — so the walk never descends into `node_modules`.
 
 **Policy.** An edge is a violation iff its specifier is a bare package name — not relative, not a `#`/`#mr` import-map specifier, and not a node builtin (with or without the `node:` prefix; builtins are always importable pre-install). Consequences:
 
