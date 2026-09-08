@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Buck2 (inert)**: added sandbox-free package, editor-view, and product
+  actions; normalized dependency views; tracked remote-cache configuration with
+  a local opt-out; and immutable-release digest-manifest, consumer, and
+  publisher machinery. These paths are preparatory and publish no products;
+  pnpm, `tsgo`, and Vitest remain authoritative for this change.
 - **@overeng/utils**: `@overeng/utils/node/storybook/gate` — a reusable
   story-driven visual and accessibility gate. Every story becomes a browser
   test that renders, plays, checks accessibility and compares a screenshot
