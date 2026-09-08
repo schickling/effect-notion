@@ -55,11 +55,9 @@ export type RootTsconfigProject = {
 
 type RootTsconfigProjectDefinition = Omit<RootTsconfigProject, 'path'>
 
-export const isRootTsconfigCheckProject = (project: RootTsconfigProject): boolean =>
-  project.buck2Authority?.typecheckTarget === undefined
+export const isRootTsconfigCheckProject = (_project: RootTsconfigProject): boolean => true
 
-export const isRootTsconfigEmitProject = (project: RootTsconfigProject): boolean =>
-  project.buck2Authority?.emitTarget === undefined
+export const isRootTsconfigEmitProject = (_project: RootTsconfigProject): boolean => true
 
 export const rootWorkspaceTsconfigProjects = (() => {
   const workspaceTsconfigsByPath: Record<string, RootTsconfigProjectDefinition> = {
