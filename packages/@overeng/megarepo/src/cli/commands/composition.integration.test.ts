@@ -13,7 +13,11 @@ import * as Git from '../../core/git.ts'
 import type { MegarepoStore } from '../../store/store.ts'
 import { Store } from '../../store/store.ts'
 import { makeCanonicalTempDirectoryScoped } from '../../test-utils/temp-root.ts'
-import { preflightCompositionCommand, runCompositionApply } from './composition.ts'
+import {
+  compositionCacheSections,
+  preflightCompositionCommand,
+  runCompositionApply,
+} from './composition.ts'
 
 const GIT_USER = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test User'] as const
 
@@ -80,6 +84,27 @@ const fingerprint = (fixture: Effect.Success<typeof makeLegacyWorkspace>) =>
       registrations: yield* fixture.git(fixture.bareRepo, 'worktree', 'list', '--porcelain'),
     }
   })
+
+describe('compositionCacheSections', () => {
+  it('disables remote cache execution before the first overlay when requested', () => {
+    expect(compositionCacheSections({ BUCK2_NO_REMOTE_CACHE: '1' })).toEqual([
+      {
+        section: 'buck2',
+        entries: [
+          { key: 'remote_cache_enabled', value: 'false' },
+          { key: 'allow_cache_uploads', value: 'false' },
+        ],
+      },
+    ])
+  })
+
+  it('leaves unset and non-exact opt-out values to the tracked platform-hub default', () => {
+    expect(compositionCacheSections({})).toBeUndefined()
+    expect(compositionCacheSections({ BUCK2_NO_REMOTE_CACHE: '0' })).toBeUndefined()
+    expect(compositionCacheSections({ BUCK2_NO_REMOTE_CACHE: 'true' })).toBeUndefined()
+    expect(compositionCacheSections({ BUCK2_NO_REMOTE_CACHE: ' 1' })).toBeUndefined()
+  })
+})
 
 describe('routine composition apply is shape-preserving', () => {
   it.effect('returns a typed recreate instruction for a legacy flat root without mutation', () =>

@@ -10,6 +10,7 @@ import type { BuckMemberCapability, BuckMemberManifest } from '@overeng/megarepo
 
 import { CompositionGeneratorConfig, EffectPath } from '../../core/config.ts'
 import type { OwnedCpAMountMetadata } from '../mounts/member-mount-r6.ts'
+import type { PlanCompositionRootPublicationOptions } from '../root/composition-root-publisher.ts'
 import { type CompositionApplyRequest } from './composition-apply-schema.ts'
 import {
   buildCompositionDistOverlay,
@@ -76,6 +77,7 @@ interface FixtureOptions {
   readonly lockFailure?: boolean
   readonly allowDarwin?: boolean
   readonly recovery?: boolean
+  readonly cacheSections?: CompositionApplyRequest['cacheSections']
   readonly releaseFailures?: ReadonlyArray<string>
 }
 
@@ -102,7 +104,7 @@ const fixture = async (options: FixtureOptions = {}) => {
       platformHub: 'owned',
       isolationDir: 'fixed',
     }),
-    cacheSections: [],
+    ...(options.cacheSections === undefined ? {} : { cacheSections: options.cacheSections }),
     lockedMembers: locked.map(({ key }) => ({
       key,
       sourcePath: NodePath.join(root, 'store', key),
@@ -125,6 +127,7 @@ const fixture = async (options: FixtureOptions = {}) => {
     }),
   )
   let scratchIndex = 0
+  const rootCacheSections: Array<PlanCompositionRootPublicationOptions['cacheSections']> = []
 
   const primitives: CompositionApplyPrimitives = {
     assertLockedSourceClean: async () => {},
@@ -275,13 +278,16 @@ const fixture = async (options: FixtureOptions = {}) => {
         'CleanupScratch',
       ],
     }),
-    planRoot: async () =>
-      options.rootMode === 'first'
+    planRoot: async (input) => {
+      rootCacheSections.push(input.cacheSections)
+      return options.rootMode === 'first'
         ? { _tag: 'Create', files: [], configLast: true }
         : options.rootMode === 'update'
           ? { _tag: 'Update', files: [], configLast: true }
-          : { _tag: 'NoChange', files: [], configLast: true },
+          : { _tag: 'NoChange', files: [], configLast: true }
+    },
     publishRoot: async (input) => {
+      rootCacheSections.push(input.cacheSections)
       calls.push(`root:start:${input.configMemberKeys.join(',')}`)
       for (const [path, manifest] of manifests) {
         const key = manifest.mount.slice('repos/'.length)
@@ -376,6 +382,7 @@ const fixture = async (options: FixtureOptions = {}) => {
     request,
     runtime,
     calls,
+    rootCacheSections,
     cleanup: () => rm(root, { recursive: true, force: true }),
   }
 }
@@ -430,6 +437,7 @@ describe('composition apply integration', () => {
         const result = await Effect.runPromise(
           compositionApply({ request: value.request, runtime: value.runtime }),
         )
+        expect(value.rootCacheSections).toEqual([undefined, undefined])
         expect(result._tag).toBe('Applied')
         expect(result.defaultCwd).toBe(value.request.ownedMemberPath)
         const overlayIndex = value.calls.findIndex((call) => call.startsWith('overlay:dep:'))
@@ -452,6 +460,28 @@ describe('composition apply integration', () => {
       }
     },
   )
+
+  it('forwards an explicit cache override unchanged to root planning and publication', async () => {
+    const cacheSections: NonNullable<CompositionApplyRequest['cacheSections']> = [
+      {
+        section: 'buck2',
+        entries: [
+          { key: 'remote_cache_enabled', value: 'false' },
+          { key: 'allow_cache_uploads', value: 'false' },
+        ],
+      },
+    ]
+    const value = await fixture({ rootMode: 'first', cacheSections })
+    try {
+      await Effect.runPromise(compositionApply({ request: value.request, runtime: value.runtime }))
+      expect(value.rootCacheSections).toEqual([cacheSections, cacheSections])
+      expect(value.calls.indexOf('root:authority')).toBeLessThan(
+        value.calls.findIndex((call) => call.startsWith('overlay:dep:')),
+      )
+    } finally {
+      await value.cleanup()
+    }
+  })
 
   it('orders multiple members and overlays and uses exact Buck argv', async () => {
     const value = await fixture({
