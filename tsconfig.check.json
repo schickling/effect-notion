@@ -103,6 +103,9 @@
       "path": "./packages/@overeng/restate-effect"
     },
     {
+      "path": "./packages/@overeng/stylex-tokens"
+    },
+    {
       "path": "./packages/@overeng/tui-core"
     },
     {

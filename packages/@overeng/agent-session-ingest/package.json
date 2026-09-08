@@ -1,26 +1,24 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/agent-session-ingest",
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
-  },
   "name": "@overeng/agent-session-ingest",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "exports": {
     ".": "./src/mod.ts",
     "./claude": "./src/adapters/claude.ts",
     "./codex": "./src/adapters/codex.ts",
     "./jsonl": "./src/adapters/jsonl.ts",
     "./opencode": "./src/adapters/opencode.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js",
+      "./codex": "./dist/adapters/codex.js",
+      "./claude": "./dist/adapters/claude.js",
+      "./opencode": "./dist/adapters/opencode.js",
+      "./jsonl": "./dist/adapters/jsonl.js"
+    }
   },
   "dependencies": {
     "@effect/opentelemetry": "4.0.0-rc.111",
@@ -43,14 +41,16 @@
   "peerDependencies": {
     "effect": "^4.0.0-rc.111"
   },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js",
-      "./codex": "./dist/adapters/codex.js",
-      "./claude": "./dist/adapters/claude.js",
-      "./opencode": "./dist/adapters/opencode.js",
-      "./jsonl": "./dist/adapters/jsonl.js"
-    }
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/agent-session-ingest",
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
   }
 }

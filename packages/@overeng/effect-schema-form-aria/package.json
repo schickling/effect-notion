@@ -1,25 +1,18 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/effect-schema-form",
-      "packages/@overeng/effect-schema-form-aria",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/stylex-tokens",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
-  },
   "name": "@overeng/effect-schema-form-aria",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "exports": {
     ".": "./src/mod.ts",
     "./styles.css": "./src/styles.css"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js",
+      "./styles.css": "./dist/styles.css"
+    }
   },
   "scripts": {
     "build": "tsc --build tsconfig.json && vite build",
@@ -56,11 +49,18 @@
     "react-aria-components": "^1.21.1",
     "react-dom": "^19.2.8"
   },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js",
-      "./styles.css": "./dist/styles.css"
-    }
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/effect-schema-form",
+      "packages/@overeng/effect-schema-form-aria",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/stylex-tokens",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
   }
 }

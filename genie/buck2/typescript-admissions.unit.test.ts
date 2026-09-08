@@ -35,9 +35,13 @@ describe('Buck2 TypeScript authority derivation', () => {
     expect(authoritativeBuck2TypeScriptAdmissions).toEqual(packageLocalAuthorities)
   })
 
-  it('keeps the existing TypeScript graph authoritative before activation', () => {
+  it('keeps legacy typechecking authoritative without emitting noEmit projects', () => {
     expect(rootWorkspaceTsconfigProjects.every(isRootTsconfigCheckProject)).toBe(true)
-    expect(rootWorkspaceTsconfigProjects.every(isRootTsconfigEmitProject)).toBe(true)
+    expect(
+      rootWorkspaceTsconfigProjects
+        .filter((project) => isRootTsconfigEmitProject(project) === false)
+        .map(({ path }) => path),
+    ).toEqual(['packages/@overeng/stylex-tokens'])
   })
 
   it('derives manifest overlays and root TypeScript authority from the same entries', () => {

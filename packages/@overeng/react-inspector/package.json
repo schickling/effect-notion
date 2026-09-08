@@ -1,25 +1,24 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/react-inspector"
-    ]
-  },
   "name": "@overeng/react-inspector",
   "version": "9.0.0",
-  "type": "module",
   "description": "Browser DevTools-style React inspectors with native Effect 4 Schema support",
   "license": "MIT",
-  "exports": {
-    ".": "./src/index.tsx"
-  },
   "files": [
     "package.json",
     "dist",
     "src",
     "!dist/**/*.tsbuildinfo"
   ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.tsx"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc --build tsconfig.json",
     "storybook": "storybook dev -p 6011",
@@ -49,10 +48,11 @@
     "effect": "^4.0.0-rc.111",
     "react": "^19.2.8"
   },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/index.js"
-    }
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/react-inspector"
+    ]
   }
 }

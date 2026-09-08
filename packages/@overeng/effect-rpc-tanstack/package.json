@@ -1,26 +1,22 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/effect-rpc-tanstack",
-      "packages/@overeng/effect-rpc-tanstack/examples/basic",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
-  },
   "name": "@overeng/effect-rpc-tanstack",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "exports": {
     ".": "./src/mod.ts",
     "./client": "./src/client.ts",
     "./router": "./src/router.ts",
     "./server": "./src/server.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js",
+      "./client": "./dist/client.js",
+      "./server": "./dist/server.js",
+      "./router": "./dist/router.js"
+    }
   },
   "devDependencies": {
     "@effect/platform-node": "4.0.0-rc.111",
@@ -43,13 +39,17 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js",
-      "./client": "./dist/client.js",
-      "./server": "./dist/server.js",
-      "./router": "./dist/router.js"
-    }
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/effect-rpc-tanstack",
+      "packages/@overeng/effect-rpc-tanstack/examples/basic",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
   }
 }

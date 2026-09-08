@@ -1,25 +1,22 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/restate-effect",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
-  },
   "name": "@overeng/restate-effect",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "exports": {
     ".": "./src/mod.ts",
     "./admin": "./src/admin/admin.ts",
     "./otel": "./src/observability/otel.ts",
     "./testing": "./src/testing/testing.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js",
+      "./admin": "./dist/admin/admin.js",
+      "./otel": "./dist/observability/otel.js",
+      "./testing": "./dist/testing/testing.js"
+    }
   },
   "dependencies": {
     "@overeng/otel-contract": "workspace:^",
@@ -54,13 +51,16 @@
     "@restatedev/restate-sdk-opentelemetry": "^1.14.5",
     "effect": "^4.0.0-rc.111"
   },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js",
-      "./admin": "./dist/admin/admin.js",
-      "./otel": "./dist/observability/otel.js",
-      "./testing": "./dist/testing/testing.js"
-    }
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/restate-effect",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
   }
 }

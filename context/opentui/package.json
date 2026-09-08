@@ -1,14 +1,7 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "context/opentui"
-    ]
-  },
   "name": "opentui-examples",
-  "type": "module",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@effect/atom-react": "4.0.0-rc.111",
     "@opentui/core": "0.4.1",
@@ -19,5 +12,12 @@
   "devDependencies": {
     "@types/node": "26.5.0",
     "@types/react": "19.2.18"
+  },
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "context/opentui"
+    ]
   }
 }

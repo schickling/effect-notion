@@ -1,23 +1,21 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/ci-tools",
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
-  },
   "name": "@overeng/ci-tools",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "exports": {
     ".": "./src/mod.ts",
     "./cli": "./src/cli-command.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "bin": {
+      "ci-tools": "./dist/bin/ci-tools.js"
+    },
+    "exports": {
+      ".": "./dist/src/mod.js",
+      "./cli": "./dist/src/cli-command.js"
+    }
   },
   "dependencies": {
     "@overeng/otel-contract": "workspace:^",
@@ -39,14 +37,16 @@
     "@playwright/test": "^1.61.0",
     "effect": "^4.0.0-rc.111"
   },
-  "publishConfig": {
-    "access": "public",
-    "bin": {
-      "ci-tools": "./dist/bin/ci-tools.js"
-    },
-    "exports": {
-      ".": "./dist/src/mod.js",
-      "./cli": "./dist/src/cli-command.js"
-    }
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/ci-tools",
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
   }
 }

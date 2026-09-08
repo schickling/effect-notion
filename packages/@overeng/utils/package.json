@@ -1,19 +1,8 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
-  },
   "name": "@overeng/utils",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/src/isomorphic/mod.d.ts",
@@ -90,6 +79,33 @@
       "default": "./src/node/stylex/focus-order.ts"
     }
   },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/isomorphic/mod.js",
+      "./node": "./dist/node/mod.js",
+      "./node/cli-help-rewrite": "./dist/node/cli-help-rewrite.js",
+      "./node/cli-version": "./dist/node/cli-version.js",
+      "./node/otel": "./dist/node/otel.js",
+      "./node/otel-attrs": "./dist/node/otel-attrs.js",
+      "./node/playwright": "./dist/node/playwright/mod.js",
+      "./node/playwright/config": "./dist/node/playwright/config/mod.js",
+      "./node/stylex": "./dist/node/stylex/mod.js",
+      "./node/stylex/focus-order": "./dist/node/stylex/focus-order.js",
+      "./node/storybook": "./dist/node/storybook/mod.js",
+      "./node/storybook/config": "./dist/node/storybook/config/mod.js",
+      "./node/storybook/gate": "./dist/node/storybook/gate/mod.js",
+      "./node/storybook/gate/cli": "./dist/node/storybook/gate/cli.js",
+      "./node/storybook/gate/setup": "./dist/node/storybook/gate/setup.js",
+      "./lock": "./dist/lock/mod.js",
+      "./browser": "./dist/browser/mod.js",
+      "./cuid": {
+        "browser": "./dist/cuid/cuid.browser.js",
+        "node": "./dist/cuid/cuid.node.js",
+        "default": "./dist/cuid/mod.js"
+      }
+    }
+  },
   "dependencies": {
     "@effect/opentelemetry": "4.0.0-rc.111",
     "@effect/platform-node": "4.0.0-rc.111",
@@ -135,31 +151,15 @@
     "@playwright/test": "^1.61.0",
     "effect": "^4.0.0-rc.111"
   },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/isomorphic/mod.js",
-      "./node": "./dist/node/mod.js",
-      "./node/cli-help-rewrite": "./dist/node/cli-help-rewrite.js",
-      "./node/cli-version": "./dist/node/cli-version.js",
-      "./node/otel": "./dist/node/otel.js",
-      "./node/otel-attrs": "./dist/node/otel-attrs.js",
-      "./node/playwright": "./dist/node/playwright/mod.js",
-      "./node/playwright/config": "./dist/node/playwright/config/mod.js",
-      "./node/stylex": "./dist/node/stylex/mod.js",
-      "./node/stylex/focus-order": "./dist/node/stylex/focus-order.js",
-      "./node/storybook": "./dist/node/storybook/mod.js",
-      "./node/storybook/config": "./dist/node/storybook/config/mod.js",
-      "./node/storybook/gate": "./dist/node/storybook/gate/mod.js",
-      "./node/storybook/gate/cli": "./dist/node/storybook/gate/cli.js",
-      "./node/storybook/gate/setup": "./dist/node/storybook/gate/setup.js",
-      "./lock": "./dist/lock/mod.js",
-      "./browser": "./dist/browser/mod.js",
-      "./cuid": {
-        "browser": "./dist/cuid/cuid.browser.js",
-        "node": "./dist/cuid/cuid.node.js",
-        "default": "./dist/cuid/mod.js"
-      }
-    }
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
   }
 }

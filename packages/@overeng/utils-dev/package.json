@@ -1,15 +1,8 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/utils-dev"
-    ]
-  },
   "name": "@overeng/utils-dev",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "exports": {
     "./cli-contract": {
       "types": "./dist/src/cli-contract.d.ts",
@@ -28,6 +21,15 @@
       "default": "./src/otelite/mod.ts"
     }
   },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      "./node-vitest": "./dist/node-vitest/mod.js",
+      "./node-vitest/setup-fast-check": "./dist/node-vitest/setup-fast-check.js",
+      "./otelite": "./dist/otelite/mod.js",
+      "./cli-contract": "./dist/cli-contract.js"
+    }
+  },
   "devDependencies": {
     "@effect/opentelemetry": "4.0.0-rc.111",
     "@effect/platform-node": "4.0.0-rc.111",
@@ -44,13 +46,11 @@
     "effect": "^4.0.0-rc.111",
     "vitest": "^4.1.9"
   },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      "./node-vitest": "./dist/node-vitest/mod.js",
-      "./node-vitest/setup-fast-check": "./dist/node-vitest/setup-fast-check.js",
-      "./otelite": "./dist/otelite/mod.js",
-      "./cli-contract": "./dist/cli-contract.js"
-    }
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/utils-dev"
+    ]
   }
 }

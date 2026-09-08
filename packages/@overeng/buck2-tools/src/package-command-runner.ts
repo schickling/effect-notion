@@ -697,7 +697,13 @@ export const normalizePortableCommonJsGlobals = ({
   readonly bundle: string
   readonly root: string
 }): string => {
-  const buildRoot = canonicalizePath(root)
+  const lexicalBuildRoot = resolve(root)
+  const buildRoot = canonicalizePath(lexicalBuildRoot)
+  const isBuildPath = (sourcePath: string): boolean => {
+    if (isAbsolute(sourcePath) === false) return false
+    const canonicalSourcePath = canonicalizePath(sourcePath)
+    return canonicalSourcePath === buildRoot || canonicalSourcePath.startsWith(`${buildRoot}${sep}`)
+  }
   const rewritePath = ({
     input,
     name,
@@ -711,10 +717,7 @@ export const normalizePortableCommonJsGlobals = ({
       new RegExp(`\\bvar ${name} = ("(?:\\\\.|[^"\\\\])*");`, 'g'),
       (_declaration, serialized: string) => {
         const sourcePath: unknown = JSON.parse(serialized)
-        if (
-          typeof sourcePath !== 'string' ||
-          (sourcePath !== buildRoot && sourcePath.startsWith(`${buildRoot}${sep}`) === false)
-        ) {
+        if (typeof sourcePath !== 'string' || isBuildPath(sourcePath) === false) {
           fail(`bundle ${name} path escapes the build root: ${String(sourcePath)}`)
         }
         return `var ${name} = ${replacement};`
@@ -729,10 +732,7 @@ export const normalizePortableCommonJsGlobals = ({
         ['__dirname', sourceDirectory],
         ['__filename', sourceFile],
       ] as const) {
-        if (
-          typeof sourcePath !== 'string' ||
-          (sourcePath !== buildRoot && sourcePath.startsWith(`${buildRoot}${sep}`) === false)
-        ) {
+        if (typeof sourcePath !== 'string' || isBuildPath(sourcePath) === false) {
           fail(`bundle ${name} path escapes the build root: ${String(sourcePath)}`)
         }
       }
@@ -748,8 +748,14 @@ export const normalizePortableCommonJsGlobals = ({
       input: combined,
     }),
   })
-  if (normalized.includes(buildRoot) === true) {
-    fail(`bundle records its absolute build root outside a CommonJS path declaration: ${buildRoot}`)
+  for (const rootSpelling of lexicalBuildRoot === buildRoot
+    ? [buildRoot]
+    : [lexicalBuildRoot, buildRoot]) {
+    if (normalized.includes(rootSpelling) === true) {
+      fail(
+        `bundle records its absolute build root outside a CommonJS path declaration: ${rootSpelling}`,
+      )
+    }
   }
   return normalized
 }
