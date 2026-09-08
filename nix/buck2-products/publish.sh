@@ -93,8 +93,7 @@ if $dry_run; then
   exit 0
 fi
 
-[[ -z "${CACHIX_AUTH_TOKEN:-}" ]] && fail "CACHIX_AUTH_TOKEN is required"
-for tool in buck2 gh nix cachix sha256sum stat cmp cp mktemp realpath git; do
+for tool in buck2 gh nix sha256sum stat cmp cp mktemp realpath git; do
   command -v "$tool" >/dev/null || fail "$tool is required"
 done
 
@@ -268,7 +267,6 @@ mapfile -t realized_paths < <(nix build --no-link --print-out-paths --impure --e
   paths = builtins.concatLists (map (product: [ product.artifact product.descriptor ]) (builtins.attrValues tracked.products));
 in paths")
 ((${#realized_paths[@]} == ${#product_rows[@]} * 2)) || fail "Nix did not realize every product artifact and descriptor"
-cachix push overeng-effect-utils "${realized_paths[@]}"
 
 if [[ -n "$proposal" ]]; then
   cp -- "$proposal_stage" "$proposal"
