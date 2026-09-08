@@ -464,6 +464,10 @@ export const buckMemberRemoteCacheSections = (
       { key: 'action_cache_address', value: remoteCache.endpoint },
       { key: 'cas_address', value: remoteCache.endpoint },
       { key: 'engine_address', value: remoteCache.endpoint },
+      {
+        key: 'http_headers',
+        value: 'authorization: Basic $BUCK2_REMOTE_CACHE_BASIC_AUTH',
+      },
       { key: 'instance_name', value: remoteCache.instanceName },
       { key: 'tls', value: 'false' },
     ],
@@ -611,8 +615,7 @@ export const decodeCompositionRootInput = (input: unknown): NormalizedCompositio
 
   const remoteCacheOwner = members.find(
     (member) =>
-      member.manifest.remoteCache !== undefined &&
-      member.manifest.cell !== decoded.platformHubCell,
+      member.manifest.remoteCache !== undefined && member.manifest.cell !== decoded.platformHubCell,
   )
   if (remoteCacheOwner !== undefined) {
     throw new TypeError(

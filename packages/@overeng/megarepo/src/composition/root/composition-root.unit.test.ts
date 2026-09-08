@@ -152,6 +152,10 @@ describe('buck2 member manifest', () => {
         onExcessProperty: 'error',
       })(remoteCache),
     ).toEqual(remoteCache)
+    const encoded = encodeBuckMemberManifestJson(decoded)
+    expect(encoded).not.toContain('BUCK2_REMOTE_CACHE_BASIC_AUTH')
+    expect(encoded).not.toContain('authorization')
+    expect(encoded).not.toContain('http_headers')
   })
 
   it.each([
@@ -196,6 +200,10 @@ describe('buck2 member manifest', () => {
           { key: 'action_cache_address', value: 'grpc://dev3:41045' },
           { key: 'cas_address', value: 'grpc://dev3:41045' },
           { key: 'engine_address', value: 'grpc://dev3:41045' },
+          {
+            key: 'http_headers',
+            value: 'authorization: Basic $BUCK2_REMOTE_CACHE_BASIC_AUTH',
+          },
           { key: 'instance_name', value: 'effect-utils' },
           { key: 'tls', value: 'false' },
         ],
@@ -466,6 +474,7 @@ describe('composition root goldens', () => {
   action_cache_address = grpc://cache.example:1234
   cas_address = grpc://cache.example:1234
   engine_address = grpc://cache.example:1234
+  http_headers = authorization: Basic $BUCK2_REMOTE_CACHE_BASIC_AUTH
   instance_name = alpha
   tls = false
 

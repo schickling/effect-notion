@@ -79,8 +79,13 @@ describe('@overeng/megarepo/buck2-manifest', () => {
       projectIgnore: ['**/dist', 'target'],
     })
     expect(normalizeBuckMemberManifest(manifest)).toEqual(decoded)
-    expect(encodeBuckMemberManifest(decoded)).toEqual(decoded)
-    expect(decodeBuckMemberManifestJson(encodeBuckMemberManifestJson(decoded))).toEqual(decoded)
+    const encodedManifest = encodeBuckMemberManifest(decoded)
+    const encodedManifestJson = encodeBuckMemberManifestJson(decoded)
+    expect(encodedManifest).toEqual(decoded)
+    expect(decodeBuckMemberManifestJson(encodedManifestJson)).toEqual(decoded)
+    expect(encodedManifestJson).not.toContain('BUCK2_REMOTE_CACHE_BASIC_AUTH')
+    expect(encodedManifestJson).not.toContain('authorization')
+    expect(encodedManifestJson).not.toContain('http_headers')
     expect(buckMemberCapabilityByToolId({ manifest: decoded, toolId: 'buck2' })).toEqual(capability)
     expect(buckMemberCapabilityByToolId({ manifest: decoded, toolId: 'tsgo' })).toBeUndefined()
     expect(buckMemberProjectedCapabilities(decoded)).toEqual([capability, tsgoCapability])
@@ -99,6 +104,10 @@ describe('@overeng/megarepo/buck2-manifest', () => {
           { key: 'action_cache_address', value: 'grpc://dev3:41045' },
           { key: 'cas_address', value: 'grpc://dev3:41045' },
           { key: 'engine_address', value: 'grpc://dev3:41045' },
+          {
+            key: 'http_headers',
+            value: 'authorization: Basic $BUCK2_REMOTE_CACHE_BASIC_AUTH',
+          },
           { key: 'instance_name', value: 'effect-utils' },
           { key: 'tls', value: 'false' },
         ],
