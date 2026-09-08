@@ -51,7 +51,7 @@ const outputsByAdmission = {
 
 const admittedPackages = Object.entries(buck2TypeScriptAdmissions).map(([key, admission]) => ({
   output: outputsByAdmission[key as keyof typeof outputsByAdmission],
-  importer: admission.dependencyImporter,
+  dependencyView: admission.dependencyImporter.replace(':importer_', ':view_'),
   packagePath: admission.packagePath,
 }))
 
@@ -70,10 +70,12 @@ describe('declared-closure package projection', () => {
     expect(buck2TypeScriptAdmissions.tuiReact.editorViewConsumer).toBe(false)
   })
 
-  it('wires each admitted package only to its generated importer', () => {
+  it('wires each admitted package only to its normalized dependency view', () => {
     for (const admitted of admittedPackages) {
-      expect(admitted.output).toContain(`    actual = "${admitted.importer}",`)
+      expect(admitted.output).toContain(`    actual = "${admitted.dependencyView}",`)
+      expect(admitted.output).toContain(`    dependency_view = "${admitted.dependencyView}",`)
       expect(admitted.output).toContain('    actual = ":node_modules",')
+      expect(admitted.output).not.toContain('//buck2/dependencies:importer_')
       expect(admitted.output).toContain('    runtime = "//:package_tree_runtime",')
       expect(admitted.output).toContain('    runtime_entry = "package-tree.ts",')
       for (const retiredTerm of retiredProviderTerms) {
@@ -83,12 +85,12 @@ describe('declared-closure package projection', () => {
   })
 
   it('admits the complete recursive workspace closure for tui-react', () => {
-    const tuiReactImporter = dependencyBuck.data.importers.find(
-      (importer) => importer.importer === 'packages/@overeng/tui-react',
+    const tuiReactView = dependencyBuck.data.store.views.find(
+      (view) => view.importer === 'packages/@overeng/tui-react',
     )
-    expect(tuiReactImporter).toBeDefined()
+    expect(tuiReactView).toBeDefined()
     const admittedPackagePaths = new Set(admittedPackages.map(({ packagePath }) => packagePath))
-    for (const label of Object.values(tuiReactImporter?.workspaceTrees ?? {})) {
+    for (const label of Object.values(tuiReactView?.workspaceTrees ?? {})) {
       const packagePath = label.slice('//'.length, -':package_tree'.length)
       expect(admittedPackagePaths.has(packagePath), `missing projection for ${label}`).toBe(true)
     }
@@ -154,7 +156,7 @@ describe('same-cell label projection', () => {
     for (const admitted of admittedPackages) {
       expect(admitted.output).not.toMatch(/@?effect_utils\/\//u)
       expect(admitted.output).toContain('load("//buck2:materialization.bzl"')
-      expect(admitted.output).toContain('//buck2/dependencies:importer_')
+      expect(admitted.output).toContain('//buck2/dependencies:view_')
       expect(admitted.output).toContain('//:package_tree_runtime')
     }
 

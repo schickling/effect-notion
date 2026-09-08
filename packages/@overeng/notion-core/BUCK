@@ -2,13 +2,13 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/notion-core/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 2
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:9a253cbdd25db3f7fcee9e21b75bd1e9784b8ecb0032299ff3e3f5805228b2ff
+# Semantic fingerprint: sha256:7e062a77ec5e678d9e7ed52c4efbe213b2aa0b90212a9fff7e403fedbf21a8a0
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-core/src/**/*.cts, packages/@overeng/notion-core/src/**/*.js, packages/@overeng/notion-core/src/**/*.mts, packages/@overeng/notion-core/src/**/*.ts, packages/@overeng/notion-core/src/**/*.tsx, packages/@overeng/notion-core/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -35,7 +35,7 @@ export_materialization_inputs([
 
 alias(
     name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_notion_core_bbf3eb334469",
+    actual = "//buck2/dependencies:view_packages_overeng_notion_core_bbf3eb334469",
     visibility = ["PUBLIC"],
 )
 
@@ -45,9 +45,9 @@ alias(
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_notion_core_bbf3eb334469",
     files = {
         "package.json": "package.json",
         "src/body-fidelity.ts": "src/body-fidelity.ts",
@@ -67,7 +67,6 @@ package_tree(
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {},
     visibility = ["PUBLIC"],
 )
 
