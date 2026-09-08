@@ -643,7 +643,6 @@ describe('package command runner', () => {
     ).toMatchObject({ args: ['dev', '-p', '6009'], env: { CI: '1' } })
   })
 
-
   it('normalizes and deduplicates declared read roots', () => {
     expect(
       parsePackageCommand([

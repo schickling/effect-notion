@@ -70,7 +70,9 @@ const requireMinimumArgumentCount = (options: {
   readonly count: number
 }): void => {
   if (options.args.length < options.count)
-    fail(`${options.command} expected at least ${options.count} arguments, received ${options.args.length}`)
+    fail(
+      `${options.command} expected at least ${options.count} arguments, received ${options.args.length}`,
+    )
 }
 
 const requireNormalizedRelativePath = (options: {
@@ -107,7 +109,11 @@ const parseReadRoots = (options: {
   const roots: string[] = []
   for (let index = options.from; index < options.args.length; index += 2) {
     const flag = requireArgument({ args: options.args, index, name: 'flag' })
-    const value = requireArgument({ args: options.args, index: index + 1, name: `value for ${flag}` })
+    const value = requireArgument({
+      args: options.args,
+      index: index + 1,
+      name: `value for ${flag}`,
+    })
     if (flag === '--read-root') {
       const root = resolve(value)
       if (value.length === 0 || root === '/') fail(`invalid declared read root: ${value}`)

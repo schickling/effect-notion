@@ -862,7 +862,6 @@ describe('composition root publisher', () => {
             NodePath.join(outside, 'toolchains'),
             NodePath.join(fixture.root, 'toolchains'),
           )
-
         })
 
         const plan = yield* planCompositionRootPublication(
@@ -880,61 +879,65 @@ describe('composition root publisher', () => {
     ),
   )
 
-  it.effect('derives cache sections from tracked platform-hub bytes and honors an explicit disable', () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const fixture = yield* makeFixture({
-          manifests: {
-            alpha: memberManifest({
-              memberKey: 'alpha',
-              remoteCache: {
-                endpoint: 'grpc://tracked-cache.example:41045',
-                instanceName: 'tracked-platform-hub',
-              },
-            }),
-          },
-        })
-
-        yield* publishCompositionRoot(optionsFor({ fixture }))
-        const enabled = (yield* readGenerated(fixture, '.buckconfig')).toString()
-        expect(enabled).toContain('default_allow_cache_upload = true')
-        expect(enabled).toContain('digest_algorithms = SHA256')
-        expect(enabled).toContain('action_cache_address = grpc://tracked-cache.example:41045')
-        expect(enabled).toContain('cas_address = grpc://tracked-cache.example:41045')
-        expect(enabled).toContain('engine_address = grpc://tracked-cache.example:41045')
-        expect(enabled).toContain('instance_name = tracked-platform-hub')
-        expect(enabled).toContain('tls = false')
-
-        yield* Effect.promise(() =>
-          writeFile(
-            NodePath.join(fixture.root, 'repos/alpha', BUCK_MEMBER_MANIFEST_FILENAME),
-            encodeBuckMemberManifestJson(
-              memberManifest({
+  it.effect(
+    'derives cache sections from tracked platform-hub bytes and honors an explicit disable',
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fixture = yield* makeFixture({
+            manifests: {
+              alpha: memberManifest({
                 memberKey: 'alpha',
                 remoteCache: {
-                  endpoint: 'grpc://tracked-cache-next.example:41045',
-                  instanceName: 'tracked-platform-hub-next',
+                  endpoint: 'grpc://tracked-cache.example:41045',
+                  instanceName: 'tracked-platform-hub',
                 },
               }),
-            ),
-          ),
-        )
-        const trackedUpdate = yield* publishCompositionRoot(optionsFor({ fixture }))
-        expect(trackedUpdate.changedPaths.at(-1)).toBe('.buckconfig')
-        const updated = (yield* readGenerated(fixture, '.buckconfig')).toString()
-        expect(updated).toContain('engine_address = grpc://tracked-cache-next.example:41045')
-        expect(updated).toContain('instance_name = tracked-platform-hub-next')
-        expect(updated).not.toContain('grpc://tracked-cache.example:41045')
+            },
+          })
 
-        const result = yield* publishCompositionRoot(optionsFor({ fixture, disableRemoteCache: true }))
-        expect(result.changedPaths.at(-1)).toBe('.buckconfig')
-        const disabled = (yield* readGenerated(fixture, '.buckconfig')).toString()
-        expect(disabled).toContain('remote_cache_enabled = false')
-        expect(disabled).toContain('allow_cache_uploads = false')
-        expect(disabled).not.toContain('[buck2_re_client]')
-        expect(disabled).not.toContain('tracked-cache')
-      }),
-    ),
+          yield* publishCompositionRoot(optionsFor({ fixture }))
+          const enabled = (yield* readGenerated(fixture, '.buckconfig')).toString()
+          expect(enabled).toContain('default_allow_cache_upload = true')
+          expect(enabled).toContain('digest_algorithms = SHA256')
+          expect(enabled).toContain('action_cache_address = grpc://tracked-cache.example:41045')
+          expect(enabled).toContain('cas_address = grpc://tracked-cache.example:41045')
+          expect(enabled).toContain('engine_address = grpc://tracked-cache.example:41045')
+          expect(enabled).toContain('instance_name = tracked-platform-hub')
+          expect(enabled).toContain('tls = false')
+
+          yield* Effect.promise(() =>
+            writeFile(
+              NodePath.join(fixture.root, 'repos/alpha', BUCK_MEMBER_MANIFEST_FILENAME),
+              encodeBuckMemberManifestJson(
+                memberManifest({
+                  memberKey: 'alpha',
+                  remoteCache: {
+                    endpoint: 'grpc://tracked-cache-next.example:41045',
+                    instanceName: 'tracked-platform-hub-next',
+                  },
+                }),
+              ),
+            ),
+          )
+          const trackedUpdate = yield* publishCompositionRoot(optionsFor({ fixture }))
+          expect(trackedUpdate.changedPaths.at(-1)).toBe('.buckconfig')
+          const updated = (yield* readGenerated(fixture, '.buckconfig')).toString()
+          expect(updated).toContain('engine_address = grpc://tracked-cache-next.example:41045')
+          expect(updated).toContain('instance_name = tracked-platform-hub-next')
+          expect(updated).not.toContain('grpc://tracked-cache.example:41045')
+
+          const result = yield* publishCompositionRoot(
+            optionsFor({ fixture, disableRemoteCache: true }),
+          )
+          expect(result.changedPaths.at(-1)).toBe('.buckconfig')
+          const disabled = (yield* readGenerated(fixture, '.buckconfig')).toString()
+          expect(disabled).toContain('remote_cache_enabled = false')
+          expect(disabled).toContain('allow_cache_uploads = false')
+          expect(disabled).not.toContain('[buck2_re_client]')
+          expect(disabled).not.toContain('tracked-cache')
+        }),
+      ),
   )
 
   it.effect('rejects remote cache coordinates from a non-platform-hub manifest', () =>
