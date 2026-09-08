@@ -12,7 +12,12 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { copyDeclarationSources, parseEmitOptions } from './typescript-runner.ts'
+import {
+  copyDeclarationSources,
+  hashDeclaredInputRoots,
+  parseEmitOptions,
+  parseTypecheckOptions,
+} from './typescript-runner.ts'
 
 const scratchDirectories: string[] = []
 
@@ -41,9 +46,45 @@ describe('TypeScript emit declaration command', () => {
       '/output',
       '--copy-declaration',
       'src/vite-types.d.ts',
+      '--read-root',
+      '/dependency-view',
     ])
 
     expect(options.declarationSources).toEqual(['src/vite-types.d.ts'])
+  })
+
+  it('parses canonical repeatable declared read roots', () => {
+    expect(
+      parseTypecheckOptions([
+        '/nix/store/toolchain/bin/tsgo',
+        '/package-tree',
+        'tsconfig.json',
+        '/output',
+        '--read-root',
+        '/z-dependency',
+        '--read-root',
+        '/a-dependency',
+        '--read-root',
+        '/z-dependency',
+      ]).readRoots,
+    ).toEqual(['/a-dependency', '/z-dependency'])
+  })
+
+  it('hashes every canonical declared input root and does not follow symlink cycles', async () => {
+    const { root } = createFixture()
+    const first = join(root, 'first')
+    const second = join(root, 'second')
+    mkdirSync(first)
+    mkdirSync(second)
+    writeFileSync(join(first, 'source.ts'), 'export const value = 1\n')
+    writeFileSync(join(second, 'dependency.d.ts'), 'export declare const dependency: 1\n')
+    symlinkSync(first, join(second, 'cycle'))
+
+    const before = await hashDeclaredInputRoots([second, first, second])
+    writeFileSync(join(second, 'dependency.d.ts'), 'export declare const dependency: 2\n')
+    const after = await hashDeclaredInputRoots([first, second])
+
+    expect(after).not.toBe(before)
   })
 
   it.each(['../outside.d.ts', '/outside.d.ts', 'src\\outside.d.ts', 'src//outside.d.ts'])(
