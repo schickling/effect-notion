@@ -1039,7 +1039,7 @@ const applyComposition = async ({
       ownedMemberKey: request.ownedMemberKey,
       compositionConfig: request.compositionConfig,
       resolvedBuckExecutable: runtime.buck2Path,
-      cacheSections: request.cacheSections,
+      ...(request.cacheSections === undefined ? {} : { cacheSections: request.cacheSections }),
       assertCapabilityProjection: async () => {},
     } satisfies PlanCompositionRootPublicationOptions
 
@@ -1356,7 +1356,7 @@ const applyComposition = async ({
       ownedMemberKey: request.ownedMemberKey,
       compositionConfig: request.compositionConfig,
       resolvedBuckExecutable: runtime.buck2Path,
-      cacheSections: request.cacheSections,
+      ...(request.cacheSections === undefined ? {} : { cacheSections: request.cacheSections }),
       lock: runtime.publisherLock,
       runtime: {
         ...runtime.publisherRuntime,

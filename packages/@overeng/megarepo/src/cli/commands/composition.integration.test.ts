@@ -98,9 +98,11 @@ describe('compositionCacheSections', () => {
     ])
   })
 
-  it('preserves the hard-fail shared-cache default', () => {
-    expect(compositionCacheSections({})).toEqual([])
-    expect(compositionCacheSections({ BUCK2_NO_REMOTE_CACHE: '0' })).toEqual([])
+  it('leaves unset and non-exact opt-out values to the tracked platform-hub default', () => {
+    expect(compositionCacheSections({})).toBeUndefined()
+    expect(compositionCacheSections({ BUCK2_NO_REMOTE_CACHE: '0' })).toBeUndefined()
+    expect(compositionCacheSections({ BUCK2_NO_REMOTE_CACHE: 'true' })).toBeUndefined()
+    expect(compositionCacheSections({ BUCK2_NO_REMOTE_CACHE: ' 1' })).toBeUndefined()
   })
 })
 

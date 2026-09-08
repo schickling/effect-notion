@@ -377,7 +377,7 @@ export const resolveLockedCompositionMembers = ({
     return values
   }).pipe(Effect.mapError(preserveCutoverError))
 
-/** Derive root cache policy before the first composition overlay can execute. */
+/** Exact opt-out overrides tracked platform-hub cache coordinates before any overlay executes. */
 export const compositionCacheSections = (
   env: Readonly<Record<string, string | undefined>>,
 ): CompositionApplyRequest['cacheSections'] =>
@@ -391,7 +391,7 @@ export const compositionCacheSections = (
           ],
         },
       ]
-    : []
+    : undefined
 
 const compositionRequest = ({
   identity,
@@ -405,18 +405,21 @@ const compositionRequest = ({
   readonly locked: CompositionApplyRequest['lockedMembers']
   readonly dryRun: boolean
   readonly env: Readonly<Record<string, string | undefined>>
-}): CompositionApplyRequest => ({
-  workspaceRoot: identity.workspaceRoot.replace(/\/+$/u, ''),
-  ownedMemberKey: identity.ownedMemberKey,
-  ownedMemberPath: identity.ownedMemberPath.replace(/\/+$/u, ''),
-  compositionConfig,
-  cacheSections: compositionCacheSections(env),
-  lockedMembers: locked,
-  dryRun,
-  allowVerifiedDarwinAdvance:
-    compositionConfig.allowVerifiedDarwinAdvance === true ||
-    env['MR_COMPOSITION_DARWIN_ADVANCE_VERIFIED'] === '1',
-})
+}): CompositionApplyRequest => {
+  const cacheSections = compositionCacheSections(env)
+  return {
+    workspaceRoot: identity.workspaceRoot.replace(/\/+$/u, ''),
+    ownedMemberKey: identity.ownedMemberKey,
+    ownedMemberPath: identity.ownedMemberPath.replace(/\/+$/u, ''),
+    compositionConfig,
+    ...(cacheSections === undefined ? {} : { cacheSections }),
+    lockedMembers: locked,
+    dryRun,
+    allowVerifiedDarwinAdvance:
+      compositionConfig.allowVerifiedDarwinAdvance === true ||
+      env['MR_COMPOSITION_DARWIN_ADVANCE_VERIFIED'] === '1',
+  }
+}
 
 const assertLockedSourceCleanPromise = async ({
   sourcePath,
