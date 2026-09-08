@@ -452,51 +452,6 @@ let
       printf "%s\n" "$workspace_root"
     }
   '';
-  # Shared-cache client contract (decision 0013, REUSE-R01..R05). The fleet
-  # default endpoint lives HERE on purpose — it must match the dotfiles
-  # build-cache trait (dotfiles#2048); changing the service means changing
-  # both. It is materialized into a gitignored `.buckconfig.local` at shell
-  # entry so machine-local hand edits stay untracked and win until removed:
-  # an existing file with different content is preserved. An unreachable
-  # cache hard-fails buck2 builds, so off-tailnet checkouts export
-  # BUCK2_NO_REMOTE_CACHE=1 before shell entry (checked at entry only).
-  # digest_algorithms pins what this Buck2 already produces by default —
-  # explicitness only, no key migration.
-  buck2CacheEndpoint = "grpc://dev3:41045";
-  buck2LocalConfig = pkgs.writeText "buck2-buckconfig-local" ''
-    [buck2]
-    digest_algorithms = SHA256
-    default_allow_cache_upload = true
-
-    [buck2_re_client]
-    engine_address = ${buck2CacheEndpoint}
-    action_cache_address = ${buck2CacheEndpoint}
-    cas_address = ${buck2CacheEndpoint}
-    instance_name = effect-utils
-    tls = false
-  '';
-  buck2LocalConfigHook =
-    let
-      script = pkgs.writeShellScript "buck2-local-config-hook" ''
-        set -euo pipefail
-        ${composedWorkspaceRootPredicate}
-        member_root="''${DEVENV_ROOT:-$PWD}"
-        workspace_root="$member_root"
-        if proven_workspace_root="$(composed_workspace_root "$member_root")"; then
-          workspace_root="$proven_workspace_root"
-        else
-          identity_status=$?
-          [ "$identity_status" -eq 1 ] || exit "$identity_status"
-        fi
-        target="$workspace_root/.buckconfig.local"
-        if [ "''${BUCK2_NO_REMOTE_CACHE:-}" = "1" ]; then
-          ${pkgs.coreutils}/bin/rm -f "$target"
-        elif ! ${pkgs.diffutils}/bin/cmp -s "$target" ${buck2LocalConfig}; then
-          ${pkgs.coreutils}/bin/install -m 644 ${buck2LocalConfig} "$target"
-        fi
-      '';
-    in
-    "${script}";
 in
 {
   imports = [
@@ -1225,7 +1180,6 @@ in
   enterShell = ''
     export WORKSPACE_ROOT="$PWD"
     export PATH="$WORKSPACE_ROOT/node_modules/.bin:$PATH"
-    ${buck2LocalConfigHook}
     ${cliBuildStamp.shellHook}
   '';
 
