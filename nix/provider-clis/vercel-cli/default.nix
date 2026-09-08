@@ -2,7 +2,7 @@
 
 pkgs.buildNpmPackage (finalAttrs: {
   pname = "vercel-cli";
-  version = "54.18.5";
+  version = "59.11.7";
 
   src = pkgs.lib.cleanSourceWith {
     src = ./.;
@@ -13,7 +13,7 @@ pkgs.buildNpmPackage (finalAttrs: {
         "package-lock.json"
       ];
   };
-  npmDepsHash = "sha256-bKO9/3JIO0gQ7cjUW1BeBxhWyR/bFP5tu0a0aJ577A0=";
+  npmDepsHash = "sha256-oaD0HMwJnlFoEoHal47qqsmagE7OnAt/rCqE61FC67M=";
 
   dontNpmBuild = true;
   npmInstallFlags = [ "--omit=optional" ];
