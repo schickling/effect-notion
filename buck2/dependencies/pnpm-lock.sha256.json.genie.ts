@@ -1,3 +1,4 @@
+// @genie-bootstrap
 import { createGenieOutput } from '../../packages/@overeng/genie/src/runtime/core.ts'
 import { loadRealPnpmLockData } from './generate.ts'
 
