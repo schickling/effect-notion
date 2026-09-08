@@ -618,6 +618,28 @@ tsconfig.check.json`, but oxlint 1.39 cannot speak the tsgolint 7 protocol, so
   staged FOD source includes the root `pnpm-lock.yaml` and fingerprints it
   into the derivation name, so any lockfile change rotates every
   prepared-deps hash.
+- **deps (Restate)**: update the Restate cohort — the JavaScript SDK
+  (`@restatedev/restate-sdk`, `-sdk-clients`, `-sdk-opentelemetry`, and the
+  transitive `-sdk-core`) 1.14.5 -> 1.17.0, and the prebuilt `restate-server` /
+  `restate` CLI in `nix/restate.nix` 1.6.2 -> 1.7.9. The SDK bump carries one
+  breaking change — Node 22 is now the SDK's minimum supported version, which
+  the repo's `nodejs_24` already satisfies — plus `restate.iface` typed service
+  interfaces (1.17), ingress auto-retry and scoped virtual-object clients
+  (1.16), and signals/`InvocationReference`, `PauseError`, and flow-control
+  scopes (1.15); none of the deprecated or renamed surfaces
+  (`@restatedev/restate-sdk-gen`'s `clients` adapter, `restate-sdk-tunnel`
+  reconnect options) are used here. `@restatedev/restate-sdk-opentelemetry@1.17`
+  peers on `@opentelemetry/api >=1.9.0` and `@opentelemetry/core >=2.6.0`, both
+  satisfied by the existing pinned OTel cohort, so the OTel catalog is
+  unchanged. The 1.7 server's breaking configuration changes (snapshot
+  `num-retained`, per-database RocksDB background budgets, enforced ingress
+  request-size limit) touch no key the `./testing` harness sets — it configures
+  only bind/advertised addresses, request identity, log filter, invoker
+  inactivity timeout, and the default retry policy. `./admin` remains written
+  against admin-api-version 3, whose per-id invocation verbs 1.7.9 still
+  serves; its "verified against 1.6.2" notes are left as the last
+  hand-verified point and are re-checked by the `test-integration-restate`
+  lane against the new server rather than by an unverifiable doc edit.
 
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for

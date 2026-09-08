@@ -321,9 +321,9 @@ export const catalog = defineCatalog({
   '@myobie/pty': '0.10.0',
 
   // Restate (durable execution) — see packages/@overeng/restate-effect
-  '@restatedev/restate-sdk': '1.14.5',
-  '@restatedev/restate-sdk-clients': '1.14.5',
-  '@restatedev/restate-sdk-opentelemetry': '1.14.5',
+  '@restatedev/restate-sdk': '1.17.0',
+  '@restatedev/restate-sdk-clients': '1.17.0',
+  '@restatedev/restate-sdk-opentelemetry': '1.17.0',
 
   // Type definitions
   '@types/react': '19.2.18',

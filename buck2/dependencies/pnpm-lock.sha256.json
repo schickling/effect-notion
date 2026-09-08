@@ -906,25 +906,25 @@
       "integrity": "sha512-kiYniph04dJOole+L359B6C9E+jYS2uDP7hca6Onj0xF38ZIpyxARO0Iq0W4ZRn1e8Q6vqW00QFZVSMRA/2Ijw==",
       "sha256": "c402c6675f638f90eb7df679ac15651d5667d27dbb175099ead4b8cabb1787cd"
     },
-    "@restatedev/restate-sdk-clients@1.14.5": {
+    "@restatedev/restate-sdk-clients@1.17.0": {
       "bins": {},
-      "integrity": "sha512-uVcjpiMr+7JEMNL3ZeVYxR4UbfoxmamgiOhwdKB42rBpESg0uBtgOgg6CKdeF1sJKEQusUwWE8rm6q+jw+Sb5A==",
-      "sha256": "4bc979def3219e2dee6fc9072c28fb1bc2ee84dcacf738b5a20634c802dd3d3c"
+      "integrity": "sha512-5gz4x9PP/KV5HD/8VUZTVQaX/YsGocOkZ8dLX1q7Pb+Km9sU4wMytciFCJ9SlyH33o0s5iRcpFNR0Soaz+B42g==",
+      "sha256": "551997d51e34b2b5b24812e200c607e69962efd76859fea71008bc28f6c6ba70"
     },
-    "@restatedev/restate-sdk-core@1.14.5": {
+    "@restatedev/restate-sdk-core@1.17.0": {
       "bins": {},
-      "integrity": "sha512-MvlRhyFhnNMDLFRz2t5TbhebIkIAI8oN2reRgoAj9OMADK0xn7mOuBbWHwGF+8MsFfBXmV1HrNqpAXltEeNzqg==",
-      "sha256": "368f42f9cc8d1f654b497a0bc263a6fee15f5373e7d694f26be87b8272b22a55"
+      "integrity": "sha512-439ONo+YDoG4YBZnQ0wXaWkJDdOqDJ0AjqOwUAYZolxoC5JoaHqWzEFWkeRXiSNpsOc1+ODRUUGupDQ7qxcvJg==",
+      "sha256": "1d73532983b4e28b84f3469f89f889b62fb59b4f363da79f724338efa86a4522"
     },
-    "@restatedev/restate-sdk-opentelemetry@1.14.5": {
+    "@restatedev/restate-sdk-opentelemetry@1.17.0": {
       "bins": {},
-      "integrity": "sha512-87D/E0H8Px1XbUiJTp0O8aOu6AWC4UgzecwtP3M8b5zNhdE/wSyHUiCI3JvMEzfj6YNbSHV3xNDLWe/AQ+uWQg==",
-      "sha256": "3dcfdce24773841bcd2361ca055f91b7e3345d359cb391abc09275a87bac21ea"
+      "integrity": "sha512-JsjXFURQ813zh0ArANKkGNTwXY74CgSSh6JKrxcw/LkfwOsyEvo3DbvdI0KLgWktFaYfGXK5Rz5739JW5lnjmw==",
+      "sha256": "b570c5108011ac592573af36f9d63abe57390b10afb311b43c6a17c200c147e0"
     },
-    "@restatedev/restate-sdk@1.14.5": {
+    "@restatedev/restate-sdk@1.17.0": {
       "bins": {},
-      "integrity": "sha512-RvuJU/Ji9MSgLkRBN1pLeGm/AdrpFl380SZZ0sPk/NWC9jpZyX2fntJx7NbIqfQ4PfoTm1/zPH8/gn7AQGuSaQ==",
-      "sha256": "610d04db29f75fa0e271b693a547d2f22f7cf17176ec85eb766dac0ff39c7746"
+      "integrity": "sha512-4b3OrB2M8K0MsG4JA4YBYQgSZpUUdle4gxUrrH7Qs3deOwuAtrdabkKJpRWtR45zvQDdi09gzxwUGee0aCqKmA==",
+      "sha256": "39153cdb91e5cdfe90993d2cacae0c055e3d431dbe6cd7029a3b363d5ad2b909"
     },
     "@rolldown/binding-android-arm-eabi@1.2.7": {
       "bins": {},

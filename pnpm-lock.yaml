@@ -1376,11 +1376,11 @@ importers:
         specifier: ^1.63.0
         version: 1.63.0
       '@restatedev/restate-sdk':
-        specifier: 1.14.5
-        version: 1.14.5
+        specifier: 1.17.0
+        version: 1.17.0
       '@restatedev/restate-sdk-clients':
-        specifier: 1.14.5
-        version: 1.14.5
+        specifier: 1.17.0
+        version: 1.17.0
     devDependencies:
       '@effect/opentelemetry':
         specifier: 4.0.0-rc.111
@@ -1419,8 +1419,8 @@ importers:
         specifier: workspace:^
         version: link:../utils-dev
       '@restatedev/restate-sdk-opentelemetry':
-        specifier: 1.14.5
-        version: 1.14.5(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(@restatedev/restate-sdk@1.14.5)
+        specifier: 1.17.0
+        version: 1.17.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(@restatedev/restate-sdk@1.17.0)
       '@types/node':
         specifier: 26.5.0
         version: 26.5.0
@@ -2692,21 +2692,21 @@ packages:
     peerDependencies:
       '@redis/client': ^6.2.1
 
-  '@restatedev/restate-sdk-clients@1.14.5':
-    resolution: {integrity: sha512-uVcjpiMr+7JEMNL3ZeVYxR4UbfoxmamgiOhwdKB42rBpESg0uBtgOgg6CKdeF1sJKEQusUwWE8rm6q+jw+Sb5A==}
+  '@restatedev/restate-sdk-clients@1.17.0':
+    resolution: {integrity: sha512-5gz4x9PP/KV5HD/8VUZTVQaX/YsGocOkZ8dLX1q7Pb+Km9sU4wMytciFCJ9SlyH33o0s5iRcpFNR0Soaz+B42g==}
 
-  '@restatedev/restate-sdk-core@1.14.5':
-    resolution: {integrity: sha512-MvlRhyFhnNMDLFRz2t5TbhebIkIAI8oN2reRgoAj9OMADK0xn7mOuBbWHwGF+8MsFfBXmV1HrNqpAXltEeNzqg==}
+  '@restatedev/restate-sdk-core@1.17.0':
+    resolution: {integrity: sha512-439ONo+YDoG4YBZnQ0wXaWkJDdOqDJ0AjqOwUAYZolxoC5JoaHqWzEFWkeRXiSNpsOc1+ODRUUGupDQ7qxcvJg==}
 
-  '@restatedev/restate-sdk-opentelemetry@1.14.5':
-    resolution: {integrity: sha512-87D/E0H8Px1XbUiJTp0O8aOu6AWC4UgzecwtP3M8b5zNhdE/wSyHUiCI3JvMEzfj6YNbSHV3xNDLWe/AQ+uWQg==}
+  '@restatedev/restate-sdk-opentelemetry@1.17.0':
+    resolution: {integrity: sha512-JsjXFURQ813zh0ArANKkGNTwXY74CgSSh6JKrxcw/LkfwOsyEvo3DbvdI0KLgWktFaYfGXK5Rz5739JW5lnjmw==}
     peerDependencies:
       '@opentelemetry/api': '>=1.9.0'
       '@opentelemetry/core': '>=2.6.0'
-      '@restatedev/restate-sdk': ^1.14.5
+      '@restatedev/restate-sdk': ^1.15.0
 
-  '@restatedev/restate-sdk@1.14.5':
-    resolution: {integrity: sha512-RvuJU/Ji9MSgLkRBN1pLeGm/AdrpFl380SZZ0sPk/NWC9jpZyX2fntJx7NbIqfQ4PfoTm1/zPH8/gn7AQGuSaQ==}
+  '@restatedev/restate-sdk@1.17.0':
+    resolution: {integrity: sha512-4b3OrB2M8K0MsG4JA4YBYQgSZpUUdle4gxUrrH7Qs3deOwuAtrdabkKJpRWtR45zvQDdi09gzxwUGee0aCqKmA==}
 
   '@rolldown/binding-android-arm-eabi@1.2.7':
     resolution: {integrity: sha512-EypzgnYCwyVY4NDHKzGmNJT5b+XaQEBniHxsMdeIQLB/tcCzZnhqrzHpZFbX9iaxx+5RiB8caATBtfvZP7zVxQ==}
@@ -5680,21 +5680,21 @@ snapshots:
     dependencies:
       '@redis/client': 6.2.1(@opentelemetry/api@1.9.1)
 
-  '@restatedev/restate-sdk-clients@1.14.5':
+  '@restatedev/restate-sdk-clients@1.17.0':
     dependencies:
-      '@restatedev/restate-sdk-core': 1.14.5
+      '@restatedev/restate-sdk-core': 1.17.0
 
-  '@restatedev/restate-sdk-core@1.14.5': {}
+  '@restatedev/restate-sdk-core@1.17.0': {}
 
-  '@restatedev/restate-sdk-opentelemetry@1.14.5(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(@restatedev/restate-sdk@1.14.5)':
+  '@restatedev/restate-sdk-opentelemetry@1.17.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(@restatedev/restate-sdk@1.17.0)':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/core': 2.11.0(@opentelemetry/api@1.9.1)
-      '@restatedev/restate-sdk': 1.14.5
+      '@restatedev/restate-sdk': 1.17.0
 
-  '@restatedev/restate-sdk@1.14.5':
+  '@restatedev/restate-sdk@1.17.0':
     dependencies:
-      '@restatedev/restate-sdk-core': 1.14.5
+      '@restatedev/restate-sdk-core': 1.17.0
 
   '@rolldown/binding-android-arm-eabi@1.2.7':
     optional: true
