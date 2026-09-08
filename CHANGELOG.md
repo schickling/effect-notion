@@ -221,6 +221,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **nix/provider-clis/netlify-cli**: update the first-party Netlify CLI
+  derivation from 26.1.0 to 27.5.0, regenerating `package-lock.json` and
+  refreshing `npmDepsHash`.
+
 - **deps**: update the compatible patch and minor dependency cohort, including
   React 19.2.8, OpenTelemetry SDK 2.11, Vite 8.2.2, current TanStack router
   packages, Tailwind CSS 4.3.3, and supporting type, test, formatting, crypto,

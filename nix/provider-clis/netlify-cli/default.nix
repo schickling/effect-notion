@@ -2,7 +2,7 @@
 
 pkgs.buildNpmPackage (finalAttrs: {
   pname = "netlify-cli";
-  version = "26.1.0";
+  version = "27.5.0";
 
   src = pkgs.lib.cleanSourceWith {
     src = ./.;
@@ -13,7 +13,7 @@ pkgs.buildNpmPackage (finalAttrs: {
         "package-lock.json"
       ];
   };
-  npmDepsHash = "sha256-Ap2FEv3GDRVeNXIo0vF0HBrooWmXLRXc+lM/NMjKvaU=";
+  npmDepsHash = "sha256-rOE88s1Ar8lpofvupX9IQJoz/JW/ZyE+YgLNq0dOa+k=";
 
   dontNpmBuild = true;
   npmInstallFlags = [ "--omit=optional" ];
