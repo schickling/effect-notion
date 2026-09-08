@@ -7,11 +7,13 @@ import { expect } from 'vitest'
 
 import {
   BUCK_MEMBER_MANIFEST_FILENAME,
+  BuckMemberRemoteCacheSchema,
   COMPOSITION_GENERATION_MANIFEST_PATH,
   CompositionGenerationManifestSchema,
   CompositionRootOutputSchema,
   buckMemberCapabilityByToolId,
   buckMemberProjectedCapabilities,
+  buckMemberRemoteCacheSections,
   decodeBuckMemberManifest,
   decodeBuckMemberManifestJson,
   decodeCompositionRootInput,
@@ -22,6 +24,7 @@ import {
   resolveCompositionToolchainRequirements,
   type BuckMemberCapability,
   type BuckMemberManifest,
+  type BuckMemberRemoteCache,
   type CompositionRootInput,
   type GeneratedCompositionFile,
 } from './composition-root.ts'
@@ -130,6 +133,74 @@ describe('buck2 member manifest', () => {
     const encoded = encodeBuckMemberManifestJson(decoded)
     expect(encoded.endsWith('\n')).toBe(true)
     expect(decodeBuckMemberManifestJson(encoded)).toEqual(decoded)
+  })
+
+  it('strictly decodes canonical credential-free remote cache coordinates', () => {
+    const remoteCache: BuckMemberRemoteCache = {
+      endpoint: 'grpc://dev3:41045',
+      instanceName: 'effect-utils',
+    }
+    const decoded = decodeBuckMemberManifest({
+      ...manifest({ cell: 'alpha' }),
+      remoteCache,
+    })
+
+    expect(decoded.remoteCache).toEqual(remoteCache)
+    expect(
+      Schema.decodeUnknownSync(BuckMemberRemoteCacheSchema, {
+        errors: 'all',
+        onExcessProperty: 'error',
+      })(remoteCache),
+    ).toEqual(remoteCache)
+  })
+
+  it.each([
+    ['missing endpoint', { instanceName: 'effect-utils' }],
+    ['missing instance', { endpoint: 'grpc://dev3:41045' }],
+    ['non-string endpoint', { endpoint: 41045, instanceName: 'effect-utils' }],
+    ['endpoint whitespace', { endpoint: ' grpc://dev3:41045', instanceName: 'effect-utils' }],
+    ['endpoint credentials', { endpoint: 'grpc://user@dev3:41045', instanceName: 'effect-utils' }],
+    ['endpoint path', { endpoint: 'grpc://dev3:41045/cache', instanceName: 'effect-utils' }],
+    ['uppercase endpoint', { endpoint: 'GRPC://dev3:41045', instanceName: 'effect-utils' }],
+    ['zero port', { endpoint: 'grpc://dev3:0', instanceName: 'effect-utils' }],
+    ['out-of-range port', { endpoint: 'grpc://dev3:65536', instanceName: 'effect-utils' }],
+    ['instance path', { endpoint: 'grpc://dev3:41045', instanceName: 'team/effect-utils' }],
+    ['uppercase instance', { endpoint: 'grpc://dev3:41045', instanceName: 'Effect-Utils' }],
+    [
+      'unknown field',
+      { endpoint: 'grpc://dev3:41045', instanceName: 'effect-utils', token: 'secret' },
+    ],
+  ])('rejects remote cache coordinates with %s', (_name, remoteCache) => {
+    expect(() =>
+      decodeBuckMemberManifest({ ...manifest({ cell: 'alpha' }), remoteCache }),
+    ).toThrow()
+  })
+
+  it('lowers remote cache coordinates to the exact canonical cache sections', () => {
+    expect(
+      buckMemberRemoteCacheSections({
+        endpoint: 'grpc://dev3:41045',
+        instanceName: 'effect-utils',
+      }),
+    ).toEqual([
+      {
+        section: 'buck2',
+        entries: [
+          { key: 'default_allow_cache_upload', value: 'true' },
+          { key: 'digest_algorithms', value: 'SHA256' },
+        ],
+      },
+      {
+        section: 'buck2_re_client',
+        entries: [
+          { key: 'action_cache_address', value: 'grpc://dev3:41045' },
+          { key: 'cas_address', value: 'grpc://dev3:41045' },
+          { key: 'engine_address', value: 'grpc://dev3:41045' },
+          { key: 'instance_name', value: 'effect-utils' },
+          { key: 'tls', value: 'false' },
+        ],
+      },
+    ])
   })
 
   it.each([
@@ -359,22 +430,10 @@ describe('composition root goldens', () => {
             manifest: manifest({ cell: 'alpha', projectIgnore: ['.git', '**/dist'] }),
           },
         ],
-        cacheSections: [
-          {
-            section: 'buck2_re_client',
-            entries: [
-              { key: 'tls', value: 'false' },
-              { key: 'action_cache_address', value: 'grpc://cache.example:1234' },
-            ],
-          },
-          {
-            section: 'buck2',
-            entries: [
-              { key: 'digest_algorithms', value: 'SHA256' },
-              { key: 'default_allow_cache_upload', value: 'true' },
-            ],
-          },
-        ],
+        cacheSections: buckMemberRemoteCacheSections({
+          endpoint: 'grpc://cache.example:1234',
+          instanceName: 'alpha',
+        }),
       }),
     )
 
@@ -405,6 +464,9 @@ describe('composition root goldens', () => {
 
 [buck2_re_client]
   action_cache_address = grpc://cache.example:1234
+  cas_address = grpc://cache.example:1234
+  engine_address = grpc://cache.example:1234
+  instance_name = alpha
   tls = false
 
 [project]
@@ -803,6 +865,24 @@ describe('composition input failures', () => {
       }),
     ],
     ['missing platform hub', input({ members: [alphaMember], platformHubCell: 'beta' })],
+    [
+      'non-hub remote cache authority',
+      input({
+        members: [
+          alphaMember,
+          {
+            memberKey: 'beta',
+            manifest: {
+              ...manifest({ cell: 'beta' }),
+              remoteCache: {
+                endpoint: 'grpc://dev3:41045',
+                instanceName: 'effect-utils',
+              },
+            },
+          },
+        ],
+      }),
+    ],
     [
       'duplicate cache sections',
       input({

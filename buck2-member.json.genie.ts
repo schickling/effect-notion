@@ -13,6 +13,10 @@ const buckMemberSchemaVersion = COMPOSITION_ROOT_SCHEMA_VERSION
 const manifestProjection = {
   cell: 'effect_utils',
   mount: 'repos/effect-utils',
+  remoteCache: {
+    endpoint: 'grpc://dev3:41045',
+    instanceName: 'effect-utils',
+  },
   projectIgnore: [
     '**/__pycache__',
     '**/dist',
