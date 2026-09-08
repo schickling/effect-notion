@@ -1,16 +1,28 @@
 {
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/effect-path",
+      "packages/@overeng/kdl",
+      "packages/@overeng/kdl-effect",
+      "packages/@overeng/megarepo",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/tui-core",
+      "packages/@overeng/tui-react",
+      "packages/@overeng/tui-stories",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
+  },
   "name": "@overeng/tui-stories",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "private": true,
   "exports": {
     ".": "./src/mod.ts"
-  },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js"
-    }
   },
   "scripts": {
     "storybook": "storybook dev -p 6013",
@@ -35,6 +47,11 @@
     "react-reconciler": "0.33.0",
     "vitest": "4.1.9"
   },
+  "dependenciesMeta": {
+    "@overeng/tui-react": {
+      "injected": true
+    }
+  },
   "devDependencies": {
     "@effect/atom-react": "4.0.0-rc.111",
     "@effect/vitest": "4.0.0-rc.111",
@@ -48,11 +65,6 @@
     "storybook": "10.5.10",
     "typescript": "6.0.3",
     "vitest": "4.1.9"
-  },
-  "dependenciesMeta": {
-    "@overeng/tui-react": {
-      "injected": true
-    }
   },
   "peerDependencies": {
     "@effect/atom-react": "^4.0.0-rc.111",
@@ -69,22 +81,10 @@
     "react-dom": "^19.2.8",
     "react-reconciler": "^0.33.0"
   },
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/effect-path",
-      "packages/@overeng/kdl",
-      "packages/@overeng/kdl-effect",
-      "packages/@overeng/megarepo",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/tui-core",
-      "packages/@overeng/tui-react",
-      "packages/@overeng/tui-stories",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js"
+    }
   }
 }

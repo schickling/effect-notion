@@ -1,18 +1,22 @@
 {
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/notion-core",
+      "packages/@overeng/notion-effect-schema",
+      "packages/@overeng/notion-property-write",
+      "packages/@overeng/utils-dev"
+    ]
+  },
   "name": "@overeng/notion-property-write",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "private": true,
   "exports": {
     ".": {
       "types": "./dist/src/mod.d.ts",
       "default": "./src/mod.ts"
-    }
-  },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js"
     }
   },
   "dependencies": {
@@ -29,14 +33,10 @@
   "peerDependencies": {
     "effect": "^4.0.0-rc.111"
   },
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/notion-core",
-      "packages/@overeng/notion-effect-schema",
-      "packages/@overeng/notion-property-write",
-      "packages/@overeng/utils-dev"
-    ]
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js"
+    }
   }
 }
