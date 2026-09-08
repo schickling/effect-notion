@@ -274,6 +274,21 @@ All notable changes to this project will be documented in this file.
   explicitly closed native compiler session; the OTEL boundary uses the new
   scanner API; and JSONC validation uses `jsonc-parser` because the classic
   config-text parser was removed.
+- **deps, nix/playwright-flake**: Playwright moves to 1.63.0 on both sides of
+  the split at once. The npm clients (`@playwright/test` and the `playwright`
+  peer that `@vitest/browser-playwright` requires) go 1.61.0 -> 1.63.0 in
+  `genie/external.ts`, and the Nix-managed browser closure follows to
+  `pietdevries94/playwright-web-flake` `56d390a` — whose `playwright-driver`
+  declares `version = "1.63.0"`, so driver and client stay exactly matched
+  (a mismatch is what makes the driver refuse to launch the browsers).
+  No source change was needed: the repo's wrappers
+  (`@overeng/utils/node/playwright`) use no API touched by 1.62 or 1.63 — no
+  `:visible` pseudo-class (superseded by `locator.visible()`, still
+  supported), no `@playwright/experimental-ct-*` package (frozen upstream in
+  favour of the stories model). The dropped-platform announcements (Debian 11
+  in 1.62, Ubuntu 20.04 in 1.63) do not affect our runners, and
+  `@vitest/browser-playwright@4.1.9` peers `playwright` at `*`, so the welded
+  Vitest cohort is unaffected by the client bump.
 
   The `@overeng/oxc-config` rule-test harness remains on TypeScript 6.0.3
   because `@typescript-eslint/typescript-estree` still imports the removed

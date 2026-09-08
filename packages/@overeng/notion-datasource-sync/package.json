@@ -73,7 +73,7 @@
     "@effect/vitest": "4.0.0-rc.111",
     "@opentui/core": "0.4.1",
     "@opentui/react": "0.4.1",
-    "@playwright/test": "1.61.0",
+    "@playwright/test": "1.63.0",
     "@storybook/react": "10.5.10",
     "@types/node": "26.5.0",
     "@types/react": "19.2.18",
@@ -87,7 +87,7 @@
   "peerDependencies": {
     "@effect/opentelemetry": "^4.0.0-rc.111",
     "@effect/platform-node": "^4.0.0-rc.111",
-    "@playwright/test": "^1.61.0",
+    "@playwright/test": "1.63.0",
     "effect": "^4.0.0-rc.111"
   },
   "engines": {

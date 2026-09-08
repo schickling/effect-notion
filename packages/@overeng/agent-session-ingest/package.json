@@ -27,7 +27,7 @@
     "@effect/platform-node": "4.0.0-rc.111",
     "@effect/vitest": "4.0.0-rc.111",
     "@overeng/utils": "workspace:^",
-    "@playwright/test": "1.61.0",
+    "@playwright/test": "1.63.0",
     "effect": "4.0.0-rc.111",
     "vitest": "4.1.9"
   },

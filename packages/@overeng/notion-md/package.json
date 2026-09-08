@@ -47,7 +47,7 @@
     "@effect/vitest": "4.0.0-rc.111",
     "@overeng/tui-react": "workspace:^",
     "@overeng/utils-dev": "workspace:^",
-    "@playwright/test": "1.61.0",
+    "@playwright/test": "1.63.0",
     "@storybook/react": "10.5.10",
     "@storybook/react-vite": "10.5.10",
     "@types/node": "26.5.0",
@@ -66,7 +66,7 @@
   "peerDependencies": {
     "@effect/opentelemetry": "^4.0.0-rc.111",
     "@effect/platform-node": "^4.0.0-rc.111",
-    "@playwright/test": "^1.61.0",
+    "@playwright/test": "1.63.0",
     "effect": "^4.0.0-rc.111"
   },
   "publishConfig": {

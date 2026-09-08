@@ -339,7 +339,7 @@ export const catalog = defineCatalog({
   typescript: '7.0.2',
   // TypeScript 7 removed its classic in-process JSONC helper; this is VS Code's zero-dependency parser.
   'jsonc-parser': '3.3.1',
-  '@playwright/test': '1.61.0',
+  '@playwright/test': '1.63.0',
   vite: '8.2.2',
   vitest: '4.1.9',
   '@vitejs/plugin-react': '6.1.1',
@@ -421,7 +421,7 @@ export const catalog = defineCatalog({
    */
   '@vitest/browser': '4.1.9',
   '@vitest/browser-playwright': '4.1.9',
-  playwright: '1.61.0',
+  playwright: '1.63.0',
 
   // xterm (terminal emulator for browser/testing)
   '@xterm/xterm': '6.0.0',

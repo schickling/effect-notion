@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@overeng/utils": "workspace:^",
-    "@playwright/test": "1.61.0",
+    "@playwright/test": "1.63.0",
     "@tanstack/router-plugin": "1.168.36",
     "@types/node": "26.5.0",
     "@types/react": "19.2.18",
