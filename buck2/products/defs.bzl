@@ -1,12 +1,98 @@
 """Language-neutral portable build-product packaging contract."""
 
+load("//buck2/package_tools.bzl", "JavaScriptModuleInfo")
 load("//buck2/platforms:defs.bzl", "ProductPlatformInfo", "native_execution_constraints")
 load("//buck2/provenance:defs.bzl", "ProductExecutableInfo")
+load("//buck2/toolchains:defs.bzl", "BunToolchainInfo")
 
 BuildProductInfo = provider(fields = {
     "descriptor": Artifact,
     "payload": Artifact,
 })
+
+
+def _validate_product_name(value):
+    if not value:
+        fail("javascript_product product_name must not be empty")
+    alphanumeric = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    allowed = alphanumeric + "._+-"
+    if value[0] not in alphanumeric:
+        fail("javascript_product product_name must start with an ASCII letter or digit")
+    for character in value:
+        if character not in allowed:
+            fail("javascript_product product_name contains an unsupported character: {}".format(character))
+
+
+def _javascript_product_impl(ctx):
+    _validate_product_name(ctx.attrs.product_name)
+    module = ctx.attrs.module[JavaScriptModuleInfo]
+    descriptor = ctx.actions.declare_output("descriptor.json")
+    toolchain = ctx.attrs._bun[BunToolchainInfo]
+    args = cmd_args([
+        toolchain.executable,
+        ctx.attrs._runner,
+        "product-descriptor",
+        "--descriptor",
+        descriptor.as_output(),
+        "--module-descriptor",
+        module.descriptor,
+        "--product-kind",
+        ctx.attrs.product_kind,
+        "--product-name",
+        ctx.attrs.product_name,
+        "--target-identity",
+        str(ctx.label.raw_target()),
+    ])
+    ctx.actions.run(
+        args,
+        category = "javascript_product_descriptor",
+        local_only = True,
+        allow_cache_upload = False,
+    )
+    return [
+        DefaultInfo(
+            default_output = module.module,
+            other_outputs = [descriptor],
+            sub_targets = {
+                "descriptor": [DefaultInfo(default_output = descriptor)],
+            },
+        ),
+        BuildProductInfo(descriptor = descriptor, payload = module.module),
+    ]
+
+
+_javascript_product = rule(
+    impl = _javascript_product_impl,
+    attrs = {
+        "module": attrs.dep(providers = [JavaScriptModuleInfo]),
+        "product_kind": attrs.enum(["cli", "module"]),
+        "product_name": attrs.string(),
+        "_bun": attrs.default_only(attrs.exec_dep(
+            default = "//buck2/toolchains:bun",
+            providers = [BunToolchainInfo],
+        )),
+        "_runner": attrs.default_only(attrs.source(
+            default = "//packages/@overeng/buck2-tools:src/package-command-runner.ts",
+        )),
+    },
+)
+
+
+def javascript_product(
+        name,
+        module,
+        product_name,
+        product_kind,
+        **kwargs):
+    """Adapts one portable JavaScript module-v2 artifact to product-v2."""
+    _javascript_product(
+        name = name,
+        module = module,
+        product_name = product_name,
+        product_kind = product_kind,
+        default_target_platform = "//buck2/platforms:javascript_portable",
+        **kwargs
+    )
 
 def _build_product_impl(ctx):
     if not ctx.attrs.product_name:

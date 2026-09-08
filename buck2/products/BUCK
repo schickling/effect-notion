@@ -1,4 +1,4 @@
-load("//buck2/products:defs.bzl", "build_product")
+load("//buck2/products:defs.bzl", "build_product", "javascript_product")
 
 # Public rule API lives in defs.bzl; concrete products belong to repository adapters.
 export_file(
