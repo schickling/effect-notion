@@ -100,6 +100,12 @@ const manifestProjection = {
       executable: 'bin/buck2',
     },
     {
+      toolId: 'coreutils-readlink',
+      protocol: 'gnu/coreutils/v9',
+      flakePackage: 'buck2-coreutils',
+      executable: 'bin/readlink',
+    },
+    {
       toolId: 'product',
       protocol: 'effect-utils/buck2-product/v1',
       flakePackage: 'buck2-product',

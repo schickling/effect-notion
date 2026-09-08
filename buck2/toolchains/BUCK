@@ -18,6 +18,13 @@ support_tool(
     tool_id = "product",
     visibility = ["PUBLIC"],
 )
+
+support_tool(
+    name = "tool_coreutils_readlink",
+    protocol = "gnu/coreutils/v9",
+    tool_id = "coreutils-readlink",
+    visibility = ["PUBLIC"],
+)
 native_rust_toolchains(
     capabilities = CAPABILITIES,
     generation = GENERATION,
