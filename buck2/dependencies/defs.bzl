@@ -1,4 +1,4 @@
-"""Lockfile-derived pnpm closure rules (decision 0022).
+"""Lockfile-derived pnpm normalized store rules (decisions 0022 and 0030).
 
 Generated-data API
 ------------------
@@ -9,29 +9,37 @@ package, then declares:
   resolved package version. ``sha256`` is the lowercase hex value from the
   freshness-gated sidecar; the rule performs the only network action and the
   capability-backed archive tool extracts the npm ``package/`` tree offline.
-* ``pnpm_importer(name, *_by_platform, ...)`` once per importer. Every
-  package-bearing map has exactly the keys ``linux_x86_64``, ``linux_aarch64``,
-  and ``macos_aarch64``. The macro owns the mandatory cpu/os ``select()``.
+  Each package's ``bins`` maps its executable names to package-relative files.
+* ``pnpm_store_entry(name, package, store_key, runtime, ...)`` once per
+  peer-resolved snapshot for the whole repository. Edges are given either as
+  ``dependencies = {<name>: <entry target>}`` when the lockfile resolves the
+  same edges everywhere, or as ``dependencies_by_platform`` when it does not.
+  A component member passes ``scc`` instead and declares no edges.
+  ``package_override`` names an immutable absolute directory that supplies the
+  entry's package bytes instead of the registry archive. A Nix-grafted native
+  addon uses it: one normalized entry carries the built addon, so every
+  importer and alias resolves the same bytes with no per-consumer copy and no
+  host lookup at test time. An empty string keeps the archive.
+* ``pnpm_store_scc(name, members, runtime, internal_edges, ...)`` once per real
+  lockfile cycle. ``members`` maps each distinct virtual-store key to its
+  package target; ``internal_edges`` or ``internal_edges_by_platform`` uses
+  ``"<source-key>\\t<name>" -> <target-key>`` and must stay inside the
+  component.
+* ``pnpm_store_view(name, runtime, direct, closure, bins, ...)`` once per
+  importer. ``direct`` maps a dependency name to a store key, ``closure`` maps
+  every reachable store key to its entry target, and ``bins`` uses
+  ``<bin-name> -> "<store-key>\\t<entrypoint>"``. A view materializes only
+  directories and links: it adds no dependency bytes per consumer and exposes
+  ``PnpmDeclaredClosureInfo``.
 
-``packages_by_platform`` maps each snapshot's pnpm-encoded, single-component
-virtual-store key (including its peer identity) to a ``pnpm_package`` target.
-Metadata maps use these records:
-
-* packageDependencies: ``"<source-key>\\t<dependency-name>" -> <target-key>``
-* rootDependencies: ``<dependency-name> -> <target-key>``
-* bins: ``<bin-name> -> "<target-key>\\t<package-relative-entrypoint>"``
-* packageWorkspaceDependencies: ``"<package-key>\\t<name>" -> <workspace-key>``
-* workspacePackageDependencies: ``"<workspace-key>\\t<name>" -> <package-key>``
-
-Each package's ``bins`` maps its executable names to package-relative files.
-The selected dependency edges derive the nested package/workspace ``.bin``
-links; ``bins_by_platform`` declares only the importer's root ``.bin`` links.
-
-``workspace_trees`` maps a stable, single-component workspace key to a declared
-package-tree artifact. ``workspace_workspace_dependencies`` uses
-``"<source-workspace-key>\\t<name>" -> <target-workspace-key>``;
-``root_workspace_dependencies`` maps root names to workspace keys. Assembly is
-an offline action and never reads a package-manager store.
+Every store key is one pnpm-encoded, single-component virtual-store path
+component including its peer identity. ``workspace_trees`` maps a stable,
+single-component workspace key to a declared package-view target; the view
+re-exports that target's own declared roots so a workspace first hop stays
+resolvable inside a sandbox without copying its dependency bytes. Assembly
+is an offline action and never reads a package-manager store. Per-platform
+maps have exactly the keys ``linux_x86_64``, ``linux_aarch64``, and
+``macos_aarch64``; the macros own the mandatory cpu/os ``select()``.
 """
 
 load("//buck2/toolchains:defs.bzl", "BunToolchainInfo")
@@ -45,11 +53,76 @@ PnpmPackageInfo = provider(fields = {
 PnpmDeclaredClosureInfo = provider(fields = {
     "manifest": Artifact,
     "node_modules": Artifact,
+    "read_roots": provider_field(list[Artifact]),
     "toolchain_identity": str,
 })
 
-_PLATFORMS = ["linux_aarch64", "linux_x86_64", "macos_aarch64"]
+# The lockfile's own cpu/os/libc gates, projected as data.
+#
+# A package tree is materialized for one platform, so the store deliberately
+# omits every optional package gated to another. A portable product must go
+# further and omit the gated packages this platform DOES provide: inlining a
+# host-native binding would make the product bytes host-specific. Which names
+# those are is decided by the lockfile, never by scanning what happens to be
+# on disk.
+PnpmPlatformGatedPackagesInfo = provider(fields = {
+    "manifest": Artifact,
+})
+
+
+def _platform_gated_packages_impl(ctx):
+    manifest = ctx.actions.declare_output("platform-gated-packages.json")
+    families = []
+    packages = {}
+    for family in sorted(ctx.attrs.families.keys()):
+        names = sorted(ctx.attrs.families[family])
+        if not names:
+            fail("platform-gated family {} declares no packages".format(family))
+        for name in names:
+            if name in packages:
+                fail("platform-gated package {} is claimed by two families".format(name))
+            packages[name] = family
+        families.append({
+            "capability": ctx.attrs.capabilities.get(family),
+            "family": family,
+            "packages": names,
+        })
+    ctx.actions.write_json(manifest, {
+        "schema": "effect-utils/pnpm-platform-gated-packages/v1",
+        "families": families,
+        "packages": sorted(packages.keys()),
+    }, pretty = True)
+    return [
+        DefaultInfo(default_output = manifest),
+        PnpmPlatformGatedPackagesInfo(manifest = manifest),
+    ]
+
+
+pnpm_platform_gated_packages = rule(
+    impl = _platform_gated_packages_impl,
+    attrs = {
+        "capabilities": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
+        "families": attrs.dict(key = attrs.string(), value = attrs.list(attrs.string()), default = {}),
+    },
+)
+
+
+def _unique_artifacts(artifacts):
+    seen = {}
+    roots = []
+    for artifact in artifacts:
+        if artifact not in seen:
+            seen[artifact] = True
+            roots.append(artifact)
+    return roots
+
+# The admitted platforms a lockfile-derived `select()` must cover exactly. The
+# portable platform is one of them, not a fallback: a configuration that
+# matches none of the four fails analysis, which is what keeps an unadmitted
+# platform from silently inheriting some other platform's package set.
+_PLATFORMS = ["javascript_portable", "linux_aarch64", "linux_x86_64", "macos_aarch64"]
 _PLATFORM_CONFIGURATIONS = {
+    "javascript_portable": ":_pnpm_javascript_portable",
     "linux_x86_64": ":_pnpm_linux_x86_64",
     "linux_aarch64": ":_pnpm_linux_aarch64",
     "macos_aarch64": ":_pnpm_macos_aarch64",
@@ -72,6 +145,14 @@ def _require_portable_path(value, field):
     if not value or value.startswith("/") or "\\" in value or "\x00" in value:
         fail("{} must be a non-empty portable relative path: {}".format(field, value))
     for component in value.split("/"):
+        if component == "" or component == "." or component == "..":
+            fail("{} must be normalized: {}".format(field, value))
+
+
+def _require_absolute_path(value, field):
+    if not value.startswith("/") or "\\" in value or "\x00" in value or value.endswith("/"):
+        fail("{} must be an absolute, immutable directory path: {}".format(field, value))
+    for component in value.split("/")[1:]:
         if component == "" or component == "." or component == "..":
             fail("{} must be normalized: {}".format(field, value))
 
@@ -180,141 +261,17 @@ def pnpm_package(name, package_name, url, sha256, bins = {}, patches = [], **kwa
     )
 
 
-def _validate_package_map(packages):
-    for key, dep in packages.items():
-        _require_store_key(key, "package snapshot key")
-        _require_portable_path(dep[PnpmPackageInfo].package_name, "package name")
-        for name, entrypoint in dep[PnpmPackageInfo].bins.items():
-            _require_portable_path(name, "package bin name")
-            _require_portable_path(entrypoint, "package bin entrypoint")
-
-
-def _validate_metadata(ctx):
-    packages = ctx.attrs.packages
-    workspaces = ctx.attrs.workspace_trees
-    _validate_package_map(packages)
-    for key in workspaces.keys():
-        _require_store_key(key, "workspace key")
-
-    for record, target in ctx.attrs.package_dependencies.items():
-        source, _name = _record(record, "package_dependencies")
-        if source not in packages or target not in packages:
-            fail("package_dependencies record names a package excluded by the selected platform: {} -> {}".format(record, target))
-    for name, target in ctx.attrs.root_dependencies.items():
-        _require_portable_path(name, "root dependency")
-        if target not in packages:
-            fail("root_dependencies names a package excluded by the selected platform: {}".format(target))
-    for name, value in ctx.attrs.bins.items():
-        _require_portable_path(name, "bin name")
-        target, entrypoint = _record(value, "bins")
-        if target not in packages:
-            fail("bins names a package excluded by the selected platform: {}".format(target))
-        _require_portable_path(entrypoint, "bin entrypoint")
-    for record, target in ctx.attrs.package_workspace_dependencies.items():
-        source, _name = _record(record, "package_workspace_dependencies")
-        if source not in packages or target not in workspaces:
-            fail("package_workspace_dependencies has an unavailable endpoint: {} -> {}".format(record, target))
-    for record, target in ctx.attrs.workspace_package_dependencies.items():
-        source, _name = _record(record, "workspace_package_dependencies")
-        if source not in workspaces or target not in packages:
-            fail("workspace_package_dependencies has an unavailable endpoint: {} -> {}".format(record, target))
-    for record, target in ctx.attrs.workspace_workspace_dependencies.items():
-        source, _name = _record(record, "workspace_workspace_dependencies")
-        if source not in workspaces or target not in workspaces:
-            fail("workspace_workspace_dependencies has an unavailable endpoint: {} -> {}".format(record, target))
-    for name, target in ctx.attrs.root_workspace_dependencies.items():
-        _require_portable_path(name, "root workspace dependency")
-        if target not in workspaces:
-            fail("root_workspace_dependencies names unavailable workspace {}".format(target))
-
-def _nested_bins(packages, dependencies, field):
-    result = {}
-    for record, target in dependencies.items():
-        owner, _dependency_name = _record(record, field)
-        package = packages[target][PnpmPackageInfo]
-        for name, entrypoint in package.bins.items():
-            key = "{}\t{}".format(owner, name)
-            value = "{}\t{}".format(target, entrypoint)
-            existing = result.get(key)
-            if existing != None and existing != value:
-                fail("{} exposes ambiguous bin {} from {} and {}".format(field, key, existing, value))
-            result[key] = value
-    return result
-
-
-def _importer_impl(ctx):
-    _validate_metadata(ctx)
-    package_bins = _nested_bins(ctx.attrs.packages, ctx.attrs.package_dependencies, "package_dependencies")
-    workspace_bins = _nested_bins(ctx.attrs.packages, ctx.attrs.workspace_package_dependencies, "workspace_package_dependencies")
-    manifest = ctx.actions.declare_output("assembly-manifest.json")
-    ctx.actions.write_json(manifest, {
-        "schema": "effect-utils/pnpm-declared-closure/v1",
-        "packageDependencies": ctx.attrs.package_dependencies,
-        "packageBins": package_bins,
-        "rootDependencies": ctx.attrs.root_dependencies,
-        "bins": ctx.attrs.bins,
-        "packageWorkspaceDependencies": ctx.attrs.package_workspace_dependencies,
-        "workspacePackageDependencies": ctx.attrs.workspace_package_dependencies,
-        "workspaceWorkspaceDependencies": ctx.attrs.workspace_workspace_dependencies,
-        "workspaceBins": workspace_bins,
-        "rootWorkspaceDependencies": ctx.attrs.root_workspace_dependencies,
-    }, pretty = True)
-
-    out = ctx.actions.declare_output("node_modules", dir = True)
-    toolchain = ctx.attrs._bun[BunToolchainInfo]
-    args = cmd_args([
-        toolchain.executable,
-        ctx.attrs.runtime,
-        "--output",
-        out.as_output(),
-        "--manifest",
-        manifest,
-    ])
-    for key in sorted(ctx.attrs.packages.keys()):
-        package = ctx.attrs.packages[key][PnpmPackageInfo]
-        args.add("--package", key, package.package_name, package.tree)
-    for key in sorted(ctx.attrs.workspace_trees.keys()):
-        args.add("--workspace", key, ctx.attrs.workspace_trees[key])
-    ctx.actions.run(
-        args,
-        category = "pnpm_importer",
-        identifier = ctx.attrs.name,
-        local_only = True,
-        allow_cache_upload = True,
-    )
-    return [
-        DefaultInfo(default_output = out, other_outputs = [manifest]),
-        PnpmDeclaredClosureInfo(
-            manifest = manifest,
-            node_modules = out,
-            toolchain_identity = toolchain.identity,
-        ),
-    ]
-
-
-_importer = rule(
-    impl = _importer_impl,
-    attrs = {
-        "packages": attrs.dict(key = attrs.string(), value = attrs.dep(providers = [PnpmPackageInfo])),
-        "package_dependencies": attrs.dict(key = attrs.string(), value = attrs.string()),
-        "root_dependencies": attrs.dict(key = attrs.string(), value = attrs.string()),
-        "bins": attrs.dict(key = attrs.string(), value = attrs.string()),
-        "workspace_trees": attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
-        "package_workspace_dependencies": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
-        "workspace_package_dependencies": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
-        "workspace_workspace_dependencies": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
-        "root_workspace_dependencies": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
-        "runtime": attrs.source(),
-        "_bun": attrs.default_only(attrs.exec_dep(
-            default = "//buck2/toolchains:bun",
-            providers = [BunToolchainInfo],
-        )),
-    },
-)
-
-
 def pnpm_platform_configurations():
-    """Declares the three cpu/os config settings owned by pnpm_importer selects."""
+    """Declares the four config settings owned by the store selects."""
+    native.config_setting(
+        name = "_pnpm_javascript_portable",
+        constraint_values = [
+            "//buck2/platforms:abi_any",
+            "//buck2/platforms:cpu_any",
+            "//buck2/platforms:os_any",
+        ],
+        visibility = [],
+    )
     native.config_setting(
         name = "_pnpm_linux_x86_64",
         constraint_values = [
@@ -341,47 +298,455 @@ def pnpm_platform_configurations():
     )
 
 
-def _empty_platform_maps():
-    return {platform: {} for platform in _PLATFORMS}
-
-
 def _platform_select(values, field):
     if sorted(values.keys()) != _PLATFORMS:
         fail("{} must provide exactly these admitted platforms: {}".format(field, ", ".join(_PLATFORMS)))
     return select({_PLATFORM_CONFIGURATIONS[platform]: values[platform] for platform in _PLATFORMS})
 
 
-def pnpm_importer(
+# ---------------------------------------------------------------------------
+# Normalized store (decision 0030)
+#
+# One entry per peer-resolved snapshot for the whole repository, one sandboxed
+# assembly per strongly connected component, and metadata-only importer views.
+# A view adds no dependency bytes, so a consumer never receives a second copy
+# of a dependency.
+#
+# Only entries whose lockfile edges actually differ per platform receive a
+# configured `select()`; the generator derives that set from the lockfile
+# rather than declaring how many such entries exist.
+# ---------------------------------------------------------------------------
+
+PnpmStoreEntryInfo = provider(fields = {
+    # `artifact` is always the owning action's root. A standalone normalized
+    # entry owns its artifact; a component member points into its group.
+    "artifact": Artifact,
+    "bins": provider_field(dict[str, str]),
+    "entry_path": str,
+    "package_name": str,
+    "read_roots": provider_field(list[Artifact]),
+    "store_key": str,
+})
+
+PnpmStoreSccInfo = provider(fields = {
+    "group": Artifact,
+    "members": provider_field(dict[str, str]),
+    "read_roots": provider_field(list[Artifact]),
+})
+
+
+def _exactly_one(invariant, by_platform, field):
+    if (invariant == None) == (by_platform == None):
+        fail("{} requires exactly one of the invariant or per-platform form".format(field))
+    if by_platform == None:
+        return invariant
+    return _platform_select(by_platform, field)
+
+
+def _entry_dir(info):
+    if info.entry_path == "":
+        return info.artifact
+    return cmd_args(info.artifact, format = "{}/" + info.entry_path)
+
+
+def _entry_link_args(args, flag, name, entry):
+    info = entry[PnpmStoreEntryInfo]
+    args.add(flag, name, info.package_name, _entry_dir(info))
+
+
+def _workspace_tree(view):
+    outputs = view[DefaultInfo].default_outputs
+    if len(outputs) != 1:
+        fail("a workspace dependency must declare exactly one package view output: {}".format(view.label))
+    return outputs[0]
+
+
+def _workspace_roots(view):
+    # A package view exports its own declared roots as `other_outputs`, so the
+    # sibling's dependency view and store entries travel with the first hop.
+    return [_workspace_tree(view)] + list(view[DefaultInfo].other_outputs)
+
+
+def _store_entry_impl(ctx):
+    _require_store_key(ctx.attrs.store_key, "store_key")
+    package = ctx.attrs.package[PnpmPackageInfo]
+    _require_portable_path(package.package_name, "package name")
+
+    dependency_keys = sorted(ctx.attrs.dependencies.keys())
+    for name in dependency_keys:
+        _require_portable_path(name, "dependency name")
+
+    override = ctx.attrs.package_override
+    if override != "":
+        _require_absolute_path(override, "package_override")
+
+    if ctx.attrs.scc != None:
+        if override != "":
+            fail("a component member cannot override its package bytes: {}".format(ctx.attrs.store_key))
+        group = ctx.attrs.scc[PnpmStoreSccInfo]
+        if group.members.get(ctx.attrs.store_key) != package.package_name:
+            fail("{} is not a declared member of its component".format(ctx.attrs.store_key))
+        if dependency_keys:
+            fail("a component member declares its edges on the component, not the entry: {}".format(ctx.attrs.store_key))
+        return [
+            DefaultInfo(default_output = group.group),
+            PnpmStoreEntryInfo(
+                artifact = group.group,
+                bins = package.bins,
+                entry_path = "{}/node_modules".format(ctx.attrs.store_key),
+                package_name = package.package_name,
+                read_roots = group.read_roots,
+                store_key = ctx.attrs.store_key,
+            ),
+        ]
+
+    out = ctx.actions.declare_output("entry", dir = True)
+    args = cmd_args([
+        ctx.attrs._bun[BunToolchainInfo].executable,
+        ctx.attrs.runtime,
+        "--mode",
+        "entry",
+        "--output",
+        out.as_output(),
+        "--package-name",
+        package.package_name,
+    ])
+
+    # Exactly one declared source of package bytes. An override replaces the
+    # registry archive outright, so the archive is not joined as an input: the
+    # entry would otherwise claim bytes it never materializes. The override path
+    # is content-addressed and immutable, and it appears in the command line, so
+    # the action key still distinguishes overridden from archive-backed bytes.
+    if override == "":
+        args.add("--package-tree", package.tree)
+    else:
+        args.add("--package-override", override)
+    bins = {}
+    read_root_candidates = [out]
+    for name in dependency_keys:
+        read_root_candidates.extend(ctx.attrs.dependencies[name][PnpmStoreEntryInfo].read_roots)
+    read_roots = _unique_artifacts(read_root_candidates)
+    for name in dependency_keys:
+        dependency = ctx.attrs.dependencies[name]
+        _entry_link_args(args, "--dependency", name, dependency)
+        info = dependency[PnpmStoreEntryInfo]
+        for bin_name, entrypoint in info.bins.items():
+            _require_portable_path(bin_name, "dependency bin name")
+            _require_portable_path(entrypoint, "dependency bin entrypoint")
+            value = (info.package_name, info.artifact, info.entry_path, entrypoint)
+            existing = bins.get(bin_name)
+            if existing != None and existing != value:
+                fail("{} exposes ambiguous bin {}".format(ctx.attrs.store_key, bin_name))
+            bins[bin_name] = value
+    for bin_name in sorted(bins.keys()):
+        package_name, artifact, entry_path, entrypoint = bins[bin_name]
+        args.add(
+            "--bin",
+            bin_name,
+            package_name,
+            artifact if entry_path == "" else cmd_args(artifact, format = "{}/" + entry_path),
+            entrypoint,
+        )
+    ctx.actions.run(
+        args,
+        category = "pnpm_store_entry",
+        identifier = ctx.attrs.name,
+        local_only = True,
+        allow_cache_upload = True,
+    )
+    return [
+        DefaultInfo(
+            default_output = out,
+            other_outputs = read_roots[1:],
+        ),
+        PnpmStoreEntryInfo(
+            artifact = out,
+            bins = package.bins,
+            entry_path = "node_modules",
+            package_name = package.package_name,
+            store_key = ctx.attrs.store_key,
+            read_roots = read_roots,
+        ),
+    ]
+
+
+_store_entry = rule(
+    impl = _store_entry_impl,
+    attrs = {
+        "dependencies": attrs.dict(
+            key = attrs.string(),
+            value = attrs.dep(providers = [PnpmStoreEntryInfo]),
+            default = {},
+        ),
+        "package": attrs.dep(providers = [PnpmPackageInfo]),
+        "package_override": attrs.string(default = ""),
+        "runtime": attrs.source(),
+        "scc": attrs.option(attrs.dep(providers = [PnpmStoreSccInfo]), default = None),
+        "store_key": attrs.string(),
+        "_bun": attrs.default_only(attrs.exec_dep(
+            default = "//buck2/toolchains:bun",
+            providers = [BunToolchainInfo],
+        )),
+    },
+)
+
+
+def pnpm_store_entry(
+        name,
+        package,
+        store_key,
+        runtime,
+        dependencies = None,
+        dependencies_by_platform = None,
+        package_override = "",
+        scc = None,
+        **kwargs):
+    """Declares one normalized store entry; only varying edges are selected."""
+    _store_entry(
+        name = name,
+        dependencies = {} if scc != None else _exactly_one(
+            dependencies,
+            dependencies_by_platform,
+            "pnpm_store_entry dependencies",
+        ),
+        package = package,
+        package_override = package_override,
+        runtime = runtime,
+        scc = scc,
+        store_key = store_key,
+        **kwargs
+    )
+
+
+def _store_scc_impl(ctx):
+    members = {}
+    for store_key in sorted(ctx.attrs.members.keys()):
+        _require_store_key(store_key, "component member key")
+        package = ctx.attrs.members[store_key][PnpmPackageInfo]
+        _require_portable_path(package.package_name, "component member package name")
+        members[store_key] = package
+    if not members:
+        fail("a component must declare at least one member")
+
+    out = ctx.actions.declare_output("group", dir = True)
+    args = cmd_args([
+        ctx.attrs._bun[BunToolchainInfo].executable,
+        ctx.attrs.runtime,
+        "--mode",
+        "scc",
+        "--output",
+        out.as_output(),
+    ])
+    for store_key in sorted(members.keys()):
+        args.add("--member", store_key, members[store_key].package_name, members[store_key].tree)
+    for record in sorted(ctx.attrs.internal_edges.keys()):
+        source, dependency_name = _record(record, "internal_edges")
+        target = ctx.attrs.internal_edges[record]
+        if source not in members or target not in members:
+            fail("internal_edges names a package outside the declared component: {} -> {}".format(record, target))
+        args.add("--member-dependency", source, dependency_name, target)
+        for bin_name, entrypoint in members[target].bins.items():
+            args.add("--member-bin", source, bin_name, target, entrypoint)
+    for record in sorted(ctx.attrs.external_edges.keys()):
+        source, dependency_name = _record(record, "external_edges")
+        if source not in members:
+            fail("external_edges names an undeclared member: {}".format(record))
+        entry = ctx.attrs.external_edges[record][PnpmStoreEntryInfo]
+        if entry.store_key in members:
+            fail("external_edges names component member {}; declare it as an internal edge".format(entry.store_key))
+        args.add("--member-external", source, dependency_name, entry.package_name, _entry_dir(entry))
+        for bin_name, entrypoint in entry.bins.items():
+            args.add("--member-external-bin", source, bin_name, entry.package_name, _entry_dir(entry), entrypoint)
+    read_root_candidates = [out]
+    for record in sorted(ctx.attrs.external_edges.keys()):
+        read_root_candidates.extend(ctx.attrs.external_edges[record][PnpmStoreEntryInfo].read_roots)
+    read_roots = _unique_artifacts(read_root_candidates)
+    ctx.actions.run(
+        args,
+        category = "pnpm_store_scc",
+        identifier = ctx.attrs.name,
+        local_only = True,
+        allow_cache_upload = True,
+    )
+    return [
+        DefaultInfo(default_output = out, other_outputs = read_roots[1:]),
+        PnpmStoreSccInfo(
+            group = out,
+            members = {key: members[key].package_name for key in members},
+            read_roots = read_roots,
+        ),
+    ]
+
+
+_store_scc = rule(
+    impl = _store_scc_impl,
+    attrs = {
+        "external_edges": attrs.dict(
+            key = attrs.string(),
+            value = attrs.dep(providers = [PnpmStoreEntryInfo]),
+            default = {},
+        ),
+        "internal_edges": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
+        "members": attrs.dict(key = attrs.string(), value = attrs.dep(providers = [PnpmPackageInfo])),
+        "runtime": attrs.source(),
+        "_bun": attrs.default_only(attrs.exec_dep(
+            default = "//buck2/toolchains:bun",
+            providers = [BunToolchainInfo],
+        )),
+    },
+)
+
+
+def pnpm_store_scc(
+        name,
+        members,
+        runtime,
+        internal_edges = None,
+        internal_edges_by_platform = None,
+        external_edges = None,
+        external_edges_by_platform = None,
+        **kwargs):
+    """Assembles one strongly connected component with platform-selected edges."""
+    _store_scc(
+        name = name,
+        external_edges = _exactly_one(
+            external_edges,
+            external_edges_by_platform,
+            "pnpm_store_scc external_edges",
+        ),
+        internal_edges = _exactly_one(
+            internal_edges,
+            internal_edges_by_platform,
+            "pnpm_store_scc internal_edges",
+        ),
+        members = members,
+        runtime = runtime,
+        **kwargs
+    )
+
+
+def _store_view_impl(ctx):
+    closure = ctx.attrs.closure
+    for store_key in closure.keys():
+        _require_store_key(store_key, "closure key")
+    for store_key in ctx.attrs.workspace_trees.keys():
+        _require_store_key(store_key, "workspace key")
+    for name, store_key in ctx.attrs.direct.items():
+        _require_portable_path(name, "direct dependency")
+        if store_key not in closure:
+            fail("direct names a store entry outside the declared closure: {}".format(store_key))
+    for name, workspace_key in ctx.attrs.workspace_dependencies.items():
+        _require_portable_path(name, "direct workspace dependency")
+        if workspace_key not in ctx.attrs.workspace_trees:
+            fail("workspace_dependencies names an undeclared workspace: {}".format(workspace_key))
+    for name in ctx.attrs.direct.keys():
+        if name in ctx.attrs.workspace_dependencies:
+            fail("{} is declared as both a package and a workspace dependency".format(name))
+
+    out = ctx.actions.declare_output("node_modules", dir = True)
+    manifest = ctx.actions.declare_output("view-manifest.json")
+    ctx.actions.write_json(manifest, {
+        "schema": "effect-utils/pnpm-store-view/v1",
+        "bins": ctx.attrs.bins,
+        "closure": sorted(closure.keys()),
+        "direct": ctx.attrs.direct,
+        "workspaceDependencies": ctx.attrs.workspace_dependencies,
+    }, pretty = True)
+
+    args = cmd_args([
+        ctx.attrs._bun[BunToolchainInfo].executable,
+        ctx.attrs.runtime,
+        "--mode",
+        "view",
+        "--output",
+        out.as_output(),
+    ])
+    for name in sorted(ctx.attrs.direct.keys()):
+        _entry_link_args(args, "--link", name, closure[ctx.attrs.direct[name]])
+    for name in sorted(ctx.attrs.workspace_dependencies.keys()):
+        args.add("--workspace-link", name, _workspace_tree(ctx.attrs.workspace_trees[ctx.attrs.workspace_dependencies[name]]))
+    for bin_name in sorted(ctx.attrs.bins.keys()):
+        _require_portable_path(bin_name, "bin name")
+        store_key, entrypoint = _record(ctx.attrs.bins[bin_name], "bins")
+        if store_key not in closure:
+            fail("bins names a store entry outside the declared closure: {}".format(store_key))
+        _require_portable_path(entrypoint, "bin entrypoint")
+        entry = closure[store_key][PnpmStoreEntryInfo]
+        args.add("--bin", bin_name, entry.package_name, _entry_dir(entry), entrypoint)
+    read_root_candidates = [out]
+    for key in sorted(closure.keys()):
+        read_root_candidates.extend(closure[key][PnpmStoreEntryInfo].read_roots)
+    for key in sorted(ctx.attrs.workspace_trees.keys()):
+        # A workspace first hop resolves through the sibling's own view, so its
+        # declared roots travel with the link instead of being copied into it.
+        read_root_candidates.extend(_workspace_roots(ctx.attrs.workspace_trees[key]))
+    read_roots = _unique_artifacts(read_root_candidates)
+
+    # Every root reachable through the view's links is both an action input and
+    # an exported declared root for downstream sandbox mounting and hashing.
+    args.add(cmd_args(hidden = read_roots[1:]))
+    ctx.actions.run(
+        args,
+        category = "pnpm_store_view",
+        identifier = ctx.attrs.name,
+        local_only = True,
+        allow_cache_upload = True,
+    )
+    return [
+        DefaultInfo(
+            default_output = out,
+            other_outputs = [manifest] + read_roots[1:],
+        ),
+        PnpmDeclaredClosureInfo(
+            manifest = manifest,
+            node_modules = out,
+            read_roots = read_roots,
+            toolchain_identity = ctx.attrs._bun[BunToolchainInfo].identity,
+        ),
+    ]
+
+
+_store_view = rule(
+    impl = _store_view_impl,
+    attrs = {
+        "bins": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
+        "closure": attrs.dict(
+            key = attrs.string(),
+            value = attrs.dep(providers = [PnpmStoreEntryInfo]),
+            default = {},
+        ),
+        "direct": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
+        "runtime": attrs.source(),
+        "workspace_dependencies": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
+        "workspace_trees": attrs.dict(key = attrs.string(), value = attrs.dep(providers = [DefaultInfo]), default = {}),
+        "_bun": attrs.default_only(attrs.exec_dep(
+            default = "//buck2/toolchains:bun",
+            providers = [BunToolchainInfo],
+        )),
+    },
+)
+
+
+def pnpm_store_view(
         name,
         runtime,
-        packages_by_platform,
-        package_dependencies_by_platform,
-        root_dependencies_by_platform,
-        bins_by_platform,
+        closure = None,
+        closure_by_platform = None,
+        direct = None,
+        direct_by_platform = None,
+        bins = None,
+        bins_by_platform = None,
         workspace_trees = {},
-        package_workspace_dependencies_by_platform = None,
-        workspace_package_dependencies_by_platform = None,
-        workspace_workspace_dependencies = {},
-        root_workspace_dependencies = {},
+        workspace_dependencies = {},
         **kwargs):
-    """Assembles one importer; package-bearing inputs are always cpu/os selected."""
-    _importer(
+    """Declares one metadata-only importer dependency view over the shared store."""
+    _store_view(
         name = name,
+        bins = _exactly_one(bins, bins_by_platform, "pnpm_store_view bins"),
+        closure = _exactly_one(closure, closure_by_platform, "pnpm_store_view closure"),
+        direct = _exactly_one(direct, direct_by_platform, "pnpm_store_view direct"),
         runtime = runtime,
-        packages = _platform_select(packages_by_platform, "packages_by_platform"),
-        package_dependencies = _platform_select(package_dependencies_by_platform, "package_dependencies_by_platform"),
-        root_dependencies = _platform_select(root_dependencies_by_platform, "root_dependencies_by_platform"),
-        bins = _platform_select(bins_by_platform, "bins_by_platform"),
+        workspace_dependencies = workspace_dependencies,
         workspace_trees = workspace_trees,
-        package_workspace_dependencies = _platform_select(
-            package_workspace_dependencies_by_platform if package_workspace_dependencies_by_platform != None else _empty_platform_maps(),
-            "package_workspace_dependencies_by_platform",
-        ),
-        workspace_package_dependencies = _platform_select(
-            workspace_package_dependencies_by_platform if workspace_package_dependencies_by_platform != None else _empty_platform_maps(),
-            "workspace_package_dependencies_by_platform",
-        ),
-        workspace_workspace_dependencies = workspace_workspace_dependencies,
-        root_workspace_dependencies = root_workspace_dependencies,
         **kwargs
     )

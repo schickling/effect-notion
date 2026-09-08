@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 
+import { defineRepoContext } from '../../packages/@overeng/genie/src/runtime/repo-context/mod.ts'
 import {
   decodePnpmSha256Sidecar,
   generatePnpmSha256Sidecar,
@@ -7,13 +8,17 @@ import {
   type PnpmSha256Sidecar,
 } from './pnpm-lock.ts'
 
+// Same anchoring as `generate.ts`: this refresher is spawned by the Genie process, whose
+// working directory is not necessarily the repository being projected.
+const repo = defineRepoContext({ name: 'effect-utils', importMetaUrl: import.meta.url })
+
 const main = async (): Promise<void> => {
   const metadata = translatePnpmLock({
-    lockfileText: readFileSync('pnpm-lock.yaml', 'utf8'),
-    workspaceText: readFileSync('pnpm-workspace.yaml', 'utf8'),
+    lockfileText: repo.readText('pnpm-lock.yaml'),
+    workspaceText: repo.readText('pnpm-workspace.yaml'),
   })
   let previous: PnpmSha256Sidecar | undefined
-  const sidecarPath = 'buck2/dependencies/pnpm-lock.sha256.json'
+  const sidecarPath = repo.resolve('buck2/dependencies/pnpm-lock.sha256.json')
   if (existsSync(sidecarPath) === true) {
     previous = decodePnpmSha256Sidecar(JSON.parse(readFileSync(sidecarPath, 'utf8')))
   }
