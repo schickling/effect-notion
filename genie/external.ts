@@ -460,8 +460,8 @@ export const catalog = defineCatalog({
   // OpenTUI / Effect Atom (experimental)
   // Effect 4 moved Atom reactivity into core (`effect/unstable/reactivity`);
   // only the React bindings remain a separate package, under the @effect scope.
-  '@opentui/core': '0.4.1',
-  '@opentui/react': '0.4.1',
+  '@opentui/core': '0.5.11',
+  '@opentui/react': '0.5.11',
 
   // Pi-tui (terminal UI framework)
   '@mariozechner/pi-tui': '0.73.1',

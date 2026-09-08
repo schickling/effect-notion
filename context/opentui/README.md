@@ -46,7 +46,6 @@ Available: `<b>`, `<strong>`, `<i>`, `<em>`, `<u>`
 **Multi-color text on a single line:** Use `StyledText` with the `content` prop:
 
 ```tsx
-// @ts-expect-error - StyledText exports exist at runtime but types aren't exposed
 import { t, green, yellow, bold, dim } from "@opentui/core"
 
 // Build styled text with multiple colors

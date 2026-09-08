@@ -8,6 +8,10 @@
  * - Bun runtime (not Node.js)
  * - `@opentui/core` and `@opentui/react` packages
  *
+ * `@opentui/core@0.5.x` does ship a separate Node entry point
+ * (`index.node.js`, `engines.node >= 26.4.0`), but this workspace runs Node 24,
+ * so Bun stays the only supported runtime here and the gate below is unchanged.
+ *
  * Install:
  * ```bash
  * bun add @opentui/core @opentui/react
@@ -289,6 +293,10 @@ export const useOpenTuiRenderer = <S>(
 
 /**
  * Check if OpenTUI is available in the current environment.
+ *
+ * `@opentui/core@0.5.x` added a Node entry point, but it declares
+ * `engines.node >= 26.4.0` and this workspace ships Node 24, so Bun is still
+ * the only runtime we can load OpenTUI under.
  *
  * @returns true if running in Bun and OpenTUI can potentially be imported
  */
