@@ -1436,7 +1436,7 @@ const applyComposition = async ({
           overlays: overlayResults.get(member.key) ?? [],
         }
       }),
-      root: { changedPaths: root.changedPaths },
+      root: { changedPaths: root.changedPaths, watchman: root.watchmanInvalidation._tag },
       defaultCwd: request.ownedMemberPath,
     }
   }

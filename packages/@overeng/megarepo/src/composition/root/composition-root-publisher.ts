@@ -39,7 +39,6 @@ import {
 
 const strictParseOptions = { errors: 'all', onExcessProperty: 'error' } as const
 const execFileAsync = promisify(execFile)
-const WATCHMAN_PENDING_PATH = '.megarepo/composition-watchman-pending.json' as const
 const LOCK_PATH = '.megarepo/composition-publisher.lock.json' as const
 const TRANSACTION_PATH = '.megarepo/composition-publication.json' as const
 const COMMITTED_TRANSACTION_PATH = '.megarepo/composition-publication.committed.json' as const
@@ -285,11 +284,12 @@ export type CompositionRootWatchmanInvalidation =
   /** A service answered but holds no watch on this root, so nothing was stale. */
   | { readonly _tag: 'NotWatched' }
   /**
-   * The client refused silently, which is both the signature of an absent service and of a
-   * failed transport. Nothing was observed, so reconciliation is recorded as pending and any
-   * later apply re-observes; a root constructed after this publication reads the new config.
+   * No watch state could be observed: the client refused silently, which is both the signature of
+   * an absent service and of a failed transport. Nothing stale can be held by a service that is
+   * not running, and a root constructed later reads the published config, so this is reported
+   * rather than repaired; the next apply observes again.
    */
-  | { readonly _tag: 'NoServer' }
+  | { readonly _tag: 'Unavailable' }
 
 /** Observable result of an idempotent composition publication. */
 export interface CompositionRootPublicationResult {
@@ -2213,6 +2213,15 @@ const WatchmanGetConfigResponse = Schema.Struct({
 })
 
 /**
+ * Release confirmation of one root. Both fields are optional at the schema boundary so a body
+ * that omits or contradicts them is reported as a refusal to release rather than a decode defect.
+ */
+const WatchmanWatchDelResponse = Schema.Struct({
+  'watch-del': Schema.optional(Schema.Boolean),
+  root: Schema.optional(Schema.String),
+})
+
+/**
  * One `--no-spawn --no-local` client invocation.
  *
  * Those flags keep this from starting a service or answering from client mode: starting one would
@@ -2225,7 +2234,12 @@ const WatchmanGetConfigResponse = Schema.Struct({
  */
 type WatchmanInvocation =
   | { readonly _tag: 'Silent' }
-  | { readonly _tag: 'Response'; readonly body: object }
+  | { readonly _tag: 'Response'; readonly body: object; readonly streams: WatchmanStreams }
+
+interface WatchmanStreams {
+  readonly stdout: string
+  readonly stderr: string
+}
 
 const describeStreams = ({
   stdout,
@@ -2299,14 +2313,38 @@ const runWatchmanCommand = async ({
   }
   if ('error' in body) {
     const message = String(body.error)
-    if (notWatchedError.test(message) === true) return { _tag: 'Response', body }
+    if (notWatchedError.test(message) === true) return { _tag: 'Response', body, streams }
     throw failure({
       reason: 'WatchmanInvalidationFailed',
       path: workspaceRoot,
       message: `Watchman ${command} refused this root: ${message}; ${describeStreams(streams)}`,
     })
   }
-  return { _tag: 'Response', body }
+  return { _tag: 'Response', body, streams }
+}
+
+/**
+ * Decode a response body into the shape this reconciliation depends on, reporting an unexpected
+ * shape as a publication failure with both streams rather than as a raw schema defect.
+ */
+const decodeWatchmanBody = <T, E>(
+  ...[schema, invocation, command, workspaceRoot]: readonly [
+    Schema.Codec<T, E>,
+    { readonly body: object; readonly streams: WatchmanStreams },
+    'get-config' | 'watch-del',
+    string,
+  ]
+): T => {
+  try {
+    return Schema.decodeUnknownSync(schema)(invocation.body)
+  } catch (cause) {
+    throw failure({
+      reason: 'WatchmanInvalidationFailed',
+      path: workspaceRoot,
+      message: `Watchman ${command} returned an unexpected response shape; ${describeStreams(invocation.streams)}`,
+      cause,
+    })
+  }
 }
 
 /**
@@ -2337,10 +2375,11 @@ const reconcileWatchmanRoot = async ({
     resolvedWatchmanExecutable,
     command: 'get-config',
   })
-  if (observed._tag === 'Silent') return { _tag: 'NoServer' }
+  if (observed._tag === 'Silent') return { _tag: 'Unavailable' }
   if ('error' in observed.body) return { _tag: 'NotWatched' }
   const loaded =
-    Schema.decodeUnknownSync(WatchmanGetConfigResponse)(observed.body).config.ignore_dirs ?? []
+    decodeWatchmanBody(WatchmanGetConfigResponse, observed, 'get-config', workspaceRoot).config
+      .ignore_dirs ?? []
   // Order is part of the contract: macOS accelerates only the first eight entries.
   if (
     loaded.length === publishedIgnoreDirs.length &&
@@ -2353,59 +2392,19 @@ const reconcileWatchmanRoot = async ({
     resolvedWatchmanExecutable,
     command: 'watch-del',
   })
-  if (deleted._tag === 'Silent') return { _tag: 'NoServer' }
-  return 'error' in deleted.body ? { _tag: 'NotWatched' } : { _tag: 'Removed' }
-}
-
-/**
- * Durable record that reconciliation is still owed.
- *
- * A definitive observation (`Removed`, `NotWatched`, `Unchanged`) proves nothing is stale and
- * clears it. `NoServer` is an ambiguous transport — the measured signature of an absent service is
- * indistinguishable from a silent client failure — so it is recorded instead of trusted, and any
- * later apply, status read, or operator can see that the live watch was never proven to match.
- */
-const WatchmanPendingReconciliationSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(COMPOSITION_ROOT_SCHEMA_VERSION),
-  ignoreDirs: Schema.Array(Schema.String),
-})
-
-const recordWatchmanReconciliation = async ({
-  workspaceRoot,
-  outcome,
-  publishedIgnoreDirs,
-}: {
-  readonly workspaceRoot: string
-  readonly outcome: CompositionRootWatchmanInvalidation
-  readonly publishedIgnoreDirs: ReadonlyArray<string>
-}): Promise<void> => {
-  const path = finalPathFor(workspaceRoot, WATCHMAN_PENDING_PATH)
-  const candidatePath = `${path}.candidate`
-  if (outcome._tag !== 'NoServer') {
-    for (const stale of [candidatePath, path]) {
-      try {
-        await unlink(stale)
-      } catch (cause) {
-        if (isErrno(cause, 'ENOENT') === false) throw cause
-      }
-    }
-    await syncDirectory(NodePath.dirname(path))
-    return
+  if (deleted._tag === 'Silent') return { _tag: 'Unavailable' }
+  if ('error' in deleted.body) return { _tag: 'NotWatched' }
+  // A release is only believed when the service says it released exactly this root: any other
+  // body means the watch this publication is responsible for may still be serving stale config.
+  const released = decodeWatchmanBody(WatchmanWatchDelResponse, deleted, 'watch-del', workspaceRoot)
+  if (released['watch-del'] !== true || released.root !== workspaceRoot) {
+    throw failure({
+      reason: 'WatchmanInvalidationFailed',
+      path: workspaceRoot,
+      message: `Watchman watch-del did not release this root; ${describeStreams(deleted.streams)}`,
+    })
   }
-  try {
-    await unlink(candidatePath)
-  } catch (cause) {
-    if (isErrno(cause, 'ENOENT') === false) throw cause
-  }
-  await writeExclusive({
-    path: candidatePath,
-    bytes: encodeJson(WatchmanPendingReconciliationSchema, {
-      schemaVersion: COMPOSITION_ROOT_SCHEMA_VERSION,
-      ignoreDirs: publishedIgnoreDirs,
-    }),
-  })
-  await rename(candidatePath, path)
-  await syncDirectory(NodePath.dirname(path))
+  return { _tag: 'Removed' }
 }
 
 /**
@@ -2415,7 +2414,7 @@ const recordWatchmanReconciliation = async ({
 export const publishCompositionRoot = Effect.fn('megarepo/composition-root/publish')(
   (options: PublishCompositionRootOptions) =>
     Effect.tryPromise({
-      try: async (): Promise<PublishedComposition> => {
+      try: async (): Promise<CompositionRootPublicationResult> => {
         const workspaceRoot = NodePath.resolve(options.workspaceRoot)
         await validateWorkspaceRoot(workspaceRoot)
         await ensureDirectory(workspaceRoot, '.megarepo')
@@ -2440,99 +2439,103 @@ export const publishCompositionRoot = Effect.fn('megarepo/composition-root/publi
             state,
           })
           const watchmanIgnoreDirs = generatedWatchmanIgnoreDirs(output)
+          const memberManifests = members.map(({ memberKey, manifest }) => ({
+            memberKey,
+            manifest,
+          }))
+          let published: PublishedComposition
           if (transaction === undefined) {
-            return {
-              result: {
-                changedPaths: [],
-                memberManifests: members.map(({ memberKey, manifest }) => ({
-                  memberKey,
-                  manifest,
-                })),
-              },
-              watchmanIgnoreDirs,
-            }
-          }
-          let authorityCommitted = false
-          try {
-            await writeTransaction({ workspaceRoot, transaction })
-            const desired = new Map(output.files.map((file) => [file.path, file]))
-            const staged = await stageTransaction({
-              workspaceRoot,
-              transaction,
-              desired,
-              runtime: options.runtime,
-            })
-            const changedPaths = await commitTransaction({
-              workspaceRoot,
-              transaction,
-              state,
-              staged,
-              output: output.files,
-              runtime: options.runtime,
-            })
-            await options.afterAuthorityPublished?.()
-            const committedRecord = await writeCommittedTransaction({ workspaceRoot, transaction })
-            authorityCommitted = true
-            await options.runtime.afterAuthorityCommitted?.()
-            const current = await readTransactionMaybe(workspaceRoot)
-            if (current === undefined) {
-              throw failure({
-                reason: 'RecoveryRefused',
-                path: finalPathFor(workspaceRoot, TRANSACTION_PATH),
-                message: 'Transaction disappeared before committed cleanup',
+            published = { result: { changedPaths: [], memberManifests }, watchmanIgnoreDirs }
+          } else {
+            let authorityCommitted = false
+            try {
+              await writeTransaction({ workspaceRoot, transaction })
+              const desired = new Map(output.files.map((file) => [file.path, file]))
+              const staged = await stageTransaction({
+                workspaceRoot,
+                transaction,
+                desired,
+                runtime: options.runtime,
               })
-            }
-            await cleanupTransactionForward({
-              workspaceRoot,
-              transaction: committedRecord.transaction,
-              pendingRecord: current,
-              committedRecord,
-            })
-            return {
-              result: {
-                changedPaths,
-                memberManifests: members.map(({ memberKey, manifest }) => ({
-                  memberKey,
-                  manifest,
-                })),
-              },
-              watchmanIgnoreDirs,
-            }
-          } catch (cause) {
-            if (cause instanceof SimulatedProcessFault || authorityCommitted === true) {
-              leaveForRecovery = true
+              const changedPaths = await commitTransaction({
+                workspaceRoot,
+                transaction,
+                state,
+                staged,
+                output: output.files,
+                runtime: options.runtime,
+              })
+              await options.afterAuthorityPublished?.()
+              const committedRecord = await writeCommittedTransaction({
+                workspaceRoot,
+                transaction,
+              })
+              authorityCommitted = true
+              await options.runtime.afterAuthorityCommitted?.()
+              const current = await readTransactionMaybe(workspaceRoot)
+              if (current === undefined) {
+                throw failure({
+                  reason: 'RecoveryRefused',
+                  path: finalPathFor(workspaceRoot, TRANSACTION_PATH),
+                  message: 'Transaction disappeared before committed cleanup',
+                })
+              }
+              await cleanupTransactionForward({
+                workspaceRoot,
+                transaction: committedRecord.transaction,
+                pendingRecord: current,
+                committedRecord,
+              })
+              published = { result: { changedPaths, memberManifests }, watchmanIgnoreDirs }
+            } catch (cause) {
+              if (cause instanceof SimulatedProcessFault || authorityCommitted === true) {
+                leaveForRecovery = true
+                throw cause
+              }
+              const current = await readTransactionMaybe(workspaceRoot)
+              if (current !== undefined) {
+                try {
+                  await rollbackTransaction({ workspaceRoot, transactionRecord: current })
+                } catch {
+                  // A foreign replacement can make restoration unsafe. Preserve the original refusal
+                  // plus the exact-token lock/manifest so no later publisher mistakes it for clean state.
+                  leaveForRecovery = true
+                }
+              } else {
+                const candidatePath = finalPathFor(
+                  workspaceRoot,
+                  transactionRecordCandidatePath({ token: transaction.lockToken }),
+                )
+                const candidate = await snapshotMaybe(candidatePath)
+                const expectedBytes = encodeJson(
+                  CompositionPublicationTransactionSchema,
+                  transaction,
+                )
+                if (
+                  candidate !== undefined &&
+                  candidate.mode === 0o644 &&
+                  bytesEqual(candidate.bytes, expectedBytes) === true
+                ) {
+                  await removeExact({ path: candidatePath, expected: candidate })
+                }
+                await cleanupEmptyTransactionDirectories({
+                  workspaceRoot,
+                  token: transaction.lockToken,
+                })
+              }
               throw cause
             }
-            const current = await readTransactionMaybe(workspaceRoot)
-            if (current !== undefined) {
-              try {
-                await rollbackTransaction({ workspaceRoot, transactionRecord: current })
-              } catch {
-                // A foreign replacement can make restoration unsafe. Preserve the original refusal
-                // plus the exact-token lock/manifest so no later publisher mistakes it for clean state.
-                leaveForRecovery = true
-              }
-            } else {
-              const candidatePath = finalPathFor(
-                workspaceRoot,
-                transactionRecordCandidatePath({ token: transaction.lockToken }),
-              )
-              const candidate = await snapshotMaybe(candidatePath)
-              const expectedBytes = encodeJson(CompositionPublicationTransactionSchema, transaction)
-              if (
-                candidate !== undefined &&
-                candidate.mode === 0o644 &&
-                bytesEqual(candidate.bytes, expectedBytes) === true
-              ) {
-                await removeExact({ path: candidatePath, expected: candidate })
-              }
-              await cleanupEmptyTransactionDirectories({
-                workspaceRoot,
-                token: transaction.lockToken,
-              })
-            }
-            throw cause
           }
+          // Reconciliation stays inside this publisher's exclusive lock: overlapping generations
+          // must not observe or release each other's watch. It runs after the publication
+          // transaction is committed and cleaned, and outside the block that parks a workspace for
+          // recovery, so a Watchman refusal fails the call while still releasing the lock.
+          const watchmanInvalidation = await reconcileWatchmanRoot({
+            workspaceRoot,
+            resolvedWatchmanExecutable: options.resolvedWatchmanExecutable,
+            publishedIgnoreDirs: published.watchmanIgnoreDirs,
+          })
+          return { ...published.result, watchmanInvalidation }
         } finally {
           if (leaveForRecovery === false) await releaseLock({ workspaceRoot, acquired })
         }
@@ -2543,36 +2546,7 @@ export const publishCompositionRoot = Effect.fn('megarepo/composition-root/publi
           path: options.workspaceRoot,
           message: 'Could not publish Buck2 composition root',
         }),
-    }).pipe(
-      // The watch lifecycle belongs to publication, not to rendering, and runs on every apply
-      // after the publisher lock is released: reconciliation reads observed watch state, so it
-      // must not depend on which files this run changed, and a Watchman refusal must never leave
-      // a fully published root parked for recovery.
-      Effect.flatMap((published) =>
-        Effect.tryPromise({
-          try: async (): Promise<CompositionRootPublicationResult> => {
-            const workspaceRoot = NodePath.resolve(options.workspaceRoot)
-            const watchmanInvalidation = await reconcileWatchmanRoot({
-              workspaceRoot,
-              resolvedWatchmanExecutable: options.resolvedWatchmanExecutable,
-              publishedIgnoreDirs: published.watchmanIgnoreDirs,
-            })
-            await recordWatchmanReconciliation({
-              workspaceRoot,
-              outcome: watchmanInvalidation,
-              publishedIgnoreDirs: published.watchmanIgnoreDirs,
-            })
-            return { ...published.result, watchmanInvalidation }
-          },
-          catch: (cause) =>
-            normalizeFailure({
-              cause,
-              path: options.workspaceRoot,
-              message: 'Could not reconcile the published Watchman exclusion',
-            }),
-        }),
-      ),
-    ),
+    }),
 )
 
 const validateTeardownState = async ({
@@ -2653,12 +2627,6 @@ export const teardownCompositionRoot = Effect.fn('megarepo/composition-root/tear
             expected: state.manifestSnapshot,
           })
           removedPaths.push(COMPOSITION_GENERATION_MANIFEST_PATH)
-          // A pending reconciliation record describes an exclusion that no longer exists here.
-          await recordWatchmanReconciliation({
-            workspaceRoot,
-            outcome: { _tag: 'Unchanged' },
-            publishedIgnoreDirs: [],
-          })
           for (const relativePath of OWNED_DIRECTORIES.filter((path) => path !== '.megarepo')) {
             const path = finalPathFor(workspaceRoot, relativePath)
             try {

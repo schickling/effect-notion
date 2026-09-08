@@ -224,11 +224,26 @@ export const CompositionApplyRecoveryResultSchema = Schema.Union([
 ]).annotate({ identifier: 'Megarepo.CompositionApplyRecoveryResult' })
 export type CompositionApplyRecoveryResult = typeof CompositionApplyRecoveryResultSchema.Type
 
+/**
+ * Observed outcome of reconciling the live Watchman exclusion during root publication.
+ * `Unavailable` means no watch state could be observed, which callers surface as a warning.
+ */
+export const CompositionApplyWatchmanOutcomeSchema = Schema.Literals([
+  'Unchanged',
+  'Removed',
+  'NotWatched',
+  'Unavailable',
+])
+export type CompositionApplyWatchmanOutcome = typeof CompositionApplyWatchmanOutcomeSchema.Type
+
 /** Completed application result. Root authority commits only after all overlays succeed. */
 export const CompositionApplyResultSchema = Schema.TaggedStruct('Applied', {
   recoveries: Schema.Array(CompositionApplyRecoveryResultSchema),
   members: Schema.Array(CompositionApplyMemberResultSchema),
-  root: Schema.Struct({ changedPaths: Schema.Array(Schema.String) }),
+  root: Schema.Struct({
+    changedPaths: Schema.Array(Schema.String),
+    watchman: CompositionApplyWatchmanOutcomeSchema,
+  }),
   defaultCwd: AbsolutePath,
 }).annotate({ identifier: 'Megarepo.CompositionApplyResult' })
 export type CompositionApplyResult = typeof CompositionApplyResultSchema.Type
@@ -239,6 +254,18 @@ export const CompositionApplyOutputSchema = Schema.Union([
   CompositionApplyResultSchema,
 ]).annotate({ identifier: 'Megarepo.CompositionApplyOutput' })
 export type CompositionApplyOutput = typeof CompositionApplyOutputSchema.Type
+
+/**
+ * Operator warning owed by a completed apply, or `undefined` when nothing is owed.
+ *
+ * `Unavailable` is the only outcome that leaves the live watch unverified: the exclusion is
+ * published, but no watch state could be observed, so the check simply did not happen. Every
+ * other outcome is a proof, and a plan applies nothing.
+ */
+export const compositionApplyWarning = (output: CompositionApplyOutput): string | undefined =>
+  output._tag === 'Applied' && output.root.watchman === 'Unavailable'
+    ? 'Watchman watch state could not be observed; the published exclusion stays unverified until the next apply'
+    : undefined
 
 /** CLI-level composition cutover result retaining both lifecycle plans and the owned cwd. */
 export interface CompositionCommandOutput {
