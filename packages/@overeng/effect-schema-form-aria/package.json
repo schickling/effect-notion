@@ -35,20 +35,19 @@
   "devDependencies": {
     "@overeng/utils": "workspace:^",
     "@storybook/addon-a11y": "10.6.0",
-    "@storybook/addon-vitest": "10.6.0",
     "@storybook/react": "10.6.0",
     "@storybook/react-vite": "10.6.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "@vitejs/plugin-react": "6.1.1",
-    "@vitest/browser": "4.1.9",
-    "@vitest/browser-playwright": "4.1.9",
+    "@vitest/browser": "5.0.0",
+    "@vitest/browser-playwright": "5.0.0",
     "effect": "4.0.0-rc.111",
     "playwright": "1.63.0",
     "storybook": "10.6.0",
     "typescript": "7.0.2",
     "vite": "8.2.2",
-    "vitest": "4.1.9"
+    "vitest": "5.0.0"
   },
   "peerDependencies": {
     "effect": "^4.0.0-rc.111",

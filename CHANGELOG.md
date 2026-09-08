@@ -373,16 +373,18 @@ file`). Effect-TS `tsgo` remains the export type-proof compiler
   invalidates cached Buck actions once.
 - **deps/storybook**: move the Storybook cohort from 10.5.10 to 10.6.0
   (`storybook`, `@storybook/react`, `@storybook/react-vite`,
-  `@storybook/addon-vitest`, `@storybook/addon-a11y`). The gate's API surface is
-  unchanged: `storybookTest({ initialGlobals })` still exists in
-  `@storybook/addon-vitest@10.6.0`'s `vitest-plugin` options, and both
-  `storybook/internal/preview-api` and `@storybook/addon-vitest/vitest-plugin`
-  remain exported entrypoints. `@storybook/addon-vitest@10.6.0` keeps the same
-  `vitest`/`@vitest/browser`/`@vitest/browser-playwright` peer ranges, so the
-  welded Vitest pin is unaffected. 10.6.0 folds the CSF Vite plugin into
-  storybook core — `@storybook/builder-vite@10.6.0` declares only `ts-dedent` —
-  so `@storybook/csf-plugin`, the tree's only `unplugin@2.x` source, disappears
-  and its `unplugin` catalog-duplicate exception (#1155) is retired.
+  `@storybook/addon-a11y`). Storybook 10.6 folds the CSF Vite plugin into core,
+  removing `@storybook/csf-plugin` and the tree's last `unplugin@2.x` source.
+
+- **deps/vitest**: move `vitest`, `@vitest/browser`, and
+  `@vitest/browser-playwright` from 4.1.9 to 5.0.0. The headless Storybook gate
+  no longer depends on `@storybook/addon-vitest`, whose Storybook 10.6 release
+  peers only Vitest 3/4. It now indexes the real Storybook config, applies its
+  Vite/preview/addon pipeline, composes every CSF export with
+  `@storybook/react-vite` Portable Stories, and runs each story lifecycle in
+  Vitest browser mode. Per-theme projects, interaction execution, fail-closed
+  accessibility checks, render settling, and screenshot comparison remain gate
+  responsibilities without a peer override.
 
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for

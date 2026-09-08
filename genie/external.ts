@@ -341,7 +341,7 @@ export const catalog = defineCatalog({
   'jsonc-parser': '3.3.1',
   '@playwright/test': '1.63.0',
   vite: '8.2.2',
-  vitest: '4.1.9',
+  vitest: '5.0.0',
   '@vitejs/plugin-react': '6.1.1',
   unplugin: '3.3.0',
 
@@ -386,9 +386,12 @@ export const catalog = defineCatalog({
   '@babel/plugin-syntax-typescript': '7.29.7',
 
   // Storybook
-  // 10.5.x is the floor for the visual gate: `storybookTest({ initialGlobals })`
-  // defines one Vitest project per theme, which is how light and dark are both
-  // covered. Verified absent from 10.4.6's plugin options.
+  // 10.6.0 supplies the Vite builder and Portable Stories API used by the
+  // visual gate. The gate deliberately does not install addon-vitest: its
+  // manager integration peers only Vitest 3/4, while the headless gate needs
+  // neither its panel nor its runner wrapper. CSF collection now composes each
+  // story through @storybook/react-vite and executes its documented `run()`
+  // lifecycle directly.
   //
   // 10.6.0 also retires the separate `@storybook/csf-plugin` package:
   // `@storybook/builder-vite@10.6.0` declares `ts-dedent` as its only dependency,
@@ -398,8 +401,6 @@ export const catalog = defineCatalog({
   storybook: '10.6.0',
   '@storybook/react': '10.6.0',
   '@storybook/react-vite': '10.6.0',
-  /** Per-story render/interaction/a11y coverage. Peers `storybook@^10.6.0`, so the cohort moves together. */
-  '@storybook/addon-vitest': '10.6.0',
   /**
    * Required, not optional: `parameters.a11y.test` has no effect unless this
    * addon is registered, and it defaults to `'todo'` (warn-only), so the gate
@@ -409,10 +410,9 @@ export const catalog = defineCatalog({
   /**
    * Browser-mode runner for the story tests.
    *
-   * WELDED TO THE `vitest` PIN. `@vitest/browser` and `@vitest/browser-playwright`
-   * peer `vitest` at the *exact* version, not a range, so bumping `vitest` is a
-   * four-package move — these two and `playwright` must move with it or the
-   * install fails under `strictPeerDependencies`.
+   * WELDED TO THE `vitest` PIN. `@vitest/browser` and
+   * `@vitest/browser-playwright` peer `vitest` at the exact version, so all
+   * three move together or installation fails under strict peer checks.
    *
    * `playwright` is pinned because `@vitest/browser-playwright` declares it as a
    * non-optional peer. It is the same version as `@playwright/test` and is
@@ -421,12 +421,12 @@ export const catalog = defineCatalog({
    * `playwright-core` tarballs declare no scripts at all, and `ignoreScripts`
    * is on fleet-wide regardless.
    *
-   * The versions matter, not just the names: `@vitest/browser@4.1.9` ships
-   * pixelmatch defaults of `threshold: 0.1` and `includeAA: false`, which pass
-   * real regressions silently. The gate must override both.
+   * The versions matter, not just the names: browser screenshot defaults can
+   * pass real regressions silently, so the gate overrides threshold, anti-alias
+   * handling, and mismatched-pixel budget explicitly.
    */
-  '@vitest/browser': '4.1.9',
-  '@vitest/browser-playwright': '4.1.9',
+  '@vitest/browser': '5.0.0',
+  '@vitest/browser-playwright': '5.0.0',
   playwright: '1.63.0',
 
   // xterm (terminal emulator for browser/testing)

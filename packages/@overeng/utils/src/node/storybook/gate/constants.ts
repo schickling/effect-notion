@@ -8,6 +8,9 @@
  * @module
  */
 
+/** Vitest `provide` key carrying globals for one themed gate project. */
+export const initialGlobalsProvideKey = 'overeng/story-gate-initial-globals'
+
 /**
  * Marker the runner greps out of a run's output to report stories that opted
  * out of visual comparison by DECLARATION, via `parameters.storyGate.unstable`.

@@ -58,7 +58,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-reconciler": "0.33.0",
-    "vitest": "4.1.9"
+    "vitest": "5.0.0"
   },
   "devDependencies": {
     "@effect/vitest": "4.0.0-rc.111",
@@ -82,7 +82,7 @@
     "storybook": "10.6.0",
     "typescript": "7.0.2",
     "vite": "8.2.2",
-    "vitest": "4.1.9"
+    "vitest": "5.0.0"
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.9.1",

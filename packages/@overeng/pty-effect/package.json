@@ -31,7 +31,7 @@
     "effect": "4.0.0-rc.111",
     "typescript": "7.0.2",
     "vite": "8.2.2",
-    "vitest": "4.1.9"
+    "vitest": "5.0.0"
   },
   "peerDependencies": {
     "effect": "^4.0.0-rc.111"

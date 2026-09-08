@@ -47,9 +47,7 @@ const runtimeDeps = catalog.compose({
         // Storybook itself does: a consumer that runs the gate necessarily owns
         // its own Storybook install, and making them real dependencies would
         // put Storybook in the closure of everything that depends on utils.
-        // @vitest/browser pins `vitest` at exactly 4.1.9, so these five move in
-        // lockstep with the vitest pin.
-        '@storybook/addon-vitest',
+        // The browser packages pin Vitest exactly, so the three move together.
         '@storybook/addon-a11y',
         '@vitest/browser',
         '@vitest/browser-playwright',

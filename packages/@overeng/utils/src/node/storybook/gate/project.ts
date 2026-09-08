@@ -8,9 +8,9 @@ import { appendFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 
-import { storybookTest } from '@storybook/addon-vitest/vitest-plugin'
 import { playwright } from '@vitest/browser-playwright'
 import type { Plugin, ViteUserConfig } from 'vitest/config'
+import { portableStoryTests } from './portable-stories.ts'
 
 /**
  * Directory the current run compares against, supplied by `runStoryGate`.
@@ -198,24 +198,18 @@ const pinReactToConsumer = (): Plugin => ({
 })
 
 /**
- * Build the Storybook test plugin for one project.
+ * Build the Portable Stories integration for one project.
  *
- * Injected rather than called inline so the plugin-placement invariant is
- * unit-testable. `storybookTest` eagerly loads a real Storybook config
- * directory, so a test that invoked it would need a Storybook install and a
- * fixture `main.ts` in a package that has neither — and the thing worth
- * guarding is *where the plugins land*, which is independent of what they are.
+ * Injected rather than called inline so plugin placement remains unit-testable.
+ * The real integration eagerly loads a Storybook config directory, while the
+ * placement invariant is independent of that filesystem work.
  */
 export type StorybookPluginFor = (args: {
   configDir: string
   theme: StoryGateTheme | undefined
 }) => NonNullable<ViteUserConfig['plugins']>[number]
 
-const defaultStorybookPluginFor: StorybookPluginFor = ({ configDir, theme }) =>
-  storybookTest({
-    configDir,
-    ...(theme === undefined ? {} : { initialGlobals: { [theme.name]: theme.value } }),
-  })
+const defaultStorybookPluginFor: StorybookPluginFor = portableStoryTests
 
 const createProject = ({
   configDir,
@@ -236,10 +230,9 @@ const createProject = ({
   const baselineDir = join(baselineRoot, projectName)
 
   return {
-    // Caller plugins come after the React pin and before the Storybook plugin:
-    // a compiler transform has to see the source before Storybook turns it into
-    // a test module, and the React pin must stay first so its alias applies to
-    // whatever the transform emits.
+    // Caller plugins come after the React pin and before the Portable Stories
+    // integration: a compiler transform must run before the integration turns
+    // each CSF module into a test, and the React pin must apply to its output.
     plugins: [pinReactToConsumer(), ...(plugins ?? []), storybookPluginFor({ configDir, theme })],
     // The baseline half of a run happens inside a git worktree that borrows the
     // main tree's `node_modules` by symlink, so workspace sources — this gate's
