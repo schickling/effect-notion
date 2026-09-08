@@ -30,9 +30,6 @@ buck-out/
 # 100644/100755 and never the node_modules symlink tree), so a tracked copy is
 # unrestorable by construction.
 .editor-view/
-# Machine-local cache client wiring (devenv-generated from the fleet default in
-# devenv.nix; hand-edited overrides stay local)
-/.buckconfig.local
 # Executor-local, Nix-realized Buck capability projection
 /.buck2/capabilities/
 /.buck2/capabilities
