@@ -4,31 +4,26 @@ import type { Buck2TypeScriptAdmission } from '../../../genie/buck2/typescript-a
 import { buck2TypeScriptPackageProjection } from '../../../genie/buck2/typescript-package-projection.ts'
 
 export const buck2TypeScriptAdmission = {
-  dependencyImporter: '//buck2/dependencies:importer_packages_overeng_notion_cli_b91b1e6ae4c6',
-  packageName: '@overeng/notion-cli',
-  packagePath: 'packages/@overeng/notion-cli',
-  projectionSource: 'packages/@overeng/notion-cli/BUCK.genie.ts',
-  sourceRoots: ['src'],
+  dependencyImporter: '//buck2/dependencies:importer_packages_overeng_megarepo_b89b4c18f380',
+  packageName: '@overeng/megarepo',
+  packagePath: 'packages/@overeng/megarepo',
+  projectionSource: 'packages/@overeng/megarepo/BUCK.genie.ts',
+  sourceRoots: ['src', 'bin'],
   workspaceSiblings: [
     {
-      packageName: '@overeng/notion-datasource-sync',
-      packagePath: 'packages/@overeng/notion-datasource-sync',
-      sourceRoots: ['src'],
+      packageName: '@overeng/effect-path',
+      packagePath: 'packages/@overeng/effect-path',
+      distTarget: '//packages/@overeng/effect-path:dist',
     },
     {
-      packageName: '@overeng/notion-effect-client',
-      packagePath: 'packages/@overeng/notion-effect-client',
-      sourceRoots: ['src'],
+      packageName: '@overeng/kdl',
+      packagePath: 'packages/@overeng/kdl',
+      distTarget: '//packages/@overeng/kdl:dist',
     },
     {
-      packageName: '@overeng/notion-effect-schema',
-      packagePath: 'packages/@overeng/notion-effect-schema',
-      sourceRoots: ['src'],
-    },
-    {
-      packageName: '@overeng/notion-md',
-      packagePath: 'packages/@overeng/notion-md',
-      sourceRoots: ['src'],
+      packageName: '@overeng/kdl-effect',
+      packagePath: 'packages/@overeng/kdl-effect',
+      distTarget: '//packages/@overeng/kdl-effect:dist',
     },
     {
       packageName: '@overeng/otel-contract',
