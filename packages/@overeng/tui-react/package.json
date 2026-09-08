@@ -1,8 +1,21 @@
 {
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/tui-core",
+      "packages/@overeng/tui-react",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
+  },
   "name": "@overeng/tui-react",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "private": true,
   "exports": {
     ".": {
       "types": "./dist/src/mod.d.ts",
@@ -19,15 +32,6 @@
     "./storybook": {
       "types": "./dist/src/storybook/mod.d.ts",
       "default": "./src/storybook/mod.tsx"
-    }
-  },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js",
-      "./node": "./dist/node/mod.js",
-      "./storybook": "./dist/storybook/mod.js",
-      "./opentui": "./dist/effect/opentui/mod.js"
     }
   },
   "scripts": {
@@ -91,17 +95,13 @@
     "react-dom": "^19.2.8",
     "react-reconciler": "^0.33.0"
   },
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/tui-core",
-      "packages/@overeng/tui-react",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js",
+      "./node": "./dist/node/mod.js",
+      "./storybook": "./dist/storybook/mod.js",
+      "./opentui": "./dist/effect/opentui/mod.js"
+    }
   }
 }
