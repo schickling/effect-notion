@@ -7,6 +7,7 @@ input. The runner hashes all declared inputs before and after execution.
 load("//buck2/materialization.bzl", "PackageTreeInfo")
 load("//buck2/toolchains:configured.bzl", "BuckSupportToolInfo")
 load("//buck2/toolchains:defs.bzl", "EffectTsgoToolchainInfo")
+load("//buck2/platforms:defs.bzl", "root_allow_cache_uploads", "root_remote_cache_enabled")
 
 JavaScriptExecutableInfo = provider(fields = {
     "package_tree": Artifact,
@@ -120,7 +121,8 @@ def _test_info(ctx, command, positional):
     args, _, _ = _configured_args(ctx, command, positional)
     if ctx.attrs.inherited_env and ctx.attrs.cacheable:
         fail("tests inheriting the environment must set cacheable = False")
-    cacheable = ctx.attrs.cacheable
+    cache_enabled = ctx.attrs.cacheable and root_remote_cache_enabled()
+    cache_uploads = ctx.attrs.cacheable and root_allow_cache_uploads()
     return [
         DefaultInfo(),
         RunInfo(args = args),
@@ -133,12 +135,12 @@ def _test_info(ctx, command, positional):
             default_executor = CommandExecutorConfig(
                 local_enabled = True,
                 remote_enabled = False,
-                remote_cache_enabled = cacheable,
-                allow_cache_uploads = cacheable,
+                remote_cache_enabled = cache_enabled,
+                allow_cache_uploads = cache_uploads,
             ),
             run_from_project_root = False,
             use_project_relative_paths = False,
-            supports_test_execution_caching = cacheable,
+            supports_test_execution_caching = cache_enabled,
         ),
     ]
 
