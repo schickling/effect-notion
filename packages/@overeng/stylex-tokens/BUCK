@@ -2,13 +2,14 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/stylex-tokens/BUCK.genie.ts
-# Projection schema version: 2
+# Projection schema version: 3
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:4c852655a1be2ae53b8cbbd82a490746d84d21af365fc31d90d1268f309baed1
+# Semantic fingerprint: sha256:e91998e7775f32304b66161f8449f2d7a579b70c780c7ecf54b042ac74cdb5e7
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/stylex-tokens/BUCK.genie.ts, packages/@overeng/stylex-tokens/BUCK.genie.ts, packages/@overeng/stylex-tokens/package.json.genie.ts, packages/@overeng/stylex-tokens/src/**/*.cts, packages/@overeng/stylex-tokens/src/**/*.js, packages/@overeng/stylex-tokens/src/**/*.mts, packages/@overeng/stylex-tokens/src/**/*.ts, packages/@overeng/stylex-tokens/src/**/*.tsx, packages/@overeng/stylex-tokens/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -43,6 +44,13 @@ package_view(
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 

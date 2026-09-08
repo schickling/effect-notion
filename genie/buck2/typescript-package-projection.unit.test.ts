@@ -55,6 +55,11 @@ const admittedPackages = Object.entries(buck2TypeScriptAdmissions).map(([key, ad
   packagePath: admission.packagePath,
 }))
 
+const editorViewTarget = `editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",`
+
 const retiredProviderTerms = [
   'pnpm_node_modules',
   'pnpm_editor_inputs',
@@ -78,6 +83,9 @@ describe('declared-closure package projection', () => {
       expect(admitted.output).not.toContain('//buck2/dependencies:importer_')
       expect(admitted.output).toContain('    runtime = "//:package_tree_runtime",')
       expect(admitted.output).toContain('    runtime_entry = "package-tree.ts",')
+      expect(admitted.output).toContain('load("//buck2:editor_view.bzl", "editor_view_inputs")')
+      expect(admitted.output).toContain(editorViewTarget)
+      expect(admitted.output.split('    name = "editor_view_inputs",')).toHaveLength(2)
       for (const retiredTerm of retiredProviderTerms) {
         expect(admitted.output).not.toContain(retiredTerm)
       }

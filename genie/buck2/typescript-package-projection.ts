@@ -232,20 +232,21 @@ export const buck2TypeScriptPackageProjection = ({
   }
   const fingerprint = buck2SemanticFingerprint({
     generator: 'effect-utils/genie/buck2-typescript-package-projection',
-    schemaVersion: 2,
+    schemaVersion: 3,
     semanticData: data,
   })
 
   const stringify = (): string => {
     const lines = [
       `# Projection source: ${projectionSource}`,
-      '# Projection schema version: 2',
+      '# Projection schema version: 3',
       '# Projection generator: effect-utils/genie/buck2-typescript-package-projection',
       `# Semantic fingerprint: ${fingerprint}`,
       `# Semantic inputs: ${semanticInputs.join(', ')}`,
       `# Regenerate: ${regenerationCommand}`,
       '',
       'load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")',
+      'load("//buck2:editor_view.bzl", "editor_view_inputs")',
       'load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")',
       '',
       'export_file(',
@@ -276,6 +277,13 @@ export const buck2TypeScriptPackageProjection = ({
       ...renderMap({ name: 'files', entries: packageFileEntries }),
       `    runtime = ${starlarkString(packageTreeRuntime.label)},`,
       `    runtime_entry = ${starlarkString(runtimeEntry)},`,
+      renderBuck2Visibility({ visibility }),
+      ')',
+      '',
+      'editor_view_inputs(',
+      '    name = "editor_view_inputs",',
+      '    editor_inputs = ":editor_inputs",',
+      '    package_tree = ":package_tree",',
       renderBuck2Visibility({ visibility }),
       ')',
       '',
