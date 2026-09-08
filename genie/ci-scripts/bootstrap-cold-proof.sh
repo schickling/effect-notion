@@ -156,7 +156,6 @@ if ! DEVENV_TASK_PASSTHROUGH=1 pnpm install \
   --force \
   --frozen-lockfile \
   --ignore-scripts \
-  --config.confirmModulesPurge=false \
   --config.store-dir="$store_dir" \
   --dir "$tree" >"${work}/pnpm.log" 2>&1; then
   log "cold pnpm install log (tail):"

@@ -6,7 +6,6 @@ rec {
   # define install purity and Darwin pressure limits, while callers still own
   # their lockfile mode and store path.
   liveInstallPolicyFlags = [
-    "--config.confirmModulesPurge=false"
     "--ignore-scripts"
     "--config.side-effects-cache=false"
     "--config.verify-store-integrity=true"
@@ -18,7 +17,7 @@ rec {
     "--pm-on-fail=ignore"
   ];
 
-  # The fixed-output builder writes policy through .npmrc because pnpm 11
+  # The fixed-output builder writes policy through .npmrc because pnpm
   # rejects some workspace-scoped keys via `pnpm config set --global`. The
   # prepared tree is restored directly by downstream builds. Live and prepared
   # installs therefore use the same root-local virtual topology.

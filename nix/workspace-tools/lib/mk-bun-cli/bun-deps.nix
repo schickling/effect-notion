@@ -107,7 +107,6 @@ else
               --force \
               --shamefully-hoist \
               --ignore-scripts \
-              --config.confirmModulesPurge=false \
               --config.side-effects-cache=false \
               --config.verify-store-integrity=true \
               --config.strict-store-pkg-content-check=true \

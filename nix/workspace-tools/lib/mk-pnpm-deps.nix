@@ -533,7 +533,7 @@ in
                   exit 1
                 fi
 
-                # pnpm 11 rejects `pnpm config set --global` for keys it considers
+                # pnpm rejects `pnpm config set --global` for keys it considers
                 # workspace-only. Use env vars and .npmrc instead. Strip
                 # live-worktree store/layout policy first so the prepared
                 # artifact does not preserve caller-local paths.

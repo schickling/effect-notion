@@ -87,11 +87,13 @@ for outer tasks that must complete before the nested devenv process can evaluate
   - `pnpm:store:migrate-legacy` explicitly replaces only the recognized
     historical `v11/files` bridge under the exclusive cache lease; normal
     installs and unknown bridges fail closed.
-  - Frozen installs use the current guarded pnpm runtime, while `pnpm:update`
-    uses a separate pnpm 11.5.1 lock mutator. Root updates generate projections
-    with validation deferred, repair the lock, then require `genie --check`;
-    retained package records are rejected transactionally if they lose
-    `hasBin` metadata.
+  - Frozen installs and `pnpm:update` both use the current guarded pnpm
+    runtime: pnpm 12 is outside the 11.5.2-11.14.0 `hasBin` window that
+    required a separate lock mutator, so the dedicated pin is retired while
+    `pnpmLockMutatorPkg` remains available for a future divergence. Root
+    updates generate projections with validation deferred, repair the lock,
+    then require `genie --check`; retained package records are rejected
+    transactionally if they lose `hasBin` metadata.
 - `setup.nix` - Setup tasks
   - `skipNonInteractive = true` keeps automatic shell entry cheap for
     non-interactive callers; `DEVENV_FORCE_SETUP=1` explicitly overrides it.

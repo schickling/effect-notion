@@ -188,7 +188,7 @@ rewrite_unrealized_tool_paths() {
   perl -0pi -e '
     s#/nix/store/[^"\s]*/bin/flock#'"$tmpdir"'/bin/flock#g;
     s#/nix/store/[^"\s]*/bin/node#node#g;
-    s#/nix/store/[^"\s]*-pnpm-11\.5\.1/bin/pnpm#'"$tmpdir"'/bin/pnpm-lock-mutator#g;
+    s#/nix/store/[^"\s]*-pnpm-12\.3\.4/bin/pnpm#'"$tmpdir"'/bin/pnpm-lock-mutator#g;
     s#/nix/store/[^"\s]*-pnpm-task-helpers\.sh#'"$ROOT"'/nix/devenv-modules/tasks/shared/pnpm-task-helpers.sh#g;
     s#/nix/store/[^"\s]*-check-node-modules-projection-health\.cjs#'"$ROOT"'/nix/devenv-modules/tasks/shared/check-node-modules-projection-health.cjs#g;
     s#/nix/store/[^"\s]*-stage-pnpm-source-inputs\.mjs#'"$ROOT"'/nix/devenv-modules/tasks/shared/stage-pnpm-source-inputs.mjs#g;
@@ -322,7 +322,7 @@ set -euo pipefail
 printf '%s\n' "$*" >> "${TEST_PNPM_MUTATOR_LOG:?}"
 printf 'PWD=%s\n' "$PWD" >> "${TEST_PNPM_MUTATOR_LOG:?}"
 if [ "${1:-}" = "--version" ]; then
-  echo "11.5.1"
+  echo "12.3.4"
   exit 0
 fi
 if [ "${1:-}" = "install" ]; then
@@ -505,7 +505,7 @@ echo "Test 2: exec runs fake pnpm and populates cache"
   grep -qxF "flock --shared -w 600 202" "$tmpdir/flock.log"
   ! grep -qF -- '--exclusive' "$tmpdir/flock.log"
   test "$(wc -l < "$tmpdir/flock.log")" -eq 3
-  grep -qxF "install --frozen-lockfile --config.confirmModulesPurge=false --ignore-scripts --config.side-effects-cache=false --config.verify-store-integrity=true --config.strict-store-pkg-content-check=true --child-concurrency=1 --network-concurrency=4 --config.enable-global-virtual-store=false --config.virtual-store-dir=node_modules/.pnpm --pm-on-fail=ignore --config.package-import-method=auto --config.store-dir=$tmpdir/home/.local/share/pnpm/store-shared-v1" "$tmpdir/pnpm.log"
+  grep -qxF "install --frozen-lockfile --ignore-scripts --config.side-effects-cache=false --config.verify-store-integrity=true --config.strict-store-pkg-content-check=true --child-concurrency=1 --network-concurrency=4 --config.enable-global-virtual-store=false --config.virtual-store-dir=node_modules/.pnpm --pm-on-fail=ignore --config.package-import-method=auto --config.store-dir=$tmpdir/home/.local/share/pnpm/store-shared-v1" "$tmpdir/pnpm.log"
   grep -qF ".effect-utils-pnpm-install.lock" "$tmpdir/pnpm-install.exec.sh"
   ! grep -qF ".effect-utils-pnpm-store.lock" "$tmpdir/pnpm-install.exec.sh"
   test -w "$workspace/.devenv/task-cache/pnpm-install/pnpm-install-contract.json"
@@ -531,7 +531,7 @@ echo "Test 2c: lockfile mutation entrypoints preserve the live topology policy"
   : > "$tmpdir/flock.log"
   bash "$tmpdir/pnpm-update.exec.sh"
   bash "$tmpdir/pnpm-dedupe.exec.sh"
-  policy_flags="--config.confirmModulesPurge=false --ignore-scripts --config.side-effects-cache=false --config.verify-store-integrity=true --config.strict-store-pkg-content-check=true --child-concurrency=1 --network-concurrency=4 --config.enable-global-virtual-store=false --config.virtual-store-dir=node_modules/.pnpm --pm-on-fail=ignore"
+  policy_flags="--ignore-scripts --config.side-effects-cache=false --config.verify-store-integrity=true --config.strict-store-pkg-content-check=true --child-concurrency=1 --network-concurrency=4 --config.enable-global-virtual-store=false --config.virtual-store-dir=node_modules/.pnpm --pm-on-fail=ignore"
   grep -qxF "install --fix-lockfile $policy_flags --config.package-import-method=auto --config.store-dir=$tmpdir/home/.local/share/pnpm/store-shared-v1" "$tmpdir/pnpm-mutator.log"
   grep -qxF "dedupe $policy_flags --config.package-import-method=auto --config.store-dir=$tmpdir/home/.local/share/pnpm/store-shared-v1" "$tmpdir/pnpm.log"
   test "$(grep -cFx 'flock -w 600 200' "$tmpdir/flock.log")" -eq 2
@@ -804,7 +804,7 @@ echo "Test 16: install flags and pre-install hooks are applied"
   : > "$tmpdir/pnpm.log"
   bash "$tmpdir/pnpm-install-flags.exec.sh"
   test -f .preinstall-marker
-  grep -qxF "install --config.public-hoist-pattern=* --frozen-lockfile --config.confirmModulesPurge=false --ignore-scripts --config.side-effects-cache=false --config.verify-store-integrity=true --config.strict-store-pkg-content-check=true --child-concurrency=1 --network-concurrency=4 --config.enable-global-virtual-store=false --config.virtual-store-dir=node_modules/.pnpm --pm-on-fail=ignore --config.package-import-method=auto --config.store-dir=$tmpdir/home/.local/share/pnpm/store-shared-v1" "$tmpdir/pnpm.log"
+  grep -qxF "install --config.public-hoist-pattern=* --frozen-lockfile --ignore-scripts --config.side-effects-cache=false --config.verify-store-integrity=true --config.strict-store-pkg-content-check=true --child-concurrency=1 --network-concurrency=4 --config.enable-global-virtual-store=false --config.virtual-store-dir=node_modules/.pnpm --pm-on-fail=ignore --config.package-import-method=auto --config.store-dir=$tmpdir/home/.local/share/pnpm/store-shared-v1" "$tmpdir/pnpm.log"
 )
 
 echo "Test 17: impure no-frozen install flags are rejected before pnpm runs"
@@ -1111,7 +1111,7 @@ EOF
   bash "$tmpdir/pnpm-update.exec.sh"
   grep -qxF -- "--defer-validation" "$tmpdir/genie.log"
   grep -qxF -- "--check" "$tmpdir/genie.log"
-  policy_flags="--config.confirmModulesPurge=false --ignore-scripts --config.side-effects-cache=false --config.verify-store-integrity=true --config.strict-store-pkg-content-check=true --child-concurrency=1 --network-concurrency=4 --config.enable-global-virtual-store=false --config.virtual-store-dir=node_modules/.pnpm --pm-on-fail=ignore"
+  policy_flags="--ignore-scripts --config.side-effects-cache=false --config.verify-store-integrity=true --config.strict-store-pkg-content-check=true --child-concurrency=1 --network-concurrency=4 --config.enable-global-virtual-store=false --config.virtual-store-dir=node_modules/.pnpm --pm-on-fail=ignore"
   grep -qxF "install --fix-lockfile $policy_flags --config.package-import-method=auto --config.store-dir=$tmpdir/home/.local/share/pnpm/store-shared-v1" "$tmpdir/pnpm-mutator.log"
   grep -qF "hasBin: true" pnpm-lock.yaml
 )

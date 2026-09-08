@@ -232,6 +232,37 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **pnpm**: move the ecosystem pin from pnpm 11.8.0 to 12.3.4 and retire the
+  separate lock mutator. pnpm 12 ships the CLI as a native Rust executable, so
+  `nix/pnpm.nix` no longer overrides `pkgs.pnpm`: it assembles the published
+  layout directly from the hash-pinned `pnpm` wrapper tarball plus the host's
+  `@pnpm/exe.<target>` package, placing the binary at the wrapper root exactly
+  where upstream's `install.js` preinstall hard-links it so both the binary's
+  own `dist/` lookup and `bin/pnpm.mjs` (the entry `mk-pnpm-deps` invokes
+  through `PNPM_MJS`) keep working with no lifecycle script and no build-time
+  network. Linux binaries are `autoPatchelf`ed; all six published Linux/Darwin
+  x64/arm64 glibc/musl targets are pinned.
+
+  `nix/pnpm-lock-mutator.nix` no longer pins pnpm 11.5.1. The pin existed
+  because pnpm 11.5.2-11.14.0 corrupt `hasBin` under `install --fix-lockfile`
+  (pnpm/pnpm#6600); pnpm 12 is outside that window and no longer carries that
+  JavaScript path, so lock mutation runs the repository pin. The
+  `pnpmLockMutatorPkg` option, its evaluation allowlist (now `12.3.4`), and the
+  fail-closed `hasBin` restoration in `pnpm:update` all remain.
+
+  Two pnpm 12 compatibility changes: `confirmModulesPurge` is a removed v11
+  setting, so `--config.confirmModulesPurge=false` is dropped from the shared
+  install policy and from the genie, oxc, bun-deps, and cold-proof install
+  sites; and `packageManager` pins are now honored by default, so fixture
+  manifests that pinned an older pnpm (which would make pnpm 12 download and
+  run that version) are aligned to the repository pin. Verified against the
+  built package: `pnpm --version` reports 12.3.4, the store layout stays `v11`,
+  `pnpm-workspace.yaml` passes pnpm 12's new
+  `ERR_PNPM_UNRECOGNIZED_WORKSPACE_SETTINGS` check with every setting
+  recognized, and the full live install policy flag set and `.npmrc` policy
+  lines are accepted. `packageImportMethod: auto` now prefers hardlinks over
+  reflinks on Linux, a behavior change with no source change.
+
 - **deps**: update the compatible patch and minor dependency cohort, including
   React 19.2.8, OpenTelemetry SDK 2.11, Vite 8.2.2, current TanStack router
   packages, Tailwind CSS 4.3.3, and supporting type, test, formatting, crypto,

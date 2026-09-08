@@ -111,12 +111,13 @@ export default packageJson(
     },
     scripts: {
       /**
-       * The declared way to produce the `publishConfig.exports` target. Whoever
-       * packs this package must run it first — pnpm 11 runs neither `prepack`
-       * nor `prepare` on `pnpm pack` (verified against 11.8.0), so a lifecycle
-       * script here would assert a guarantee that does not hold.
+       * The declared way to produce the `publishConfig.exports` target.
+       * Whoever packs this package must run it first. pnpm 12 does run
+       * `prepack` and `prepare` on `pnpm pack` (verified against 12.3.4,
+       * unlike pnpm 11.8.0, which ran neither), but a lifecycle script here
+       * would still only cover packers that go through pnpm.
        *
-       * The guarantee lives at the layer that packs: livestore-contrib's
+       * The guarantee therefore stays at the layer that packs: livestore-contrib's
        * `release/simulate-publish.mjs` builds each package with this same
        * command and then fails if the declared outputs are missing.
        */

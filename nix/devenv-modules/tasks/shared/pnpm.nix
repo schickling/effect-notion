@@ -36,9 +36,10 @@
   # `bin/pnpm` and exec's this by absolute path under passthrough (see
   # cli-guard.nix).
   pnpmPkg ? null,
-  # Dedicated binary allowed to rewrite pnpm-lock.yaml. The default is pinned
-  # independently from the current runtime pnpm because affected pnpm 11
-  # releases strip executable metadata under --fix-lockfile.
+  # Dedicated binary allowed to rewrite pnpm-lock.yaml. The default now tracks
+  # the runtime pnpm pin: pnpm 12 is outside the affected pnpm 11 window whose
+  # releases strip executable metadata under --fix-lockfile. Overriding it
+  # still requires an allowlist change below.
   pnpmLockMutatorPkg ? null,
 }:
 {
@@ -119,9 +120,9 @@ let
   # derivation here would force the module's `pkgs` argument while devenv is
   # still assembling `_module.args`, causing an evaluation recursion.
   pnpmLockMutatorOverrideVersion =
-    if pnpmLockMutatorPkg == null then "11.5.1" else pnpmLockMutatorPkg.version or "unknown";
+    if pnpmLockMutatorPkg == null then "12.3.4" else pnpmLockMutatorPkg.version or "unknown";
   pnpmLockMutatorOverrideIsSupported =
-    pnpmLockMutatorPkg == null || pnpmLockMutatorOverrideVersion == "11.5.1";
+    pnpmLockMutatorPkg == null || pnpmLockMutatorOverrideVersion == "12.3.4";
 
   flock = "${pkgs.flock}/bin/flock";
   installFlagsString = lib.escapeShellArgs installFlags;
@@ -835,7 +836,7 @@ let
 in
 assert lib.assertMsg pnpmLockMutatorOverrideIsSupported ''
   pnpm lock mutator version ${pnpmLockMutatorOverrideVersion} is not supported.
-  Set a derivation versioned as the verified-safe pnpm 11.5.1 pin;
+  Set a derivation versioned as the verified-safe pnpm 12.3.4 pin;
   other versions require explicit verification and an allowlist change.
 '';
 assert lib.assertMsg (!sourceInputPathsOverlap) "sourceInputPaths entries must not overlap";
