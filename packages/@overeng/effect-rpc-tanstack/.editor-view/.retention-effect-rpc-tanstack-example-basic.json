@@ -1,8 +1,0 @@
-{
-  "schema": "effect-utils/editor-view-retention/v1",
-  "snapshots": [
-    "effect-rpc-tanstack-example-basic-a0d6b322b5adeb72044395a18ea60ccaf1bfacc41f4372af408094e21f8ee710",
-    "effect-rpc-tanstack-example-basic-c216e861051d95df4acc9574461cf0c5932a9401c779302700088ccbd5a3b7a8",
-    "effect-rpc-tanstack-example-basic-838b55fc4b083a01fbdf416fc02fc54d6ffe4a1adbf2de94698b41772b7cfd6b"
-  ]
-}

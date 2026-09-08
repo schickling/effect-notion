@@ -609,8 +609,6 @@ in
       ]
       ++ genieExtraInputGlobs;
       genieCoverageDirs = [ "packages" ];
-      # Buck editor views are machine-local generated projections, not Genie-owned config.
-      genieCoverageExcludes = [ "packages/@overeng/effect-rpc-tanstack/.editor-view/" ];
       # Type-aware linting for typescript/no-deprecated rule
       tsconfig = "tsconfig.check.json";
       # Warning cleanup is complete: every oxlint rule is at zero repo-wide
