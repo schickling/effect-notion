@@ -59,7 +59,7 @@
     "@overeng/otel-contract": "workspace:^",
     "@overeng/tui-react": "workspace:^",
     "@overeng/utils": "workspace:^",
-    "react": "19.2.7"
+    "react": "19.2.8"
   },
   "dependenciesMeta": {
     "@overeng/tui-react": {
@@ -75,11 +75,11 @@
     "@opentui/react": "0.4.1",
     "@playwright/test": "1.61.0",
     "@storybook/react": "10.5.10",
-    "@types/node": "26.0.0",
-    "@types/react": "19.2.17",
+    "@types/node": "26.5.0",
+    "@types/react": "19.2.18",
     "@types/react-reconciler": "0.33.0",
     "effect": "4.0.0-rc.111",
-    "react-dom": "19.2.7",
+    "react-dom": "19.2.8",
     "react-reconciler": "0.33.0",
     "typescript": "6.0.3",
     "vitest": "4.1.9"

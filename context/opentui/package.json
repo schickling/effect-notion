@@ -14,10 +14,10 @@
     "@opentui/core": "0.4.1",
     "@opentui/react": "0.4.1",
     "effect": "4.0.0-rc.111",
-    "react": "19.2.7"
+    "react": "19.2.8"
   },
   "devDependencies": {
-    "@types/node": "26.0.0",
-    "@types/react": "19.2.17"
+    "@types/node": "26.5.0",
+    "@types/react": "19.2.18"
   }
 }

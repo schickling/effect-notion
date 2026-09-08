@@ -38,23 +38,23 @@
     "@storybook/addon-vitest": "10.5.10",
     "@storybook/react": "10.5.10",
     "@storybook/react-vite": "10.5.10",
-    "@types/react": "19.2.17",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.0.2",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "6.1.1",
     "@vitest/browser": "4.1.9",
     "@vitest/browser-playwright": "4.1.9",
     "effect": "4.0.0-rc.111",
     "playwright": "1.61.0",
     "storybook": "10.5.10",
     "typescript": "6.0.3",
-    "vite": "8.0.16",
+    "vite": "8.2.2",
     "vitest": "4.1.9"
   },
   "peerDependencies": {
     "effect": "^4.0.0-rc.111",
-    "react": "^19.2.7",
-    "react-aria-components": "^1.19.0",
-    "react-dom": "^19.2.7"
+    "react": "^19.2.8",
+    "react-aria-components": "^1.21.1",
+    "react-dom": "^19.2.8"
   },
   "publishConfig": {
     "access": "public",

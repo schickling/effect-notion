@@ -28,8 +28,8 @@
     "@effect/vitest": "4.0.0-rc.111",
     "@overeng/utils": "workspace:^",
     "@overeng/utils-dev": "workspace:^",
-    "@types/bun": "1.3.14",
-    "@types/node": "26.0.0",
+    "@types/bun": "1.4.1",
+    "@types/node": "26.5.0",
     "typescript": "6.0.3",
     "vitest": "4.1.9"
   },
