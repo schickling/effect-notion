@@ -135,8 +135,8 @@ try {
 const materializer = 'buck2:typescript:materialize-dist'
 for (const name of ['ts:check', 'ts:check:strict', 'ts:build', 'ts:build-watch', 'check:quick']) {
   ok({
-    condition: reaches({ start: name, target: materializer }),
-    name: `${name} reaches ${materializer}`,
+    condition: reaches({ start: name, target: materializer }) === false,
+    name: `${name} does not reach inert ${materializer}`,
   })
 }
 // `mr apply` both reconciles the workspace and installs the `.buck2/capabilities`

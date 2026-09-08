@@ -20,7 +20,7 @@ import {
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 
-import { canonicalizeParent } from './real-path.ts'
+import { canonicalizeParent, canonicalizePath } from './real-path.ts'
 
 /** Versioned identity of the persisted scoped editor-view record. */
 export const editorViewSchema = 'effect-utils/editor-view/v2' as const
@@ -909,7 +909,9 @@ const rewriteSnapshotLinks = ({
   candidate: string
   roots: readonly DeclaredSnapshotRoot[]
 }): void => {
-  const owners = roots.toSorted((left, right) => right.source.length - left.source.length)
+  const owners = roots
+    .map((root) => ({ ...root, source: canonicalizePath(root.source) }))
+    .toSorted((left, right) => right.source.length - left.source.length)
   const visit = ({ source, destination }: { source: string; destination: string }): void => {
     for (const name of readdirSync(source)) {
       const sourcePath = join(source, name)
@@ -959,7 +961,7 @@ const rewriteSnapshotLinks = ({
         fail(`declared backing root changed while materializing: ${sourcePath}`)
     }
   }
-  for (const root of roots)
+  for (const root of owners)
     visit({ source: root.source, destination: join(candidate, root.destination) })
 }
 

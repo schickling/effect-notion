@@ -15,6 +15,8 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 
 import type { BunPlugin } from 'bun'
 
+import { canonicalizePath } from './real-path.ts'
+
 /** One declared Buck artifact root a package tree's symlinks may resolve into. */
 export type ClosureRoot = {
   /** Configuration-free logical name derived from the owning Buck label. */
@@ -695,7 +697,7 @@ export const normalizePortableCommonJsGlobals = ({
   readonly bundle: string
   readonly root: string
 }): string => {
-  const buildRoot = resolve(root)
+  const buildRoot = canonicalizePath(root)
   const rewritePath = ({
     input,
     name,
