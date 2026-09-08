@@ -1,7 +1,14 @@
 """Package-local JavaScript check, build, and launch rules."""
 
+load("//buck2/dependencies:defs.bzl", "PnpmPlatformGatedPackagesInfo")
 load("//buck2/materialization.bzl", "PackageTreeInfo")
 load("//buck2/toolchains:defs.bzl", "BunToolchainInfo")
+JavaScriptModuleInfo = provider(fields = {
+    "module": Artifact,
+    "descriptor": Artifact,
+})
+
+
 
 PackageCheckInfo = provider(fields = {
     "descriptor": Artifact,
@@ -183,3 +190,104 @@ package_bin = rule(
         )),
     },
 )
+
+
+def _closure_root_name(artifact):
+    """Return a configuration-free name for one declared package-tree root."""
+    owner = artifact.owner
+    if owner == None:
+        fail("closure root {} has no owning target".format(artifact))
+    return "{}/{}/{}/{}".format(owner.cell, owner.package, owner.name, artifact.short_path)
+
+
+def _package_bundle_impl(ctx):
+    _relative(ctx.attrs.entrypoint, "entrypoint")
+    _relative(ctx.attrs.output, "output")
+    package_tree = ctx.attrs.package_tree[PackageTreeInfo]
+    toolchain = ctx.attrs._bun[BunToolchainInfo]
+    gated = ctx.attrs._platform_gated_packages[PnpmPlatformGatedPackagesInfo]
+    module = ctx.actions.declare_output(ctx.attrs.output)
+    descriptor = ctx.actions.declare_output("module.json")
+    target_identity = "{}//{}:{}".format(ctx.label.cell, ctx.label.package, ctx.label.name)
+    args = cmd_args([
+        toolchain.executable,
+        ctx.attrs._runner,
+        "bundle",
+        toolchain.executable,
+        package_tree.tree,
+        ctx.attrs.entrypoint,
+        module.as_output(),
+        "--target",
+        ctx.attrs.target,
+        "--kind",
+        ctx.attrs.kind,
+        "--descriptor",
+        descriptor.as_output(),
+        "--target-identity",
+        target_identity,
+        "--runtime-contract",
+        "javascript-esm",
+        "--runtime-contract-version",
+        "v1",
+        "--platform-gated-manifest",
+        gated.manifest,
+    ])
+    for external in ctx.attrs.external:
+        args.add("--external", external)
+    for capability in ctx.attrs.external_capabilities:
+        args.add("--external-capability", capability)
+    for read_root in package_tree.read_roots:
+        args.add("--read-root", read_root)
+    for read_root in package_tree.read_roots[1:]:
+        args.add("--closure-root", cmd_args(
+            read_root,
+            format = _closure_root_name(read_root) + "\t{}",
+        ))
+    args.add(cmd_args(hidden = package_tree.read_roots))
+    ctx.actions.run(
+        args,
+        category = "package_bin_artifact",
+        local_only = True,
+        allow_cache_upload = False,
+    )
+    return [
+        DefaultInfo(
+            default_output = module,
+            other_outputs = [descriptor],
+            sub_targets = {"descriptor": [DefaultInfo(default_output = descriptor)]},
+        ),
+        JavaScriptModuleInfo(module = module, descriptor = descriptor),
+    ]
+
+
+_package_bin_artifact = rule(
+    impl = _package_bundle_impl,
+    attrs = {
+        "package_tree": attrs.dep(providers = [PackageTreeInfo]),
+        "entrypoint": attrs.string(),
+        "output": attrs.string(),
+        "target": attrs.enum(["bun", "node"], default = "node"),
+        "kind": attrs.enum(["cli", "module"], default = "module"),
+        "external": attrs.list(attrs.string(), default = []),
+        "external_capabilities": attrs.list(attrs.string(), default = []),
+        "_bun": attrs.default_only(attrs.exec_dep(
+            default = "//buck2/toolchains:bun",
+            providers = [BunToolchainInfo],
+        )),
+        "_platform_gated_packages": attrs.default_only(attrs.dep(
+            default = "//buck2/dependencies:platform_gated_packages",
+            providers = [PnpmPlatformGatedPackagesInfo],
+        )),
+        "_runner": attrs.default_only(attrs.source(
+            default = "//packages/@overeng/buck2-tools:src/package-command-runner.ts",
+        )),
+    },
+)
+
+
+def package_bin_artifact(name, **kwargs):
+    _package_bin_artifact(
+        name = name,
+        default_target_platform = "//buck2/platforms:javascript_portable",
+        **kwargs
+    )
