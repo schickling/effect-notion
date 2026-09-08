@@ -135,6 +135,15 @@ All notable changes to this project will be documented in this file.
   hand-written `MegarepoStore` test double, which no longer needs to supply
   the two dropped members. No behavior change.
 
+- **deps**: the `tw-to-stylex` catalog entry. It was a one-off Tailwind ->
+  StyleX first-pass tool for application files, never referenced by any package
+  in this repo or in any peer repo, and its hand-pass requirement (it silently
+  drops React Aria `data-[*]` state and emits raw values where the token rules
+  require semantic tokens) meant it never paid for holding the whole Babel
+  cohort a major version back. Removed rather than carried forward with an
+  override: an unused alpha dependency is not worth a pinned-old-version
+  exception.
+
 ### Fixed
 - **CI**: keep draft assistant PRs mergeable by completing the auto-review job
   successfully when no review request is needed.
@@ -240,6 +249,13 @@ All notable changes to this project will be documented in this file.
   asset list is unchanged — upstream's `binaries` set still ends at
   `starlark_fmt` — and toolchain identity is in the action key, so this
   invalidates cached Buck actions once.
+- **deps**: Babel moves to 8 (`@babel/core` 8.0.1, `@babel/plugin-syntax-jsx`
+  8.0.1, `@babel/plugin-syntax-typescript` 8.0.3). The Babel 7 hold was not a
+  compatibility fact about our own code — nothing in the workspace imports
+  Babel — it was the transitional `tw-to-stylex` converter, whose only two
+  releases (`0.1.0-alpha.0`/`0.1.0-alpha.1`, both February 2026) depend on
+  `@babel/plugin-syntax-typescript@^7`, which peers `@babel/core@^7` and so
+  fails `strictPeerDependencies` against Babel 8.
 
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for
