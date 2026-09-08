@@ -43,15 +43,16 @@ import {
   encodeBuckMemberManifestJson,
   generateCompositionRoot,
   generatedWatchmanIgnoreDirs,
+  WatchmanConfigSchema,
   type BuckMemberManifest,
   type CompositionGenerationManifest,
 } from './composition-root.ts'
 
 const execFilePromise = promisify(execFile)
+/** Tracked ownership-manifest JSON, decoded through the same wire schema publication uses. */
+const GenerationManifestJson = Schema.fromJsonString(CompositionGenerationManifestSchema)
 const decodeGenerationManifestJson = (json: string): CompositionGenerationManifest =>
-  Schema.decodeUnknownSync(CompositionGenerationManifestSchema, { onExcessProperty: 'error' })(
-    JSON.parse(json),
-  )
+  Schema.decodeUnknownSync(GenerationManifestJson, { onExcessProperty: 'error' })(json)
 const generatedPaths = [
   '.buckroot',
   '.megarepo/bin/buck2',
@@ -194,14 +195,18 @@ const watchmanObservedLock = ({
   readonly stub: WatchmanStub
   readonly command: 'get-config' | 'watch-del'
 }): Effect.Effect<CompositionPublisherLock | undefined> =>
-  Effect.promise(async () => {
-    const contents = await readFile(NodePath.join(stub.responseDir, `lock-${command}`), 'utf8')
-    return contents.trim() === ''
-      ? undefined
-      : Schema.decodeUnknownSync(CompositionPublisherLockSchema, { onExcessProperty: 'error' })(
-          JSON.parse(contents),
-        )
-  })
+  Effect.gen(function* () {
+    const contents = yield* Effect.promise(() =>
+      readFile(NodePath.join(stub.responseDir, `lock-${command}`), 'utf8'),
+    )
+    if (contents.trim() === '') return undefined
+    return yield* Schema.decodeUnknownEffect(
+      Schema.fromJsonString(CompositionPublisherLockSchema),
+      {
+        onExcessProperty: 'error',
+      },
+    )(contents)
+  }).pipe(Effect.orDie)
 
 const watchmanInvocations = (argvFile: string): Effect.Effect<ReadonlyArray<string>> =>
   Effect.promise(() =>
@@ -1974,22 +1979,20 @@ describe('composition root publisher', () => {
    * without any upgrade shim.
    */
   const degradeToOlderGeneration = (fixture: Fixture): Effect.Effect<void> =>
-    Effect.promise(async () => {
+    Effect.gen(function* () {
       const manifestPath = NodePath.join(fixture.root, COMPOSITION_GENERATION_MANIFEST_PATH)
-      const manifest = decodeGenerationManifestJson(await readFile(manifestPath, 'utf8'))
-      await writeFile(
-        manifestPath,
-        `${JSON.stringify(
-          {
-            ...manifest,
-            files: manifest.files.filter((file) => file.path !== '.watchmanconfig'),
-          },
-          undefined,
-          2,
-        )}\n`,
+      const manifest = decodeGenerationManifestJson(
+        yield* Effect.promise(() => readFile(manifestPath, 'utf8')),
       )
-      await rm(NodePath.join(fixture.root, '.watchmanconfig'), { force: true })
-    })
+      const olderGeneration = yield* Schema.encodeEffect(GenerationManifestJson)({
+        ...manifest,
+        files: manifest.files.filter((file) => file.path !== '.watchmanconfig'),
+      })
+      yield* Effect.promise(async () => {
+        await writeFile(manifestPath, `${olderGeneration}\n`)
+        await rm(NodePath.join(fixture.root, '.watchmanconfig'), { force: true })
+      })
+    }).pipe(Effect.orDie)
 
   it.effect('converges a workspace whose manifest predates the watchman config', () =>
     Effect.scoped(
@@ -2002,9 +2005,11 @@ describe('composition root publisher', () => {
           optionsFor({ fixture, memberKeys: ['alpha'], lockToken: 'older-generation' }),
         )
         expect(converged.changedPaths).toContain('.watchmanconfig')
-        expect(JSON.parse((yield* readGenerated(fixture, '.watchmanconfig')).toString())).toEqual({
-          ignore_dirs: expect.any(Array),
-        })
+        expect(
+          yield* Schema.decodeUnknownEffect(Schema.fromJsonString(WatchmanConfigSchema))(
+            (yield* readGenerated(fixture, '.watchmanconfig')).toString(),
+          ),
+        ).toEqual({ ignore_dirs: expect.any(Array) })
         const manifest = decodeGenerationManifestJson(
           (yield* readGenerated(fixture, COMPOSITION_GENERATION_MANIFEST_PATH)).toString(),
         )
