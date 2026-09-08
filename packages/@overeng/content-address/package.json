@@ -18,13 +18,13 @@
     }
   },
   "dependencies": {
-    "@noble/hashes": "2.2.0",
+    "@noble/hashes": "2.4.0",
     "effect": "4.0.0-rc.111"
   },
   "devDependencies": {
     "@effect/vitest": "4.0.0-rc.111",
     "@overeng/utils-dev": "workspace:^",
-    "@types/node": "26.0.0",
+    "@types/node": "26.5.0",
     "typescript": "6.0.3",
     "vitest": "4.1.9"
   },

@@ -216,6 +216,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **deps**: update the compatible patch and minor dependency cohort, including
+  React 19.2.8, OpenTelemetry SDK 2.11, Vite 8.2.2, current TanStack router
+  packages, Tailwind CSS 4.3.3, and supporting type, test, formatting, crypto,
+  syntax-highlighting, and terminal utilities.
+
 - **CI**: the paired `devenv-perf` wall-clock lane no longer runs on every pull
   request. It now runs on a nightly `schedule` against `main`, on operator
   `workflow_dispatch`, and on a pull request carrying the new `ci:perf` label.

@@ -270,18 +270,17 @@ export const effectV4Cohort = [
 /** Catalog versions - single source of truth for dependency versions */
 export const catalog = defineCatalog({
   // Observability
-  // The @opentelemetry/sdk-* packages are pinned together (semconv 1.41.1,
-  // sdk-logs 0.219.0) so they transitively bring @opentelemetry/core >= 2.6.0,
-  // which @restatedev/restate-sdk-opentelemetry@1.14.5 requires as a peer.
-  // @effect/opentelemetry@0.63 accepts ^2.0.0, so utils + restate-effect both stay compatible.
+  // Keep the OpenTelemetry SDK cohort aligned so every package resolves the
+  // same @opentelemetry/core generation. The Effect and Restate peer ranges
+  // accept these versions.
   '@opentelemetry/api': '1.9.1',
-  '@opentelemetry/resources': '2.8.0',
-  '@opentelemetry/sdk-logs': '0.219.0',
-  '@opentelemetry/sdk-metrics': '2.8.0',
-  '@opentelemetry/sdk-trace-base': '2.8.0',
-  '@opentelemetry/sdk-trace-node': '2.8.0',
-  '@opentelemetry/sdk-trace-web': '2.8.0',
-  '@opentelemetry/semantic-conventions': '1.41.1',
+  '@opentelemetry/resources': '2.11.0',
+  '@opentelemetry/sdk-logs': '0.222.0',
+  '@opentelemetry/sdk-metrics': '2.11.0',
+  '@opentelemetry/sdk-trace-base': '2.11.0',
+  '@opentelemetry/sdk-trace-node': '2.11.0',
+  '@opentelemetry/sdk-trace-web': '2.11.0',
+  '@opentelemetry/semantic-conventions': '1.43.0',
 
   // Schema
   '@standard-schema/spec': '1.1.0',
@@ -298,13 +297,13 @@ export const catalog = defineCatalog({
   '@effect/atom-react': '4.0.0-rc.111',
 
   // React ecosystem
-  react: '19.2.7',
-  'react-dom': '19.2.7',
-  'react-aria-components': '1.19.0',
+  react: '19.2.8',
+  'react-dom': '19.2.8',
+  'react-aria-components': '1.21.1',
 
   // Notion rendering (optional peer deps)
   katex: '0.17.0',
-  shiki: '4.2.0',
+  shiki: '4.4.3',
 
   // Markdown (notion-md canonical markdown pipeline)
   'mdast-util-gfm-strikethrough': '2.0.0',
@@ -327,10 +326,10 @@ export const catalog = defineCatalog({
   '@restatedev/restate-sdk-opentelemetry': '1.14.5',
 
   // Type definitions
-  '@types/react': '19.2.17',
-  '@types/react-dom': '19.2.3',
-  '@types/node': '26.0.0',
-  '@types/bun': '1.3.14',
+  '@types/react': '19.2.18',
+  '@types/react-dom': '19.2.7',
+  '@types/node': '26.5.0',
+  '@types/bun': '1.4.1',
   '@types/eslint': '9.6.1',
   '@types/is-dom': '1.1.2',
   '@types/katex': '0.16.8',
@@ -339,19 +338,19 @@ export const catalog = defineCatalog({
   // npm TypeScript is kept for JS compiler API consumers; ts:check uses Nix-managed tsgo.
   typescript: '6.0.3',
   '@playwright/test': '1.61.0',
-  vite: '8.0.16',
+  vite: '8.2.2',
   vitest: '4.1.9',
-  '@vitejs/plugin-react': '6.0.2',
-  unplugin: '3.0.0',
+  '@vitejs/plugin-react': '6.1.1',
+  unplugin: '3.3.0',
 
   // TanStack
-  '@tanstack/react-router': '1.170.16',
-  '@tanstack/react-start': '1.168.26',
-  '@tanstack/router-plugin': '1.168.18',
+  '@tanstack/react-router': '1.170.33',
+  '@tanstack/react-start': '1.168.50',
+  '@tanstack/router-plugin': '1.168.36',
 
   // Styling
-  tailwindcss: '4.3.1',
-  '@tailwindcss/vite': '4.3.1',
+  tailwindcss: '4.3.3',
+  '@tailwindcss/vite': '4.3.3',
   '@stylexjs/stylex': '0.19.0',
   '@stylexjs/unplugin': '0.19.0',
   /** Adopted via oxlint `jsPlugins`; its deps pin `@stylexjs/shared` 0.19.0, so it stays in lockstep with the compiler pins above. */
@@ -429,9 +428,9 @@ export const catalog = defineCatalog({
   '@xterm/addon-webgl': '0.19.0',
 
   // Testing
-  '@testing-library/react': '16.3.2',
-  '@testing-library/user-event': '14.6.1',
-  'happy-dom': '20.10.6',
+  '@testing-library/react': '16.3.3',
+  '@testing-library/user-event': '14.6.7',
+  'happy-dom': '20.14.0',
 
   // Linting
   /** Kept for rule-tester/types used by our custom lint rules even though runtime linting is oxlint. */
@@ -440,12 +439,12 @@ export const catalog = defineCatalog({
   '@typescript-eslint/rule-tester': '8.61.1',
   '@typescript-eslint/utils': '8.61.1',
   'typescript-eslint': '8.61.1',
-  prettier: '3.8.4',
+  prettier: '3.9.6',
   oxlint: '1.70.0',
   'oxlint-tsgolint': '0.23.0',
 
   // Crypto
-  '@noble/hashes': '2.2.0',
+  '@noble/hashes': '2.4.0',
 
   // DOM utilities
   'is-dom': '1.1.0',
@@ -463,8 +462,8 @@ export const catalog = defineCatalog({
   'react-reconciler': '0.33.0',
   '@types/react-reconciler': '0.33.0',
   'yoga-layout': '3.2.1',
-  'string-width': '8.2.1',
-  'cli-truncate': '6.0.0',
+  'string-width': '8.2.2',
+  'cli-truncate': '6.1.1',
 
   // AI agent tooling
   agentation: '3.0.2',

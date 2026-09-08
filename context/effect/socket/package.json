@@ -14,6 +14,6 @@
     "effect": "4.0.0-rc.111"
   },
   "devDependencies": {
-    "@types/node": "26.0.0"
+    "@types/node": "26.5.0"
   }
 }
