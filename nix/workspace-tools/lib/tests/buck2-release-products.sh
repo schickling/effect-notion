@@ -94,4 +94,69 @@ write_mutation '.products[0].release.hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAA
 expect_failure "release hash drift" "release hash does not match descriptor integrity"
 
 jq -r '.releases | to_entries[] | "buck2-release-products-test: \(.key) \(.value.tag)"' <<<"$summary"
+
+publisher="$repo_root/nix/buck2-products/publish.sh"
+test -x "$publisher"
+cp "$repo_root/nix/buck2-products/manifest.json" "$tmp/manifest.before.json"
+
+# Planning is a pure use of the same inventory contract. Put sentinels for all
+# network/mutation tools first on PATH so an accidental call is observable.
+mkdir -p "$tmp/bin"
+for tool in buck2 gh cachix; do
+  cat >"$tmp/bin/$tool" <<EOF
+#!/usr/bin/env bash
+printf '%s invoked\\n' '$tool' >>'$tmp/unexpected-tools'
+exit 97
+EOF
+  chmod +x "$tmp/bin/$tool"
+done
+plan="$(PATH="$tmp/bin:$PATH" "$publisher" --dry-run)"
+test ! -e "$tmp/unexpected-tools"
+cmp "$repo_root/nix/buck2-products/manifest.json" "$tmp/manifest.before.json"
+jq -e --argjson expected "$expected_names" '
+  .schema == "effect-utils/buck2-product-publication-plan/v1" and
+  .repository == "overengineeringstudio/effect-utils" and
+  [.products[].productName] == $expected and
+  (.products | length == 10) and
+  all(
+    .products[];
+    (.candidateTarget | test("^([A-Za-z0-9_]+)?//")) and
+    (.descriptorTarget == (.candidateTarget + "[descriptor]"))
+  )
+' <<<"$plan" >/dev/null
+
+publish_failure="$tmp/publish-failure.log"
+if GITHUB_EVENT_NAME=pull_request PATH="$tmp/bin:$PATH" "$publisher" --dry-run >"$publish_failure" 2>&1; then
+  echo "buck2-release-products-test: publisher accepted a pull-request event" >&2
+  exit 1
+fi
+grep -F "refusing untrusted GitHub event: pull_request" "$publish_failure" >/dev/null
+test ! -e "$tmp/unexpected-tools"
+
+if env -u CACHIX_AUTH_TOKEN PATH="$tmp/bin:$PATH" "$publisher" >"$publish_failure" 2>&1; then
+  echo "buck2-release-products-test: publisher accepted a missing Cachix token" >&2
+  exit 1
+fi
+grep -F "CACHIX_AUTH_TOKEN is required" "$publish_failure" >/dev/null
+test ! -e "$tmp/unexpected-tools"
+
+jq '.products[1].descriptor.target = .products[0].descriptor.target' \
+  "$repo_root/nix/buck2-products/manifest.json" >"$tmp/duplicate-target.json"
+if PATH="$tmp/bin:$PATH" "$publisher" --dry-run --inventory "$tmp/duplicate-target.json" >"$publish_failure" 2>&1; then
+  echo "buck2-release-products-test: publisher accepted a duplicate candidate target" >&2
+  exit 1
+fi
+grep -F "inventory violates effect-utils/buck2-release-products/v1" "$publish_failure" >/dev/null
+test ! -e "$tmp/unexpected-tools"
+
+if grep -F -- '--clobber' "$publisher" >/dev/null; then
+  echo "buck2-release-products-test: publisher permits release asset clobbering" >&2
+  exit 1
+fi
+if grep -E '(^|[[:space:]])set[[:space:]]+-[^[:space:]]*x' "$publisher" >/dev/null; then
+  echo "buck2-release-products-test: publisher enables shell tracing around secrets" >&2
+  exit 1
+fi
+cmp "$repo_root/nix/buck2-products/manifest.json" "$tmp/manifest.before.json"
+echo "buck2-release-products-test: publisher dry-run/refusal OK"
 echo "buck2-release-products-test: OK"
