@@ -14,11 +14,15 @@ import {
 import { tmpdir } from 'node:os'
 import * as NodePath from 'node:path'
 
+import { Schema } from 'effect'
 import { describe, expect, it } from 'vitest'
 
 import { decodeBuckMemberManifest, type BuckMemberManifest } from '@overeng/megarepo/buck2-manifest'
 
-import { CompositionCapabilityResolutionError } from './composition-capability-resolver-schema.ts'
+import {
+  CompositionCapabilityResolutionError,
+  ResolvedCompositionCapabilitySchema,
+} from './composition-capability-resolver-schema.ts'
 import {
   checkCompositionCapabilityProjection,
   resolveCompositionCapabilities,
@@ -103,7 +107,7 @@ const makeFixture = async ({
   ])
   await writeFile(
     nixPath,
-    `#!${shell}\nset -eu\nprintf '%s\\n' "$*" >>"${nixLog}"\nIFS= read -r mode <"${nixModePath}"\nIFS= read -r output <"${nixOutputPath}"\ncase "$mode" in\n  missing) exit 0 ;;\n  duplicate) printf '%s\\n%s\\n' "$output" "$output" ;;\n  nonstore) printf '/tmp/not-a-store-output\\n' ;;\n  lock-write-attempt)\n    case " $* " in\n      *" --no-write-lock-file --no-update-lock-file "*) exit 73 ;;\n      *) printf 'mutated\\n' >"${memberRoot}/flake.lock"; exit 74 ;;\n    esac ;;\n  fail) exit 37 ;;\n  *) printf '%s\\n' "$output" ;;\nesac\n`,
+    `#!${shell}\nset -eu\nprintf '%s\\n' "$*" >>"${nixLog}"\nIFS= read -r mode <"${nixModePath}"\nIFS= read -r output <"${nixOutputPath}"\ncase " $* " in\n  *" path-info "*)\n    case "$mode" in\n      closure-missing) exit 0 ;;\n      closure-nonstore) printf '/tmp/not-a-store-output\\n'; exit 0 ;;\n      closure-omits-output) printf '%s\\n' "${alternateOutput}"; exit 0 ;;\n    esac\n    ;;\nesac\ncase "$mode" in\n  missing) exit 0 ;;\n  duplicate) printf '%s\\n%s\\n' "$output" "$output" ;;\n  nonstore) printf '/tmp/not-a-store-output\\n' ;;\n  lock-write-attempt)\n    case " $* " in\n      *" --no-write-lock-file --no-update-lock-file "*) exit 73 ;;\n      *) printf 'mutated\\n' >"${memberRoot}/flake.lock"; exit 74 ;;\n    esac ;;\n  fail) exit 37 ;;\n  *) printf '%s\\n' "$output" ;;\nesac\n`,
     { mode: 0o755 },
   )
   await writeFile(
@@ -165,6 +169,27 @@ const resolve = (
   })
 
 describe('composition capability resolver', () => {
+  it('rejects store subpaths and non-canonical closure ordering', () => {
+    const decode = Schema.decodeUnknownSync(ResolvedCompositionCapabilitySchema)
+    const resolved = {
+      capability: manifest().capabilities[0],
+      nixOutputPath: bashOutput,
+      executablePath: bashExecutable,
+      executableDigest: `sha256:${'0'.repeat(64)}`,
+      closureStorePaths: [bashOutput],
+    }
+
+    expect(() => decode({ ...resolved, closureStorePaths: [`${bashOutput}/bin`] })).toThrow(
+      /closure path/u,
+    )
+    expect(() =>
+      decode({
+        ...resolved,
+        closureStorePaths: [bashOutput, alternateOutput].toSorted().toReversed(),
+      }),
+    ).toThrow(/sorted unique/u)
+  })
+
   it.each(['defs.bzl', 'BUCK'] as const)(
     'trusted check rejects tampered %s bytes',
     async (name) => {
@@ -214,8 +239,24 @@ describe('composition capability resolver', () => {
       ])
       expect(await readFile(fixture.nixLog, 'utf8')).toBe(
         `build --no-link --print-out-paths --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#a-package^out\n` +
-          `build --no-link --print-out-paths --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#z-package^out\n`,
+          `path-info --recursive --offline --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#a-package^out\n` +
+          `build --no-link --print-out-paths --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#z-package^out\n` +
+          `path-info --recursive --offline --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#z-package^out\n`,
       )
+      expect(result.capabilities[0]?.closureStorePaths).toEqual([bashOutput])
+      expect(
+        await readFile(
+          NodePath.join(
+            result.projectionPath,
+            'generations',
+            result.projectionDigest,
+            'x86_64-linux',
+            'a-tool',
+            'manifest.json',
+          ),
+          'utf8',
+        ),
+      ).toContain(`"closureStorePaths":["${bashOutput}"]`)
       expect(result.projectionDigest).toMatch(/^[0-9a-f]{64}$/u)
       expect((await lstat(result.candidateRoot)).mode & 0o777).toBe(0o700)
       await result.release()
@@ -293,6 +334,20 @@ describe('composition capability resolver', () => {
       const error = await failure(resolve(fixture))
       expect(error.reason).toBe('InvalidNixOutput')
       expect(await readdir(fixture.scratchRoot)).toEqual(['caller-sentinel'])
+    } finally {
+      await clean(fixture)
+    }
+  })
+
+  it.each([
+    ['missing', 'closure-missing'],
+    ['non-store', 'closure-nonstore'],
+    ['omitting the realization', 'closure-omits-output'],
+  ] as const)('rejects a %s Nix closure', async (_label, mode) => {
+    const fixture = await makeFixture()
+    try {
+      await writeFile(fixture.nixModePath, `${mode}\n`)
+      expect((await failure(resolve(fixture))).reason).toBe('InvalidNixOutput')
     } finally {
       await clean(fixture)
     }
@@ -387,6 +442,14 @@ describe('composition capability resolver', () => {
         '--no-update-lock-file',
         `${fixture.memberRoot}#buck2^out`,
       ])
+      expect(result.nixCommands[1]?.args).toEqual([
+        'path-info',
+        '--recursive',
+        '--offline',
+        '--no-write-lock-file',
+        '--no-update-lock-file',
+        `${fixture.memberRoot}#buck2^out`,
+      ])
       expect(await readdir(fixture.scratchRoot)).toEqual([])
       await expect(readFile(fixture.nixLog, 'utf8')).rejects.toThrow()
     } finally {
@@ -474,8 +537,11 @@ describe('composition capability resolver', () => {
           ],
         }),
       })
-      expect(result.nixCommands).toHaveLength(1)
-      expect(result.nixCommands[0]?.args.at(-1)).toBe(`${fixture.memberRoot}#buck2^out`)
+      expect(result.nixCommands).toHaveLength(2)
+      expect(result.nixCommands.map(({ args }) => args.at(-1))).toEqual([
+        `${fixture.memberRoot}#buck2^out`,
+        `${fixture.memberRoot}#buck2^out`,
+      ])
     } finally {
       await clean(fixture)
     }
@@ -511,6 +577,8 @@ describe('composition capability resolver', () => {
       })
       expect(result.nixCommands.map(({ args }) => args.at(-1))).toEqual([
         `${fixture.memberRoot}#buck2^out`,
+        `${fixture.memberRoot}#buck2^out`,
+        `${fixture.memberRoot}#effect-tsgo^out`,
         `${fixture.memberRoot}#effect-tsgo^out`,
       ])
     } finally {

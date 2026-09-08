@@ -177,6 +177,7 @@ const fixture = async (options: FixtureOptions = {}) => {
               nixOutputPath: '/nix/store/buck',
               executablePath,
               executableDigest: digest,
+              closureStorePaths: ['/nix/store/buck'],
             }
       return {
         _tag: 'Resolved',

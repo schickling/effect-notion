@@ -110,10 +110,22 @@ exit 97
 EOF
   chmod +x "$tmp/bin/$tool"
 done
-plan="$(PATH="$tmp/bin:$PATH" bash "$publisher" --dry-run)"
-test ! -e "$tmp/unexpected-tools"
-cmp "$repo_root/nix/buck2-products/manifest.json" "$tmp/manifest.before.json"
-jq -e --argjson expected "$expected_names" '
+plan_stderr="$tmp/plan-stderr.log"
+if ! plan="$(PATH="$tmp/bin:$PATH" bash "$publisher" --dry-run 2>"$plan_stderr")"; then
+  echo "buck2-release-products-test: publisher dry-run failed" >&2
+  sed -n '1,160p' "$plan_stderr" >&2
+  exit 1
+fi
+if [[ -e "$tmp/unexpected-tools" ]]; then
+  echo "buck2-release-products-test: publisher dry-run invoked a mutation tool" >&2
+  sed -n '1,160p' "$tmp/unexpected-tools" >&2
+  exit 1
+fi
+if ! cmp "$repo_root/nix/buck2-products/manifest.json" "$tmp/manifest.before.json"; then
+  echo "buck2-release-products-test: publisher dry-run mutated the inventory" >&2
+  exit 1
+fi
+if ! jq -e --argjson expected "$expected_names" '
   .schema == "effect-utils/buck2-product-publication-plan/v1" and
   .repository == "overengineeringstudio/effect-utils" and
   [.products[].productName] == $expected and
@@ -123,7 +135,11 @@ jq -e --argjson expected "$expected_names" '
     (.candidateTarget | test("^([A-Za-z0-9_]+)?//")) and
     (.descriptorTarget == (.candidateTarget + "[descriptor]"))
   )
-' <<<"$plan" >/dev/null
+' <<<"$plan" >/dev/null; then
+  echo "buck2-release-products-test: publisher dry-run emitted an invalid plan" >&2
+  printf '%s\n' "$plan" >&2
+  exit 1
+fi
 
 publish_failure="$tmp/publish-failure.log"
 if GITHUB_EVENT_NAME=pull_request PATH="$tmp/bin:$PATH" bash "$publisher" --dry-run >"$publish_failure" 2>&1; then
