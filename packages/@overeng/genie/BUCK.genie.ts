@@ -4,41 +4,16 @@ import type { Buck2TypeScriptAdmission } from '../../../genie/buck2/typescript-a
 import { buck2TypeScriptPackageProjection } from '../../../genie/buck2/typescript-package-projection.ts'
 
 export const buck2TypeScriptAdmission = {
-  dependencyImporter: '//buck2/dependencies:importer_packages_overeng_notion_cli_b91b1e6ae4c6',
-  packageName: '@overeng/notion-cli',
-  packagePath: 'packages/@overeng/notion-cli',
-  projectionSource: 'packages/@overeng/notion-cli/BUCK.genie.ts',
-  sourceRoots: ['src'],
+  dependencyImporter: '//buck2/dependencies:importer_packages_overeng_genie_b7534483be10',
+  packageName: '@overeng/genie',
+  packagePath: 'packages/@overeng/genie',
+  projectionSource: 'packages/@overeng/genie/BUCK.genie.ts',
+  sourceRoots: ['src', 'bin'],
   workspaceSiblings: [
-    {
-      packageName: '@overeng/notion-datasource-sync',
-      packagePath: 'packages/@overeng/notion-datasource-sync',
-      sourceRoots: ['src'],
-    },
-    {
-      packageName: '@overeng/notion-effect-client',
-      packagePath: 'packages/@overeng/notion-effect-client',
-      sourceRoots: ['src'],
-    },
-    {
-      packageName: '@overeng/notion-effect-schema',
-      packagePath: 'packages/@overeng/notion-effect-schema',
-      sourceRoots: ['src'],
-    },
-    {
-      packageName: '@overeng/notion-md',
-      packagePath: 'packages/@overeng/notion-md',
-      sourceRoots: ['src'],
-    },
     {
       packageName: '@overeng/otel-contract',
       packagePath: 'packages/@overeng/otel-contract',
       distTarget: '//packages/@overeng/otel-contract:dist',
-    },
-    {
-      packageName: '@overeng/tui-core',
-      packagePath: 'packages/@overeng/tui-core',
-      distTarget: '//packages/@overeng/tui-core:dist',
     },
     {
       packageName: '@overeng/tui-react',
