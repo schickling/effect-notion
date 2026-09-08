@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import * as NodePath from 'node:path'
 
 import { describe, it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Schema } from 'effect'
 import { expect } from 'vitest'
 
 import type { BuckMemberCapability, BuckMemberManifest } from '@overeng/megarepo/buck2-manifest'
@@ -11,7 +11,10 @@ import type { BuckMemberCapability, BuckMemberManifest } from '@overeng/megarepo
 import { CompositionGeneratorConfig, EffectPath } from '../../core/config.ts'
 import { requireTool } from '../../test-utils/require-tool.ts'
 import type { OwnedCpAMountMetadata } from '../mounts/member-mount-r6.ts'
-import { type CompositionApplyRequest } from './composition-apply-schema.ts'
+import {
+  CompositionApplyResultSchema,
+  type CompositionApplyRequest,
+} from './composition-apply-schema.ts'
 import {
   buildCompositionDistOverlay,
   compositionApply,
@@ -303,13 +306,21 @@ const fixture = async (options: FixtureOptions = {}) => {
       }
       if (options.rootMode === 'nochange') {
         calls.push('root:nochange')
-        return { changedPaths: [], memberManifests: [] }
+        return {
+          changedPaths: [],
+          memberManifests: [],
+          watchmanInvalidation: { _tag: 'Unchanged' },
+        }
       }
       try {
         calls.push('root:authority')
         await input.afterAuthorityPublished?.()
         calls.push('root:commit')
-        return { changedPaths: ['.buckconfig'], memberManifests: [] }
+        return {
+          changedPaths: ['.buckconfig'],
+          memberManifests: [],
+          watchmanInvalidation: { _tag: 'Unavailable' },
+        }
       } catch (cause) {
         calls.push('root:rollback')
         throw cause
@@ -482,6 +493,13 @@ describe('composition apply integration', () => {
       expect(value.calls).toContain('root:authority')
       expect(value.calls).toContain('root:commit')
       expect(result.root.changedPaths).toEqual(['.buckconfig'])
+      // The observed watch outcome reaches structured callers, which is what the CLI warns from.
+      expect(result.root.watchman).toBe('Unavailable')
+      expect(
+        Schema.decodeUnknownSync(CompositionApplyResultSchema, { onExcessProperty: 'error' })(
+          Schema.encodeSync(CompositionApplyResultSchema)(result),
+        ).root.watchman,
+      ).toBe('Unavailable')
     } finally {
       await value.cleanup()
     }

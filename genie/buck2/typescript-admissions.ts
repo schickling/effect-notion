@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer'
+import * as PosixPath from 'node:path/posix'
 
 import { buck2TypeScriptAdmission as effectSocketExamplesAdmission } from '../../context/effect/socket/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as opentuiExamplesAdmission } from '../../context/opentui/BUCK.genie.ts'
@@ -212,6 +213,24 @@ export const buck2TypeScriptDistOverlays = authoritativeBuck2TypeScriptAdmission
 export const editorViewConsumerPackagePaths = Object.values(buck2TypeScriptAdmissions)
   .map((admission) => admission.packagePath)
   .toSorted((left, right) => Buffer.from(left).compare(Buffer.from(right)))
+
+/**
+ * Repository-relative `.editor-view` publication root of every admitted package.
+ *
+ * `editor-view.ts` resolves each root as `<packageDir>/../../.editor-view`, so a root is a pure
+ * function of the admitted package path: `context/effect/socket` publishes into
+ * `context/.editor-view`, `context/opentui` into `.editor-view`, and a nested example package
+ * into its owning package's `.editor-view`. Deriving them here keeps one authority for both the
+ * Buck `[project] ignore` projection and the Watchman `ignore_dirs` projection derived from it,
+ * instead of a hand-kept list that silently misses a newly admitted package depth.
+ */
+export const editorViewPublicationRoots: readonly string[] = [
+  ...new Set(
+    editorViewConsumerPackagePaths.map((packagePath) =>
+      PosixPath.join(PosixPath.dirname(PosixPath.dirname(packagePath)), '.editor-view'),
+    ),
+  ),
+].toSorted((left, right) => Buffer.from(left).compare(Buffer.from(right)))
 
 /** Byte-sorted project paths whose TypeScript authority the Buck registry holds. */
 export const buck2TypeScriptAuthorityProjectPaths = buck2TypeScriptAuthorityProjects

@@ -755,6 +755,111 @@ const ROOT_PROJECT_IGNORES = [
   '.buck2/capabilities.candidate.*',
 ] as const
 
+/**
+ * Every generated path the composition generator owns besides its own ownership manifest,
+ * byte-sorted. Publication, teardown revalidation, and the generator listing read this one list
+ * instead of restating it.
+ */
+export const COMPOSITION_OWNED_PATHS = [
+  '.buckconfig',
+  '.buckroot',
+  '.megarepo/bin/buck2',
+  '.watchmanconfig',
+  'BUCK',
+] as const
+
+/**
+ * Watchman `ignore_dirs` entries are root-relative literal directory paths: a glob is stored
+ * verbatim and matches nothing, so a glob-shaped project ignore cannot be carried into the watch
+ * exclusion and must be dropped rather than pretended to work.
+ */
+const isLiteralIgnoreDir = (pattern: string): boolean => /[*?[\]{}]/u.test(pattern) === false
+
+/**
+ * Watchman's own `ignore_vcs` default (`.git`, `.hg`, `.svn`) shallow-watches those directories,
+ * but only the ones directly at the watch root, and `ignore_dirs` takes precedence over it. So the
+ * watch root's own VCS directory is left to Watchman — keeping Watchman's cookie placement intact —
+ * while a member mount's VCS directory is still fully crawled unless it stays a literal entry here.
+ */
+const watchRootVcsDirectories: Readonly<Record<string, true>> = {
+  '.git': true,
+  '.hg': true,
+  '.svn': true,
+}
+
+const isWatchRootVcsIgnoreDir = (pattern: string): boolean =>
+  watchRootVcsDirectories[pattern] === true
+
+/**
+ * Highest-churn generated directory basenames first. macOS grants kernel-level exclusion to only
+ * the first eight `ignore_dirs` entries, so the trees that actually dominate the crawl (editor
+ * views, then Buck outputs, then dependency and build trees) must lead the list.
+ */
+const watchmanChurnRank: readonly string[] = [
+  '.editor-view',
+  'buck-out',
+  'node_modules',
+  '.devenv',
+  'target',
+  'tmp',
+]
+
+const churnRank = (dir: string): number => {
+  const rank = watchmanChurnRank.indexOf(PosixPath.basename(dir))
+  return rank === -1 ? watchmanChurnRank.length : rank
+}
+
+const projectIgnoreEntries = (input: NormalizedCompositionRootInput): ReadonlyArray<string> =>
+  canonicalStringSet([
+    ...ROOT_PROJECT_IGNORES,
+    ...input.additionalProjectIgnores,
+    ...input.members.flatMap(({ manifest }) =>
+      manifest.projectIgnore.map((pattern) => `${manifest.mount}/${pattern}`),
+    ),
+  ])
+
+/**
+ * The generated `.watchmanconfig` document. Watchman loads it verbatim when it constructs the
+ * root, so this is also the shape a live root's `get-config` response must be compared against.
+ */
+export const WatchmanConfigSchema = Schema.Struct({
+  ignore_dirs: Schema.Array(Schema.String),
+}).annotate({ identifier: 'Megarepo.WatchmanConfig' })
+export type WatchmanConfig = typeof WatchmanConfigSchema.Type
+
+/** Generated composition-root path of the Watchman configuration. */
+export const COMPOSITION_WATCHMAN_CONFIG_PATH = '.watchmanconfig' as const
+
+/**
+ * The generated `.buckconfig` pins `buck2.file_watcher = watchman`, so the same generator that
+ * owns the Buck project ignores owns the watch exclusion derived from them. Both projections read
+ * one ignore set, so a member's literal high-churn directory can never be excluded from Buck while
+ * still being crawled by Watchman.
+ */
+const renderWatchmanConfig = (input: NormalizedCompositionRootInput): string => {
+  const ignoreDirs = projectIgnoreEntries(input)
+    .filter((pattern) => isLiteralIgnoreDir(pattern) && isWatchRootVcsIgnoreDir(pattern) === false)
+    .toSorted((left, right) => churnRank(left) - churnRank(right))
+  return `${JSON.stringify({ ignore_dirs: ignoreDirs }, undefined, 2)}\n`
+}
+
+/**
+ * The watch exclusion this output publishes, in published order. Publication compares it against
+ * the config a live watched root actually loaded, so the two never drift apart silently.
+ */
+export const generatedWatchmanIgnoreDirs = (
+  output: CompositionRootOutput,
+): ReadonlyArray<string> => {
+  const file = output.files.find((entry) => entry.path === COMPOSITION_WATCHMAN_CONFIG_PATH)
+  if (file === undefined) {
+    throw new TypeError(`Generated output has no ${COMPOSITION_WATCHMAN_CONFIG_PATH}`)
+  }
+  return Schema.decodeUnknownSync(
+    WatchmanConfigSchema,
+    strictParseOptions,
+  )(JSON.parse(new TextDecoder().decode(file.bytes))).ignore_dirs
+}
+
 const utf8 = (value: string): Uint8Array => textEncoder.encode(value)
 const sha256 = (bytes: Uint8Array): string =>
   `sha256:${createHash('sha256').update(bytes).digest('hex')}`
@@ -863,19 +968,7 @@ const renderBuckconfig = (input: NormalizedCompositionRootInput): string => {
     for (const entry of cacheSection.entries) lines.push(`  ${entry.key} = ${entry.value}`)
   }
 
-  const memberIgnores = input.members.flatMap(({ manifest }) =>
-    manifest.projectIgnore.map((pattern) => `${manifest.mount}/${pattern}`),
-  )
-  lines.push(
-    '',
-    '[project]',
-    `  ignore = ${canonicalStringSet([
-      ...ROOT_PROJECT_IGNORES,
-      ...input.additionalProjectIgnores,
-      ...memberIgnores,
-    ]).join(',')}`,
-    '',
-  )
+  lines.push('', '[project]', `  ignore = ${projectIgnoreEntries(input).join(',')}`, '')
   return lines.join('\n')
 }
 
@@ -924,6 +1017,11 @@ export const generateCompositionRoot = (rawInput: CompositionRootInput): Composi
       path: '.megarepo/bin/buck2',
       mode: 0o755,
       content: renderBuckWrapper(input),
+    }),
+    generatedFile({
+      path: COMPOSITION_WATCHMAN_CONFIG_PATH,
+      mode: 0o644,
+      content: renderWatchmanConfig(input),
     }),
     authority,
   ]

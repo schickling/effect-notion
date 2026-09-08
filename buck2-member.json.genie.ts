@@ -1,5 +1,8 @@
+import {
+  buck2TypeScriptDistOverlays,
+  editorViewPublicationRoots,
+} from './genie/buck2/typescript-admissions.ts'
 import { projectionArtifact } from './packages/@overeng/genie/src/runtime/mod.ts'
-import { buck2TypeScriptDistOverlays } from './genie/buck2/typescript-admissions.ts'
 import {
   COMPOSITION_ROOT_SCHEMA_VERSION,
   decodeBuckMemberManifest,
@@ -25,10 +28,9 @@ const manifestProjection = {
     '.git',
     'buck-out',
     'node_modules',
-    '.editor-view',
-    'context/.editor-view',
-    'packages/.editor-view',
-    'packages/@overeng/effect-rpc-tanstack/.editor-view',
+    // Editor-view publication roots are derived from the admitted package list, so Buck's
+    // project ignores and the composition-root Watchman exclusion share one authority.
+    ...editorViewPublicationRoots,
     'target',
     'tmp',
   ],
