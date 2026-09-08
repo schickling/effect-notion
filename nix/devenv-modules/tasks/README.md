@@ -156,11 +156,13 @@ all three indistinguishable from one emitted by the step itself. So workflow
 commands work from either stream, and log grouping does too.
 
 One caveat worth knowing when debugging locally: devenv selects quiet verbosity
-when it detects `CLAUDECODE` / `OPENCODE_CLIENT` / `AI_AGENT`, and in 2.1.2 that
-also suppresses `showOutput`
-([cachix/devenv#3038](https://github.com/cachix/devenv/issues/3038)). A task's
-stdout can therefore look missing inside a coding agent while being perfectly
-visible in CI. Use `DEVENV_NO_AI_AGENT=1` or `--verbose` when measuring.
+when it detects `CLAUDECODE` / `OPENCODE_CLIENT` / `AI_AGENT`, and up to 2.2.x
+that also suppressed `showOutput`
+([cachix/devenv#3038](https://github.com/cachix/devenv/issues/3038)), so a
+task's stdout could look missing inside a coding agent while being perfectly
+visible in CI. Fixed upstream in 2.3: explicit `showOutput = true` /
+`--show-output` now streams even at quiet verbosity. On older CLIs, use
+`DEVENV_NO_AI_AGENT=1` or `--verbose` when measuring.
 
 ## Adding New Tasks
 

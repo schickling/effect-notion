@@ -93,7 +93,7 @@ otel-trace | cat            # plain text: trace:<trace-id> <url>
 
 The function parses `TRACEPARENT` (W3C format: `version-traceId-spanId-traceFlags`) and constructs a Grafana Explore URL from `OTEL_GRAFANA_LINK_URL`.
 
-**Note:** This repo now uses `devenv.messages` to auto-display the OTEL shell-entry notice. `otel-trace` remains as an on-demand way to reopen the same link later in the session. The repo is temporarily pinned to the upstream post-[cachix/devenv#2661](https://github.com/cachix/devenv/pull/2661) commit while waiting for the next tagged release.
+**Note:** This repo now uses `devenv.messages` to auto-display the OTEL shell-entry notice. `otel-trace` remains as an on-demand way to reopen the same link later in the session. The repo tracks tagged devenv releases (currently `v2.3`), which include the post-[cachix/devenv#2661](https://github.com/cachix/devenv/pull/2661) behaviour this flow needs.
 
 ### `otel-span` -- Trace span CLI
 

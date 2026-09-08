@@ -92,7 +92,7 @@ removed as they are no longer needed.
 
 **Upstream status:** Fixed by https://github.com/cachix/devenv/pull/2661.
 
-**Repo status:** Temporarily resolved here by pinning `devenv` to the merged upstream commit while waiting for the next tagged release.
+**Repo status:** Resolved by the tagged releases that carry the fix; `devenv.yaml` pins `v2.3`.
 
 **Affected repos:** Any repo wanting to display messages (e.g. trace URLs) on shell entry
 
