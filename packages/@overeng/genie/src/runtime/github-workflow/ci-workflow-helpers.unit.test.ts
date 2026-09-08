@@ -136,7 +136,11 @@ const advisoryCheckContexts = new Set(['ci/measurements-report', 'notify-alignme
 // Dispatch-only lanes (see OPT_IN_CI_JOB_NAMES in genie/ci.ts) are non-advisory but do
 // not run on every pull request, so branch protection cannot require them: an absent lane
 // produces no check run and a required-but-absent context would wait forever.
-const optInCheckContexts = new Set(['devenv-perf'])
+const optInCheckContexts = new Set([
+  'devenv-perf',
+  'pr-a-inert-buck',
+  'trusted-buck2-remote-cache-proof',
+])
 const mainOnlyCheckContexts: Record<string, true> = {
   'test-integration-notion': true,
   'test-live-deploy-ci-tools': true,
