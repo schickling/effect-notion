@@ -1,29 +1,20 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten",
-    "workspaceClosureDirs": [
-      "packages/@overeng/content-address",
-      "packages/@overeng/effect-distributed-lock",
-      "packages/@overeng/effect-path",
-      "packages/@overeng/kdl",
-      "packages/@overeng/kdl-effect",
-      "packages/@overeng/megarepo",
-      "packages/@overeng/otel-contract",
-      "packages/@overeng/tui-core",
-      "packages/@overeng/tui-react",
-      "packages/@overeng/utils",
-      "packages/@overeng/utils-dev"
-    ]
-  },
   "name": "@overeng/megarepo",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "exports": {
     ".": "./src/mod.ts",
     "./buck2-manifest": "./src/buck2-manifest.ts",
     "./cli": "./src/cli/mod.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/mod.js",
+      "./buck2-manifest": "./dist/buck2-manifest.js",
+      "./cli": "./dist/cli.js"
+    }
   },
   "scripts": {
     "storybook": "storybook dev -p 6007",
@@ -52,11 +43,6 @@
     "react-reconciler": "0.33.0",
     "vitest": "4.1.9"
   },
-  "dependenciesMeta": {
-    "@overeng/tui-react": {
-      "injected": true
-    }
-  },
   "devDependencies": {
     "@effect/atom-react": "4.0.0-rc.111",
     "@effect/platform-node": "4.0.0-rc.111",
@@ -79,6 +65,11 @@
     "vite": "8.2.2",
     "vitest": "4.1.9"
   },
+  "dependenciesMeta": {
+    "@overeng/tui-react": {
+      "injected": true
+    }
+  },
   "peerDependencies": {
     "@effect/atom-react": "^4.0.0-rc.111",
     "@effect/opentelemetry": "^4.0.0-rc.111",
@@ -94,12 +85,21 @@
     "react-dom": "^19.2.8",
     "react-reconciler": "^0.33.0"
   },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": "./dist/mod.js",
-      "./buck2-manifest": "./dist/buck2-manifest.js",
-      "./cli": "./dist/cli.js"
-    }
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten",
+    "workspaceClosureDirs": [
+      "packages/@overeng/content-address",
+      "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/effect-path",
+      "packages/@overeng/kdl",
+      "packages/@overeng/kdl-effect",
+      "packages/@overeng/megarepo",
+      "packages/@overeng/otel-contract",
+      "packages/@overeng/tui-core",
+      "packages/@overeng/tui-react",
+      "packages/@overeng/utils",
+      "packages/@overeng/utils-dev"
+    ]
   }
 }

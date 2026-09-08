@@ -34,6 +34,7 @@ import ptyEffectTsconfig from '../packages/@overeng/pty-effect/tsconfig.json.gen
 import reactInspectorTsconfig from '../packages/@overeng/react-inspector/tsconfig.json.genie.ts'
 import reactInspectorStrictConsumerTsconfig from '../packages/@overeng/react-inspector/tsconfig.strict-consumer.json.genie.ts'
 import restateEffectTsconfig from '../packages/@overeng/restate-effect/tsconfig.json.genie.ts'
+import stylexTokensTsconfig from '../packages/@overeng/stylex-tokens/tsconfig.json.genie.ts'
 import tuiCoreTsconfig from '../packages/@overeng/tui-core/tsconfig.json.genie.ts'
 import tuiReactTsconfig from '../packages/@overeng/tui-react/tsconfig.json.genie.ts'
 import tuiStoriesTsconfig from '../packages/@overeng/tui-stories/tsconfig.json.genie.ts'
@@ -51,13 +52,15 @@ export type RootTsconfigProject = {
   readonly path: string
   readonly tsconfig: GenieOutput<TSConfigArgs>
   readonly buck2Authority?: Buck2TypeScriptAuthority
+  readonly rootEmit?: boolean
 }
 
 type RootTsconfigProjectDefinition = Omit<RootTsconfigProject, 'path'>
 
 export const isRootTsconfigCheckProject = (_project: RootTsconfigProject): boolean => true
 
-export const isRootTsconfigEmitProject = (_project: RootTsconfigProject): boolean => true
+export const isRootTsconfigEmitProject = (project: RootTsconfigProject): boolean =>
+  project.rootEmit !== false
 
 export const rootWorkspaceTsconfigProjects = (() => {
   const workspaceTsconfigsByPath: Record<string, RootTsconfigProjectDefinition> = {
@@ -95,6 +98,7 @@ export const rootWorkspaceTsconfigProjects = (() => {
     'packages/@overeng/pty-effect': { tsconfig: ptyEffectTsconfig },
     'packages/@overeng/react-inspector': { tsconfig: reactInspectorTsconfig },
     'packages/@overeng/restate-effect': { tsconfig: restateEffectTsconfig },
+    'packages/@overeng/stylex-tokens': { tsconfig: stylexTokensTsconfig, rootEmit: false },
     'packages/@overeng/tui-core': { tsconfig: tuiCoreTsconfig },
     'packages/@overeng/tui-react': { tsconfig: tuiReactTsconfig },
     'packages/@overeng/tui-stories': { tsconfig: tuiStoriesTsconfig },

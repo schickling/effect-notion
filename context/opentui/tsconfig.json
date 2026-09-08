@@ -3,11 +3,7 @@
 {
   "compilerOptions": {
     "target": "ES2024",
-    "lib": [
-      "ES2024",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "allowImportingTsExtensions": true,
@@ -49,16 +45,10 @@
     "rootDir": ".",
     "noEmit": true,
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "jsx": "react-jsx",
     "jsxImportSource": "@opentui/react"
   },
-  "include": [
-    "examples/**/*.tsx"
-  ],
-  "exclude": [
-    "*.genie.ts"
-  ]
+  "include": ["examples/**/*.tsx"],
+  "exclude": ["*.genie.ts"]
 }

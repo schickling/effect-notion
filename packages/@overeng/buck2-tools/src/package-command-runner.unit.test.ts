@@ -379,6 +379,36 @@ describe('post-build portability assertions', () => {
     )
   })
 
+  it('accepts lexical and canonical spellings of a symlinked build root', () => {
+    const canonicalRoot = scratch('portable-canonical-')
+    const aliasParent = scratch('portable-alias-')
+    const root = join(aliasParent, 'root')
+    symlinkSync(canonicalRoot, root, 'dir')
+    const bundle =
+      `var __dirname = ${JSON.stringify(join(root, 'dependency'))}, ` +
+      `__filename = ${JSON.stringify(join(canonicalRoot, 'dependency', 'index.cjs'))};`
+
+    expect(normalizePortableCommonJsGlobals({ bundle, root })).toBe(
+      'var __dirname = import.meta.dirname, __filename = import.meta.filename;',
+    )
+  })
+
+  it('rejects residual lexical and canonical build-root spellings', () => {
+    const canonicalRoot = scratch('portable-canonical-')
+    const aliasParent = scratch('portable-alias-')
+    const root = join(aliasParent, 'root')
+    symlinkSync(canonicalRoot, root, 'dir')
+
+    for (const path of [join(root, 'source.ts'), join(canonicalRoot, 'source.ts')]) {
+      expect(() =>
+        normalizePortableCommonJsGlobals({
+          bundle: `const leaked = ${JSON.stringify(path)};`,
+          root,
+        }),
+      ).toThrow('outside a CommonJS path declaration')
+    }
+  })
+
   it('rejects a Bun CommonJS source path outside the build root', () => {
     expect(() =>
       normalizePortableCommonJsGlobals({

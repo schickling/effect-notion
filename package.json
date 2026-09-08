@@ -1,8 +1,4 @@
 {
-  "$genie": {
-    "source": "package.json.genie.ts",
-    "warning": "DO NOT EDIT - changes will be overwritten"
-  },
   "name": "effect-utils-workspace",
   "private": true,
   "workspaces": [
@@ -45,5 +41,9 @@
     "packages/@overeng/utils",
     "packages/@overeng/utils-dev"
   ],
-  "packageManager": "pnpm@11.8.0"
+  "packageManager": "pnpm@11.8.0",
+  "$genie": {
+    "source": "package.json.genie.ts",
+    "warning": "DO NOT EDIT - changes will be overwritten"
+  }
 }

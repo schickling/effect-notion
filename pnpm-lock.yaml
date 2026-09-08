@@ -178,8 +178,8 @@ importers:
         specifier: workspace:^
         version: link:../utils-dev
       '@types/node':
-        specifier: 26.0.0
-        version: 26.0.0
+        specifier: 26.5.0
+        version: 26.5.0
       effect:
         specifier: 4.0.0-rc.111
         version: 4.0.0-rc.111

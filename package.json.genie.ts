@@ -32,6 +32,7 @@ import oxcConfigPkg from './packages/@overeng/oxc-config/package.json.genie.ts'
 import ptyEffectPkg from './packages/@overeng/pty-effect/package.json.genie.ts'
 import reactInspectorPkg from './packages/@overeng/react-inspector/package.json.genie.ts'
 import restateEffectPkg from './packages/@overeng/restate-effect/package.json.genie.ts'
+import stylexTokensPkg from './packages/@overeng/stylex-tokens/package.json.genie.ts'
 import tuiCorePkg from './packages/@overeng/tui-core/package.json.genie.ts'
 import tuiReactPkg from './packages/@overeng/tui-react/package.json.genie.ts'
 import tuiStoriesPkg from './packages/@overeng/tui-stories/package.json.genie.ts'
@@ -71,6 +72,7 @@ export const rootWorkspacePackages = [
   opentuiPkg,
   reactInspectorPkg,
   restateEffectPkg,
+  stylexTokensPkg,
   tuiCorePkg,
   tuiReactPkg,
   tuiStoriesPkg,
