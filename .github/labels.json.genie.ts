@@ -1,6 +1,5 @@
 import { fileURLToPath } from 'node:url'
 
-import { perfLaneLabel } from '../genie/ci.ts'
 import {
   andonLabels,
   commonLabels,
@@ -60,15 +59,6 @@ const effectUtilsSystemLabels: readonly LabelDef[] = deriveSystemLabels({
   describe: (pkg) => `@overeng/${pkg} package`,
 })
 
-/** Repo-local CI capability grants — applying one changes what CI is allowed to do. */
-const effectUtilsCiLabels: readonly LabelDef[] = [
-  {
-    name: perfLaneLabel,
-    color: '0e8a16',
-    description: 'Run the paired devenv-perf wall-clock lane on this PR · Set: manual',
-  },
-]
-
 /** Repo-local utility labels used by automation in this repo. */
 const effectUtilsAutomationLabels: readonly LabelDef[] = [
   {
@@ -101,7 +91,6 @@ export default githubLabels({
     ...andonLabels,
     ...effectUtilsAreaLabels,
     ...effectUtilsSystemLabels,
-    ...effectUtilsCiLabels,
     ...effectUtilsAutomationLabels,
   ],
   // Retire the vestigial `mq:*` labels (no runtime acts on them) alongside the GitHub defaults.

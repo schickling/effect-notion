@@ -78,10 +78,10 @@ system. A new probe should not fork comparison, markdown rendering, or asset
 publication logic.
 
 The reusable engine boundary is specified in
-[ci-measurement-engine.md](./ci-measurement-engine.md). The long-term direction
-is to keep this artifact and comment contract as the source of truth while
-moving comparison and rendering out of generated shell/jq snippets into a typed
-native CLI.
+[measurement-engine.md](./measurement-engine.md). The long-term direction is
+to keep this artifact and comment contract as the source of truth while moving
+comparison and rendering out of generated shell/jq snippets into a typed native
+CLI.
 
 ## Gate Semantics
 
@@ -236,11 +236,11 @@ advisory.
 A lane's cost is paid on every event it fires on, so cadence is part of its
 design rather than a deployment detail. Three cadences are in use:
 
-| Cadence            | Fits                                                                                 | Merge-blocking |
-| ------------------ | ------------------------------------------------------------------------------------ | -------------- |
-| every pull request | Cheap measurement whose value is attributable to the diff under review               | Yes.           |
-| `schedule`         | Expensive wall-clock measurement whose value is a trend series on the trunk          | No.            |
-| opt-in label       | The same expensive measurement, when one pull request needs the numbers before merge | No.            |
+| Cadence             | Fits                                                                          | Merge-blocking |
+| ------------------- | ----------------------------------------------------------------------------- | -------------- |
+| every pull request  | Cheap measurement whose value is attributable to the diff under review        | Yes.           |
+| `schedule`          | Deterministic measurement whose durable trend artifact is the event's outcome | No.            |
+| `workflow_dispatch` | Expensive or diagnostic measurement requested explicitly by an operator       | No.            |
 
 Two rules follow.
 
@@ -257,12 +257,11 @@ pull request measures the whole surface repeatedly to answer a question about
 one part of it, and pays full wall-clock cost each time to do so.
 
 In this repo: `nix-closure-sizes` and `source-shape` are per-pull-request
-deterministic lanes and are required. `devenv-perf` is the paired wall-clock
-lane — a nightly `schedule` run against `main` supplies the trend series, and
-the `ci:perf` label opts a single pull request in. Its baseline candidate scan
-reads `schedule` runs rather than `push` runs, because that is where its
-artifacts now exist. `ci/measurements-report` aggregates whichever lanes ran in
-the event that produced it and is advisory in every case.
+deterministic lanes and are required. They also run on the nightly `schedule`
+to supply deterministic trend artifacts. `devenv-perf` is the paired
+wall-clock lane and runs only on explicit `workflow_dispatch`; it is not a
+required check. `ci/measurements-report` aggregates whichever lanes ran in the
+event that produced it and is advisory in every case.
 
 ## Baseline Model
 

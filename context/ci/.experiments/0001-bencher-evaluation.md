@@ -1,9 +1,9 @@
-# CI Measurement Experiments
+# Experiment: Bencher evaluation
 
-This document records experiments that inform
-[ci-measurement-engine.md](./ci-measurement-engine.md).
+This experiment informs
+[../measurement-engine.md](../measurement-engine.md).
 
-## Bencher Fit Experiment
+## Question
 
 Date: 2026-05-19.
 

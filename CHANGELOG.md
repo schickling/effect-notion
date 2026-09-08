@@ -226,22 +226,20 @@ All notable changes to this project will be documented in this file.
   packages, Tailwind CSS 4.3.3, and supporting type, test, formatting, crypto,
   syntax-highlighting, and terminal utilities.
 
-- **CI**: the paired `devenv-perf` wall-clock lane no longer runs on every pull
-  request. It now runs on a nightly `schedule` against `main`, on operator
-  `workflow_dispatch`, and on a pull request carrying the new `ci:perf` label.
-  Measured on three consecutive `ci.yml` runs the lane took 35.0 / 35.7 / 35.0
-  minutes against a 37.4-minute whole-run wall clock while `compare: false`,
-  `regressionMode: 'warn'` and `prComment.enabled: false` meant it neither
-  blocked a regression nor reported one — so it was pure critical path. The lane
-  is unchanged otherwise: same runner, same probes, same observation ids, so the
-  trend series is continuous. Consequently it is no longer a required status
-  check (a lane that does not run on every pull request reports no check run, so
-  branch protection would wait forever), `ci/measurements-report` now runs on the
-  nightly cadence as well and tolerates a skipped perf lane, and the report's
-  perf baseline scan reads `schedule` runs via the new `candidateEvents` option
-  on `downloadPreviousGitHubArtifactStep` instead of `push` runs. Per-admission
-  benchmark evidence moves to a targeted probe recorded with the admission; see
-  `context/ci-measurements.md` "Lane Cadence".
+- **CI**: normalize the repository-local CI VRS under `context/ci/` and make
+  workflow event admission semantic. Pull requests now trigger only for
+  revision-changing `opened`, `reopened`, and `synchronize` activity; the
+  revision-neutral `pull_request:labeled` event and `ci:perf` label coupling are
+  removed. The paired `devenv-perf` wall-clock lane is now explicit
+  `workflow_dispatch` only, while the nightly schedule remains for the
+  deterministic closure/source-shape trend artifacts and their advisory report.
+  Required checks continue to be derived from every non-advisory job that
+  materializes on every PR, with dispatch-only, main-only, and advisory jobs
+  excluded so branch protection never waits for an absent check run. Existing
+  measurement, engine, and Bencher evidence docs are moved into the VRS rather
+  than duplicated; the accepted event-admission decision records the 35-minute
+  performance-lane cost and preserves targeted Buck2 probes as admission
+  evidence.
 - **buck2 hub**: a Go toolchain and a content-addressed Go module supply. The
   hub declares a `go` `ToolchainAuthority` and `toolchains//:go_bootstrap`, and
   third-party Go code arrives as one `sha256`-pinned `http_archive` per module
