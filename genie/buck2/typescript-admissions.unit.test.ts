@@ -15,6 +15,8 @@ import {
   buck2TypeScriptAuthorityProjectPaths,
   buck2TypeScriptDistOverlays,
   deriveBuck2TypeScriptAuthority,
+  editorViewConsumerPackagePaths,
+  editorViewPublicationRoots,
   rootInstallConsumerBlockers,
   type Buck2TypeScriptAdmission,
 } from './typescript-admissions.ts'
@@ -96,5 +98,28 @@ describe('Buck2 TypeScript authority derivation', () => {
 
   it('has no remaining whole-repository root-install consumers', () => {
     expect(rootInstallConsumerBlockers).toEqual([])
+  })
+
+  /**
+   * `editor-view.ts` publishes into `<packageDir>/../../.editor-view`, so every root is a pure
+   * function of the admitted package path. Both the Buck project ignores and the composition-root
+   * Watchman `ignore_dirs` read this one derivation.
+   */
+  it('derives every editor-view publication root from the admitted package list', () => {
+    expect(editorViewPublicationRoots).toEqual([
+      '.editor-view',
+      'context/.editor-view',
+      'packages/.editor-view',
+      'packages/@overeng/effect-rpc-tanstack/.editor-view',
+    ])
+    expect(editorViewConsumerPackagePaths).toContain('context/effect/socket')
+    expect(editorViewPublicationRoots).not.toContain('context/effect/.editor-view')
+
+    const projectedManifest = decodeBuckMemberManifestJson(
+      buckMemberManifest.stringify({ cwd: process.cwd(), location: '' }),
+    )
+    expect(
+      projectedManifest.projectIgnore.filter((pattern) => pattern.endsWith('.editor-view')),
+    ).toEqual(editorViewPublicationRoots)
   })
 })

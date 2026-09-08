@@ -8,6 +8,7 @@ import { expect } from 'vitest'
 import {
   BUCK_MEMBER_MANIFEST_FILENAME,
   COMPOSITION_GENERATION_MANIFEST_PATH,
+  COMPOSITION_OWNED_PATHS,
   CompositionGenerationManifestSchema,
   CompositionRootOutputSchema,
   buckMemberCapabilityByToolId,
@@ -19,7 +20,9 @@ import {
   encodeCompositionRootInput,
   encodeCompositionRootOutput,
   generateCompositionRoot,
+  generatedWatchmanIgnoreDirs,
   resolveCompositionToolchainRequirements,
+  WatchmanConfigSchema,
   type BuckMemberCapability,
   type BuckMemberManifest,
   type CompositionRootInput,
@@ -671,6 +674,168 @@ describe('ignore projection', () => {
   })
 })
 
+const effectLikeMember = {
+  memberKey: 'effect-utils',
+  manifest: manifest({
+    cell: 'effect_utils',
+    memberKey: 'effect-utils',
+    projectIgnore: [
+      '**/dist',
+      '**/node_modules',
+      '**/node_modules/**',
+      '.buck2/capability-gcroots',
+      '.devenv',
+      '.editor-view',
+      '.git',
+      'buck-out',
+      'context/.editor-view',
+      'node_modules',
+      'packages/.editor-view',
+      'packages/@overeng/effect-rpc-tanstack/.editor-view',
+      'target',
+      'tmp',
+    ],
+  }),
+} as const
+
+const watchmanIgnoreDirs = (rawInput: CompositionRootInput): ReadonlyArray<string> =>
+  Schema.decodeUnknownSync(WatchmanConfigSchema, { onExcessProperty: 'error' })(
+    JSON.parse(text(filesByPath(rawInput).get('.watchmanconfig')!)),
+  ).ignore_dirs
+
+const basename = (path: string): string => path.slice(path.lastIndexOf('/') + 1)
+
+describe('watchman ignore projection', () => {
+  it('generates the exact single-member watchman config', () => {
+    const alphaWithIgnores = {
+      memberKey: 'alpha',
+      manifest: manifest({
+        cell: 'alpha',
+        projectIgnore: ['.git', '**/dist', 'buck-out', 'node_modules', '.devenv', 'target', 'tmp'],
+      }),
+    }
+    expect(text(filesByPath(input({ members: [alphaWithIgnores] })).get('.watchmanconfig')!))
+      .toBe(`{
+  "ignore_dirs": [
+    "buck-out",
+    "repos/alpha/buck-out",
+    "node_modules",
+    "repos/alpha/node_modules",
+    ".devenv",
+    "repos/alpha/.devenv",
+    "repos/alpha/target",
+    "target",
+    "repos/alpha/tmp",
+    "tmp",
+    "repos/alpha/.git"
+  ]
+}
+`)
+  })
+
+  it('excludes every literal high-churn root, mount-prefixed for members', () => {
+    const dirs = watchmanIgnoreDirs(
+      input({ members: [effectLikeMember], platformHubCell: 'effect_utils' }),
+    )
+    expect(dirs).toEqual(
+      expect.arrayContaining([
+        'buck-out',
+        '.devenv',
+        'node_modules',
+        'target',
+        'tmp',
+        'repos/effect-utils/buck-out',
+        'repos/effect-utils/.devenv',
+        'repos/effect-utils/node_modules',
+        'repos/effect-utils/target',
+        'repos/effect-utils/tmp',
+        'repos/effect-utils/.buck2/capability-gcroots',
+        'repos/effect-utils/.editor-view',
+        'repos/effect-utils/context/.editor-view',
+        'repos/effect-utils/packages/.editor-view',
+        'repos/effect-utils/packages/@overeng/effect-rpc-tanstack/.editor-view',
+      ]),
+    )
+    expect(new Set(dirs).size).toBe(dirs.length)
+  })
+
+  // `ignore_vcs` shallow-watches only the VCS directories of the watch root itself, so a member
+  // mount's VCS directory is still fully crawled unless it stays a literal `ignore_dirs` entry.
+  it('carries only literal directories and drops only watch-root version-control dirs', () => {
+    const dirs = watchmanIgnoreDirs(
+      input({
+        members: [effectLikeMember],
+        platformHubCell: 'effect_utils',
+        additionalProjectIgnores: ['repos/effect', 'repos/.staging-*'],
+      }),
+    )
+    expect(dirs.filter((dir) => /[*?[\]{}]/u.test(dir))).toEqual([])
+    expect(dirs).toContain('repos/effect')
+    expect(dirs).not.toContain('.git')
+    expect(dirs).toContain('repos/effect-utils/.git')
+  })
+
+  // macOS grants kernel-level exclusion to only the first eight entries, so the trees that
+  // actually dominate the crawl must lead the list.
+  it('orders the hottest generated trees first', () => {
+    const dirs = watchmanIgnoreDirs(
+      input({ members: [effectLikeMember], platformHubCell: 'effect_utils' }),
+    )
+    expect(dirs.slice(0, 8).map(basename)).toEqual([
+      '.editor-view',
+      '.editor-view',
+      '.editor-view',
+      '.editor-view',
+      'buck-out',
+      'buck-out',
+      'node_modules',
+      'node_modules',
+    ])
+    expect(dirs.at(-1)).toBe('repos/effect-utils/.git')
+  })
+
+  it('is byte-identical under permuted member and ignore ordering', () => {
+    const permuted = {
+      memberKey: 'effect-utils',
+      manifest: manifest({
+        cell: 'effect_utils',
+        memberKey: 'effect-utils',
+        projectIgnore: [...effectLikeMember.manifest.projectIgnore].toReversed(),
+      }),
+    }
+    expect(
+      filesByPath(input({ members: [permuted, alphaMember] })).get('.watchmanconfig')!.bytes,
+    ).toEqual(
+      filesByPath(input({ members: [alphaMember, effectLikeMember] })).get('.watchmanconfig')!
+        .bytes,
+    )
+  })
+
+  it('publishes the watchman config before the buckconfig authority', () => {
+    const paths = generateCompositionRoot(input({ members: [alphaMember] })).files.map(
+      (file) => file.path,
+    )
+    expect(paths).toContain('.watchmanconfig')
+    expect(paths.indexOf('.watchmanconfig')).toBeLessThan(paths.indexOf('.buckconfig'))
+    expect(paths.at(-1)).toBe('.buckconfig')
+  })
+
+  // Publication compares this against the config a live watched root actually loaded, so it must
+  // read the published bytes rather than recompute the projection.
+  it('reports the exclusion it published, in published order', () => {
+    const rawInput = input({ members: [effectLikeMember], platformHubCell: 'effect_utils' })
+    const output = generateCompositionRoot(rawInput)
+    expect(generatedWatchmanIgnoreDirs(output)).toEqual(watchmanIgnoreDirs(rawInput))
+    expect(generatedWatchmanIgnoreDirs(output).slice(0, 4).map(basename)).toEqual([
+      '.editor-view',
+      '.editor-view',
+      '.editor-view',
+      '.editor-view',
+    ])
+    expect(() => generatedWatchmanIgnoreDirs({ files: [] })).toThrow(/\.watchmanconfig/u)
+  })
+})
+
 describe('watchman provisioning', () => {
   it('provisions the configured Watchman bin directory wherever file_watcher is emitted', () => {
     const files = filesByPath(
@@ -707,6 +872,7 @@ describe('generation manifest and output schema', () => {
       '.buckroot',
       '.megarepo/bin/buck2',
       '.megarepo/composition-generation.json',
+      '.watchmanconfig',
       'BUCK',
       '.buckconfig',
     ])
@@ -727,6 +893,16 @@ describe('generation manifest and output schema', () => {
         `sha256:${createHash('sha256').update(generated.bytes).digest('hex')}`,
       )
     }
+  })
+
+  it('declares exactly the generated paths publication and teardown revalidate', () => {
+    const output = generateCompositionRoot(input({ members: [alphaMember] }))
+    expect(
+      output.files
+        .map((file) => file.path)
+        .filter((path) => path !== COMPOSITION_GENERATION_MANIFEST_PATH)
+        .toSorted(compareCodeUnits),
+    ).toEqual([...COMPOSITION_OWNED_PATHS])
   })
 
   it.each([

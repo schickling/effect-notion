@@ -4,12 +4,15 @@ import { expect } from 'vitest'
 
 import type { BuckMemberManifest } from '@overeng/megarepo/buck2-manifest'
 
-import { CompositionGeneratorConfig } from '../../core/config.ts'
+import { CompositionGeneratorConfig, EffectPath } from '../../core/config.ts'
 import type { OwnedCpAMountMetadata } from '../mounts/member-mount-r6.ts'
 import {
   CompositionApplyRequestSchema,
+  compositionApplyWarning,
   type CompositionApplyError,
+  type CompositionApplyOutput,
   type CompositionApplyRequest,
+  type CompositionApplyWatchmanOutcome,
 } from './composition-apply-schema.ts'
 import {
   compositionApply,
@@ -464,5 +467,34 @@ describe('composition apply plan', () => {
     const mismatchedRuntime = { ...runtime, platform: 'darwin' as const }
     expect((await failed(request(), mismatchedRuntime)).reason).toBe('PlatformUnsupported')
     expect(calls).toEqual([])
+  })
+})
+
+describe('composition apply warnings', () => {
+  const applied = (watchman: CompositionApplyWatchmanOutcome): CompositionApplyOutput => ({
+    _tag: 'Applied',
+    recoveries: [],
+    members: [],
+    root: { changedPaths: ['.watchmanconfig'], watchman },
+    defaultCwd: EffectPath.unsafe.absoluteDir('/workspace/repos/owned/'),
+  })
+
+  it('warns only when the live watch state could not be observed', () => {
+    expect(compositionApplyWarning(applied('Unavailable'))).toContain(
+      'Watchman watch state could not be observed',
+    )
+    for (const proven of ['Unchanged', 'Removed', 'NotWatched'] as const) {
+      expect(compositionApplyWarning(applied(proven))).toBeUndefined()
+    }
+  })
+
+  it('owes no warning for a plan, which applies nothing', () => {
+    expect(
+      compositionApplyWarning({
+        _tag: 'DryRun',
+        steps: [],
+        defaultCwd: EffectPath.unsafe.absoluteDir('/workspace/repos/owned/'),
+      }),
+    ).toBeUndefined()
   })
 })

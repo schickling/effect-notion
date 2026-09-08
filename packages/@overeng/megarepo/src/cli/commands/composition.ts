@@ -26,6 +26,7 @@ import {
   recoverOwnedWorktreeAcquisition,
   type OwnedWorkspaceGenerationContext,
 } from '../../composition/acquisition/owned-worktree-acquisition.ts'
+import { compositionApplyWarning } from '../../composition/apply/composition-apply-schema.ts'
 import type {
   CompositionApplyOutput,
   CompositionApplyRequest,
@@ -752,6 +753,10 @@ export const runCompositionApply = ({
         reason: 'ApplyFailed',
         message: `Composition generation did not complete; recover '${ownedWorktreeAcquisitionJournalPath(identity.workspaceRoot)}'`,
       })
+    }
+    const warning = compositionApplyWarning(composition)
+    if (warning !== undefined) {
+      yield* Effect.logWarning(`${identity.workspaceRoot}: ${warning}`)
     }
     yield* refreshWorkspaceRegistry({
       workspaceRoot: identity.workspaceRoot,

@@ -6,6 +6,7 @@
 
 import { Effect } from 'effect'
 
+import { COMPOSITION_OWNED_PATHS } from '../composition/root/composition-root.ts'
 import type { AbsoluteDirPath, AbsoluteFilePath, MegarepoConfig } from '../core/config.ts'
 import { generateVscode } from './vscode.ts'
 
@@ -34,7 +35,7 @@ export const getEnabledGenerators = (config: MegarepoConfig): string[] => {
     generators.push('.vscode/megarepo.code-workspace')
   }
   if (config.generators?.composition?.enabled === true) {
-    generators.push('.buckroot', '.buckconfig', 'BUCK', '.megarepo/bin/buck2')
+    generators.push(...COMPOSITION_OWNED_PATHS)
   }
   return generators
 }
