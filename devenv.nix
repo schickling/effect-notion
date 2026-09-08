@@ -402,7 +402,6 @@ in
         # so its task-cache refresh cannot race sibling check:all work.
         prerequisiteTasks = [
           "bootstrap-closure:check"
-          "buck2:check"
           "cargo:check"
           "dependency-materialization:evidence:check"
           "devenv:trace-audit"
@@ -621,6 +620,7 @@ in
   env.MR_COMPOSITION_SYSTEM = currentSystem;
   env.MR_COMPOSITION_PLATFORM = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "linux";
   env.MR_COMPOSITION_GIT_BIN = "${pkgs.git}/bin/git";
+  env.MR_COMPOSITION_WATCHMAN_BIN = "${pkgs.watchman}/bin/watchman";
   env.MR_CAPABILITY_NIX_BIN = "${pkgs.nix}/bin/nix";
   env.MR_CAPABILITY_MV_BIN = "${pkgs.coreutils}/bin/mv";
 
@@ -645,6 +645,11 @@ in
   # buck2-tools executes inside pinned Bun actions and exercises Bun.YAML/Bun.which.
   # Keep its package gate on that runtime rather than Vitest's Node process.
   tasks."test:buck2-tools".description = lib.mkForce "Run buck2-tools tests under pinned Bun";
+  tasks."test:buck2-tools".env = {
+    CP_BIN = "${pkgs.coreutils}/bin/cp";
+    MV_BIN = "${pkgs.coreutils}/bin/mv";
+    FALSE_BIN = "${pkgs.coreutils}/bin/false";
+  };
   tasks."test:buck2-tools".exec = lib.mkForce (
     trace.exec "test:buck2-tools" ''
       set -euo pipefail
@@ -1021,10 +1026,6 @@ in
     '';
   };
 
-  tasks."ts:check".after = [ "buck2:typescript:materialize-dist" ];
-  tasks."ts:build".after = [ "buck2:typescript:materialize-dist" ];
-  tasks."ts:build-watch".after = [ "buck2:typescript:materialize-dist" ];
-
   tasks."buck2:task-guards:check" = {
     description = "Check TypeScript publication failure paths and evaluated task ordering";
     exec = trace.exec "buck2:task-guards:check" ''
@@ -1065,14 +1066,10 @@ in
     '';
   };
 
-  tasks."check:all".after =
-    lib.optionals (currentSystem == "x86_64-linux") [
-      "buck2:check"
-    ]
-    ++ [
-      "cargo:check"
-      "dependency-materialization:evidence:check"
-    ];
+  tasks."check:all".after = [
+    "cargo:check"
+    "dependency-materialization:evidence:check"
+  ];
 
   # `test:run` executes after its package-task dependencies, so the
   # baseline-collection gate sees the complete managed-test summary directory in CI.

@@ -215,6 +215,12 @@
             '';
             buck2-archive-tool = buck2-stage0-tools.archive-tool;
             buck2-product = buck2-stage0-tools.product;
+            # Composition-wrapper capability realization for the
+            # `gnu/coreutils/v9` readlink executable. Keep a real executable
+            # file at this path so capability resolution can attest it.
+            buck2-coreutils = pkgs.writeShellScriptBin "readlink" ''
+              exec ${pkgs.coreutils}/bin/readlink "$@"
+            '';
             buck2-rust-compiler = buck2-rust-toolchain-capability.packages.rust-compiler;
             buck2-rust-rustdoc = buck2-rust-toolchain-capability.packages.rust-rustdoc;
             buck2-rust-clippy-driver = buck2-rust-toolchain-capability.packages.rust-clippy-driver;
