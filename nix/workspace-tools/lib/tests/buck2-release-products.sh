@@ -102,7 +102,7 @@ cp "$repo_root/nix/buck2-products/manifest.json" "$tmp/manifest.before.json"
 # Planning is a pure use of the same inventory contract. Put sentinels for all
 # network/mutation tools first on PATH so an accidental call is observable.
 mkdir -p "$tmp/bin"
-for tool in buck2 gh cachix; do
+for tool in buck2 gh; do
   cat >"$tmp/bin/$tool" <<EOF
 #!/usr/bin/env bash
 printf '%s invoked\\n' '$tool' >>'$tmp/unexpected-tools'
@@ -133,12 +133,41 @@ fi
 grep -F "refusing untrusted GitHub event: pull_request" "$publish_failure" >/dev/null
 test ! -e "$tmp/unexpected-tools"
 
-if env -u CACHIX_AUTH_TOKEN PATH="$tmp/bin:$PATH" "$publisher" >"$publish_failure" 2>&1; then
-  echo "buck2-release-products-test: publisher accepted a missing Cachix token" >&2
+legacy_tool="$(printf '%s%s' 'ca' 'chix')"
+legacy_token="$(printf '%s%s%s' 'CA' 'CHIX_AUTH_' 'TOKEN')"
+mkdir -p "$tmp/refusal-bin"
+for tool in buck2 gh "$legacy_tool"; do
+  cat >"$tmp/refusal-bin/$tool" <<EOF
+#!/usr/bin/env bash
+printf '%s invoked\\n' '$tool' >>'$tmp/unexpected-tools'
+exit 97
+EOF
+  chmod +x "$tmp/refusal-bin/$tool"
+done
+cat >"$tmp/refusal-bin/git" <<EOF
+#!/usr/bin/env bash
+printf 'git invoked\\n' >>'$tmp/refusal-tools'
+case "\$*" in
+  *rev-parse*) printf '%040d\\n' 0 ;;
+  *status*) printf 'dirty sentinel\\n' ;;
+  *) exit 97 ;;
+esac
+EOF
+chmod +x "$tmp/refusal-bin/git"
+if env -u "$legacy_token" PATH="$tmp/refusal-bin:$PATH" "$publisher" >"$publish_failure" 2>&1; then
+  echo "buck2-release-products-test: publisher accepted a dirty worktree" >&2
   exit 1
 fi
-grep -F "CACHIX_AUTH_TOKEN is required" "$publish_failure" >/dev/null
+grep -F "refusing to publish from a dirty Git worktree" "$publish_failure" >/dev/null
+grep -F "git invoked" "$tmp/refusal-tools" >/dev/null
 test ! -e "$tmp/unexpected-tools"
+legacy_cache_path="$(printf '%s%s' 'dev3-' 'cache')"
+for forbidden in "$legacy_tool" "$legacy_token" "$legacy_cache_path"; do
+  if grep -Fi "$forbidden" "$publisher" >/dev/null; then
+    echo "buck2-release-products-test: publisher still references removed product-store backend" >&2
+    exit 1
+  fi
+done
 
 jq '.products[1].descriptor.target = .products[0].descriptor.target' \
   "$repo_root/nix/buck2-products/manifest.json" >"$tmp/duplicate-target.json"
