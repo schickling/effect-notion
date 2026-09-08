@@ -4,41 +4,16 @@ import type { Buck2TypeScriptAdmission } from '../../../genie/buck2/typescript-a
 import { buck2TypeScriptPackageProjection } from '../../../genie/buck2/typescript-package-projection.ts'
 
 export const buck2TypeScriptAdmission = {
-  dependencyImporter: '//buck2/dependencies:importer_packages_overeng_notion_md_42a8cb2f2027',
-  packageName: '@overeng/notion-md',
-  packagePath: 'packages/@overeng/notion-md',
-  projectionSource: 'packages/@overeng/notion-md/BUCK.genie.ts',
-  sourceRoots: ['src'],
+  dependencyImporter: '//buck2/dependencies:importer_packages_overeng_tui_stories_e7d895529eb9',
+  packageName: '@overeng/tui-stories',
+  packagePath: 'packages/@overeng/tui-stories',
+  projectionSource: 'packages/@overeng/tui-stories/BUCK.genie.ts',
+  sourceRoots: ['src', 'test', 'bin', '.storybook'],
   workspaceSiblings: [
     {
-      packageName: '@overeng/content-address',
-      packagePath: 'packages/@overeng/content-address',
-      distTarget: '//packages/@overeng/content-address:dist',
-    },
-    {
-      packageName: '@overeng/notion-core',
-      packagePath: 'packages/@overeng/notion-core',
+      packageName: '@overeng/megarepo',
+      packagePath: 'packages/@overeng/megarepo',
       sourceRoots: ['src'],
-    },
-    {
-      packageName: '@overeng/notion-effect-client',
-      packagePath: 'packages/@overeng/notion-effect-client',
-      sourceRoots: ['src'],
-    },
-    {
-      packageName: '@overeng/notion-effect-schema',
-      packagePath: 'packages/@overeng/notion-effect-schema',
-      sourceRoots: ['src'],
-    },
-    {
-      packageName: '@overeng/notion-property-write',
-      packagePath: 'packages/@overeng/notion-property-write',
-      sourceRoots: ['src'],
-    },
-    {
-      packageName: '@overeng/otel-contract',
-      packagePath: 'packages/@overeng/otel-contract',
-      distTarget: '//packages/@overeng/otel-contract:dist',
     },
     {
       packageName: '@overeng/tui-react',
