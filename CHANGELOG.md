@@ -591,6 +591,23 @@ tsconfig.check.json`, but oxlint 1.39 cannot speak the tsgolint 7 protocol, so
   remeasured locally against the regenerated lockfile (`evergreen fod refresh`,
   x86_64-linux): every one moved, because eslint 10.10.0 replaces keyv 4 with
   the cacheable/keyv v5 chain in the workspace-wide store.
+- **@overeng/notion-react**: KaTeX 0.17.0 → 0.18.7 (optional `katex` peer dep,
+  now `^0.18.7`). KaTeX 0.18.0 prefixed twenty-one generic internal CSS class
+  names — `.accent`, `.base`, `.fix`, `.hdashline`, `.hline`, `.inner`,
+  `.newline`, `.overlay`, `.overline`, `.root`, `.rule`, `.sizing`, `.smash`,
+  `.sout`, `.stretchy`, `.strut`, `.tag`, `.thinbox`, `.underline`, `.vbox`
+  became `katex-`-prefixed and `.hbox` is gone. Nothing in this repo selects
+  KaTeX internals (`web/katex.css` only re-exports `katex/dist/katex.min.css`,
+  and `web/styles.css` plus the vendored Notion stylesheet stay inside
+  `.notion-*`), so the renderer is unchanged: the
+  `renderToString(expression, { displayMode, throwOnError: false, output: 'html' })`
+  call in `src/web/katex.tsx` is API-identical in 0.18. Downstream consumers who
+  override KaTeX internals from their own CSS must re-prefix their selectors.
+  `@types/katex` is dropped from the catalog and from `notion-react`'s
+  devDependencies: KaTeX ships its own `types/katex.d.ts` through its exports
+  map, so the DefinitelyTyped stub was a shadowing duplicate frozen at the
+  0.16 API. KaTeX's `commander` dependency moves 8.3.0 → 15.0.0 in the lock
+  (CLI-only, and the only `commander` consumer in the graph).
 
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for

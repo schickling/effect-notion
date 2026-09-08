@@ -68,13 +68,12 @@
     "@overeng/utils-dev": "workspace:^",
     "@storybook/react": "10.6.0",
     "@storybook/react-vite": "10.6.0",
-    "@types/katex": "0.16.8",
     "@types/node": "26.5.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "@types/react-reconciler": "0.33.0",
     "effect": "4.0.0-rc.111",
-    "katex": "0.17.0",
+    "katex": "0.18.7",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-reconciler": "0.33.0",
@@ -87,7 +86,7 @@
   "peerDependencies": {
     "@opentelemetry/api": "^1.9.1",
     "effect": "^4.0.0-rc.111",
-    "katex": "^0.17.0",
+    "katex": "^0.18.7",
     "react": "^19.2.8",
     "react-reconciler": "^0.33.0",
     "shiki": "^4.4.3"

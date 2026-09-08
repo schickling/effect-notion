@@ -302,7 +302,7 @@ export const catalog = defineCatalog({
   'react-aria-components': '1.21.1',
 
   // Notion rendering (optional peer deps)
-  katex: '0.17.0',
+  katex: '0.18.7',
   shiki: '4.4.3',
 
   // Markdown (notion-md canonical markdown pipeline)
@@ -331,7 +331,6 @@ export const catalog = defineCatalog({
   '@types/node': '26.5.0',
   '@types/bun': '1.4.1',
   '@types/is-dom': '1.1.2',
-  '@types/katex': '0.16.8',
 
   // Build tools
   // TypeScript 7's npm package provides the native compiler plus its process-backed unstable API.
