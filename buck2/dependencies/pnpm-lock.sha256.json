@@ -809,35 +809,35 @@
       "integrity": "sha512-VPoCAhKvCQTlG7vxqaBXcmuvbh77BfnGXj8g0pbvVXpm1F/R8rDVwqIWcEbMzrI1JvJlm8v7T9uMVQb6UctMRg==",
       "sha256": "4e588ef84cea068eca726bbb4e452e9a67da74404e63a7b9ccab91cd2c9a4b08"
     },
-    "@oxlint-tsgolint/darwin-arm64@0.23.0": {
+    "@oxlint-tsgolint/darwin-arm64@7.0.2001": {
       "bins": {},
-      "integrity": "sha512-gOs9PVr2wEg4ox9z0aJo+RKhhImW86YL5N6yav8BK/rgPsIrwN/igSZ+pbRr723NFvUNKde9fgMhRA6JrXAOZw==",
-      "sha256": "06a2d376ac4c94d20982ed3b2f4cb01eea690e7125fdd4dedbedff4955bf9141"
+      "integrity": "sha512-CUJEdbSZ54+Xy9OXqOhWLTKZKV0BBiV7C2i/ygyVmXtkUNXx5YCzN8DpSSshTAKktoL7S+tnQ/ftFG/i7X896w==",
+      "sha256": "c342a82add72186c061afcd53ba6160f1be15bdd860d038dd5f7237ff31ad9c2"
     },
-    "@oxlint-tsgolint/darwin-x64@0.23.0": {
+    "@oxlint-tsgolint/darwin-x64@7.0.2001": {
       "bins": {},
-      "integrity": "sha512-kjJ8B+7n4tB9VJdxS5A9GdJt6/bYpzbu4lXp2uO1S3sRmCB5gDEABlGoiePNApRWaW+xqL4b4xgiE727jSLhuA==",
-      "sha256": "c6c6b9473e39515e5781bf8dfd456d89631efcaa648776d66616142ec7a20dec"
+      "integrity": "sha512-pXfBb5BqONCcgrXQNUZWXgiYmRSWJzd97S8i41VVOh6ut0tyo+cJ5FKFpczDHxiVNfj/3e7c9B4MtztNdpIVCw==",
+      "sha256": "6ca9d95490397dd973c158eedaf7983ee80391585ccb4cb35dc1decceb54ee58"
     },
-    "@oxlint-tsgolint/linux-arm64@0.23.0": {
+    "@oxlint-tsgolint/linux-arm64@7.0.2001": {
       "bins": {},
-      "integrity": "sha512-6dCZuKNu135seMXilkRk9SpCx6i1XgmiipYGalLij5WVRX6ZYS8c4xI7preN/zv9fCXhsQclTIMDu2Y/cytTjw==",
-      "sha256": "1e50cf872a26dd0973dddbb6a1eab1cc090e5fc95784465e06cde518f0f67fc9"
+      "integrity": "sha512-roP7zujb/QDPzDwEKsFFpzNHHy91/Y7oX9vQXk78ekyZtcQj1QXDIMH33gjDdHBfRl4K9pZ36xhRgrP4Zr+R8A==",
+      "sha256": "212cfb55ee752ff86e408cfcd33479f291ee628caf6872eb85e7472d55232539"
     },
-    "@oxlint-tsgolint/linux-x64@0.23.0": {
+    "@oxlint-tsgolint/linux-x64@7.0.2001": {
       "bins": {},
-      "integrity": "sha512-3bdilnyA7kmSTjK27rvjIjSxL5SIg3wt7vwNiRkouWB83ytssyKnuGvxSYJxgMEmFpSutzaBzcCUM2jDtPGcgA==",
-      "sha256": "d0a98da903594f986f9a0bb08d50540825b28e40d6af3dcfeec2c970574d2799"
+      "integrity": "sha512-UDezNqdECVmngu2TPnjaS1YoAmcTaBoI5lV9vk3VahBxoi+I5r9k3iJTT7qZoYWOXTD/7T7bNcwRgrocR6BscQ==",
+      "sha256": "d5cf3db918c245700ae91fe993bfa6b78e93ce1ea7165447978113cc87a6ae06"
     },
-    "@oxlint-tsgolint/win32-arm64@0.23.0": {
+    "@oxlint-tsgolint/win32-arm64@7.0.2001": {
       "bins": {},
-      "integrity": "sha512-j+OEp44SVYiQ+ZD+uttsX7u6L9SvmbbQ77SO1pSFCcJlsVMeCk8qZsjhKfGKuT/jIA+ipOJMVs/+pqUfObBWNw==",
-      "sha256": "8c5e2605307cffdbc3b6aee33a8e8eb6753b8bf2eb3f906cb5c51a16465ff1c7"
+      "integrity": "sha512-uJZhqB6pdXLuN+AD1F5082byyQti/NPmJA77GtcFlmT2HzRelqbNls3SaIqxpjdFgvSBF9g0yOKGBkGFg7kX8Q==",
+      "sha256": "39e0f23aa7b45bbf9afb0694dff15d45268a7ea39e368db3b008a3fb3878f92c"
     },
-    "@oxlint-tsgolint/win32-x64@0.23.0": {
+    "@oxlint-tsgolint/win32-x64@7.0.2001": {
       "bins": {},
-      "integrity": "sha512-5MyjFuqf+g8OUPJBSGWHJtmoWnzFJYyOg4To9WMQshZYEWig/vtu7JtJ03VWnzHv9LJkAUeApY0gVCOywFR/iQ==",
-      "sha256": "1671c11dabe05cb2a93eefdd7129e9f50f1b19adf4d665f6fcd972e9b7a702b0"
+      "integrity": "sha512-FkDRm8hx9OwzGQqyWG1tO5QrTLRApff9DzSgpz9QZau37BR8d1VYKOxMLGf6shPZntJFoTwIIJYT68VndYDCog==",
+      "sha256": "a678257b5233ccc1cc50911f1d25d559e8a045d665639ab5b4a8d61596439351"
     },
     "@playwright/test@1.63.0": {
       "bins": {
@@ -2741,12 +2741,12 @@
       "integrity": "sha512-w5tLwYN3Zo24w5EeWJjJWZOwhYqTtC8PS2B1tIt7BZUuqTIcU07sQValbDw+rq7+AuAGzOHklgK+ifsy4lpXfw==",
       "sha256": "aa825f9457600a5eaef62bcf88863515a9cce713604c7931ce65bf743ce3c0c7"
     },
-    "oxlint-tsgolint@0.23.0": {
+    "oxlint-tsgolint@7.0.2001": {
       "bins": {
         "tsgolint": "bin/tsgolint.js"
       },
-      "integrity": "sha512-3mBv3CoPbh8dFbzfDGIWa2ytZjn2v+3EX4aKRXjIhsoGFzG8GCjfRirz3rwZf1wYbZzsNLTSgpw8VjQuWdp/jA==",
-      "sha256": "de815303c57207892109666955cda988d3d2e3059bc6c587d50b644f0e6f145a"
+      "integrity": "sha512-KjK/XLcXr1DSyonKhsuFqJRiuKqcyG9j3LJ8nkOsrLzGvodBPqzHOKauy10asLMDI0sUpvb+1sxlzff3udZvfg==",
+      "sha256": "39df25aa7ce8f7a62b9257a1d4b0bf86af6c827fb3bc2003f659d4bf39ee6179"
     },
     "p-limit@3.1.0": {
       "bins": {},

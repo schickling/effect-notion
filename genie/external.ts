@@ -448,8 +448,9 @@ export const catalog = defineCatalog({
   '@typescript-eslint/utils': '8.61.1',
   'typescript-eslint': '8.61.1',
   prettier: '3.9.6',
-  oxlint: '1.70.0',
-  'oxlint-tsgolint': '0.23.0',
+  oxlint: '1.82.0',
+  /** oxlint 1.82 requires the tsgolint peer at `>=7.0.2001` (the TS-7-aligned line). */
+  'oxlint-tsgolint': '7.0.2001',
 
   // Crypto
   '@noble/hashes': '2.4.0',

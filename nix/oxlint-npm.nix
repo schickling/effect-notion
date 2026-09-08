@@ -24,14 +24,15 @@
 #
 # 3. Calculate new hashes (run in /tmp to avoid devenv cache issues):
 #    cd /tmp
-#    VERSION=1.39.0  # <-- set to new version
+#    VERSION=1.82.0  # <-- set to new version
 #
 #    # Main package
 #    nix hash convert --to sri --hash-algo sha256 \
 #      $(nix-prefetch-url https://registry.npmjs.org/oxlint/-/oxlint-$VERSION.tgz)
 #
-#    # Platform binaries
-#    for pkg in darwin-arm64 darwin-x64 linux-x64-gnu linux-arm64-gnu; do
+#    # Platform binaries: 1.45 and newer publish `@oxlint/binding-<target>`;
+#    # 1.43 and older published `@oxlint/<target>`.
+#    for pkg in binding-darwin-arm64 binding-darwin-x64 binding-linux-x64-gnu binding-linux-arm64-gnu; do
 #      echo "$pkg:"
 #      nix hash convert --to sri --hash-algo sha256 \
 #        $(nix-prefetch-url https://registry.npmjs.org/@oxlint/$pkg/-/$pkg-$VERSION.tgz)
@@ -54,25 +55,29 @@ let
   lib = pkgs.lib;
 
   # https://github.com/oxc-project/oxc/releases for latest version
-  version = "1.39.0";
+  #
+  # Keep in lockstep with the `oxlint` pin in genie/external.ts: the JS-plugin
+  # rule API and the config schema are versioned with the binary, so a split
+  # between this package and the workspace pin means two different linters.
+  version = "1.82.0";
 
-  # Platform-specific package mapping
+  # Platform-specific package mapping (NAPI binding packages, `@oxlint/binding-*`)
   platformPackages = {
     "aarch64-darwin" = {
-      name = "@oxlint/darwin-arm64";
-      hash = "sha256-pYvXAL2521WpQbgNSv+pQuQaHKO4XOPGJdN8vIEWIBs=";
+      name = "@oxlint/binding-darwin-arm64";
+      hash = "sha256-em2Q1r1nI3TFATUugqGlCHeZ5de7CJ9bUXskbtsumSo=";
     };
     "x86_64-darwin" = {
-      name = "@oxlint/darwin-x64";
-      hash = "sha256-InilX7tJW1pBEt1uh1gfEEZM5oUp8LFRyH075o+70YQ=";
+      name = "@oxlint/binding-darwin-x64";
+      hash = "sha256-wkA2gv7N9AP9Wsq+lN/LeujGou9XI1smt0lcfnM1Ub4=";
     };
     "x86_64-linux" = {
-      name = "@oxlint/linux-x64-gnu";
-      hash = "sha256-2lI9OZMPnB3Le9lWJQOZgmXhPy6Mkxz26uSxMn3oKQQ=";
+      name = "@oxlint/binding-linux-x64-gnu";
+      hash = "sha256-r9ILzW5kjzQEc93U3Q5Fo2KBVtou0e6L7qLeQiUQEvM=";
     };
     "aarch64-linux" = {
-      name = "@oxlint/linux-arm64-gnu";
-      hash = "sha256-0hJz/Oo7yBJDmW+DhTrLjdHZiq2XQHXEIF9A+/LdwqY=";
+      name = "@oxlint/binding-linux-arm64-gnu";
+      hash = "sha256-GL3gDjGReOg4l7V3j0fuy8EmcZ3CoM2k5jdVkrY0fpU=";
     };
   };
 
@@ -82,7 +87,7 @@ let
   # Fetch the main oxlint npm package
   mainPackage = pkgs.fetchurl {
     url = "https://registry.npmjs.org/oxlint/-/oxlint-${version}.tgz";
-    hash = "sha256-oCJQYGG+MGuBlwJ07b7hJKku0/xNQVXtbLpfs5xGeso=";
+    hash = "sha256-IGZIRCAAKmzRYqQbXRCTB8vnzpG7+wSXV4RtSnveLA0=";
   };
 
   # Fetch the platform-specific binary package

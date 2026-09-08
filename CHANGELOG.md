@@ -352,6 +352,26 @@ file`). Effect-TS `tsgo` remains the export type-proof compiler
   `@vitest/browser-playwright@4.1.9` peers `playwright` at `*`, so the welded
   Vitest cohort is unaffected by the client bump.
 
+- **deps/oxlint**: align the split oxlint pins on 1.82.0. The workspace pin was
+  `oxlint` 1.70.0 while `nix/oxlint-npm.nix` — the linter that actually runs,
+  because only the npm NAPI build executes our `@overeng/oxc-config` JS plugin
+  — was still 1.39.0, so the config schema and JS-plugin rule API in use were
+  two versions apart from the declared pin. Both are now 1.82.0, and the
+  tsgolint peer moves `0.23.0` → `7.0.2001` (oxlint 1.82 requires
+  `oxlint-tsgolint >=7.0.2001`; the pinned nixpkgs already ships tsgolint
+  7.0.2001 for `--type-aware`, so that side was already ahead of the 1.39
+  binary). Three coupled changes: the NAPI binding packages are fetched under
+  their post-1.45 names (`@oxlint/binding-<target>`, previously
+  `@oxlint/<target>`, which stopped publishing at 1.43.0); `lint:{check,fix}:oxlint`
+  pass `--no-error-on-unmatched-pattern`, because since oxlint 1.60 a batch whose
+  targets are all removed by `ignorePatterns` exits 1 ("No files found to lint")
+  and this module's lint surface is `git ls-files` filtered by extension only,
+  so oxlint's own ignores (e.g. `**/nix/**`) can empty a whole `xargs` batch —
+  a selection outcome, not a lint failure; and the injected-config location note
+  in `nix/oxlint-with-plugins.nix` is corrected, since 1.82 applies JS-plugin
+  rules to targets outside the config directory and the repo-root copy is now a
+  cache decision rather than a correctness requirement.
+
 - **deps**: update the compatible patch and minor dependency cohort, including
   React 19.2.8, OpenTelemetry SDK 2.11, Vite 8.2.2, current TanStack router
   packages, Tailwind CSS 4.3.3, and supporting type, test, formatting, crypto,
