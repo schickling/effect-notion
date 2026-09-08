@@ -10,10 +10,10 @@ The emitted registry + bindings depend on three version inputs that MUST move to
 
 | Pin                                | Source of truth                                                         | Value today |
 | ---------------------------------- | ----------------------------------------------------------------------- | ----------- |
-| Weaver binary                      | `nix/weaver-flake/flake.nix` → `version`                                | `0.24.2`    |
-| Upstream OTel semconv (dependency) | `nix/weaver-flake/flake.nix` → `semconvVersion`                         | `1.37.0`    |
-| Weaver pin (fingerprint input)     | `genie/weaver-registry/registry.ts` → `PINNED_WEAVER_VERSION`           | `0.24.2`    |
-| Upstream pin (fingerprint input)   | `genie/weaver-registry/registry.ts` → `PINNED_UPSTREAM_SEMCONV_VERSION` | `v1.37.0`   |
+| Weaver binary                      | `nix/weaver-flake/flake.nix` → `version`                                | `0.26.1`    |
+| Upstream OTel semconv (dependency) | `nix/weaver-flake/flake.nix` → `semconvVersion`                         | `1.44.0`    |
+| Weaver pin (fingerprint input)     | `genie/weaver-registry/registry.ts` → `PINNED_WEAVER_VERSION`           | `0.26.1`    |
+| Upstream pin (fingerprint input)   | `genie/weaver-registry/registry.ts` → `PINNED_UPSTREAM_SEMCONV_VERSION` | `v1.44.0`   |
 
 Two SSOTs, one contract: the **flake** actually builds/materializes Weaver + the semconv
 FOD (used by `weaver:check`); the **registry.ts** `PINNED_*` constants feed the GEN-R07
@@ -21,17 +21,19 @@ provenance fingerprint (so a bump re-hashes generated outputs and forces regen).
 otherwise independent files, so a bump that touches one and forgets the other is the primary
 drift risk — that is exactly what `weaver:version-smoke` guards.
 
-> **`v` asymmetry (easy to get wrong):** the flake stores the bare number (`1.37.0`); the
-> registry pin stores the git-tag form with a leading `v` (`v1.37.0`). The smoke asserts
+> **`v` asymmetry (easy to get wrong):** the flake stores the bare number (`1.44.0`); the
+> registry pin stores the git-tag form with a leading `v` (`v1.44.0`). The smoke asserts
 > `PINNED_UPSTREAM_SEMCONV_VERSION == "v" + semconvVersion`. The Weaver pin has no `v`
-> (`0.24.2` on both sides).
+> (`0.26.1` on both sides).
 
 ## Compatibility matrix
 
 | Weaver | Upstream semconv | Status               | Notes                                                                                           |
 | ------ | ---------------- | -------------------- | ----------------------------------------------------------------------------------------------- |
-| 0.24.2 | v1.37.0          | **Known-good (RoR)** | Version of record. Clean under `--future`. Every enum member carries `stability`.               |
+| 0.26.1 | v1.44.0          | **Current pin**      | Not yet gate-verified: `weaver:*` + `genie:run` blocked by dotfiles#2602 (see PR notes).        |
+| 0.24.2 | v1.37.0          | **Known-good (RoR)** | Last gate-verified pair. Clean under `--future`. Every enum member carries `stability`.         |
 | 0.23.0 | v1.37.0          | Works (historical)   | `nixpkgs#weaver`; used during derisking. 0.23 does **not** require per-enum-member `stability`. |
+| 0.25.x | any              | Constraint           | 0.25 dropped legacy v1 `name` + `registry_path` dependencies (restored in 0.26.0, #1696).       |
 | 0.24.2 | ≤ v1.36.x        | **Fails**            | ≤v1.36 use their own unstructured `deprecated:` string form → `--future` rejects them.          |
 | ≥0.24  | any              | Constraint           | Each enum member requires a `stability` field (0.23 did not) — the emitter already emits this.  |
 

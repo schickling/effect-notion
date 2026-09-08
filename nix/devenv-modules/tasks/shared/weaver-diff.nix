@@ -12,8 +12,8 @@
 # `weaver registry diff`, resolving the upstream OTel semconv HERMETICALLY against the local Nix
 # FOD (`nix/weaver-flake#semconv-model`) — the same offline rewrite `weaver:check` uses (SC-A03).
 #
-# Breaking-change gate (empirically grounded against weaver 0.24.2 — see spec §"Weaver gate
-# wiring", SC-R11):
+# Breaking-change gate (empirically grounded against weaver 0.24.2; the diff semantics below are
+# not yet re-verified against the current 0.26.1 pin — see spec §"Weaver gate wiring", SC-R11):
 #   1. diff EXITS NONZERO — removing a still-REFERENCED attribute leaves a dangling ref that fails
 #      resolution (weaver surfaces `unresolved-ref`). BLOCK.
 #   2. diff.json reports a change of `type: "removed"` — a clean removal of a whole capability

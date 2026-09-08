@@ -206,8 +206,8 @@ the public fragments), following the megarepo alignment propagation order.
 
 - **check (SC-R10):** devenv task `weaver:check` → `weaver registry check -r <dir> --future`,
   wired into `check:all` and CI. Weaver is pinned via the from-source flake `nix/weaver-flake/`
-  (v0.24.2), NOT `nixpkgs#weaver`; the upstream semconv is pinned to a Weaver-compatible
-  `@vX.Y.Z[model]` tag (v1.37.0 clean under `--future` with 0.23/0.24; ≤v1.36 fail on their own
+  (v0.26.1), NOT `nixpkgs#weaver`; the upstream semconv is pinned to a Weaver-compatible
+  `@vX.Y.Z[model]` tag (v1.44.0; ≥v1.37 needed under `--future` — ≤v1.36 fail on their own
   unstructured-deprecated). The gate resolves the upstream dependency **hermetically** against a
   local Nix FOD (`nix/weaver-flake#semconv-model`): it copies the emitted YAML to a scratch dir
   and rewrites the committed portable git-URL `registry_path` to the local FOD path, so check is
@@ -362,8 +362,10 @@ bindings that didn't change.
   between pinned Weaver, pinned upstream semconv, and the emitted schema is governed by the
   [version-bump runbook](./version-bump-runbook.md) plus the `weaver:version-smoke` CI gate
   (wired into `check:all`), which asserts the Weaver and semconv pins stay consistent across
-  `flake.nix` and `registry.ts`. weaver 0.24.2 `--future` is clean with semconv v1.37.0;
-  ≤v1.36 fail on their own unstructured-`deprecated`.
+  `flake.nix` and `registry.ts`. The pins are Weaver 0.26.1 + semconv v1.44.0 (0.24.2 + v1.37.0
+  was the last gate-verified pair); ≤v1.36 fail `--future` on their own unstructured-`deprecated`,
+  and Weaver 0.25.x dropped the legacy v1 `name` + `registry_path` dependency form the emitted
+  manifest uses (upstream restored it in 0.26.0).
 - **SC-DQ6 Metric-label key projection — RESOLVED:** one namespaced key per concept on every
   signal (registry key dotted, metric wire renders underscore by default); existing metrics
   migrate retention-first, with a central collector OTTL bridge only for long-window metrics. See
