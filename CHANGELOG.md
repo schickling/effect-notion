@@ -226,6 +226,13 @@ All notable changes to this project will be documented in this file.
   packages, Tailwind CSS 4.3.3, and supporting type, test, formatting, crypto,
   syntax-highlighting, and terminal utilities.
 
+- **nix/go.nix**: the hub's official Go release archive moves from 1.26.5 to
+  1.27.1, with all three admitted platform hashes (`linux-amd64`,
+  `linux-arm64`, `darwin-arm64`) taken from `https://go.dev/dl/?mode=json` and
+  verified against the downloaded archive bytes. The derivation is otherwise
+  unchanged: still the unpatched official distribution, so decision 0029's
+  store-reference-free property and `elf-static/v1` reachability are unaffected.
+
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for
   revision-changing `opened`, `reopened`, and `synchronize` activity; the
