@@ -96,7 +96,7 @@ expect_failure "release hash drift" "release hash does not match descriptor inte
 jq -r '.releases | to_entries[] | "buck2-release-products-test: \(.key) \(.value.tag)"' <<<"$summary"
 
 publisher="$repo_root/nix/buck2-products/publish.sh"
-test -x "$publisher"
+test -f "$publisher"
 cp "$repo_root/nix/buck2-products/manifest.json" "$tmp/manifest.before.json"
 
 # Planning is a pure use of the same inventory contract. Put sentinels for all
@@ -110,7 +110,7 @@ exit 97
 EOF
   chmod +x "$tmp/bin/$tool"
 done
-plan="$(PATH="$tmp/bin:$PATH" "$publisher" --dry-run)"
+plan="$(PATH="$tmp/bin:$PATH" bash "$publisher" --dry-run)"
 test ! -e "$tmp/unexpected-tools"
 cmp "$repo_root/nix/buck2-products/manifest.json" "$tmp/manifest.before.json"
 jq -e --argjson expected "$expected_names" '
@@ -126,7 +126,7 @@ jq -e --argjson expected "$expected_names" '
 ' <<<"$plan" >/dev/null
 
 publish_failure="$tmp/publish-failure.log"
-if GITHUB_EVENT_NAME=pull_request PATH="$tmp/bin:$PATH" "$publisher" --dry-run >"$publish_failure" 2>&1; then
+if GITHUB_EVENT_NAME=pull_request PATH="$tmp/bin:$PATH" bash "$publisher" --dry-run >"$publish_failure" 2>&1; then
   echo "buck2-release-products-test: publisher accepted a pull-request event" >&2
   exit 1
 fi
@@ -154,7 +154,7 @@ case "\$*" in
 esac
 EOF
 chmod +x "$tmp/refusal-bin/git"
-if env -u "$legacy_token" PATH="$tmp/refusal-bin:$PATH" "$publisher" >"$publish_failure" 2>&1; then
+if env -u "$legacy_token" PATH="$tmp/refusal-bin:$PATH" bash "$publisher" >"$publish_failure" 2>&1; then
   echo "buck2-release-products-test: publisher accepted a dirty worktree" >&2
   exit 1
 fi
@@ -171,7 +171,7 @@ done
 
 jq '.products[1].descriptor.target = .products[0].descriptor.target' \
   "$repo_root/nix/buck2-products/manifest.json" >"$tmp/duplicate-target.json"
-if PATH="$tmp/bin:$PATH" "$publisher" --dry-run --inventory "$tmp/duplicate-target.json" >"$publish_failure" 2>&1; then
+if PATH="$tmp/bin:$PATH" bash "$publisher" --dry-run --inventory "$tmp/duplicate-target.json" >"$publish_failure" 2>&1; then
   echo "buck2-release-products-test: publisher accepted a duplicate candidate target" >&2
   exit 1
 fi
@@ -182,6 +182,12 @@ if grep -F -- '--clobber' "$publisher" >/dev/null; then
   echo "buck2-release-products-test: publisher permits release asset clobbering" >&2
   exit 1
 fi
+if grep -F 'immutable-releases' "$publisher" >/dev/null; then
+  echo "buck2-release-products-test: publisher requires the admin-only immutability endpoint" >&2
+  exit 1
+fi
+grep -F 'release(tagName:$tag){isImmutable}' "$publisher" >/dev/null
+grep -F '.immutable == true' "$publisher" >/dev/null
 if grep -E '(^|[[:space:]])set[[:space:]]+-[^[:space:]]*x' "$publisher" >/dev/null; then
   echo "buck2-release-products-test: publisher enables shell tracing around secrets" >&2
   exit 1

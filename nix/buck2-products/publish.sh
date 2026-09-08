@@ -114,10 +114,6 @@ publication_commit="${GITHUB_SHA:-$head_commit}"
   fail "refusing to publish from a dirty Git worktree"
 
 
-# Checking the dedicated status endpoint is stronger than inferring the setting
-# from another release. It returns 404 when repository immutability is disabled.
-gh api "repos/$repository/immutable-releases" --silent ||
-  fail "repository immutable releases are not enabled or could not be verified"
 
 existing_tags="$(gh api --paginate "repos/$repository/releases" --jq '.[].tag_name')"
 stage="$(mktemp -d)"
@@ -242,7 +238,6 @@ for index in "${!release_tags[@]}"; do
 
   gh release upload "$tag" "$staged_module#$asset_name" --repo "$repository"
   gh api --method PATCH "repos/$repository/releases/$cleanup_release_id" -F draft=false --silent
-  cleanup_release_id=""
 
   verified="$(gh api graphql \
     -f query='query($owner:String!,$name:String!,$tag:String!){repository(owner:$owner,name:$name){release(tagName:$tag){isImmutable}}}' \
@@ -255,7 +250,8 @@ for index in "${!release_tags[@]}"; do
     '.draft == false and .immutable == true and (.assets | length == 1) and .assets[0].name == $name and .assets[0].digest == $digest' \
     <<<"$release" >/dev/null || fail "$tag asset set or digest does not match the staged module"
   gh attestation verify "$staged_module" --repo "$repository" >/dev/null
- done
+  cleanup_release_id=""
+done
 
 import_root="$stage/import"
 mkdir -p "$import_root"
