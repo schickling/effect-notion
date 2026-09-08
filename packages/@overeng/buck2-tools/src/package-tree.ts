@@ -94,7 +94,7 @@ const parseOptions = (args: readonly string[]): PackageTreeOptions => {
   const workspaceFiles = new Map<string, string>()
   const workspaceLinks = new Map<string, string>()
 
-  for (let index = 0; index < args.length; ) {
+  for (let index = 0; index < args.length;) {
     const flag = requireValue({ args, index, flag: 'argument' })
     if (flag === '--file' || flag === '--workspace-file' || flag === '--workspace-link') {
       const destination = requireRelativePath({
