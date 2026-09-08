@@ -2798,6 +2798,195 @@ jobs:
     concurrency:
       group: "${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '' && format('measurement-baseline-{0}', inputs.measurement_baseline_ref) || (github.event_name == 'workflow_dispatch' && format('manual-run-{0}', github.run_id) || (github.event_name == 'pull_request' && (github.event.action == 'labeled' || github.event.action == 'unlabeled') && format('label-{0}', github.event.label.name) || 'code')) }}-weaver"
       cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '') && (github.event_name != 'pull_request' || (github.event.action != 'labeled' && github.event.action != 'unlabeled')) }}
+  pr-a-inert-buck:
+    if: ${{ github.event_name == 'pull_request' && github.event.action != 'labeled' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    permissions:
+      contents: read
+    env:
+      FORCE_SETUP: '1'
+      CI: 'true'
+      BUCK2_NO_REMOTE_CACHE: '1'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install Nix
+        uses: DeterminateSystems/determinate-nix-action@v3
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+            extra-substituters = https://devenv.cachix.org
+            extra-trusted-public-keys = devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=
+            access-tokens = github.com=${{ github.token }}
+          summarize: true
+      - name: Provide cachix CLI from nixpkgs
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=$(nix build --no-link --print-out-paths nixpkgs#cachix)
+          echo "$out/bin" >> "$GITHUB_PATH"
+      - name: Enable Cachix cache
+        uses: cachix/cachix-action@v17
+        with:
+          name: overeng-effect-utils
+      - name: Prepare effect-utils composition
+        run: '$GITHUB_WORKSPACE/genie/ci-scripts/prepare-effect-utils-composition.sh'
+      - name: Prepare CI helper scripts
+        shell: bash
+        run: |
+          cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && set -euo pipefail
+          scripts_src='genie/ci-scripts'
+          scripts_dst='${{ runner.temp }}/composition-state/ci-runtime'
+          if [ ! -d "$scripts_src" ]; then
+            echo "::error::CI helper script directory is missing: $scripts_src"
+            exit 1
+          fi
+          rm -rf "$scripts_dst"
+          mkdir -p "$scripts_dst"
+          cp -R "$scripts_src/." "$scripts_dst/"
+          rm -f "$scripts_dst"/*.genie.ts
+          chmod +x "$scripts_dst"/*.sh
+      - name: Use pinned devenv from lock
+        run: |
+          cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && DEVENV_REV=$(jq -r .nodes.devenv.locked.rev 'devenv.lock')
+          if [ -z "$DEVENV_REV" ] || [ "$DEVENV_REV" = "null" ]; then
+            printf '::error::%s missing .nodes.devenv.locked.rev\n' 'devenv.lock'
+            exit 1
+          fi
+          echo "DEVENV_REV=$DEVENV_REV" >> "$GITHUB_ENV"
+          echo "Pinned devenv rev: $DEVENV_REV"
+        shell: bash
+      - name: Resolve devenv
+        run: |
+          __genie_ci_retry_script='${{ runner.temp }}/composition-state/ci-runtime/run-with-nix-gc-race-retry.sh'
+          bash "$__genie_ci_retry_script" 'resolve devenv (devenv.lock)' 'cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && '"'"'${{ runner.temp }}/composition-state/ci-runtime/resolve-devenv.sh'"'"' '"'"'devenv.lock'"'"''
+        shell: bash
+      - name: Check generated sources
+        run: |
+          __genie_ci_retry_script='${{ runner.temp }}/composition-state/ci-runtime/run-with-nix-gc-race-retry.sh'
+          bash "$__genie_ci_retry_script" 'devenv tasks run genie:check' 'cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && if [ -n "${NIX_CONFIG:-}" ]; then NIX_CONFIG_WITH_APPEND=$(printf '"'"'%s\n%s'"'"' "$NIX_CONFIG" '"'"'restrict-eval = false'"'"'); else NIX_CONFIG_WITH_APPEND='"'"'restrict-eval = false'"'"'; fi; NIX_CONFIG="$NIX_CONFIG_WITH_APPEND" DEVENV_TASK_PASSTHROUGH=1 DEVENV_TUI=false "${DEVENV_BIN:?DEVENV_BIN not set}" tasks run genie:check'
+      - name: Run focused normalized, projection, and runner tests
+        run: |
+          cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && set -euo pipefail
+          "${DEVENV_BIN:?DEVENV_BIN not set}" shell -- bun test \
+            genie/buck2/typescript-package-projection.unit.test.ts \
+            genie/buck2/javascript-candidates.unit.test.ts \
+            packages/@overeng/buck2-tools/src/package-command-runner.unit.test.ts
+      - name: Check product publisher contract and dry-run
+        run: 'cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && "${DEVENV_BIN:?DEVENV_BIN not set}" shell -- env -u GITHUB_EVENT_NAME bash nix/workspace-tools/lib/tests/buck2-release-products.sh "$PWD"'
+      - name: Reject tracked product and editor payload bytes
+        run: |
+          cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && set -euo pipefail
+          tracked_editor=$(git ls-files -- '**/.editor-view/**' '.editor-view/**')
+          tracked_product=$(git ls-files -- 'nix/buck2-products/**' | grep -Ev '^nix/buck2-products/(default\.nix|manifest\.json|publish\.sh)$' || true)
+          if [ -n "$tracked_editor$tracked_product" ]; then
+            printf 'Tracked inert payload bytes are forbidden:\n%s\n%s\n' "$tracked_editor" "$tracked_product" >&2
+            exit 1
+          fi
+      - name: Query and build representative inert Buck targets
+        run: |
+          set -euo pipefail
+          cd "${EFFECT_UTILS_WORKSPACE_ROOT:?EFFECT_UTILS_WORKSPACE_ROOT not set}"
+          buck="$PWD/.megarepo/bin/buck2"
+          "$buck" query effect_utils//packages/@overeng/ci-tools:ci-tools-candidate
+          "$buck" query effect_utils//packages/@overeng/tui-core:editor_view_inputs
+          "$buck" build \
+            effect_utils//packages/@overeng/ci-tools:ci-tools-candidate \
+            effect_utils//packages/@overeng/tui-core:editor_view_inputs
+      - name: Cleanup effect-utils composition
+        if: always()
+        run: '$GITHUB_WORKSPACE/genie/ci-scripts/cleanup-effect-utils-composition.sh'
+    concurrency:
+      group: "${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '' && format('measurement-baseline-{0}', inputs.measurement_baseline_ref) || (github.event_name == 'workflow_dispatch' && format('manual-run-{0}', github.run_id) || (github.event_name == 'pull_request' && (github.event.action == 'labeled' || github.event.action == 'unlabeled') && format('label-{0}', github.event.label.name) || 'code')) }}-pr-a-inert-buck"
+      cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '') && (github.event_name != 'pull_request' || (github.event.action != 'labeled' && github.event.action != 'unlabeled')) }}
+  trusted-buck2-remote-cache-proof:
+    if: ${{ (!(github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '')) && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    runs-on:
+      [namespace-profile-linux-x86-64, 'namespace-features:github.run-id=${{ github.run_id }}']
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    permissions:
+      contents: read
+    env:
+      FORCE_SETUP: '1'
+      CI: 'true'
+      BUCK2_NO_REMOTE_CACHE: '0'
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install Nix
+        uses: DeterminateSystems/determinate-nix-action@v3
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+            extra-substituters = https://devenv.cachix.org
+            extra-trusted-public-keys = devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=
+            access-tokens = github.com=${{ github.token }}
+          summarize: true
+      - name: Prepare effect-utils composition
+        run: '$GITHUB_WORKSPACE/genie/ci-scripts/prepare-effect-utils-composition.sh'
+      - name: Prove a fresh context gets a remote action-cache hit
+        env:
+          BUCK2_REMOTE_CACHE_BASIC_AUTH: ${{ secrets.BUCK2_REMOTE_CACHE_BASIC_AUTH }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BUCK2_REMOTE_CACHE_BASIC_AUTH:-}" ]; then
+            echo "::error::BUCK2_REMOTE_CACHE_BASIC_AUTH is required for the trusted remote-cache proof"
+            exit 1
+          fi
+          cd "${EFFECT_UTILS_WORKSPACE_ROOT:?EFFECT_UTILS_WORKSPACE_ROOT not set}"
+          buck="$PWD/.megarepo/bin/buck2"
+          target="effect_utils//packages/@overeng/ci-tools:ci-tools-candidate"
+          proof_source="${EFFECT_UTILS_MEMBER_ROOT:?EFFECT_UTILS_MEMBER_ROOT not set}/packages/@overeng/ci-tools/bin/ci-tools.ts"
+          printf '%s\n' '' "// trusted remote-cache proof ${GITHUB_RUN_ID:?GITHUB_RUN_ID not set}-${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT not set}" >> "$proof_source"
+          evidence_a="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-remote-cache-proof-a.jsonl"
+          evidence_b="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-remote-cache-proof-b.jsonl"
+          trap 'rm -f "$evidence_a" "$evidence_b"' EXIT
+
+          # Context A has a run-unique source input, executes locally, and uploads to the remote cache.
+          # The composition wrapper fixes --isolation-dir, so freshness comes from daemon and state removal.
+          "$buck" kill
+          rm -rf buck-out
+          "$buck" build --local-only "$target"
+          "$buck" log show --recent 1 > "$evidence_a"
+          if ! jq -e 'select(.Event.data.SpanEnd.data.ActionExecution as $action | $action.execution_kind == "ACTION_EXECUTION_KIND_LOCAL" and $action.cache_upload_result == "UPLOAD_RESULT_UPLOADED")' "$evidence_a" >/dev/null; then
+            echo "::error::Context A did not report a successful upload for a locally executed action"
+            exit 1
+          fi
+
+          # Context B is a fresh daemon and materializer over the identical action input.
+          "$buck" kill
+          rm -rf buck-out
+
+          # Buck event data must classify the independently built result as a remote action-cache hit.
+          "$buck" build --local-only "$target"
+          "$buck" log show --recent 1 > "$evidence_b"
+          if ! jq -e 'select(.Event.data.SpanEnd.data.ActionExecution.execution_kind == "ACTION_EXECUTION_KIND_ACTION_CACHE")' "$evidence_b" >/dev/null; then
+            echo "::error::Context B did not report a remote action-cache hit"
+            exit 1
+          fi
+          if jq -e 'select(.Event.data.SpanEnd.data.ActionExecution.execution_kind as $kind | $kind == "ACTION_EXECUTION_KIND_LOCAL" or $kind == "ACTION_EXECUTION_KIND_REMOTE" or $kind == "ACTION_EXECUTION_KIND_LOCAL_DEP_FILE" or $kind == "ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE" or $kind == "ACTION_EXECUTION_KIND_LOCAL_WORKER" or $kind == "ACTION_EXECUTION_KIND_REMOTE_WORKER")' "$evidence_b" >/dev/null; then
+            echo "::error::Context B executed an action or reused local action state instead of relying on the remote action cache"
+            exit 1
+          fi
+          echo "Fresh-context remote action-cache proof passed"
+      - name: Cleanup effect-utils composition
+        if: always()
+        run: '$GITHUB_WORKSPACE/genie/ci-scripts/cleanup-effect-utils-composition.sh'
+    concurrency:
+      group: "${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '' && format('measurement-baseline-{0}', inputs.measurement_baseline_ref) || (github.event_name == 'workflow_dispatch' && format('manual-run-{0}', github.run_id) || (github.event_name == 'pull_request' && (github.event.action == 'labeled' || github.event.action == 'unlabeled') && format('label-{0}', github.event.label.name) || 'code')) }}-trusted-buck2-remote-cache-proof"
+      cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '') && (github.event_name != 'pull_request' || (github.event.action != 'labeled' && github.event.action != 'unlabeled')) }}
   bootstrap-cold-proof:
     if: ${{ (!(github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '')) && github.event_name != 'schedule' }}
     runs-on:
