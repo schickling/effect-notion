@@ -11,8 +11,8 @@
     "os": "any"
   },
   "modulePath": "mr.js",
-  "integrity": "sha256-sY/Imju+9MAYlYMFclOig1nRS6cmT6JwHDCN0nNdfhU=",
-  "sizeBytes": 3794198,
+  "integrity": "sha256-RUUi9joJbpWL3c7cBHVYcVsPy+z1Fn6+mpwDXfxYA+A=",
+  "sizeBytes": 3801592,
   "target": "effect_utils//packages/@overeng/megarepo:megarepo-candidate",
   "externalCapabilities": [
     "buck2",

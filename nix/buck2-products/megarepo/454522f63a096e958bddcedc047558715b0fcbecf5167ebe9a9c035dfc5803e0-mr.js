@@ -74278,160 +74278,6 @@ var syncNixLocks = exports_Effect.fn("megarepo/nix-lock/sync")((options) => expo
   };
 }));
 
-// src/generators/vscode.ts
-var hexToRgb = (hex2) => {
-  const cleaned = hex2.replace("#", "");
-  return {
-    r: parseInt(cleaned.slice(0, 2), 16),
-    g: parseInt(cleaned.slice(2, 4), 16),
-    b: parseInt(cleaned.slice(4, 6), 16)
-  };
-};
-var rgbToHsl = ({ r, g, b }) => {
-  let rNorm = r / 255;
-  let gNorm = g / 255;
-  let bNorm = b / 255;
-  const max8 = Math.max(rNorm, gNorm, bNorm);
-  const min8 = Math.min(rNorm, gNorm, bNorm);
-  const l = (max8 + min8) / 2;
-  let h = 0;
-  let s = 0;
-  if (max8 !== min8) {
-    const d = max8 - min8;
-    s = l > 0.5 ? d / (2 - max8 - min8) : d / (max8 + min8);
-    switch (max8) {
-      case rNorm:
-        h = ((gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0)) / 6;
-        break;
-      case gNorm:
-        h = ((bNorm - rNorm) / d + 2) / 6;
-        break;
-      case bNorm:
-        h = ((rNorm - gNorm) / d + 4) / 6;
-        break;
-    }
-  }
-  return { h, s, l };
-};
-var hue2rgb = ({ p, q, t }) => {
-  let tNorm = t;
-  if (tNorm < 0)
-    tNorm += 1;
-  if (tNorm > 1)
-    tNorm -= 1;
-  if (tNorm < 1 / 6)
-    return p + (q - p) * 6 * tNorm;
-  if (tNorm < 1 / 2)
-    return q;
-  if (tNorm < 2 / 3)
-    return p + (q - p) * (2 / 3 - tNorm) * 6;
-  return p;
-};
-var hslToRgb = ({ h, s, l }) => {
-  let r, g, b;
-  if (s === 0) {
-    r = g = b = l;
-  } else {
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    r = hue2rgb({ p, q, t: h + 1 / 3 });
-    g = hue2rgb({ p, q, t: h });
-    b = hue2rgb({ p, q, t: h - 1 / 3 });
-  }
-  return {
-    r: Math.round(r * 255),
-    g: Math.round(g * 255),
-    b: Math.round(b * 255)
-  };
-};
-var toHex = (n) => n.toString(16).padStart(2, "0");
-var rgbToHex = ({ r, g, b }) => {
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-};
-var darkenHex = ({ hex: hex2, amount = 0.3 }) => {
-  const rgb = hexToRgb(hex2);
-  const { h, s, l } = rgbToHsl(rgb);
-  const newL = Math.max(0, l - amount);
-  const newRgb = hslToRgb({ h, s, l: newL });
-  return rgbToHex(newRgb);
-};
-var generateColorCustomizations = (color) => ({
-  "titleBar.activeBackground": color,
-  "titleBar.activeForeground": "#FFFFFF",
-  "titleBar.inactiveBackground": color,
-  "titleBar.inactiveForeground": "#CCCCCC",
-  "activityBar.background": darkenHex({ hex: color, amount: 0.15 }),
-  "activityBar.foreground": "#FFFFFF",
-  "activityBar.inactiveForeground": "#FFFFFF",
-  "statusBar.background": color,
-  "statusBar.foreground": "#FFFFFF"
-});
-var deepMerge = ({
-  target,
-  source
-}) => {
-  const result4 = { ...target };
-  for (const key of Object.keys(source)) {
-    const sourceVal = source[key];
-    const targetVal = result4[key];
-    if (sourceVal !== null && typeof sourceVal === "object" && Array.isArray(sourceVal) === false && targetVal !== null && typeof targetVal === "object" && Array.isArray(targetVal) === false) {
-      result4[key] = deepMerge({
-        target: targetVal,
-        source: sourceVal
-      });
-    } else {
-      result4[key] = sourceVal;
-    }
-  }
-  return result4;
-};
-var generateVscodeContent = (options) => {
-  const vscodeConfig = options.config.generators?.vscode;
-  const excludeSet = new Set(options.exclude ?? vscodeConfig?.exclude ?? []);
-  const folders = [
-    { path: "..", name: "(megarepo root)" },
-    ...Object.keys(options.config.members).filter((name) => !excludeSet.has(name)).map((name) => ({ path: `../${MEMBER_ROOT_DIR}/${name}`, name }))
-  ];
-  let settings = {
-    "files.exclude": {
-      "**/.git": true,
-      "**/node_modules": true,
-      "**/dist": true
-    }
-  };
-  const colorFromEnv = vscodeConfig?.colorEnvVar !== undefined ? process.env[vscodeConfig.colorEnvVar] : undefined;
-  const color = colorFromEnv ?? vscodeConfig?.color;
-  if (color !== undefined) {
-    settings = deepMerge({
-      target: settings,
-      source: {
-        "workbench.colorCustomizations": generateColorCustomizations(color)
-      }
-    });
-  }
-  if (vscodeConfig?.settings !== undefined) {
-    settings = deepMerge({
-      target: settings,
-      source: vscodeConfig.settings
-    });
-  }
-  const workspace2 = {
-    folders,
-    settings
-  };
-  return JSON.stringify(workspace2, null, 2) + `
-`;
-};
-var generateVscode = (options) => exports_Effect.gen(function* () {
-  const fs4 = yield* FileSystem;
-  const content = generateVscodeContent(options);
-  const vscodeDir = EffectPath.ops.join(options.megarepoRoot, EffectPath.unsafe.relativeDir(".vscode/"));
-  const outputPath = EffectPath.ops.join(vscodeDir, EffectPath.unsafe.relativeFile("megarepo.code-workspace"));
-  yield* fs4.makeDirectory(vscodeDir, { recursive: true });
-  yield* fs4.writeFileString(outputPath, content);
-  return { path: outputPath, content };
-});
-
 // src/composition/root/composition-root.ts
 import { createHash as createHash3 } from "node:crypto";
 import * as PosixPath2 from "node:path/posix";
@@ -74880,6 +74726,53 @@ var ROOT_PROJECT_IGNORES = [
   "repos/.staging-*",
   ".buck2/capabilities.candidate.*"
 ];
+var COMPOSITION_OWNED_PATHS = [
+  ".buckconfig",
+  ".buckroot",
+  ".megarepo/bin/buck2",
+  ".watchmanconfig",
+  "BUCK"
+];
+var isLiteralIgnoreDir = (pattern) => /[*?[\]{}]/u.test(pattern) === false;
+var watchRootVcsDirectories = {
+  ".git": true,
+  ".hg": true,
+  ".svn": true
+};
+var isWatchRootVcsIgnoreDir = (pattern) => watchRootVcsDirectories[pattern] === true;
+var watchmanChurnRank = [
+  ".editor-view",
+  "buck-out",
+  "node_modules",
+  ".devenv",
+  "target",
+  "tmp"
+];
+var churnRank = (dir2) => {
+  const rank = watchmanChurnRank.indexOf(PosixPath2.basename(dir2));
+  return rank === -1 ? watchmanChurnRank.length : rank;
+};
+var projectIgnoreEntries = (input) => canonicalStringSet([
+  ...ROOT_PROJECT_IGNORES,
+  ...input.additionalProjectIgnores,
+  ...input.members.flatMap(({ manifest }) => manifest.projectIgnore.map((pattern) => `${manifest.mount}/${pattern}`))
+]);
+var WatchmanConfigSchema = exports_Schema.Struct({
+  ignore_dirs: exports_Schema.Array(exports_Schema.String)
+}).annotate({ identifier: "Megarepo.WatchmanConfig" });
+var COMPOSITION_WATCHMAN_CONFIG_PATH = ".watchmanconfig";
+var renderWatchmanConfig = (input) => {
+  const ignoreDirs = projectIgnoreEntries(input).filter((pattern) => isLiteralIgnoreDir(pattern) && isWatchRootVcsIgnoreDir(pattern) === false).toSorted((left, right) => churnRank(left) - churnRank(right));
+  return `${JSON.stringify({ ignore_dirs: ignoreDirs }, undefined, 2)}
+`;
+};
+var generatedWatchmanIgnoreDirs = (output) => {
+  const file6 = output.files.find((entry) => entry.path === COMPOSITION_WATCHMAN_CONFIG_PATH);
+  if (file6 === undefined) {
+    throw new TypeError(`Generated output has no ${COMPOSITION_WATCHMAN_CONFIG_PATH}`);
+  }
+  return exports_Schema.decodeUnknownSync(WatchmanConfigSchema, strictParseOptions)(JSON.parse(new TextDecoder().decode(file6.bytes))).ignore_dirs;
+};
 var utf8 = (value5) => textEncoder3.encode(value5);
 var sha2562 = (bytes) => `sha256:${createHash3("sha256").update(bytes).digest("hex")}`;
 var shellQuote = (value5) => `'${value5.replaceAll("'", `'"'"'`)}'`;
@@ -74966,12 +74859,7 @@ var renderBuckconfig = (input) => {
     for (const entry of cacheSection.entries)
       lines2.push(`  ${entry.key} = ${entry.value}`);
   }
-  const memberIgnores = input.members.flatMap(({ manifest }) => manifest.projectIgnore.map((pattern) => `${manifest.mount}/${pattern}`));
-  lines2.push("", "[project]", `  ignore = ${canonicalStringSet([
-    ...ROOT_PROJECT_IGNORES,
-    ...input.additionalProjectIgnores,
-    ...memberIgnores
-  ]).join(",")}`, "");
+  lines2.push("", "[project]", `  ignore = ${projectIgnoreEntries(input).join(",")}`, "");
   return lines2.join(`
 `);
 };
@@ -75004,6 +74892,11 @@ var generateCompositionRoot = (rawInput) => {
       mode: 493,
       content: renderBuckWrapper(input)
     }),
+    generatedFile({
+      path: COMPOSITION_WATCHMAN_CONFIG_PATH,
+      mode: 420,
+      content: renderWatchmanConfig(input)
+    }),
     authority
   ];
   const manifest = generatedFile({
@@ -75017,7 +74910,162 @@ var generateCompositionRoot = (rawInput) => {
   ].toSorted((left, right) => compareCodeUnits2({ left: left.path, right: right.path }));
   return decodeCompositionRootOutput({ files: [...beforeAuthority, authority] });
 };
+
+// src/generators/vscode.ts
+var hexToRgb = (hex2) => {
+  const cleaned = hex2.replace("#", "");
+  return {
+    r: parseInt(cleaned.slice(0, 2), 16),
+    g: parseInt(cleaned.slice(2, 4), 16),
+    b: parseInt(cleaned.slice(4, 6), 16)
+  };
+};
+var rgbToHsl = ({ r, g, b }) => {
+  let rNorm = r / 255;
+  let gNorm = g / 255;
+  let bNorm = b / 255;
+  const max8 = Math.max(rNorm, gNorm, bNorm);
+  const min8 = Math.min(rNorm, gNorm, bNorm);
+  const l = (max8 + min8) / 2;
+  let h = 0;
+  let s = 0;
+  if (max8 !== min8) {
+    const d = max8 - min8;
+    s = l > 0.5 ? d / (2 - max8 - min8) : d / (max8 + min8);
+    switch (max8) {
+      case rNorm:
+        h = ((gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0)) / 6;
+        break;
+      case gNorm:
+        h = ((bNorm - rNorm) / d + 2) / 6;
+        break;
+      case bNorm:
+        h = ((rNorm - gNorm) / d + 4) / 6;
+        break;
+    }
+  }
+  return { h, s, l };
+};
+var hue2rgb = ({ p, q, t }) => {
+  let tNorm = t;
+  if (tNorm < 0)
+    tNorm += 1;
+  if (tNorm > 1)
+    tNorm -= 1;
+  if (tNorm < 1 / 6)
+    return p + (q - p) * 6 * tNorm;
+  if (tNorm < 1 / 2)
+    return q;
+  if (tNorm < 2 / 3)
+    return p + (q - p) * (2 / 3 - tNorm) * 6;
+  return p;
+};
+var hslToRgb = ({ h, s, l }) => {
+  let r, g, b;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb({ p, q, t: h + 1 / 3 });
+    g = hue2rgb({ p, q, t: h });
+    b = hue2rgb({ p, q, t: h - 1 / 3 });
+  }
+  return {
+    r: Math.round(r * 255),
+    g: Math.round(g * 255),
+    b: Math.round(b * 255)
+  };
+};
+var toHex = (n) => n.toString(16).padStart(2, "0");
+var rgbToHex = ({ r, g, b }) => {
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+};
+var darkenHex = ({ hex: hex2, amount = 0.3 }) => {
+  const rgb = hexToRgb(hex2);
+  const { h, s, l } = rgbToHsl(rgb);
+  const newL = Math.max(0, l - amount);
+  const newRgb = hslToRgb({ h, s, l: newL });
+  return rgbToHex(newRgb);
+};
+var generateColorCustomizations = (color) => ({
+  "titleBar.activeBackground": color,
+  "titleBar.activeForeground": "#FFFFFF",
+  "titleBar.inactiveBackground": color,
+  "titleBar.inactiveForeground": "#CCCCCC",
+  "activityBar.background": darkenHex({ hex: color, amount: 0.15 }),
+  "activityBar.foreground": "#FFFFFF",
+  "activityBar.inactiveForeground": "#FFFFFF",
+  "statusBar.background": color,
+  "statusBar.foreground": "#FFFFFF"
+});
+var deepMerge = ({
+  target,
+  source
+}) => {
+  const result4 = { ...target };
+  for (const key of Object.keys(source)) {
+    const sourceVal = source[key];
+    const targetVal = result4[key];
+    if (sourceVal !== null && typeof sourceVal === "object" && Array.isArray(sourceVal) === false && targetVal !== null && typeof targetVal === "object" && Array.isArray(targetVal) === false) {
+      result4[key] = deepMerge({
+        target: targetVal,
+        source: sourceVal
+      });
+    } else {
+      result4[key] = sourceVal;
+    }
+  }
+  return result4;
+};
+var generateVscodeContent = (options) => {
+  const vscodeConfig = options.config.generators?.vscode;
+  const excludeSet = new Set(options.exclude ?? vscodeConfig?.exclude ?? []);
+  const folders = [
+    { path: "..", name: "(megarepo root)" },
+    ...Object.keys(options.config.members).filter((name) => !excludeSet.has(name)).map((name) => ({ path: `../${MEMBER_ROOT_DIR}/${name}`, name }))
+  ];
+  let settings = {
+    "files.exclude": {
+      "**/.git": true,
+      "**/node_modules": true,
+      "**/dist": true
+    }
+  };
+  const colorFromEnv = vscodeConfig?.colorEnvVar !== undefined ? process.env[vscodeConfig.colorEnvVar] : undefined;
+  const color = colorFromEnv ?? vscodeConfig?.color;
+  if (color !== undefined) {
+    settings = deepMerge({
+      target: settings,
+      source: {
+        "workbench.colorCustomizations": generateColorCustomizations(color)
+      }
+    });
+  }
+  if (vscodeConfig?.settings !== undefined) {
+    settings = deepMerge({
+      target: settings,
+      source: vscodeConfig.settings
+    });
+  }
+  const workspace2 = {
+    folders,
+    settings
+  };
+  return JSON.stringify(workspace2, null, 2) + `
+`;
+};
+var generateVscode = (options) => exports_Effect.gen(function* () {
+  const fs4 = yield* FileSystem;
+  const content = generateVscodeContent(options);
+  const vscodeDir = EffectPath.ops.join(options.megarepoRoot, EffectPath.unsafe.relativeDir(".vscode/"));
+  const outputPath = EffectPath.ops.join(vscodeDir, EffectPath.unsafe.relativeFile("megarepo.code-workspace"));
+  yield* fs4.makeDirectory(vscodeDir, { recursive: true });
+  yield* fs4.writeFileString(outputPath, content);
+  return { path: outputPath, content };
+});
 // src/composition/root/composition-root-publisher.ts
+import { execFile as execFile2 } from "node:child_process";
 import { createHash as createHash4 } from "node:crypto";
 import { constants as constants3 } from "node:fs";
 import {
@@ -75032,7 +75080,9 @@ import {
   unlink
 } from "node:fs/promises";
 import * as NodePath3 from "node:path";
+import { promisify } from "node:util";
 var strictParseOptions2 = { errors: "all", onExcessProperty: "error" };
+var execFileAsync = promisify(execFile2);
 var LOCK_PATH = ".megarepo/composition-publisher.lock.json";
 var TRANSACTION_PATH = ".megarepo/composition-publication.json";
 var COMMITTED_TRANSACTION_PATH = ".megarepo/composition-publication.committed.json";
@@ -75116,7 +75166,8 @@ class CompositionRootPublicationError extends exports_Schema.TaggedError()("Comp
     "LockHeld",
     "RecoveryRefused",
     "IoFailure",
-    "SimulatedProcessFault"
+    "SimulatedProcessFault",
+    "WatchmanInvalidationFailed"
   ]),
   path: exports_Schema.String,
   message: exports_Schema.String,
@@ -75990,12 +76041,13 @@ var assertManifestShape = ({
   expectedPaths,
   path: path8
 }) => {
-  const actual = manifest.files.map((file6) => file6.path);
-  if (actual.length !== expectedPaths.length || actual.some((value5, index2) => value5 !== expectedPaths[index2]) === true) {
+  const owned = Object.fromEntries(expectedPaths.map((path9) => [path9, true]));
+  const unknown2 = manifest.files.find((file6) => owned[file6.path] !== true);
+  if (unknown2 !== undefined) {
     throw failure2({
       reason: "InvalidGenerationManifest",
       path: path8,
-      message: `Generation manifest does not own the canonical file set: ${path8}`
+      message: `Generation manifest owns an unknown path ${unknown2.path}: ${path8}`
     });
   }
 };
@@ -76050,6 +76102,7 @@ var validatePublicationState = async ({
   const manifestPath = finalPathFor(workspaceRoot, COMPOSITION_GENERATION_MANIFEST_PATH);
   const manifestSnapshot = await snapshotMaybe(manifestPath);
   let manifest;
+  let manifestPaths = new Set;
   if (manifestSnapshot !== undefined) {
     if (manifestSnapshot.mode !== 420) {
       throw failure2({
@@ -76059,16 +76112,7 @@ var validatePublicationState = async ({
       });
     }
     manifest = decodeGenerationManifest({ snapshot: manifestSnapshot, path: manifestPath });
-    const manifestPaths = new Set(manifest.files.map((file6) => file6.path));
-    for (const expectedPath of expectedGeneratedPaths(files)) {
-      if (manifestPaths.has(expectedPath) === false) {
-        throw failure2({
-          reason: "InvalidGenerationManifest",
-          path: manifestPath,
-          message: `Generation manifest does not own required path ${expectedPath}: ${manifestPath}`
-        });
-      }
-    }
+    manifestPaths = new Set(manifest.files.map((file6) => file6.path));
   }
   const configPath = finalPathFor(workspaceRoot, ".buckconfig");
   if (manifest === undefined && await snapshotMaybe(configPath) !== undefined) {
@@ -76106,11 +76150,12 @@ var validatePublicationState = async ({
     const path8 = finalPathFor(workspaceRoot, file6.path);
     const snapshot3 = file6.path === COMPOSITION_GENERATION_MANIFEST_PATH ? manifestSnapshot : await snapshotMaybe(path8);
     snapshots.set(file6.path, snapshot3);
-    if (manifest === undefined && snapshot3 !== undefined && snapshotMatchesFile(snapshot3, file6) === false) {
+    const unowned = file6.path !== COMPOSITION_GENERATION_MANIFEST_PATH && manifestPaths.has(file6.path) === false;
+    if ((manifest === undefined || unowned === true) && snapshot3 !== undefined && snapshotMatchesFile(snapshot3, file6) === false) {
       throw failure2({
         reason: "ForeignPath",
         path: path8,
-        message: `Refusing unowned first-create path: ${path8}`
+        message: `Refusing unowned generated path: ${path8}`
       });
     }
   }
@@ -76597,6 +76642,125 @@ var planCompositionRootPublication = exports_Effect.fn("megarepo/composition-roo
     });
   }
 }));
+var notWatchedError = /\bis not watched\b/u;
+var WatchmanGetConfigResponse = exports_Schema.Struct({
+  config: exports_Schema.Struct({ ignore_dirs: exports_Schema.optional(exports_Schema.Array(exports_Schema.String)) })
+});
+var WatchmanWatchDelResponse = exports_Schema.Struct({
+  "watch-del": exports_Schema.optional(exports_Schema.Boolean),
+  root: exports_Schema.optional(exports_Schema.String)
+});
+var describeStreams = ({
+  stdout,
+  stderr
+}) => `stdout: ${stdout.trim() || "<empty>"}; stderr: ${stderr.trim() || "<empty>"}`;
+var runWatchmanCommand = async ({
+  workspaceRoot,
+  resolvedWatchmanExecutable,
+  command
+}) => {
+  const args2 = ["--no-spawn", "--no-local", "--no-pretty", command, workspaceRoot];
+  let streams;
+  try {
+    streams = await execFileAsync(resolvedWatchmanExecutable, args2);
+  } catch (cause) {
+    const exited = typeof cause === "object" && cause !== null && "code" in cause && "stdout" in cause && "stderr" in cause ? { code: cause.code, stdout: cause.stdout, stderr: cause.stderr } : undefined;
+    if (typeof exited?.code !== "number" || typeof exited.stdout !== "string" || typeof exited.stderr !== "string") {
+      throw failure2({
+        reason: "WatchmanInvalidationFailed",
+        path: workspaceRoot,
+        message: `Could not run the resolved Watchman executable: ${resolvedWatchmanExecutable}`,
+        cause
+      });
+    }
+    if (exited.stdout.trim() === "" && exited.stderr.trim() === "")
+      return { _tag: "Silent" };
+    throw failure2({
+      reason: "WatchmanInvalidationFailed",
+      path: workspaceRoot,
+      message: `Watchman ${command} failed with exit ${exited.code}; ${describeStreams({ stdout: exited.stdout, stderr: exited.stderr })}`,
+      cause
+    });
+  }
+  let body;
+  try {
+    body = JSON.parse(streams.stdout);
+  } catch (cause) {
+    throw failure2({
+      reason: "WatchmanInvalidationFailed",
+      path: workspaceRoot,
+      message: `Watchman ${command} returned an unreadable response; ${describeStreams(streams)}`,
+      cause
+    });
+  }
+  if (typeof body !== "object" || body === null || Array.isArray(body) === true) {
+    throw failure2({
+      reason: "WatchmanInvalidationFailed",
+      path: workspaceRoot,
+      message: `Watchman ${command} returned a non-object response; ${describeStreams(streams)}`
+    });
+  }
+  if ("error" in body) {
+    const message = String(body.error);
+    if (notWatchedError.test(message) === true)
+      return { _tag: "Response", body, streams };
+    throw failure2({
+      reason: "WatchmanInvalidationFailed",
+      path: workspaceRoot,
+      message: `Watchman ${command} refused this root: ${message}; ${describeStreams(streams)}`
+    });
+  }
+  return { _tag: "Response", body, streams };
+};
+var decodeWatchmanBody = (...[schema2, invocation, command, workspaceRoot]) => {
+  try {
+    return exports_Schema.decodeUnknownSync(schema2)(invocation.body);
+  } catch (cause) {
+    throw failure2({
+      reason: "WatchmanInvalidationFailed",
+      path: workspaceRoot,
+      message: `Watchman ${command} returned an unexpected response shape; ${describeStreams(invocation.streams)}`,
+      cause
+    });
+  }
+};
+var reconcileWatchmanRoot = async ({
+  workspaceRoot,
+  resolvedWatchmanExecutable,
+  publishedIgnoreDirs
+}) => {
+  const observed = await runWatchmanCommand({
+    workspaceRoot,
+    resolvedWatchmanExecutable,
+    command: "get-config"
+  });
+  if (observed._tag === "Silent")
+    return { _tag: "Unavailable" };
+  if ("error" in observed.body)
+    return { _tag: "NotWatched" };
+  const loaded = decodeWatchmanBody(WatchmanGetConfigResponse, observed, "get-config", workspaceRoot).config.ignore_dirs ?? [];
+  if (loaded.length === publishedIgnoreDirs.length && loaded.every((dir2, index2) => dir2 === publishedIgnoreDirs[index2]) === true) {
+    return { _tag: "Unchanged" };
+  }
+  const deleted = await runWatchmanCommand({
+    workspaceRoot,
+    resolvedWatchmanExecutable,
+    command: "watch-del"
+  });
+  if (deleted._tag === "Silent")
+    return { _tag: "Unavailable" };
+  if ("error" in deleted.body)
+    return { _tag: "NotWatched" };
+  const released = decodeWatchmanBody(WatchmanWatchDelResponse, deleted, "watch-del", workspaceRoot);
+  if (released["watch-del"] !== true || released.root !== workspaceRoot) {
+    throw failure2({
+      reason: "WatchmanInvalidationFailed",
+      path: workspaceRoot,
+      message: `Watchman watch-del did not release this root; ${describeStreams(deleted.streams)}`
+    });
+  }
+  return { _tag: "Removed" };
+};
 var publishCompositionRoot = exports_Effect.fn("megarepo/composition-root/publish")((options) => exports_Effect.tryPromise({
   try: async () => {
     const workspaceRoot = NodePath3.resolve(options.workspaceRoot);
@@ -76622,78 +76786,88 @@ var publishCompositionRoot = exports_Effect.fn("megarepo/composition-root/publis
         output: output.files,
         state: state2
       });
+      const watchmanIgnoreDirs = generatedWatchmanIgnoreDirs(output);
+      const memberManifests = members.map(({ memberKey, manifest }) => ({
+        memberKey,
+        manifest
+      }));
+      let published;
       if (transaction === undefined) {
-        return {
-          changedPaths: [],
-          memberManifests: members.map(({ memberKey, manifest }) => ({ memberKey, manifest }))
-        };
-      }
-      let authorityCommitted = false;
-      try {
-        await writeTransaction({ workspaceRoot, transaction });
-        const desired = new Map(output.files.map((file6) => [file6.path, file6]));
-        const staged = await stageTransaction({
-          workspaceRoot,
-          transaction,
-          desired,
-          runtime: options.runtime
-        });
-        const changedPaths = await commitTransaction2({
-          workspaceRoot,
-          transaction,
-          state: state2,
-          staged,
-          output: output.files,
-          runtime: options.runtime
-        });
-        await options.afterAuthorityPublished?.();
-        const committedRecord = await writeCommittedTransaction({ workspaceRoot, transaction });
-        authorityCommitted = true;
-        await options.runtime.afterAuthorityCommitted?.();
-        const current = await readTransactionMaybe(workspaceRoot);
-        if (current === undefined) {
-          throw failure2({
-            reason: "RecoveryRefused",
-            path: finalPathFor(workspaceRoot, TRANSACTION_PATH),
-            message: "Transaction disappeared before committed cleanup"
+        published = { result: { changedPaths: [], memberManifests }, watchmanIgnoreDirs };
+      } else {
+        let authorityCommitted = false;
+        try {
+          await writeTransaction({ workspaceRoot, transaction });
+          const desired = new Map(output.files.map((file6) => [file6.path, file6]));
+          const staged = await stageTransaction({
+            workspaceRoot,
+            transaction,
+            desired,
+            runtime: options.runtime
           });
-        }
-        await cleanupTransactionForward({
-          workspaceRoot,
-          transaction: committedRecord.transaction,
-          pendingRecord: current,
-          committedRecord
-        });
-        return {
-          changedPaths,
-          memberManifests: members.map(({ memberKey, manifest }) => ({ memberKey, manifest }))
-        };
-      } catch (cause) {
-        if (cause instanceof SimulatedProcessFault || authorityCommitted === true) {
-          leaveForRecovery = true;
+          const changedPaths = await commitTransaction2({
+            workspaceRoot,
+            transaction,
+            state: state2,
+            staged,
+            output: output.files,
+            runtime: options.runtime
+          });
+          await options.afterAuthorityPublished?.();
+          const committedRecord = await writeCommittedTransaction({
+            workspaceRoot,
+            transaction
+          });
+          authorityCommitted = true;
+          await options.runtime.afterAuthorityCommitted?.();
+          const current = await readTransactionMaybe(workspaceRoot);
+          if (current === undefined) {
+            throw failure2({
+              reason: "RecoveryRefused",
+              path: finalPathFor(workspaceRoot, TRANSACTION_PATH),
+              message: "Transaction disappeared before committed cleanup"
+            });
+          }
+          await cleanupTransactionForward({
+            workspaceRoot,
+            transaction: committedRecord.transaction,
+            pendingRecord: current,
+            committedRecord
+          });
+          published = { result: { changedPaths, memberManifests }, watchmanIgnoreDirs };
+        } catch (cause) {
+          if (cause instanceof SimulatedProcessFault || authorityCommitted === true) {
+            leaveForRecovery = true;
+            throw cause;
+          }
+          const current = await readTransactionMaybe(workspaceRoot);
+          if (current !== undefined) {
+            try {
+              await rollbackTransaction({ workspaceRoot, transactionRecord: current });
+            } catch {
+              leaveForRecovery = true;
+            }
+          } else {
+            const candidatePath = finalPathFor(workspaceRoot, transactionRecordCandidatePath({ token: transaction.lockToken }));
+            const candidate = await snapshotMaybe(candidatePath);
+            const expectedBytes = encodeJson(CompositionPublicationTransactionSchema, transaction);
+            if (candidate !== undefined && candidate.mode === 420 && bytesEqual(candidate.bytes, expectedBytes) === true) {
+              await removeExact({ path: candidatePath, expected: candidate });
+            }
+            await cleanupEmptyTransactionDirectories({
+              workspaceRoot,
+              token: transaction.lockToken
+            });
+          }
           throw cause;
         }
-        const current = await readTransactionMaybe(workspaceRoot);
-        if (current !== undefined) {
-          try {
-            await rollbackTransaction({ workspaceRoot, transactionRecord: current });
-          } catch {
-            leaveForRecovery = true;
-          }
-        } else {
-          const candidatePath = finalPathFor(workspaceRoot, transactionRecordCandidatePath({ token: transaction.lockToken }));
-          const candidate = await snapshotMaybe(candidatePath);
-          const expectedBytes = encodeJson(CompositionPublicationTransactionSchema, transaction);
-          if (candidate !== undefined && candidate.mode === 420 && bytesEqual(candidate.bytes, expectedBytes) === true) {
-            await removeExact({ path: candidatePath, expected: candidate });
-          }
-          await cleanupEmptyTransactionDirectories({
-            workspaceRoot,
-            token: transaction.lockToken
-          });
-        }
-        throw cause;
       }
+      const watchmanInvalidation = await reconcileWatchmanRoot({
+        workspaceRoot,
+        resolvedWatchmanExecutable: options.resolvedWatchmanExecutable,
+        publishedIgnoreDirs: published.watchmanIgnoreDirs
+      });
+      return { ...published.result, watchmanInvalidation };
     } finally {
       if (leaveForRecovery === false)
         await releaseLock({ workspaceRoot, acquired });
@@ -76725,7 +76899,7 @@ var validateTeardownState = async ({
     });
   }
   const manifest = decodeGenerationManifest({ snapshot: manifestSnapshot, path: manifestPath });
-  const canonical2 = [".buckconfig", ".buckroot", ".megarepo/bin/buck2", "BUCK"].toSorted();
+  const canonical2 = [...COMPOSITION_OWNED_PATHS];
   assertManifestShape({ manifest, expectedPaths: canonical2, path: manifestPath });
   const files = new Map;
   for (const record2 of manifest.files) {
@@ -76827,7 +77001,7 @@ var getEnabledGenerators = (config) => {
     generators.push(".vscode/megarepo.code-workspace");
   }
   if (config.generators?.composition?.enabled === true) {
-    generators.push(".buckroot", ".buckconfig", "BUCK", ".megarepo/bin/buck2");
+    generators.push(...COMPOSITION_OWNED_PATHS);
   }
   return generators;
 };
@@ -80640,34 +80814,9 @@ var finishSyncUI = (handle) => handle.cleanup();
 import { execFile as execFileCallback4 } from "node:child_process";
 import { readFile as readNodeFile } from "node:fs/promises";
 import * as NodePath19 from "node:path";
-import { promisify as promisify4 } from "node:util";
-// src/composition/apply/composition-apply.ts
-import { lstat as lstat8, readFile as readFile10, readdir as readdir7 } from "node:fs/promises";
-import * as NodePath15 from "node:path";
-
-// src/composition/capabilities/composition-capability-resolver.ts
-import { execFile as execFileCallback } from "node:child_process";
-import { createHash as createHash6, randomUUID } from "node:crypto";
-import { constants as constants4, createReadStream } from "node:fs";
-import {
-  access as access3,
-  chmod as chmod3,
-  lstat as lstat3,
-  mkdir as mkdir5,
-  mkdtemp as mkdtemp2,
-  open as open5,
-  readFile as readFile6,
-  readdir as readdir3,
-  realpath as realpath3,
-  rename as rename6,
-  rm as rm3,
-  stat as stat5,
-  symlink as symlink4,
-  writeFile as writeFile4
-} from "node:fs/promises";
-import { tmpdir as tmpdir2 } from "node:os";
-import * as NodePath7 from "node:path";
-import { promisify } from "node:util";
+import { promisify as promisify5 } from "node:util";
+// src/composition/apply/composition-apply-schema.ts
+import * as NodePath10 from "node:path";
 
 // src/composition/capabilities/composition-capability-resolver-schema.ts
 import * as PosixPath3 from "node:path/posix";
@@ -80725,784 +80874,16 @@ class CompositionCapabilityResolutionError extends exports_Schema.TaggedError()(
 }) {
 }
 
-// src/composition/capabilities/composition-capability-resolver.ts
-var execFile2 = promisify(execFileCallback);
-var strictParseOptions4 = { errors: "all", onExcessProperty: "error" };
-var compositionCapabilityRuntimeFromEnv = (env = process.env) => {
-  const nixPath = env["MR_CAPABILITY_NIX_BIN"];
-  if (nixPath === undefined || nixPath.length === 0) {
-    throw new CompositionCapabilityResolutionError({
-      reason: "InvalidRuntime",
-      message: "Missing pinned capability runtime path in MR_CAPABILITY_NIX_BIN"
-    });
-  }
-  return { nixPath, env };
-};
-var checkCompositionCapabilityProjection = (input) => checkCompositionCapabilityProjectionInternal(input);
-var resolveCompositionCapabilities = (input) => resolveCompositionCapabilitiesInternal(input);
-var invalidInput = ({
-  message,
-  path: path8,
-  cause
-}) => new CompositionCapabilityResolutionError({
-  reason: "InvalidInput",
-  message,
-  ...path8 === undefined ? {} : { path: path8 },
-  ...cause === undefined ? {} : { cause }
-});
-var assertAbsoluteNormalized = ({
-  value: value5,
-  name
-}) => {
-  if (NodePath7.isAbsolute(value5) === false || NodePath7.normalize(value5) !== value5) {
-    throw invalidInput({ message: `${name} must be a normalized absolute path`, path: value5 });
-  }
-};
-var containedBy = ({ root, path: path8 }) => path8 === root || path8.startsWith(`${root}${NodePath7.sep}`) === true;
-var platformFor = (system) => {
-  switch (system) {
-    case "x86_64-linux":
-      return "x86_64-linux";
-    case "aarch64-linux":
-      return "aarch64-linux";
-    case "aarch64-darwin":
-      return "aarch64-macos";
-  }
-};
-var command2 = ({
-  executable,
-  args: args2
-}) => ({
-  executable,
-  args: [...args2]
-});
-var commandFailure = ({
-  value: value5,
-  message,
-  reason = "CommandFailure",
-  cause
-}) => new CompositionCapabilityResolutionError({
-  reason,
-  message,
-  command: value5,
-  cause
-});
-var run8 = async ({
-  value: value5,
-  env,
-  reason
-}) => {
-  try {
-    return await execFile2(value5.executable, [...value5.args], {
-      encoding: "utf8",
-      env,
-      maxBuffer: 1024 * 1024
-    });
-  } catch (cause) {
-    throw commandFailure({
-      value: value5,
-      message: `Exact command failed: ${value5.executable} ${value5.args.join(" ")}`,
-      ...reason === undefined ? {} : { reason },
-      cause
-    });
-  }
-};
-var assertExecutable = async ({
-  path: path8,
-  name
-}) => {
-  assertAbsoluteNormalized({ value: path8, name });
-  try {
-    const info2 = await stat5(path8);
-    if (info2.isFile() === false)
-      throw new Error("not a regular file");
-    await access3(path8, 1);
-  } catch (cause) {
-    throw new CompositionCapabilityResolutionError({
-      reason: "InvalidRuntime",
-      message: `${name} is not a regular executable file`,
-      path: path8,
-      cause
-    });
-  }
-};
-var validateRuntime = async (runtime3) => assertExecutable({ path: runtime3.nixPath, name: "nixPath" });
-var captureContainedRegularFile = async ({
-  root,
-  path: path8,
-  label
-}) => {
-  let handle;
-  try {
-    const pathInfo = await lstat3(path8);
-    const canonicalPath = await realpath3(path8);
-    if (pathInfo.isFile() === false || pathInfo.isSymbolicLink() === true || containedBy({ root, path: canonicalPath }) === false) {
-      throw invalidInput({ message: `${label} must be a contained regular file`, path: path8 });
-    }
-    handle = await open5(path8, constants4.O_RDONLY | constants4.O_NOFOLLOW);
-    const before = await handle.stat();
-    const bytes = await handle.readFile();
-    const after = await handle.stat();
-    if (before.isFile() === false || before.dev !== pathInfo.dev || before.ino !== pathInfo.ino || after.dev !== before.dev || after.ino !== before.ino) {
-      throw invalidInput({ message: `${label} identity changed while reading`, path: path8 });
-    }
-    return {
-      path: path8,
-      realpath: canonicalPath,
-      device: before.dev,
-      inode: before.ino,
-      digest: createHash6("sha256").update(bytes).digest("hex")
-    };
-  } finally {
-    await handle?.close();
-  }
-};
-var assertRegularFileIdentity = async (identity2) => {
-  try {
-    const current = await captureContainedRegularFile({
-      root: NodePath7.dirname(identity2.realpath),
-      path: identity2.path,
-      label: "flake.lock"
-    });
-    if (current.realpath !== identity2.realpath || current.device !== identity2.device || current.inode !== identity2.inode || current.digest !== identity2.digest) {
-      throw new TypeError("flake.lock identity changed");
-    }
-  } catch (cause) {
-    throw new CompositionCapabilityResolutionError({
-      reason: "InvalidLock",
-      message: "flake.lock bytes or inode changed during capability resolution",
-      path: identity2.path,
-      cause
-    });
-  }
-};
-var validateMember = async ({
-  memberRoot
-}) => {
-  assertAbsoluteNormalized({ value: memberRoot, name: "memberRoot" });
-  const canonicalMemberRoot = await realpath3(memberRoot);
-  if ((await stat5(canonicalMemberRoot)).isDirectory() === false) {
-    throw invalidInput({ message: "memberRoot must be a directory", path: memberRoot });
-  }
-  try {
-    const lock = await captureContainedRegularFile({
-      root: canonicalMemberRoot,
-      path: NodePath7.join(canonicalMemberRoot, "flake.lock"),
-      label: "flake.lock"
-    });
-    return { memberRoot: canonicalMemberRoot, lock };
-  } catch (cause) {
-    throw new CompositionCapabilityResolutionError({
-      reason: "InvalidLock",
-      message: "Member must contain a regular, contained, immutable flake.lock",
-      path: NodePath7.join(canonicalMemberRoot, "flake.lock"),
-      cause
-    });
-  }
-};
-var candidateReplaced = ({ path: path8, cause }) => new CompositionCapabilityResolutionError({
-  reason: "CandidateReplaced",
-  message: `Capability projection candidate ownership changed at '${path8}'`,
-  path: path8,
-  ...cause === undefined ? {} : { cause }
-});
-var currentUid = () => {
-  const uid = process.getuid?.();
-  if (uid === undefined) {
-    throw new CompositionCapabilityResolutionError({
-      reason: "InvalidRuntime",
-      message: "Capability resolution requires a POSIX process uid"
-    });
-  }
-  return uid;
-};
-var assertSecureParent = async ({
-  path: path8,
-  uid
-}) => {
-  const parent2 = NodePath7.dirname(path8);
-  const info2 = await lstat3(parent2);
-  const sticky = (info2.mode & 512) !== 0;
-  const ownerPrivate = info2.uid === uid && (info2.mode & 18) === 0;
-  if (info2.isDirectory() === false || info2.isSymbolicLink() === true || sticky === false && ownerPrivate === false) {
-    throw new Error(`private scratch parent is neither sticky nor owner-private: ${parent2}`);
-  }
-};
-var defaultCreatePrivateScratch = async () => {
-  const uid = currentUid();
-  const tempRoot = await realpath3(tmpdir2());
-  await assertSecureParent({ path: NodePath7.join(tempRoot, "entry"), uid });
-  const path8 = await mkdtemp2(NodePath7.join(tempRoot, "megarepo-capabilities-"));
-  await chmod3(path8, 448);
-  return { path: path8, cleanup: () => rm3(path8, { recursive: true, force: true }) };
-};
-var capturePrivateScratchIdentity = async (scratch) => {
-  assertAbsoluteNormalized({ value: scratch.path, name: "private scratch path" });
-  try {
-    const uid = currentUid();
-    const info2 = await lstat3(scratch.path);
-    const canonicalPath = await realpath3(scratch.path);
-    await assertSecureParent({ path: scratch.path, uid });
-    if (info2.isDirectory() === false || info2.isSymbolicLink() === true || (info2.mode & 511) !== 448 || info2.uid !== uid || canonicalPath !== scratch.path) {
-      throw new Error("private scratch is not a canonical mode-0700 directory owned by this uid");
-    }
-    return {
-      path: scratch.path,
-      realpath: canonicalPath,
-      device: info2.dev,
-      inode: info2.ino,
-      owner: info2.uid
-    };
-  } catch (cause) {
-    throw candidateReplaced({ path: scratch.path, cause });
-  }
-};
-var captureCandidateRootIdentity = async ({
-  path: path8,
-  scratch
-}) => {
-  try {
-    const info2 = await lstat3(path8);
-    const canonicalPath = await realpath3(path8);
-    if (info2.isDirectory() === false || info2.isSymbolicLink() === true || (info2.mode & 511) !== 448 || info2.uid !== scratch.owner || containedBy({ root: scratch.realpath, path: canonicalPath }) === false) {
-      throw new Error("candidate is not a private contained directory");
-    }
-    return {
-      path: path8,
-      realpath: canonicalPath,
-      device: info2.dev,
-      inode: info2.ino,
-      owner: info2.uid
-    };
-  } catch (cause) {
-    throw candidateReplaced({ path: path8, cause });
-  }
-};
-var assertDirectoryIdentity = async (identity2) => {
-  try {
-    const info2 = await lstat3(identity2.path);
-    const canonicalPath = await realpath3(identity2.path);
-    if (info2.isDirectory() === false || info2.isSymbolicLink() === true || (info2.mode & 511) !== 448 || info2.dev !== identity2.device || info2.ino !== identity2.inode || info2.uid !== identity2.owner || canonicalPath !== identity2.realpath) {
-      throw new Error("directory identity no longer matches its captured inode");
-    }
-  } catch (cause) {
-    throw candidateReplaced({ path: identity2.path, cause });
-  }
-};
-var makeDirectoriesOwnerWritable = async (path8) => {
-  const info2 = await lstat3(path8);
-  if (info2.isDirectory() === false || info2.isSymbolicLink() === true)
-    return;
-  await chmod3(path8, 448);
-  await Promise.all((await readdir3(path8)).map((child) => makeDirectoriesOwnerWritable(NodePath7.join(path8, child))));
-};
-var normalizeR6SourceModes = async (path8) => {
-  const info2 = await lstat3(path8);
-  if (info2.isDirectory() === true) {
-    await Promise.all((await readdir3(path8)).map((child) => normalizeR6SourceModes(NodePath7.join(path8, child))));
-    await chmod3(path8, 493);
-  } else if (info2.isFile() === true) {
-    await chmod3(path8, (info2.mode & 73) === 0 ? 292 : 365);
-  }
-};
-var makeScratchRelease = ({
-  scratch,
-  identity: identity2
-}) => {
-  let released = false;
-  return async () => {
-    if (released === true)
-      return;
-    await assertDirectoryIdentity(identity2);
-    await makeDirectoriesOwnerWritable(identity2.path);
-    await scratch.cleanup();
-    released = true;
-  };
-};
-var executableDigest = async (path8) => {
-  const hash3 = createHash6("sha256");
-  await new Promise((resolve12, reject) => {
-    const stream3 = createReadStream(path8);
-    stream3.on("data", (chunk) => hash3.update(chunk));
-    stream3.once("error", reject);
-    stream3.once("end", resolve12);
-  });
-  return `sha256:${hash3.digest("hex")}`;
-};
-var singleNixOutput = ({
-  stdout,
-  capability,
-  value: value5
-}) => {
-  const lines2 = stdout.split(/\r?\n/u).filter((line) => line.length > 0);
-  if (lines2.length !== 1 || /^\/nix\/store\/[^/\s]+$/u.test(lines2[0] ?? "") === false) {
-    throw new CompositionCapabilityResolutionError({
-      reason: "InvalidNixOutput",
-      message: `Nix must return exactly one /nix/store output for capability '${capability.toolId}'`,
-      command: value5
-    });
-  }
-  return lines2[0];
-};
-var closureStorePaths = ({
-  stdout,
-  capability,
-  nixOutputPath,
-  value: value5
-}) => {
-  const lines2 = stdout.split(/\r?\n/u).filter((line) => line.length > 0);
-  const invalid2 = lines2.length === 0 || lines2.some((line) => /^\/nix\/store\/[^/\s]+$/u.test(line) === false) || lines2.includes(nixOutputPath) === false;
-  if (invalid2 === true) {
-    throw new CompositionCapabilityResolutionError({
-      reason: "InvalidNixOutput",
-      message: `Nix must return the complete /nix/store closure of '${nixOutputPath}' for capability '${capability.toolId}'`,
-      command: value5
-    });
-  }
-  return [...new Set(lines2)].toSorted((left, right) => left < right ? -1 : left > right ? 1 : 0);
-};
-var resolveCapability = async ({
-  capability,
-  nixCommands,
-  env,
-  lock
-}) => {
-  const { stdout } = await run8({ value: nixCommands.build, env }).finally(() => assertRegularFileIdentity(lock));
-  const nixOutputPath = singleNixOutput({ stdout, capability, value: nixCommands.build });
-  const closure = await run8({ value: nixCommands.closure, env }).finally(() => assertRegularFileIdentity(lock));
-  const closurePaths = closureStorePaths({
-    stdout: closure.stdout,
-    capability,
-    nixOutputPath,
-    value: nixCommands.closure
-  });
-  const declaredExecutable = NodePath7.join(nixOutputPath, capability.executable);
-  try {
-    const [canonicalOutput, outputInfo, executableInfo] = await Promise.all([
-      realpath3(nixOutputPath),
-      stat5(nixOutputPath),
-      stat5(declaredExecutable)
-    ]);
-    if (outputInfo.isDirectory() === false || executableInfo.isFile() === false) {
-      throw new Error("output must be a directory and executable must be a regular file");
-    }
-    await access3(declaredExecutable, 1);
-    const executablePath = await realpath3(declaredExecutable);
-    if (containedBy({ root: canonicalOutput, path: executablePath }) === false) {
-      throw new Error("executable realpath escapes its exact Nix output");
-    }
-    return {
-      capability,
-      nixOutputPath,
-      executablePath,
-      executableDigest: await executableDigest(executablePath),
-      closureStorePaths: closurePaths
-    };
-  } catch (cause) {
-    throw new CompositionCapabilityResolutionError({
-      reason: "InvalidExecutable",
-      message: `Capability '${capability.toolId}' does not provide a contained regular executable '${capability.executable}'`,
-      path: declaredExecutable,
-      cause
-    });
-  }
-};
-var resolveCapabilitiesInOrder = ({
-  capabilities,
-  nixCommands,
-  env,
-  lock
-}) => {
-  const resolved2 = [];
-  const next2 = (index2) => {
-    const capability = capabilities[index2];
-    if (capability === undefined)
-      return Promise.resolve(resolved2);
-    return resolveCapability({ capability, nixCommands: nixCommands[index2], env, lock }).then((value5) => {
-      resolved2.push(value5);
-      return next2(index2 + 1);
-    });
-  };
-  return next2(0);
-};
-var safeNixEnvironment = ({
-  runtime: runtime3,
-  privateRoot
-}) => {
-  const source = runtime3.env ?? {};
-  return {
-    HOME: privateRoot,
-    TMPDIR: privateRoot,
-    ...source["NIX_SSL_CERT_FILE"] === undefined ? {} : { NIX_SSL_CERT_FILE: source["NIX_SSL_CERT_FILE"] },
-    ...source["SSL_CERT_FILE"] === undefined ? {} : { SSL_CERT_FILE: source["SSL_CERT_FILE"] }
-  };
-};
-var ToolProjectionManifest = exports_Schema.Struct({
-  closureIdentity: exports_Schema.String,
-  closureStorePaths: exports_Schema.Array(exports_Schema.String),
-  contentDigest: exports_Schema.String,
-  executableStorePath: exports_Schema.String,
-  executionPlatform: exports_Schema.Literals(["x86_64-linux", "aarch64-linux", "aarch64-macos"]),
-  protocol: exports_Schema.String,
-  runtimeContract: exports_Schema.Literal("native-executable/v1"),
-  schema: exports_Schema.Literal("effect-utils/buck2-support-tools/v1"),
-  toolId: exports_Schema.String
-});
-var ToolProjectionManifestJson = exports_Schema.fromJsonString(ToolProjectionManifest);
-var CapabilityProjectionManifestJsonSchema = ToolProjectionManifestJson;
-var toolBuckBytes = `export_file(name = "executable", src = "executable", visibility = ["PUBLIC"])
-` + `export_file(name = "manifest", src = "manifest.json", visibility = ["PUBLIC"])
-`;
-var rootBuckBytes = `# Generated from exact Nix realizations.
-`;
-var atomicWrite2 = async ({ path: path8, bytes }) => {
-  const temporary = `${path8}.tmp-${randomUUID()}`;
-  await writeFile4(temporary, bytes, { flag: "wx" });
-  await rename6(temporary, path8);
-};
-var manifestBytes = (manifest) => `${exports_Schema.encodeSync(ToolProjectionManifestJson)(manifest)}
-`;
-var computeGeneration = (files) => {
-  const framed = files.toSorted((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0).map(({ path: path8, bytes }) => `${createHash6("sha256").update(bytes).digest("hex")}  ./${path8}
-`).join("");
-  const payloadDigest = createHash6("sha256").update(framed).digest("hex");
-  return createHash6("sha256").update(`${payloadDigest}  -
-`).digest("hex");
-};
-var renderDefs = ({
-  generation,
-  platform,
-  manifests
-}) => [
-  `GENERATION = "${generation}"`,
-  "CAPABILITIES = {",
-  `  "${platform}": {`,
-  ...manifests.map((manifest) => `    "${manifest.toolId}": {"generation": "${generation}", "contentDigest": "${manifest.contentDigest}", "closureIdentity": "${manifest.closureIdentity}", "executableStorePath": "${manifest.executableStorePath}", "closureStorePaths": [${manifest.closureStorePaths.map((path8) => `"${path8}"`).join(", ")}]},`),
-  "  },",
-  "}",
-  ""
-].join(`
-`);
-var projectResolvedCapabilities = async ({
-  candidateRoot,
-  platform,
-  resolved: resolved2
-}) => {
-  const manifests = resolved2.map(({ capability, executablePath, executableDigest: executableDigest2, closureStorePaths: closure }) => ({
-    closureIdentity: NodePath7.dirname(NodePath7.dirname(executablePath)),
-    closureStorePaths: closure,
-    contentDigest: executableDigest2.slice("sha256:".length),
-    executableStorePath: executablePath,
-    executionPlatform: platform,
-    protocol: capability.protocol,
-    runtimeContract: "native-executable/v1",
-    schema: "effect-utils/buck2-support-tools/v1",
-    toolId: capability.toolId
-  }));
-  const files = manifests.flatMap((manifest) => [
-    { path: `${platform}/${manifest.toolId}/BUCK`, bytes: toolBuckBytes },
-    { path: `${platform}/${manifest.toolId}/manifest.json`, bytes: manifestBytes(manifest) }
-  ]);
-  const generation = computeGeneration(files);
-  const projectionPath = NodePath7.join(candidateRoot, ".buck2", "capabilities");
-  const generationRoot = NodePath7.join(projectionPath, "generations", generation, platform);
-  await mkdir5(generationRoot, { recursive: true });
-  await Promise.all(manifests.map(async (manifest) => {
-    const directory4 = NodePath7.join(generationRoot, manifest.toolId);
-    await mkdir5(directory4);
-    await symlink4(manifest.executableStorePath, NodePath7.join(directory4, "executable"));
-    await atomicWrite2({
-      path: NodePath7.join(directory4, "manifest.json"),
-      bytes: manifestBytes(manifest)
-    });
-    await atomicWrite2({ path: NodePath7.join(directory4, "BUCK"), bytes: toolBuckBytes });
-  }));
-  await atomicWrite2({ path: NodePath7.join(projectionPath, "BUCK"), bytes: rootBuckBytes });
-  await atomicWrite2({
-    path: NodePath7.join(projectionPath, "defs.bzl"),
-    bytes: renderDefs({ generation, platform, manifests })
-  });
-  return { projectionPath, generation };
-};
-var assertProjectedClosure = async ({
-  manifest,
-  path: path8
-}) => {
-  const paths = manifest.closureStorePaths;
-  const canonical2 = paths.every((value5, index2) => /^\/nix\/store\/[^/]+$/u.test(value5) === true && (index2 === 0 || value5 > paths[index2 - 1]));
-  if (paths.length === 0 || canonical2 === false) {
-    throw invalidInput({ message: "Capability closure paths are not canonical", path: path8 });
-  }
-  if (paths.includes(manifest.closureIdentity) === false) {
-    throw invalidInput({ message: "Capability closure omits its own realization", path: path8 });
-  }
-  await Promise.all(paths.map(async (storePath) => {
-    try {
-      await lstat3(storePath);
-    } catch (cause) {
-      throw invalidInput({ message: "Capability closure path is absent", path: storePath, cause });
-    }
-  }));
-};
-var checkCompositionCapabilityProjectionInternal = async ({
-  memberRoot
-}) => {
-  const projectionPath = NodePath7.join(memberRoot, ".buck2", "capabilities");
-  const defs = await readFile6(NodePath7.join(projectionPath, "defs.bzl"), "utf8");
-  const match11 = /^GENERATION = "([0-9a-f]{64})"$/mu.exec(defs);
-  if (match11 === null)
-    throw invalidInput({ message: "Capability defs generation is invalid", path: projectionPath });
-  const generation = match11[1];
-  if (await readFile6(NodePath7.join(projectionPath, "BUCK"), "utf8") !== rootBuckBytes) {
-    throw invalidInput({ message: "Capability root BUCK is invalid", path: projectionPath });
-  }
-  const generationRoot = NodePath7.join(projectionPath, "generations", generation);
-  const platforms = await readdir3(generationRoot);
-  if (platforms.length !== 1)
-    throw invalidInput({
-      message: "Capability generation must contain one platform",
-      path: generationRoot
-    });
-  const platform = platforms[0];
-  const toolRoot = NodePath7.join(generationRoot, platform);
-  const tools = (await readdir3(toolRoot)).toSorted();
-  const checked = await Promise.all(tools.map(async (toolId) => {
-    const directory4 = NodePath7.join(toolRoot, toolId);
-    const manifestFile = NodePath7.join(directory4, "manifest.json");
-    const encoded = await readFile6(manifestFile, "utf8");
-    const manifest = exports_Schema.decodeUnknownSync(ToolProjectionManifestJson, strictParseOptions4)(encoded.trimEnd());
-    if (manifest.toolId !== toolId || manifest.executionPlatform !== platform) {
-      throw invalidInput({ message: "Capability manifest identity mismatch", path: manifestFile });
-    }
-    const executable = await realpath3(NodePath7.join(directory4, "executable"));
-    if (executable !== manifest.executableStorePath || (await executableDigest(executable)).slice(7) !== manifest.contentDigest) {
-      throw invalidInput({ message: "Capability executable identity mismatch", path: executable });
-    }
-    await assertProjectedClosure({ manifest, path: manifestFile });
-    if (await readFile6(NodePath7.join(directory4, "BUCK"), "utf8") !== toolBuckBytes) {
-      throw invalidInput({ message: "Capability tool BUCK is invalid", path: directory4 });
-    }
-    return {
-      manifest,
-      files: [
-        { path: `${platform}/${toolId}/BUCK`, bytes: toolBuckBytes },
-        { path: `${platform}/${toolId}/manifest.json`, bytes: encoded }
-      ]
-    };
-  }));
-  const manifests = checked.map(({ manifest }) => manifest);
-  const files = checked.flatMap(({ files: files2 }) => files2);
-  if (computeGeneration(files) !== generation || defs !== renderDefs({ generation, platform, manifests })) {
-    throw invalidInput({
-      message: "Capability projection generation or defs mismatch",
-      path: projectionPath
-    });
-  }
-};
-var captureProjectionIdentity = async ({
-  projectionPath,
-  candidate
-}) => {
-  try {
-    const info2 = await lstat3(projectionPath);
-    const canonicalPath = await realpath3(projectionPath);
-    if (info2.isDirectory() === false || info2.isSymbolicLink() === true || containedBy({ root: candidate.realpath, path: canonicalPath }) === false) {
-      throw new Error("projection is not a real directory contained by the candidate");
-    }
-    return {
-      path: projectionPath,
-      realpath: canonicalPath,
-      device: info2.dev,
-      inode: info2.ino
-    };
-  } catch (cause) {
-    throw new CompositionCapabilityResolutionError({
-      reason: "ProjectionFailure",
-      message: "Checked projection directory identity is invalid",
-      path: projectionPath,
-      cause
-    });
-  }
-};
-var assertProjectionIdentity = async (identity2) => {
-  try {
-    const info2 = await lstat3(identity2.path);
-    const canonicalPath = await realpath3(identity2.path);
-    if (info2.isDirectory() === false || info2.isSymbolicLink() === true || info2.dev !== identity2.device || info2.ino !== identity2.inode || canonicalPath !== identity2.realpath) {
-      throw new Error("projection identity changed");
-    }
-  } catch (cause) {
-    throw new CompositionCapabilityResolutionError({
-      reason: "ProjectionFailure",
-      message: "Checked projection directory was replaced while digesting",
-      path: identity2.path,
-      cause
-    });
-  }
-};
-var projectionDigest = async ({
-  projection,
-  candidate
-}) => {
-  await assertDirectoryIdentity(candidate);
-  await assertProjectionIdentity(projection);
-  const defsPath = NodePath7.join(projection.path, "defs.bzl");
-  let handle;
-  try {
-    const pathInfo = await lstat3(defsPath);
-    const canonicalPath = await realpath3(defsPath);
-    if (pathInfo.isFile() === false || pathInfo.isSymbolicLink() === true || containedBy({ root: projection.realpath, path: canonicalPath }) === false) {
-      throw new Error("defs.bzl is not a contained regular file");
-    }
-    handle = await open5(defsPath, constants4.O_RDONLY | constants4.O_NOFOLLOW);
-    const before = await handle.stat();
-    const defs = await handle.readFile({ encoding: "utf8" });
-    const after = await handle.stat();
-    if (before.isFile() === false || before.dev !== pathInfo.dev || before.ino !== pathInfo.ino || after.dev !== before.dev || after.ino !== before.ino) {
-      throw new Error("defs.bzl inode changed while reading");
-    }
-    const matches = [...defs.matchAll(/^GENERATION = "([0-9a-f]{64})"$/gmu)];
-    if (matches.length !== 1) {
-      throw new Error("defs.bzl does not declare exactly one valid GENERATION");
-    }
-    await assertProjectionIdentity(projection);
-    await assertDirectoryIdentity(candidate);
-    return matches[0][1];
-  } catch (cause) {
-    throw new CompositionCapabilityResolutionError({
-      reason: "ProjectionFailure",
-      message: "Checked projection could not be digested without following links",
-      path: defsPath,
-      cause
-    });
-  } finally {
-    await handle?.close();
-  }
-};
-var resolveCompositionCapabilitiesInternal = async (input) => {
-  let release3;
-  try {
-    const manifest = decodeBuckMemberManifest(input.manifest);
-    const system = exports_Schema.decodeUnknownSync(CompositionCapabilitySystemSchema, strictParseOptions4)(input.system);
-    await validateRuntime(input.runtime);
-    const roots = await validateMember(input);
-    const capabilities = buckMemberProjectedCapabilitiesForSystem({ manifest, system }).toSorted((left, right) => left.toolId < right.toolId ? -1 : left.toolId > right.toolId ? 1 : 0);
-    const nonce = (input.runtime.nonce ?? randomUUID)();
-    if (/^[A-Za-z0-9._-]+$/u.test(nonce) === false) {
-      throw invalidInput({
-        message: "runtime nonce must contain only portable filename characters"
-      });
-    }
-    const plannedPrivateRoot = NodePath7.join(NodePath7.resolve(tmpdir2()), `.megarepo-capabilities-planned-${nonce}`);
-    const plannedCandidateRoot = NodePath7.join(plannedPrivateRoot, "candidate");
-    const projectorPlatform = platformFor(system);
-    const capabilityCommands = capabilities.map((capability) => {
-      const installable = `${roots.memberRoot}#${capability.flakePackage}^out`;
-      return {
-        build: command2({
-          executable: input.runtime.nixPath,
-          args: [
-            "build",
-            "--no-link",
-            "--print-out-paths",
-            "--no-write-lock-file",
-            "--no-update-lock-file",
-            installable
-          ]
-        }),
-        closure: command2({
-          executable: input.runtime.nixPath,
-          args: [
-            "path-info",
-            "--recursive",
-            "--offline",
-            "--no-write-lock-file",
-            "--no-update-lock-file",
-            installable
-          ]
-        })
-      };
-    });
-    const nixCommands = capabilityCommands.flatMap(({ build: build2, closure }) => [build2, closure]);
-    if (input.dryRun === true) {
-      return {
-        _tag: "Planned",
-        system,
-        projectorPlatform,
-        candidateRoot: plannedCandidateRoot,
-        nixCommands
-      };
-    }
-    const scratch = await (input.runtime.createPrivateScratch ?? defaultCreatePrivateScratch)();
-    const scratchIdentity = await capturePrivateScratchIdentity(scratch);
-    release3 = makeScratchRelease({ scratch, identity: scratchIdentity });
-    const env = safeNixEnvironment({ runtime: input.runtime, privateRoot: scratchIdentity.path });
-    const resolved2 = await resolveCapabilitiesInOrder({
-      capabilities,
-      nixCommands: capabilityCommands,
-      env,
-      lock: roots.lock
-    });
-    await assertRegularFileIdentity(roots.lock);
-    const candidateRoot = NodePath7.join(scratchIdentity.path, "candidate");
-    await mkdir5(candidateRoot, { mode: 448 });
-    const candidateIdentity = await captureCandidateRootIdentity({
-      path: candidateRoot,
-      scratch: scratchIdentity
-    });
-    await input.runtime.afterCandidateCreated?.(candidateRoot);
-    await assertDirectoryIdentity(scratchIdentity);
-    await assertDirectoryIdentity(candidateIdentity);
-    const projected = await projectResolvedCapabilities({
-      candidateRoot,
-      platform: projectorPlatform,
-      resolved: resolved2
-    });
-    await checkCompositionCapabilityProjection({ memberRoot: candidateRoot });
-    const projectionPath = projected.projectionPath;
-    await input.runtime.beforeProjectionDigest?.({ candidateRoot, projectionPath });
-    await assertDirectoryIdentity(candidateIdentity);
-    const projection = await captureProjectionIdentity({
-      projectionPath,
-      candidate: candidateIdentity
-    });
-    const digest2 = await projectionDigest({ projection, candidate: candidateIdentity });
-    await normalizeR6SourceModes(projectionPath);
-    await assertRegularFileIdentity(roots.lock);
-    return {
-      _tag: "Resolved",
-      system,
-      projectorPlatform,
-      candidateRoot,
-      projectionPath,
-      projectionDigest: digest2,
-      capabilities: resolved2,
-      capabilitiesByToolId: Object.fromEntries(resolved2.map((capability) => [capability.capability.toolId, capability])),
-      nixCommands,
-      release: release3
-    };
-  } catch (cause) {
-    if (release3 !== undefined) {
-      try {
-        await release3();
-      } catch {}
-    }
-    if (cause instanceof CompositionCapabilityResolutionError)
-      throw cause;
-    throw invalidInput({ message: "Invalid composition capability resolver input", cause });
-  }
-};
-
 // src/composition/mounts/member-mount-cp-a-schema.ts
 import { Buffer as Buffer4 } from "node:buffer";
-import * as NodePath9 from "node:path";
+import * as NodePath8 from "node:path";
 
 // src/composition/mounts/member-mount-r6.ts
 import { Buffer as Buffer3 } from "node:buffer";
-import { createHash as createHash7 } from "node:crypto";
-import { createReadStream as createReadStream2 } from "node:fs";
-import { lstat as lstat4, readdir as readdir4, readlink as readlink3, realpath as realpath4 } from "node:fs/promises";
-import * as NodePath8 from "node:path";
+import { createHash as createHash6 } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { lstat as lstat3, readdir as readdir3, readlink as readlink3, realpath as realpath3 } from "node:fs/promises";
+import * as NodePath7 from "node:path";
 var R6_MANIFEST_VERSION = 1;
 var OWNED_CP_A_MOUNT_METADATA_VERSION = 2;
 var Sha2563 = exports_Schema.String.check(exports_Schema.isPattern(/^sha256:[0-9a-f]{64}$/u));
@@ -81678,7 +81059,7 @@ var encodeR6ManifestFramed = (manifest) => {
   }
   return Buffer3.concat(chunks2);
 };
-var digestR6Manifest = (manifest) => `sha256:${createHash7("sha256").update(encodeR6ManifestFramed(manifest)).digest("hex")}`;
+var digestR6Manifest = (manifest) => `sha256:${createHash6("sha256").update(encodeR6ManifestFramed(manifest)).digest("hex")}`;
 var scanError = ({
   reason,
   path: path8,
@@ -81702,12 +81083,12 @@ class WalkFailure extends Error {
 var failWalk = (error3) => {
   throw new WalkFailure(error3);
 };
-var fileSha256 = (path8) => new Promise((resolve13, reject) => {
-  const hash3 = createHash7("sha256");
-  const stream3 = createReadStream2(path8);
+var fileSha256 = (path8) => new Promise((resolve12, reject) => {
+  const hash3 = createHash6("sha256");
+  const stream3 = createReadStream(path8);
   stream3.on("data", (chunk) => hash3.update(chunk));
   stream3.on("error", reject);
-  stream3.on("end", () => resolve13(`sha256:${hash3.digest("hex")}`));
+  stream3.on("end", () => resolve12(`sha256:${hash3.digest("hex")}`));
 });
 var expectedModeMessage = ({
   policy: policy2,
@@ -81748,8 +81129,8 @@ var validateR6SymlinkTarget = ({
       message: `Invalid symlink target at '${path8}'`
     });
   }
-  if (NodePath8.posix.isAbsolute(target) === true) {
-    const normalized = NodePath8.posix.normalize(target);
+  if (NodePath7.posix.isAbsolute(target) === true) {
+    const normalized = NodePath7.posix.normalize(target);
     if (normalized !== target || /^\/nix\/store\/[0-9abcdfghijklmnpqrsvwxyz]{32}-[^/]+(?:\/.*)?$/u.test(normalized) === false) {
       throw new R6ManifestValidationError({
         reason: "ForbiddenSymlink",
@@ -81758,8 +81139,8 @@ var validateR6SymlinkTarget = ({
     }
     return;
   }
-  const resolved2 = NodePath8.posix.normalize(NodePath8.posix.join(NodePath8.posix.dirname(path8), target));
-  if (resolved2 === ".." || resolved2.startsWith("../") === true || NodePath8.posix.isAbsolute(resolved2) === true) {
+  const resolved2 = NodePath7.posix.normalize(NodePath7.posix.join(NodePath7.posix.dirname(path8), target));
+  if (resolved2 === ".." || resolved2.startsWith("../") === true || NodePath7.posix.isAbsolute(resolved2) === true) {
     throw new R6ManifestValidationError({
       reason: "ForbiddenSymlink",
       message: `Relative symlink at '${path8}' escapes the repository root: '${target}'`
@@ -81775,9 +81156,9 @@ var validateAbsoluteStoreTargetExists = async ({
   path: path8,
   target
 }) => {
-  if (NodePath8.posix.isAbsolute(target) === false)
+  if (NodePath7.posix.isAbsolute(target) === false)
     return;
-  const resolved2 = await realpath4(target).catch((cause) => failWalk(scanError({
+  const resolved2 = await realpath3(target).catch((cause) => failWalk(scanError({
     reason: "ForbiddenSymlink",
     path: path8,
     message: `Absolute Nix store symlink target does not exist: '${target}'`,
@@ -81798,7 +81179,7 @@ var scanTreePromise = async ({
   excludedSubtrees,
   hooks
 }) => {
-  const rootInfo = await lstat4(root);
+  const rootInfo = await lstat3(root);
   if (rootInfo.isDirectory() === false) {
     failWalk(scanError({
       reason: "InvalidRoot",
@@ -81814,8 +81195,8 @@ var scanTreePromise = async ({
     actualRelative,
     manifestRelative
   }) => {
-    const directoryPath = actualRelative === "" ? root : NodePath8.join(root, actualRelative);
-    const children = await readdir4(directoryPath, { withFileTypes: true });
+    const directoryPath = actualRelative === "" ? root : NodePath7.join(root, actualRelative);
+    const children = await readdir3(directoryPath, { withFileTypes: true });
     await children.reduce(async (previous, child) => {
       await previous;
       const actualChild = actualRelative === "" ? child.name : `${actualRelative}/${child.name}`;
@@ -81823,8 +81204,8 @@ var scanTreePromise = async ({
       const manifestChild = manifestRelative === "" ? manifestName : `${manifestRelative}/${manifestName}`;
       if (excludedSubtrees.has(manifestChild) === true)
         return;
-      const childPath = NodePath8.join(root, ...actualChild.split("/"));
-      const info2 = await lstat4(childPath);
+      const childPath = NodePath7.join(root, ...actualChild.split("/"));
+      const info2 = await lstat3(childPath);
       if (info2.isSymbolicLink() === true) {
         const target = await readlink3(childPath);
         try {
@@ -81874,7 +81255,7 @@ var scanTreePromise = async ({
     }
     throw cause;
   }
-  const finalInfo = await lstat4(root);
+  const finalInfo = await lstat3(root);
   const finalIdentity = mountIdentity(finalInfo);
   if (finalInfo.isDirectory() === false || mountIdentityMatches({ actual: finalIdentity, expected: initialIdentity }) === false) {
     failWalk(scanError({
@@ -81898,7 +81279,7 @@ var scanOptionalExcludedTree = async ({
   policy: policy2
 }) => {
   try {
-    const info2 = await lstat4(root);
+    const info2 = await lstat3(root);
     if (info2.isDirectory() === false) {
       failWalk(scanError({
         reason: "InvalidRoot",
@@ -81923,7 +81304,7 @@ var scanMount = ({
   hooks
 }) => exports_Effect.tryPromise({
   try: async () => {
-    const absoluteRoot = NodePath8.resolve(root);
+    const absoluteRoot = NodePath7.resolve(root);
     let canonicalOverlays = [];
     try {
       canonicalOverlays = canonicalizeDistOverlayDeclarations(declaredOverlays);
@@ -81937,9 +81318,9 @@ var scanMount = ({
     }
     if (policy2 === "source") {
       await Promise.all(canonicalOverlays.map(async (overlay) => {
-        const destinationPath = NodePath8.join(absoluteRoot, ...overlay.destination.split("/"));
+        const destinationPath = NodePath7.join(absoluteRoot, ...overlay.destination.split("/"));
         try {
-          await lstat4(destinationPath);
+          await lstat3(destinationPath);
           failWalk(scanError({
             reason: "PathCollision",
             path: destinationPath,
@@ -81962,12 +81343,12 @@ var scanMount = ({
       ...hooks === undefined ? {} : { hooks }
     });
     const capabilities = await scanOptionalExcludedTree({
-      root: NodePath8.join(absoluteRoot, ...R6_CAPABILITIES_DESTINATION.split("/")),
+      root: NodePath7.join(absoluteRoot, ...R6_CAPABILITIES_DESTINATION.split("/")),
       policy: policy2
     });
     const overlays = await Promise.all(canonicalOverlays.map(async (overlay) => {
       const scan2 = await scanOptionalExcludedTree({
-        root: NodePath8.join(absoluteRoot, ...overlay.destination.split("/")),
+        root: NodePath7.join(absoluteRoot, ...overlay.destination.split("/")),
         policy: policy2
       });
       return {
@@ -81988,8 +81369,8 @@ var scanMount = ({
   },
   catch: (cause) => cause instanceof WalkFailure ? cause.scanError : scanError({
     reason: "IoFailure",
-    path: NodePath8.resolve(root),
-    message: `Failed to scan R6 tree '${NodePath8.resolve(root)}'`,
+    path: NodePath7.resolve(root),
+    message: `Failed to scan R6 tree '${NodePath7.resolve(root)}'`,
     cause
   })
 });
@@ -81997,14 +81378,14 @@ var scanR6BuildArtifactTree = ({
   root
 }) => exports_Effect.tryPromise({
   try: async () => (await scanTreePromise({
-    root: NodePath8.resolve(root),
+    root: NodePath7.resolve(root),
     policy: "artifact",
     excludedSubtrees: new Set
   })).scan,
   catch: (cause) => cause instanceof WalkFailure ? cause.scanError : scanError({
     reason: "IoFailure",
-    path: NodePath8.resolve(root),
-    message: `Failed to scan R6 build artifact tree '${NodePath8.resolve(root)}'`,
+    path: NodePath7.resolve(root),
+    message: `Failed to scan R6 build artifact tree '${NodePath7.resolve(root)}'`,
     cause
   })
 });
@@ -82012,14 +81393,14 @@ var scanR6ProtectedTree = ({
   root
 }) => exports_Effect.tryPromise({
   try: async () => (await scanTreePromise({
-    root: NodePath8.resolve(root),
+    root: NodePath7.resolve(root),
     policy: "protected",
     excludedSubtrees: new Set
   })).scan,
   catch: (cause) => cause instanceof WalkFailure ? cause.scanError : scanError({
     reason: "IoFailure",
-    path: NodePath8.resolve(root),
-    message: `Failed to scan R6 protected tree '${NodePath8.resolve(root)}'`,
+    path: NodePath7.resolve(root),
+    message: `Failed to scan R6 protected tree '${NodePath7.resolve(root)}'`,
     cause
   })
 });
@@ -82039,13 +81420,13 @@ var scanR6ProtectedMount = ({
   ...hooks === undefined ? {} : { hooks }
 });
 var canonicalAbsolutePath = (path8) => {
-  if (NodePath8.isAbsolute(path8) === false) {
+  if (NodePath7.isAbsolute(path8) === false) {
     throw new R6ManifestValidationError({
       reason: "InvalidPath",
       message: `Expected absolute path, got '${path8}'`
     });
   }
-  return NodePath8.normalize(path8);
+  return NodePath7.normalize(path8);
 };
 var encodeOwnedMountMemberFilename = (member) => {
   if (member.length === 0) {
@@ -82059,7 +81440,7 @@ var encodeOwnedMountMemberFilename = (member) => {
 var ownedCpAMountMetadataPath = ({
   workspaceRoot,
   member
-}) => NodePath8.join(canonicalAbsolutePath(workspaceRoot), "repos", ".mr", "mounts", encodeOwnedMountMemberFilename(member));
+}) => NodePath7.join(canonicalAbsolutePath(workspaceRoot), "repos", ".mr", "mounts", encodeOwnedMountMemberFilename(member));
 var makeOwnedCpAMountMetadata = ({
   member,
   lockedCommit,
@@ -82090,7 +81471,7 @@ var makeOwnedCpAMountMetadata = ({
   })).toSorted((left, right) => left.destination < right.destination ? -1 : left.destination > right.destination ? 1 : 0),
   publishedPath: canonicalAbsolutePath(publishedPath)
 });
-var strictParseOptions5 = { errors: "all", onExcessProperty: "error" };
+var strictParseOptions4 = { errors: "all", onExcessProperty: "error" };
 var MetadataJson = exports_Schema.fromJsonString(OwnedCpAMountMetadata, { space: 2 });
 var encodeOwnedCpAMountMetadata = (metadata) => `${exports_Schema.encodeSync(MetadataJson)(metadata)}
 `;
@@ -82106,7 +81487,7 @@ var writeOwnedCpAMountMetadata = ({
 }) => exports_Effect.gen(function* () {
   const fs4 = yield* FileSystem;
   const path8 = ownedCpAMountMetadataPath({ workspaceRoot, member: metadata.member });
-  yield* fs4.makeDirectory(NodePath8.dirname(path8), { recursive: true });
+  yield* fs4.makeDirectory(NodePath7.dirname(path8), { recursive: true });
   yield* writeFileAtomic2({
     path: EffectPath.unsafe.absoluteFile(path8),
     content: encodeOwnedCpAMountMetadata(metadata)
@@ -82120,7 +81501,7 @@ var readOwnedCpAMountMetadata = ({
   const fs4 = yield* FileSystem;
   const path8 = ownedCpAMountMetadataPath({ workspaceRoot, member });
   const content = yield* fs4.readFileString(path8);
-  const metadata = yield* exports_Schema.decodeUnknownEffect(MetadataJson, strictParseOptions5)(content);
+  const metadata = yield* exports_Schema.decodeUnknownEffect(MetadataJson, strictParseOptions4)(content);
   const expectedPublishedPath = canonicalAbsolutePath(publishedPath);
   if (metadata.member !== member || metadata.publishedPath !== expectedPublishedPath) {
     return yield* new OwnedCpAMountMetadataError({
@@ -82141,7 +81522,7 @@ var assertOwnedCpAMountIdentity = ({
   expected,
   hooks
 }) => exports_Effect.gen(function* () {
-  const absolutePath2 = NodePath8.resolve(path8);
+  const absolutePath2 = NodePath7.resolve(path8);
   const beforeLstat = hooks?.beforeLstat;
   if (beforeLstat !== undefined) {
     yield* exports_Effect.tryPromise({
@@ -82153,7 +81534,7 @@ var assertOwnedCpAMountIdentity = ({
     });
   }
   const info2 = yield* exports_Effect.tryPromise({
-    try: () => lstat4(absolutePath2),
+    try: () => lstat3(absolutePath2),
     catch: () => new OwnedCpAMountIdentityError({
       path: absolutePath2,
       message: `Cannot lstat owned mount '${absolutePath2}'`
@@ -82197,7 +81578,7 @@ var inspectOwnedCpAMount = ({
   expected,
   expectedPreExchangeIdentity
 }) => exports_Effect.gen(function* () {
-  const absolutePhysicalPath = NodePath8.resolve(physicalPath);
+  const absolutePhysicalPath = NodePath7.resolve(physicalPath);
   const publishedPath = canonicalAbsolutePath(expected.publishedPath);
   const s0 = yield* inspectMemberMount(absolutePhysicalPath);
   if (s0._tag !== "Foreign")
@@ -82258,8 +81639,8 @@ var inspectOwnedCpAMount = ({
 });
 var computeR6SourcePathIdentity = (sourcePath) => exports_Effect.tryPromise({
   try: async () => {
-    const canonical2 = await realpath4(sourcePath);
-    return `sha256:${createHash7("sha256").update(frame(Buffer3.from("overeng.megarepo.r6-source-path", "utf8"))).update(frame(Buffer3.from(canonical2, "utf8"))).digest("hex")}`;
+    const canonical2 = await realpath3(sourcePath);
+    return `sha256:${createHash6("sha256").update(frame(Buffer3.from("overeng.megarepo.r6-source-path", "utf8"))).update(frame(Buffer3.from(canonical2, "utf8"))).digest("hex")}`;
   },
   catch: (cause) => scanError({
     reason: "IoFailure",
@@ -82271,7 +81652,7 @@ var computeR6SourcePathIdentity = (sourcePath) => exports_Effect.tryPromise({
 
 // src/composition/mounts/member-mount-cp-a-schema.ts
 var CP_A_MEMBER_MOUNT_TRANSACTION_VERSION = 1;
-var AbsolutePath4 = exports_Schema.String.check(exports_Schema.makeFilter((value5) => NodePath9.isAbsolute(value5) === true && NodePath9.normalize(value5) === value5 ? undefined : "Expected a normalized absolute path"));
+var AbsolutePath4 = exports_Schema.String.check(exports_Schema.makeFilter((value5) => NodePath8.isAbsolute(value5) === true && NodePath8.normalize(value5) === value5 ? undefined : "Expected a normalized absolute path"));
 var MemberName = exports_Schema.String.check(exports_Schema.makeFilter((value5) => value5.length > 0 && value5 !== "." && value5 !== ".." && /[/\\]/u.test(value5) === false ? undefined : "Expected one non-empty member path segment"));
 var LockedCommit = exports_Schema.String.check(exports_Schema.isPattern(/^[0-9a-f]{40,64}$/u));
 var CpAMemberMountRequest = exports_Schema.Struct({
@@ -82421,13 +81802,1154 @@ var encodeCpAMountMemberFilename = (member) => {
 var cpAMemberMountTransactionPath = ({
   workspaceRoot,
   member
-}) => NodePath9.join(NodePath9.resolve(workspaceRoot), "repos", ".mr", "transactions", encodeCpAMountMemberFilename(member));
+}) => NodePath8.join(NodePath8.resolve(workspaceRoot), "repos", ".mr", "transactions", encodeCpAMountMemberFilename(member));
 var cpAMemberMountDestinationPath = ({
   workspaceRoot,
   member
 }) => {
   encodeCpAMountMemberFilename(member);
-  return NodePath9.join(NodePath9.resolve(workspaceRoot), "repos", member);
+  return NodePath8.join(NodePath8.resolve(workspaceRoot), "repos", member);
+};
+
+// src/composition/overlays/dist-overlay-lifecycle-schema.ts
+import { Buffer as Buffer5 } from "node:buffer";
+import * as NodePath9 from "node:path";
+var DIST_OVERLAY_TRANSACTION_VERSION = 1;
+var AbsolutePath5 = exports_Schema.String.check(exports_Schema.makeFilter((value5) => NodePath9.isAbsolute(value5) === true && NodePath9.normalize(value5) === value5 ? undefined : "Expected a normalized absolute path"));
+var MemberName2 = exports_Schema.String.check(exports_Schema.makeFilter((value5) => value5.length > 0 && value5 !== "." && value5 !== ".." && /[/\\]/u.test(value5) === false ? undefined : "Expected one non-empty member path segment"));
+var InodeIdentity = exports_Schema.Struct({ dev: exports_Schema.Natural, ino: exports_Schema.Natural });
+var DistOverlayPublishRequest = exports_Schema.Struct({
+  workspaceRoot: AbsolutePath5,
+  member: MemberName2,
+  expectedMountIdentity: InodeIdentity,
+  expectedMetadata: OwnedCpAMountMetadata,
+  target: DistOverlayTarget,
+  destination: DistOverlayDestination,
+  artifactPath: exports_Schema.NullOr(AbsolutePath5),
+  cpPath: AbsolutePath5,
+  mvPath: AbsolutePath5,
+  dryRun: exports_Schema.Boolean
+}).annotate({ identifier: "Megarepo.DistOverlayPublishRequest" });
+var DistOverlayRecoveryRequest = exports_Schema.Struct({
+  workspaceRoot: AbsolutePath5,
+  member: MemberName2,
+  target: DistOverlayTarget,
+  destination: DistOverlayDestination,
+  expectedMountIdentity: InodeIdentity,
+  mvPath: AbsolutePath5
+}).annotate({ identifier: "Megarepo.DistOverlayRecoveryRequest" });
+var DistOverlayOperation = exports_Schema.Literals(["FirstPublish", "Update", "Remove"]);
+var DistOverlayPhase = exports_Schema.Literals([
+  "Intent",
+  "CandidateCreated",
+  "CandidateValidated",
+  "Published",
+  "MetadataPublished",
+  "Cleanup"
+]);
+var DistOverlayTransaction = exports_Schema.Struct({
+  version: exports_Schema.Literal(DIST_OVERLAY_TRANSACTION_VERSION),
+  member: MemberName2,
+  target: DistOverlayTarget,
+  destination: DistOverlayDestination,
+  mountPath: AbsolutePath5,
+  destinationPath: AbsolutePath5,
+  stagePath: AbsolutePath5,
+  operation: DistOverlayOperation,
+  phaseHint: DistOverlayPhase,
+  mountIdentity: InodeIdentity,
+  oldIdentity: exports_Schema.NullOr(InodeIdentity),
+  candidateIdentity: exports_Schema.NullOr(InodeIdentity),
+  oldOverlay: exports_Schema.NullOr(R6DistOverlayManifestIdentity),
+  newOverlay: exports_Schema.NullOr(R6DistOverlayManifestIdentity),
+  previousMetadata: OwnedCpAMountMetadata,
+  nextMetadata: OwnedCpAMountMetadata
+}).annotate({ identifier: "Megarepo.DistOverlayTransaction" });
+var DistOverlayPlan = exports_Schema.TaggedStruct("DistOverlayPlan", {
+  operation: DistOverlayOperation,
+  member: MemberName2,
+  target: DistOverlayTarget,
+  destination: DistOverlayDestination,
+  destinationPath: AbsolutePath5,
+  stagePath: AbsolutePath5,
+  transactionPath: AbsolutePath5,
+  previousMetadata: OwnedCpAMountMetadata,
+  nextMetadata: OwnedCpAMountMetadata,
+  steps: exports_Schema.Array(exports_Schema.Literals([
+    "AssertUpdateLock",
+    "ValidateMount",
+    "CreateTransaction",
+    "CopyArtifact",
+    "ProtectCandidate",
+    "ValidateCandidate",
+    "Publish",
+    "ValidateRepositoryIdentity",
+    "PublishMetadata",
+    "ValidateOldIdentity",
+    "DeleteOld",
+    "RemoveTransaction"
+  ]))
+}).annotate({ identifier: "Megarepo.DistOverlayPlan" });
+var DistOverlayResult = exports_Schema.Union([
+  exports_Schema.TaggedStruct("DryRun", { plan: DistOverlayPlan }),
+  exports_Schema.TaggedStruct("Published", {
+    operation: DistOverlayOperation,
+    destinationPath: AbsolutePath5,
+    metadata: OwnedCpAMountMetadata
+  }),
+  exports_Schema.TaggedStruct("Recovered", {
+    action: exports_Schema.Literals(["RolledBack", "RolledForward"]),
+    destinationPath: AbsolutePath5
+  })
+]).annotate({ identifier: "Megarepo.DistOverlayResult" });
+
+class DistOverlayError extends exports_Schema.TaggedError()("DistOverlayError", {
+  reason: exports_Schema.Literals([
+    "InvalidRequest",
+    "UpdateLockNotOwned",
+    "UndeclaredDestination",
+    "MountIdentityMismatch",
+    "MetadataMismatch",
+    "ArtifactInvalid",
+    "DestinationRefused",
+    "TransactionCollision",
+    "CommandFailure",
+    "RepositoryIdentityChanged",
+    "MetadataPublishFailed",
+    "AmbiguousRecovery",
+    "IoFailure"
+  ]),
+  path: exports_Schema.String,
+  message: exports_Schema.String,
+  recoveryPaths: exports_Schema.Array(exports_Schema.String),
+  cause: exports_Schema.optional(exports_Schema.Defect())
+}) {
+}
+var encodeSegment = (value5) => Buffer5.from(value5, "utf8").toString("hex");
+var distOverlayTransactionPath = ({
+  workspaceRoot,
+  member,
+  destination
+}) => NodePath9.join(NodePath9.resolve(workspaceRoot), "repos", ".mr", "overlay-transactions", `v1-${encodeSegment(member)}--${encodeSegment(destination)}.json`);
+
+// src/composition/apply/composition-apply-schema.ts
+var AbsolutePath6 = exports_Schema.String.check(exports_Schema.makeFilter((value5) => NodePath10.isAbsolute(value5) === true && NodePath10.normalize(value5) === value5 ? undefined : "Expected a normalized absolute path")).annotate({ identifier: "Megarepo.CompositionApplyAbsolutePath" });
+var MemberKey2 = exports_Schema.String.check(exports_Schema.makeFilter((value5) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value5) === true ? undefined : "Expected a canonical one-segment member key")).annotate({ identifier: "Megarepo.CompositionApplyMemberKey" });
+var LockedCommit2 = exports_Schema.String.check(exports_Schema.isPattern(/^[0-9a-f]{40,64}$/u)).annotate({
+  identifier: "Megarepo.CompositionApplyLockedCommit"
+});
+var CompositionApplyLockedMemberSchema = exports_Schema.Struct({
+  key: MemberKey2,
+  sourcePath: AbsolutePath6,
+  lockedCommit: LockedCommit2
+}).annotate({ identifier: "Megarepo.CompositionApplyLockedMember" });
+var CompositionApplyRequestSchema = exports_Schema.Struct({
+  workspaceRoot: AbsolutePath6,
+  ownedMemberKey: MemberKey2,
+  ownedMemberPath: AbsolutePath6,
+  compositionConfig: CompositionGeneratorConfig,
+  cacheSections: exports_Schema.Array(BuckCacheSectionSchema),
+  lockedMembers: exports_Schema.Array(CompositionApplyLockedMemberSchema),
+  dryRun: exports_Schema.Boolean,
+  allowVerifiedDarwinAdvance: exports_Schema.Boolean
+}).annotate({ identifier: "Megarepo.CompositionApplyRequest" });
+var CompositionOverlayBuildPlanSchema = exports_Schema.Struct({
+  memberKey: MemberKey2,
+  target: exports_Schema.String,
+  destination: exports_Schema.String,
+  canonicalLabel: exports_Schema.String,
+  executable: AbsolutePath6,
+  args: exports_Schema.Array(exports_Schema.String),
+  outputPath: AbsolutePath6,
+  isolationDir: exports_Schema.String,
+  daemonPolicy: exports_Schema.Literal("SharedDaemonUnchanged"),
+  cleanup: exports_Schema.Literal("RemoveScratchOnly")
+}).annotate({ identifier: "Megarepo.CompositionOverlayBuildPlan" });
+var CompositionOverlayPublicationPlanSchema = exports_Schema.Struct({
+  memberKey: MemberKey2,
+  target: exports_Schema.String,
+  destination: exports_Schema.String,
+  operation: exports_Schema.Literals(["FirstPublish", "Update"]),
+  steps: exports_Schema.Array(exports_Schema.Literals([
+    "BuildDeclaredDirectory",
+    "ValidateRealDirectory",
+    "PublishDistOverlay",
+    "CleanupScratch"
+  ]))
+}).annotate({ identifier: "Megarepo.CompositionOverlayPublicationPlan" });
+var RootPlannedFileSchema = exports_Schema.Struct({
+  path: exports_Schema.String,
+  old: exports_Schema.optional(exports_Schema.Struct({ mode: exports_Schema.Finite, sha256: exports_Schema.String })),
+  new: exports_Schema.optional(exports_Schema.Struct({ mode: exports_Schema.Finite, sha256: exports_Schema.String }))
+});
+var RootPublicationPlanSchema = exports_Schema.Union([
+  exports_Schema.TaggedStruct("Create", {
+    files: exports_Schema.Array(RootPlannedFileSchema),
+    configLast: exports_Schema.Literal(true)
+  }),
+  exports_Schema.TaggedStruct("Update", {
+    files: exports_Schema.Array(RootPlannedFileSchema),
+    configLast: exports_Schema.Literal(true)
+  }),
+  exports_Schema.TaggedStruct("NoChange", {
+    files: exports_Schema.Array(exports_Schema.Never),
+    configLast: exports_Schema.Literal(true)
+  }),
+  exports_Schema.TaggedStruct("Refused", {
+    reason: exports_Schema.String,
+    path: exports_Schema.String,
+    message: exports_Schema.String,
+    files: exports_Schema.Array(exports_Schema.Never),
+    configLast: exports_Schema.Literal(false)
+  })
+]).annotate({ identifier: "Megarepo.CompositionApplyRootPublicationPlan" });
+var CompositionOwnedCapabilityProjectionPlanSchema = exports_Schema.Struct({
+  memberKey: MemberKey2,
+  ownedMemberPath: AbsolutePath6,
+  projectionPath: AbsolutePath6,
+  operation: exports_Schema.Literal("InstallOwnedCapabilityProjection"),
+  steps: exports_Schema.Array(exports_Schema.Literals(["ValidateOwnedMember", "InstallProjectionAtomically", "CheckProjection"]))
+}).annotate({ identifier: "Megarepo.CompositionOwnedCapabilityProjectionPlan" });
+var CompositionOwnedCapabilityProjectionResultSchema = exports_Schema.Struct({
+  memberKey: MemberKey2,
+  projectionPath: AbsolutePath6,
+  projectionDigest: exports_Schema.String,
+  changed: exports_Schema.Boolean
+}).annotate({ identifier: "Megarepo.CompositionOwnedCapabilityProjectionResult" });
+var CompositionMemberMountPlanSchema = exports_Schema.Struct({
+  memberKey: MemberKey2,
+  sourcePath: AbsolutePath6,
+  capabilitiesPath: AbsolutePath6,
+  destinationPath: AbsolutePath6,
+  lockedCommit: LockedCommit2,
+  distOverlays: exports_Schema.Array(DistOverlayDeclaration),
+  allowVerifiedDarwinAdvance: exports_Schema.Boolean,
+  operation: exports_Schema.Literal("MaterializeOrAdvance"),
+  steps: exports_Schema.Array(exports_Schema.Literals([
+    "ValidateImmutableSource",
+    "UseResolvedCapabilityProjection",
+    "MaterializeCpAMemberMount"
+  ]))
+}).annotate({ identifier: "Megarepo.CompositionMemberMountPlan" });
+var CompositionApplyPlanStepSchema = exports_Schema.Union([
+  exports_Schema.TaggedStruct("Capability", {
+    memberKey: MemberKey2,
+    owned: exports_Schema.Boolean,
+    plan: CompositionCapabilityPlanSchema
+  }),
+  exports_Schema.TaggedStruct("OwnedCapabilityProjection", {
+    memberKey: MemberKey2,
+    plan: CompositionOwnedCapabilityProjectionPlanSchema
+  }),
+  exports_Schema.TaggedStruct("Mount", {
+    memberKey: MemberKey2,
+    plan: CompositionMemberMountPlanSchema
+  }),
+  exports_Schema.TaggedStruct("Root", { plan: RootPublicationPlanSchema }),
+  exports_Schema.TaggedStruct("Overlay", {
+    memberKey: MemberKey2,
+    declaration: DistOverlayDeclaration,
+    build: CompositionOverlayBuildPlanSchema,
+    publication: CompositionOverlayPublicationPlanSchema
+  })
+]).annotate({ identifier: "Megarepo.CompositionApplyPlanStep" });
+var CompositionApplyPlanSchema = exports_Schema.TaggedStruct("DryRun", {
+  steps: exports_Schema.Array(CompositionApplyPlanStepSchema),
+  defaultCwd: AbsolutePath6
+}).annotate({ identifier: "Megarepo.CompositionApplyPlan" });
+var OverlayResultSchema = exports_Schema.Struct({
+  target: exports_Schema.String,
+  destination: exports_Schema.String,
+  destinationPath: AbsolutePath6,
+  operation: exports_Schema.Literals(["FirstPublish", "Update"])
+});
+var CompositionApplyMemberResultSchema = exports_Schema.Struct({
+  memberKey: MemberKey2,
+  owned: exports_Schema.Boolean,
+  capability: CompositionCapabilityResolutionSchema,
+  ownedProjection: exports_Schema.optional(CompositionOwnedCapabilityProjectionResultSchema),
+  mount: exports_Schema.optional(CpAMemberMountResult),
+  overlays: exports_Schema.Array(OverlayResultSchema)
+}).annotate({ identifier: "Megarepo.CompositionApplyMemberResult" });
+var CompositionApplyRecoveryResultSchema = exports_Schema.Union([
+  exports_Schema.TaggedStruct("MountRecovery", {
+    memberKey: MemberKey2,
+    transactionPath: AbsolutePath6,
+    result: CpAMemberMountResult
+  }),
+  exports_Schema.TaggedStruct("OverlayRecovery", {
+    memberKey: MemberKey2,
+    target: exports_Schema.String,
+    destination: exports_Schema.String,
+    transactionPath: AbsolutePath6,
+    result: DistOverlayResult
+  })
+]).annotate({ identifier: "Megarepo.CompositionApplyRecoveryResult" });
+var CompositionApplyWatchmanOutcomeSchema = exports_Schema.Literals([
+  "Unchanged",
+  "Removed",
+  "NotWatched",
+  "Unavailable"
+]);
+var CompositionApplyResultSchema = exports_Schema.TaggedStruct("Applied", {
+  recoveries: exports_Schema.Array(CompositionApplyRecoveryResultSchema),
+  members: exports_Schema.Array(CompositionApplyMemberResultSchema),
+  root: exports_Schema.Struct({
+    changedPaths: exports_Schema.Array(exports_Schema.String),
+    watchman: CompositionApplyWatchmanOutcomeSchema
+  }),
+  defaultCwd: AbsolutePath6
+}).annotate({ identifier: "Megarepo.CompositionApplyResult" });
+var CompositionApplyOutputSchema = exports_Schema.Union([
+  CompositionApplyPlanSchema,
+  CompositionApplyResultSchema
+]).annotate({ identifier: "Megarepo.CompositionApplyOutput" });
+var compositionApplyWarning = (output) => output._tag === "Applied" && output.root.watchman === "Unavailable" ? "Watchman watch state could not be observed; the published exclusion stays unverified until the next apply" : undefined;
+
+class CompositionApplyError extends exports_Schema.TaggedError()("CompositionApplyError", {
+  reason: exports_Schema.Literals([
+    "InvalidRequest",
+    "OwnedMemberCollision",
+    "MemberKeyCollision",
+    "PlatformUnsupported",
+    "ManifestInvalid",
+    "ManifestMountMismatch",
+    "PlatformHubMissing",
+    "BuckCapabilityMissing",
+    "BuckCapabilityMismatch",
+    "OverlayDestinationConflict",
+    "UpdateLockFailure",
+    "RecoveryFailure",
+    "CapabilityFailure",
+    "MountFailure",
+    "RootPublicationFailure",
+    "OverlayBuildFailure",
+    "OverlayPublicationFailure",
+    "CleanupFailure"
+  ]),
+  phase: exports_Schema.Literals([
+    "Input",
+    "UpdateLock",
+    "Recovery",
+    "Manifest",
+    "Capability",
+    "Mount",
+    "Root",
+    "OverlayBuild",
+    "OverlayPublication",
+    "Cleanup"
+  ]),
+  message: exports_Schema.String,
+  path: exports_Schema.optional(exports_Schema.String),
+  memberKey: exports_Schema.optional(MemberKey2),
+  recoveryPaths: exports_Schema.Array(exports_Schema.String),
+  primaryFailure: exports_Schema.optional(exports_Schema.Struct({
+    reason: exports_Schema.String,
+    phase: exports_Schema.String,
+    message: exports_Schema.String
+  })),
+  cleanupFailures: exports_Schema.optional(exports_Schema.Array(exports_Schema.Struct({
+    resource: exports_Schema.Literals(["CapabilityScratch", "OverlayScratch", "WorkspaceUpdateLock"]),
+    path: exports_Schema.String,
+    message: exports_Schema.String
+  }))),
+  updateLockRecovery: exports_Schema.optional(exports_Schema.Struct({ path: exports_Schema.String, token: exports_Schema.String })),
+  cause: exports_Schema.optional(exports_Schema.Defect())
+}) {
+}
+
+// src/composition/apply/composition-apply.ts
+import { lstat as lstat8, readFile as readFile10, readdir as readdir7 } from "node:fs/promises";
+import * as NodePath15 from "node:path";
+
+// src/composition/capabilities/composition-capability-resolver.ts
+import { execFile as execFileCallback } from "node:child_process";
+import { createHash as createHash7, randomUUID } from "node:crypto";
+import { constants as constants4, createReadStream as createReadStream2 } from "node:fs";
+import {
+  access as access3,
+  chmod as chmod3,
+  lstat as lstat4,
+  mkdir as mkdir5,
+  mkdtemp as mkdtemp2,
+  open as open5,
+  readFile as readFile6,
+  readdir as readdir4,
+  realpath as realpath4,
+  rename as rename6,
+  rm as rm3,
+  stat as stat5,
+  symlink as symlink4,
+  writeFile as writeFile4
+} from "node:fs/promises";
+import { tmpdir as tmpdir2 } from "node:os";
+import * as NodePath11 from "node:path";
+import { promisify as promisify2 } from "node:util";
+var execFile3 = promisify2(execFileCallback);
+var strictParseOptions5 = { errors: "all", onExcessProperty: "error" };
+var compositionCapabilityRuntimeFromEnv = (env = process.env) => {
+  const nixPath = env["MR_CAPABILITY_NIX_BIN"];
+  if (nixPath === undefined || nixPath.length === 0) {
+    throw new CompositionCapabilityResolutionError({
+      reason: "InvalidRuntime",
+      message: "Missing pinned capability runtime path in MR_CAPABILITY_NIX_BIN"
+    });
+  }
+  return { nixPath, env };
+};
+var checkCompositionCapabilityProjection = (input) => checkCompositionCapabilityProjectionInternal(input);
+var resolveCompositionCapabilities = (input) => resolveCompositionCapabilitiesInternal(input);
+var invalidInput = ({
+  message,
+  path: path8,
+  cause
+}) => new CompositionCapabilityResolutionError({
+  reason: "InvalidInput",
+  message,
+  ...path8 === undefined ? {} : { path: path8 },
+  ...cause === undefined ? {} : { cause }
+});
+var assertAbsoluteNormalized = ({
+  value: value5,
+  name
+}) => {
+  if (NodePath11.isAbsolute(value5) === false || NodePath11.normalize(value5) !== value5) {
+    throw invalidInput({ message: `${name} must be a normalized absolute path`, path: value5 });
+  }
+};
+var containedBy = ({ root, path: path8 }) => path8 === root || path8.startsWith(`${root}${NodePath11.sep}`) === true;
+var platformFor = (system) => {
+  switch (system) {
+    case "x86_64-linux":
+      return "x86_64-linux";
+    case "aarch64-linux":
+      return "aarch64-linux";
+    case "aarch64-darwin":
+      return "aarch64-macos";
+  }
+};
+var command2 = ({
+  executable,
+  args: args2
+}) => ({
+  executable,
+  args: [...args2]
+});
+var commandFailure = ({
+  value: value5,
+  message,
+  reason = "CommandFailure",
+  cause
+}) => new CompositionCapabilityResolutionError({
+  reason,
+  message,
+  command: value5,
+  cause
+});
+var run8 = async ({
+  value: value5,
+  env,
+  reason
+}) => {
+  try {
+    return await execFile3(value5.executable, [...value5.args], {
+      encoding: "utf8",
+      env,
+      maxBuffer: 1024 * 1024
+    });
+  } catch (cause) {
+    throw commandFailure({
+      value: value5,
+      message: `Exact command failed: ${value5.executable} ${value5.args.join(" ")}`,
+      ...reason === undefined ? {} : { reason },
+      cause
+    });
+  }
+};
+var assertExecutable = async ({
+  path: path8,
+  name
+}) => {
+  assertAbsoluteNormalized({ value: path8, name });
+  try {
+    const info2 = await stat5(path8);
+    if (info2.isFile() === false)
+      throw new Error("not a regular file");
+    await access3(path8, 1);
+  } catch (cause) {
+    throw new CompositionCapabilityResolutionError({
+      reason: "InvalidRuntime",
+      message: `${name} is not a regular executable file`,
+      path: path8,
+      cause
+    });
+  }
+};
+var validateRuntime = async (runtime3) => assertExecutable({ path: runtime3.nixPath, name: "nixPath" });
+var captureContainedRegularFile = async ({
+  root,
+  path: path8,
+  label
+}) => {
+  let handle;
+  try {
+    const pathInfo = await lstat4(path8);
+    const canonicalPath = await realpath4(path8);
+    if (pathInfo.isFile() === false || pathInfo.isSymbolicLink() === true || containedBy({ root, path: canonicalPath }) === false) {
+      throw invalidInput({ message: `${label} must be a contained regular file`, path: path8 });
+    }
+    handle = await open5(path8, constants4.O_RDONLY | constants4.O_NOFOLLOW);
+    const before = await handle.stat();
+    const bytes = await handle.readFile();
+    const after = await handle.stat();
+    if (before.isFile() === false || before.dev !== pathInfo.dev || before.ino !== pathInfo.ino || after.dev !== before.dev || after.ino !== before.ino) {
+      throw invalidInput({ message: `${label} identity changed while reading`, path: path8 });
+    }
+    return {
+      path: path8,
+      realpath: canonicalPath,
+      device: before.dev,
+      inode: before.ino,
+      digest: createHash7("sha256").update(bytes).digest("hex")
+    };
+  } finally {
+    await handle?.close();
+  }
+};
+var assertRegularFileIdentity = async (identity2) => {
+  try {
+    const current = await captureContainedRegularFile({
+      root: NodePath11.dirname(identity2.realpath),
+      path: identity2.path,
+      label: "flake.lock"
+    });
+    if (current.realpath !== identity2.realpath || current.device !== identity2.device || current.inode !== identity2.inode || current.digest !== identity2.digest) {
+      throw new TypeError("flake.lock identity changed");
+    }
+  } catch (cause) {
+    throw new CompositionCapabilityResolutionError({
+      reason: "InvalidLock",
+      message: "flake.lock bytes or inode changed during capability resolution",
+      path: identity2.path,
+      cause
+    });
+  }
+};
+var validateMember = async ({
+  memberRoot
+}) => {
+  assertAbsoluteNormalized({ value: memberRoot, name: "memberRoot" });
+  const canonicalMemberRoot = await realpath4(memberRoot);
+  if ((await stat5(canonicalMemberRoot)).isDirectory() === false) {
+    throw invalidInput({ message: "memberRoot must be a directory", path: memberRoot });
+  }
+  try {
+    const lock = await captureContainedRegularFile({
+      root: canonicalMemberRoot,
+      path: NodePath11.join(canonicalMemberRoot, "flake.lock"),
+      label: "flake.lock"
+    });
+    return { memberRoot: canonicalMemberRoot, lock };
+  } catch (cause) {
+    throw new CompositionCapabilityResolutionError({
+      reason: "InvalidLock",
+      message: "Member must contain a regular, contained, immutable flake.lock",
+      path: NodePath11.join(canonicalMemberRoot, "flake.lock"),
+      cause
+    });
+  }
+};
+var candidateReplaced = ({ path: path8, cause }) => new CompositionCapabilityResolutionError({
+  reason: "CandidateReplaced",
+  message: `Capability projection candidate ownership changed at '${path8}'`,
+  path: path8,
+  ...cause === undefined ? {} : { cause }
+});
+var currentUid = () => {
+  const uid = process.getuid?.();
+  if (uid === undefined) {
+    throw new CompositionCapabilityResolutionError({
+      reason: "InvalidRuntime",
+      message: "Capability resolution requires a POSIX process uid"
+    });
+  }
+  return uid;
+};
+var assertSecureParent = async ({
+  path: path8,
+  uid
+}) => {
+  const parent2 = NodePath11.dirname(path8);
+  const info2 = await lstat4(parent2);
+  const sticky = (info2.mode & 512) !== 0;
+  const ownerPrivate = info2.uid === uid && (info2.mode & 18) === 0;
+  if (info2.isDirectory() === false || info2.isSymbolicLink() === true || sticky === false && ownerPrivate === false) {
+    throw new Error(`private scratch parent is neither sticky nor owner-private: ${parent2}`);
+  }
+};
+var defaultCreatePrivateScratch = async () => {
+  const uid = currentUid();
+  const tempRoot = await realpath4(tmpdir2());
+  await assertSecureParent({ path: NodePath11.join(tempRoot, "entry"), uid });
+  const path8 = await mkdtemp2(NodePath11.join(tempRoot, "megarepo-capabilities-"));
+  await chmod3(path8, 448);
+  return { path: path8, cleanup: () => rm3(path8, { recursive: true, force: true }) };
+};
+var capturePrivateScratchIdentity = async (scratch) => {
+  assertAbsoluteNormalized({ value: scratch.path, name: "private scratch path" });
+  try {
+    const uid = currentUid();
+    const info2 = await lstat4(scratch.path);
+    const canonicalPath = await realpath4(scratch.path);
+    await assertSecureParent({ path: scratch.path, uid });
+    if (info2.isDirectory() === false || info2.isSymbolicLink() === true || (info2.mode & 511) !== 448 || info2.uid !== uid || canonicalPath !== scratch.path) {
+      throw new Error("private scratch is not a canonical mode-0700 directory owned by this uid");
+    }
+    return {
+      path: scratch.path,
+      realpath: canonicalPath,
+      device: info2.dev,
+      inode: info2.ino,
+      owner: info2.uid
+    };
+  } catch (cause) {
+    throw candidateReplaced({ path: scratch.path, cause });
+  }
+};
+var captureCandidateRootIdentity = async ({
+  path: path8,
+  scratch
+}) => {
+  try {
+    const info2 = await lstat4(path8);
+    const canonicalPath = await realpath4(path8);
+    if (info2.isDirectory() === false || info2.isSymbolicLink() === true || (info2.mode & 511) !== 448 || info2.uid !== scratch.owner || containedBy({ root: scratch.realpath, path: canonicalPath }) === false) {
+      throw new Error("candidate is not a private contained directory");
+    }
+    return {
+      path: path8,
+      realpath: canonicalPath,
+      device: info2.dev,
+      inode: info2.ino,
+      owner: info2.uid
+    };
+  } catch (cause) {
+    throw candidateReplaced({ path: path8, cause });
+  }
+};
+var assertDirectoryIdentity = async (identity2) => {
+  try {
+    const info2 = await lstat4(identity2.path);
+    const canonicalPath = await realpath4(identity2.path);
+    if (info2.isDirectory() === false || info2.isSymbolicLink() === true || (info2.mode & 511) !== 448 || info2.dev !== identity2.device || info2.ino !== identity2.inode || info2.uid !== identity2.owner || canonicalPath !== identity2.realpath) {
+      throw new Error("directory identity no longer matches its captured inode");
+    }
+  } catch (cause) {
+    throw candidateReplaced({ path: identity2.path, cause });
+  }
+};
+var makeDirectoriesOwnerWritable = async (path8) => {
+  const info2 = await lstat4(path8);
+  if (info2.isDirectory() === false || info2.isSymbolicLink() === true)
+    return;
+  await chmod3(path8, 448);
+  await Promise.all((await readdir4(path8)).map((child) => makeDirectoriesOwnerWritable(NodePath11.join(path8, child))));
+};
+var normalizeR6SourceModes = async (path8) => {
+  const info2 = await lstat4(path8);
+  if (info2.isDirectory() === true) {
+    await Promise.all((await readdir4(path8)).map((child) => normalizeR6SourceModes(NodePath11.join(path8, child))));
+    await chmod3(path8, 493);
+  } else if (info2.isFile() === true) {
+    await chmod3(path8, (info2.mode & 73) === 0 ? 292 : 365);
+  }
+};
+var makeScratchRelease = ({
+  scratch,
+  identity: identity2
+}) => {
+  let released = false;
+  return async () => {
+    if (released === true)
+      return;
+    await assertDirectoryIdentity(identity2);
+    await makeDirectoriesOwnerWritable(identity2.path);
+    await scratch.cleanup();
+    released = true;
+  };
+};
+var executableDigest = async (path8) => {
+  const hash3 = createHash7("sha256");
+  await new Promise((resolve15, reject) => {
+    const stream3 = createReadStream2(path8);
+    stream3.on("data", (chunk) => hash3.update(chunk));
+    stream3.once("error", reject);
+    stream3.once("end", resolve15);
+  });
+  return `sha256:${hash3.digest("hex")}`;
+};
+var singleNixOutput = ({
+  stdout,
+  capability,
+  value: value5
+}) => {
+  const lines2 = stdout.split(/\r?\n/u).filter((line) => line.length > 0);
+  if (lines2.length !== 1 || /^\/nix\/store\/[^/\s]+$/u.test(lines2[0] ?? "") === false) {
+    throw new CompositionCapabilityResolutionError({
+      reason: "InvalidNixOutput",
+      message: `Nix must return exactly one /nix/store output for capability '${capability.toolId}'`,
+      command: value5
+    });
+  }
+  return lines2[0];
+};
+var closureStorePaths = ({
+  stdout,
+  capability,
+  nixOutputPath,
+  value: value5
+}) => {
+  const lines2 = stdout.split(/\r?\n/u).filter((line) => line.length > 0);
+  const invalid2 = lines2.length === 0 || lines2.some((line) => /^\/nix\/store\/[^/\s]+$/u.test(line) === false) || lines2.includes(nixOutputPath) === false;
+  if (invalid2 === true) {
+    throw new CompositionCapabilityResolutionError({
+      reason: "InvalidNixOutput",
+      message: `Nix must return the complete /nix/store closure of '${nixOutputPath}' for capability '${capability.toolId}'`,
+      command: value5
+    });
+  }
+  return [...new Set(lines2)].toSorted((left, right) => left < right ? -1 : left > right ? 1 : 0);
+};
+var resolveCapability = async ({
+  capability,
+  nixCommands,
+  env,
+  lock
+}) => {
+  const { stdout } = await run8({ value: nixCommands.build, env }).finally(() => assertRegularFileIdentity(lock));
+  const nixOutputPath = singleNixOutput({ stdout, capability, value: nixCommands.build });
+  const closure = await run8({ value: nixCommands.closure, env }).finally(() => assertRegularFileIdentity(lock));
+  const closurePaths = closureStorePaths({
+    stdout: closure.stdout,
+    capability,
+    nixOutputPath,
+    value: nixCommands.closure
+  });
+  const declaredExecutable = NodePath11.join(nixOutputPath, capability.executable);
+  try {
+    const [canonicalOutput, outputInfo, executableInfo] = await Promise.all([
+      realpath4(nixOutputPath),
+      stat5(nixOutputPath),
+      stat5(declaredExecutable)
+    ]);
+    if (outputInfo.isDirectory() === false || executableInfo.isFile() === false) {
+      throw new Error("output must be a directory and executable must be a regular file");
+    }
+    await access3(declaredExecutable, 1);
+    const executablePath = await realpath4(declaredExecutable);
+    if (containedBy({ root: canonicalOutput, path: executablePath }) === false) {
+      throw new Error("executable realpath escapes its exact Nix output");
+    }
+    return {
+      capability,
+      nixOutputPath,
+      executablePath,
+      executableDigest: await executableDigest(executablePath),
+      closureStorePaths: closurePaths
+    };
+  } catch (cause) {
+    throw new CompositionCapabilityResolutionError({
+      reason: "InvalidExecutable",
+      message: `Capability '${capability.toolId}' does not provide a contained regular executable '${capability.executable}'`,
+      path: declaredExecutable,
+      cause
+    });
+  }
+};
+var resolveCapabilitiesInOrder = ({
+  capabilities,
+  nixCommands,
+  env,
+  lock
+}) => {
+  const resolved2 = [];
+  const next2 = (index2) => {
+    const capability = capabilities[index2];
+    if (capability === undefined)
+      return Promise.resolve(resolved2);
+    return resolveCapability({ capability, nixCommands: nixCommands[index2], env, lock }).then((value5) => {
+      resolved2.push(value5);
+      return next2(index2 + 1);
+    });
+  };
+  return next2(0);
+};
+var safeNixEnvironment = ({
+  runtime: runtime3,
+  privateRoot
+}) => {
+  const source = runtime3.env ?? {};
+  return {
+    HOME: privateRoot,
+    TMPDIR: privateRoot,
+    ...source["NIX_SSL_CERT_FILE"] === undefined ? {} : { NIX_SSL_CERT_FILE: source["NIX_SSL_CERT_FILE"] },
+    ...source["SSL_CERT_FILE"] === undefined ? {} : { SSL_CERT_FILE: source["SSL_CERT_FILE"] }
+  };
+};
+var ToolProjectionManifest = exports_Schema.Struct({
+  closureIdentity: exports_Schema.String,
+  closureStorePaths: exports_Schema.Array(exports_Schema.String),
+  contentDigest: exports_Schema.String,
+  executableStorePath: exports_Schema.String,
+  executionPlatform: exports_Schema.Literals(["x86_64-linux", "aarch64-linux", "aarch64-macos"]),
+  protocol: exports_Schema.String,
+  runtimeContract: exports_Schema.Literal("native-executable/v1"),
+  schema: exports_Schema.Literal("effect-utils/buck2-support-tools/v1"),
+  toolId: exports_Schema.String
+});
+var ToolProjectionManifestJson = exports_Schema.fromJsonString(ToolProjectionManifest);
+var CapabilityProjectionManifestJsonSchema = ToolProjectionManifestJson;
+var toolBuckBytes = `export_file(name = "executable", src = "executable", visibility = ["PUBLIC"])
+` + `export_file(name = "manifest", src = "manifest.json", visibility = ["PUBLIC"])
+`;
+var rootBuckBytes = `# Generated from exact Nix realizations.
+`;
+var atomicWrite2 = async ({ path: path8, bytes }) => {
+  const temporary = `${path8}.tmp-${randomUUID()}`;
+  await writeFile4(temporary, bytes, { flag: "wx" });
+  await rename6(temporary, path8);
+};
+var manifestBytes = (manifest) => `${exports_Schema.encodeSync(ToolProjectionManifestJson)(manifest)}
+`;
+var computeGeneration = (files) => {
+  const framed = files.toSorted((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0).map(({ path: path8, bytes }) => `${createHash7("sha256").update(bytes).digest("hex")}  ./${path8}
+`).join("");
+  const payloadDigest = createHash7("sha256").update(framed).digest("hex");
+  return createHash7("sha256").update(`${payloadDigest}  -
+`).digest("hex");
+};
+var renderDefs = ({
+  generation,
+  platform,
+  manifests
+}) => [
+  `GENERATION = "${generation}"`,
+  "CAPABILITIES = {",
+  `  "${platform}": {`,
+  ...manifests.map((manifest) => `    "${manifest.toolId}": {"generation": "${generation}", "contentDigest": "${manifest.contentDigest}", "closureIdentity": "${manifest.closureIdentity}", "executableStorePath": "${manifest.executableStorePath}", "closureStorePaths": [${manifest.closureStorePaths.map((path8) => `"${path8}"`).join(", ")}]},`),
+  "  },",
+  "}",
+  ""
+].join(`
+`);
+var projectResolvedCapabilities = async ({
+  candidateRoot,
+  platform,
+  resolved: resolved2
+}) => {
+  const manifests = resolved2.map(({ capability, executablePath, executableDigest: executableDigest2, closureStorePaths: closure }) => ({
+    closureIdentity: NodePath11.dirname(NodePath11.dirname(executablePath)),
+    closureStorePaths: closure,
+    contentDigest: executableDigest2.slice("sha256:".length),
+    executableStorePath: executablePath,
+    executionPlatform: platform,
+    protocol: capability.protocol,
+    runtimeContract: "native-executable/v1",
+    schema: "effect-utils/buck2-support-tools/v1",
+    toolId: capability.toolId
+  }));
+  const files = manifests.flatMap((manifest) => [
+    { path: `${platform}/${manifest.toolId}/BUCK`, bytes: toolBuckBytes },
+    { path: `${platform}/${manifest.toolId}/manifest.json`, bytes: manifestBytes(manifest) }
+  ]);
+  const generation = computeGeneration(files);
+  const projectionPath = NodePath11.join(candidateRoot, ".buck2", "capabilities");
+  const generationRoot = NodePath11.join(projectionPath, "generations", generation, platform);
+  await mkdir5(generationRoot, { recursive: true });
+  await Promise.all(manifests.map(async (manifest) => {
+    const directory4 = NodePath11.join(generationRoot, manifest.toolId);
+    await mkdir5(directory4);
+    await symlink4(manifest.executableStorePath, NodePath11.join(directory4, "executable"));
+    await atomicWrite2({
+      path: NodePath11.join(directory4, "manifest.json"),
+      bytes: manifestBytes(manifest)
+    });
+    await atomicWrite2({ path: NodePath11.join(directory4, "BUCK"), bytes: toolBuckBytes });
+  }));
+  await atomicWrite2({ path: NodePath11.join(projectionPath, "BUCK"), bytes: rootBuckBytes });
+  await atomicWrite2({
+    path: NodePath11.join(projectionPath, "defs.bzl"),
+    bytes: renderDefs({ generation, platform, manifests })
+  });
+  return { projectionPath, generation };
+};
+var assertProjectedClosure = async ({
+  manifest,
+  path: path8
+}) => {
+  const paths = manifest.closureStorePaths;
+  const canonical2 = paths.every((value5, index2) => /^\/nix\/store\/[^/]+$/u.test(value5) === true && (index2 === 0 || value5 > paths[index2 - 1]));
+  if (paths.length === 0 || canonical2 === false) {
+    throw invalidInput({ message: "Capability closure paths are not canonical", path: path8 });
+  }
+  if (paths.includes(manifest.closureIdentity) === false) {
+    throw invalidInput({ message: "Capability closure omits its own realization", path: path8 });
+  }
+  await Promise.all(paths.map(async (storePath) => {
+    try {
+      await lstat4(storePath);
+    } catch (cause) {
+      throw invalidInput({ message: "Capability closure path is absent", path: storePath, cause });
+    }
+  }));
+};
+var checkCompositionCapabilityProjectionInternal = async ({
+  memberRoot
+}) => {
+  const projectionPath = NodePath11.join(memberRoot, ".buck2", "capabilities");
+  const defs = await readFile6(NodePath11.join(projectionPath, "defs.bzl"), "utf8");
+  const match11 = /^GENERATION = "([0-9a-f]{64})"$/mu.exec(defs);
+  if (match11 === null)
+    throw invalidInput({ message: "Capability defs generation is invalid", path: projectionPath });
+  const generation = match11[1];
+  if (await readFile6(NodePath11.join(projectionPath, "BUCK"), "utf8") !== rootBuckBytes) {
+    throw invalidInput({ message: "Capability root BUCK is invalid", path: projectionPath });
+  }
+  const generationRoot = NodePath11.join(projectionPath, "generations", generation);
+  const platforms = await readdir4(generationRoot);
+  if (platforms.length !== 1)
+    throw invalidInput({
+      message: "Capability generation must contain one platform",
+      path: generationRoot
+    });
+  const platform = platforms[0];
+  const toolRoot = NodePath11.join(generationRoot, platform);
+  const tools = (await readdir4(toolRoot)).toSorted();
+  const checked = await Promise.all(tools.map(async (toolId) => {
+    const directory4 = NodePath11.join(toolRoot, toolId);
+    const manifestFile = NodePath11.join(directory4, "manifest.json");
+    const encoded = await readFile6(manifestFile, "utf8");
+    const manifest = exports_Schema.decodeUnknownSync(ToolProjectionManifestJson, strictParseOptions5)(encoded.trimEnd());
+    if (manifest.toolId !== toolId || manifest.executionPlatform !== platform) {
+      throw invalidInput({ message: "Capability manifest identity mismatch", path: manifestFile });
+    }
+    const executable = await realpath4(NodePath11.join(directory4, "executable"));
+    if (executable !== manifest.executableStorePath || (await executableDigest(executable)).slice(7) !== manifest.contentDigest) {
+      throw invalidInput({ message: "Capability executable identity mismatch", path: executable });
+    }
+    await assertProjectedClosure({ manifest, path: manifestFile });
+    if (await readFile6(NodePath11.join(directory4, "BUCK"), "utf8") !== toolBuckBytes) {
+      throw invalidInput({ message: "Capability tool BUCK is invalid", path: directory4 });
+    }
+    return {
+      manifest,
+      files: [
+        { path: `${platform}/${toolId}/BUCK`, bytes: toolBuckBytes },
+        { path: `${platform}/${toolId}/manifest.json`, bytes: encoded }
+      ]
+    };
+  }));
+  const manifests = checked.map(({ manifest }) => manifest);
+  const files = checked.flatMap(({ files: files2 }) => files2);
+  if (computeGeneration(files) !== generation || defs !== renderDefs({ generation, platform, manifests })) {
+    throw invalidInput({
+      message: "Capability projection generation or defs mismatch",
+      path: projectionPath
+    });
+  }
+};
+var captureProjectionIdentity = async ({
+  projectionPath,
+  candidate
+}) => {
+  try {
+    const info2 = await lstat4(projectionPath);
+    const canonicalPath = await realpath4(projectionPath);
+    if (info2.isDirectory() === false || info2.isSymbolicLink() === true || containedBy({ root: candidate.realpath, path: canonicalPath }) === false) {
+      throw new Error("projection is not a real directory contained by the candidate");
+    }
+    return {
+      path: projectionPath,
+      realpath: canonicalPath,
+      device: info2.dev,
+      inode: info2.ino
+    };
+  } catch (cause) {
+    throw new CompositionCapabilityResolutionError({
+      reason: "ProjectionFailure",
+      message: "Checked projection directory identity is invalid",
+      path: projectionPath,
+      cause
+    });
+  }
+};
+var assertProjectionIdentity = async (identity2) => {
+  try {
+    const info2 = await lstat4(identity2.path);
+    const canonicalPath = await realpath4(identity2.path);
+    if (info2.isDirectory() === false || info2.isSymbolicLink() === true || info2.dev !== identity2.device || info2.ino !== identity2.inode || canonicalPath !== identity2.realpath) {
+      throw new Error("projection identity changed");
+    }
+  } catch (cause) {
+    throw new CompositionCapabilityResolutionError({
+      reason: "ProjectionFailure",
+      message: "Checked projection directory was replaced while digesting",
+      path: identity2.path,
+      cause
+    });
+  }
+};
+var projectionDigest = async ({
+  projection,
+  candidate
+}) => {
+  await assertDirectoryIdentity(candidate);
+  await assertProjectionIdentity(projection);
+  const defsPath = NodePath11.join(projection.path, "defs.bzl");
+  let handle;
+  try {
+    const pathInfo = await lstat4(defsPath);
+    const canonicalPath = await realpath4(defsPath);
+    if (pathInfo.isFile() === false || pathInfo.isSymbolicLink() === true || containedBy({ root: projection.realpath, path: canonicalPath }) === false) {
+      throw new Error("defs.bzl is not a contained regular file");
+    }
+    handle = await open5(defsPath, constants4.O_RDONLY | constants4.O_NOFOLLOW);
+    const before = await handle.stat();
+    const defs = await handle.readFile({ encoding: "utf8" });
+    const after = await handle.stat();
+    if (before.isFile() === false || before.dev !== pathInfo.dev || before.ino !== pathInfo.ino || after.dev !== before.dev || after.ino !== before.ino) {
+      throw new Error("defs.bzl inode changed while reading");
+    }
+    const matches = [...defs.matchAll(/^GENERATION = "([0-9a-f]{64})"$/gmu)];
+    if (matches.length !== 1) {
+      throw new Error("defs.bzl does not declare exactly one valid GENERATION");
+    }
+    await assertProjectionIdentity(projection);
+    await assertDirectoryIdentity(candidate);
+    return matches[0][1];
+  } catch (cause) {
+    throw new CompositionCapabilityResolutionError({
+      reason: "ProjectionFailure",
+      message: "Checked projection could not be digested without following links",
+      path: defsPath,
+      cause
+    });
+  } finally {
+    await handle?.close();
+  }
+};
+var resolveCompositionCapabilitiesInternal = async (input) => {
+  let release3;
+  try {
+    const manifest = decodeBuckMemberManifest(input.manifest);
+    const system = exports_Schema.decodeUnknownSync(CompositionCapabilitySystemSchema, strictParseOptions5)(input.system);
+    await validateRuntime(input.runtime);
+    const roots = await validateMember(input);
+    const capabilities = buckMemberProjectedCapabilitiesForSystem({ manifest, system }).toSorted((left, right) => left.toolId < right.toolId ? -1 : left.toolId > right.toolId ? 1 : 0);
+    const nonce = (input.runtime.nonce ?? randomUUID)();
+    if (/^[A-Za-z0-9._-]+$/u.test(nonce) === false) {
+      throw invalidInput({
+        message: "runtime nonce must contain only portable filename characters"
+      });
+    }
+    const plannedPrivateRoot = NodePath11.join(NodePath11.resolve(tmpdir2()), `.megarepo-capabilities-planned-${nonce}`);
+    const plannedCandidateRoot = NodePath11.join(plannedPrivateRoot, "candidate");
+    const projectorPlatform = platformFor(system);
+    const capabilityCommands = capabilities.map((capability) => {
+      const installable = `${roots.memberRoot}#${capability.flakePackage}^out`;
+      return {
+        build: command2({
+          executable: input.runtime.nixPath,
+          args: [
+            "build",
+            "--no-link",
+            "--print-out-paths",
+            "--no-write-lock-file",
+            "--no-update-lock-file",
+            installable
+          ]
+        }),
+        closure: command2({
+          executable: input.runtime.nixPath,
+          args: [
+            "path-info",
+            "--recursive",
+            "--offline",
+            "--no-write-lock-file",
+            "--no-update-lock-file",
+            installable
+          ]
+        })
+      };
+    });
+    const nixCommands = capabilityCommands.flatMap(({ build: build2, closure }) => [build2, closure]);
+    if (input.dryRun === true) {
+      return {
+        _tag: "Planned",
+        system,
+        projectorPlatform,
+        candidateRoot: plannedCandidateRoot,
+        nixCommands
+      };
+    }
+    const scratch = await (input.runtime.createPrivateScratch ?? defaultCreatePrivateScratch)();
+    const scratchIdentity = await capturePrivateScratchIdentity(scratch);
+    release3 = makeScratchRelease({ scratch, identity: scratchIdentity });
+    const env = safeNixEnvironment({ runtime: input.runtime, privateRoot: scratchIdentity.path });
+    const resolved2 = await resolveCapabilitiesInOrder({
+      capabilities,
+      nixCommands: capabilityCommands,
+      env,
+      lock: roots.lock
+    });
+    await assertRegularFileIdentity(roots.lock);
+    const candidateRoot = NodePath11.join(scratchIdentity.path, "candidate");
+    await mkdir5(candidateRoot, { mode: 448 });
+    const candidateIdentity = await captureCandidateRootIdentity({
+      path: candidateRoot,
+      scratch: scratchIdentity
+    });
+    await input.runtime.afterCandidateCreated?.(candidateRoot);
+    await assertDirectoryIdentity(scratchIdentity);
+    await assertDirectoryIdentity(candidateIdentity);
+    const projected = await projectResolvedCapabilities({
+      candidateRoot,
+      platform: projectorPlatform,
+      resolved: resolved2
+    });
+    await checkCompositionCapabilityProjection({ memberRoot: candidateRoot });
+    const projectionPath = projected.projectionPath;
+    await input.runtime.beforeProjectionDigest?.({ candidateRoot, projectionPath });
+    await assertDirectoryIdentity(candidateIdentity);
+    const projection = await captureProjectionIdentity({
+      projectionPath,
+      candidate: candidateIdentity
+    });
+    const digest2 = await projectionDigest({ projection, candidate: candidateIdentity });
+    await normalizeR6SourceModes(projectionPath);
+    await assertRegularFileIdentity(roots.lock);
+    return {
+      _tag: "Resolved",
+      system,
+      projectorPlatform,
+      candidateRoot,
+      projectionPath,
+      projectionDigest: digest2,
+      capabilities: resolved2,
+      capabilitiesByToolId: Object.fromEntries(resolved2.map((capability) => [capability.capability.toolId, capability])),
+      nixCommands,
+      release: release3
+    };
+  } catch (cause) {
+    if (release3 !== undefined) {
+      try {
+        await release3();
+      } catch {}
+    }
+    if (cause instanceof CompositionCapabilityResolutionError)
+      throw cause;
+    throw invalidInput({ message: "Invalid composition capability resolver input", cause });
+  }
 };
 
 // src/composition/mounts/member-mount-cp-a.ts
@@ -82447,7 +82969,7 @@ import {
   stat as stat6,
   unlink as unlink3
 } from "node:fs/promises";
-import * as NodePath10 from "node:path";
+import * as NodePath12 from "node:path";
 var strictParseOptions6 = { errors: "all", onExcessProperty: "error" };
 var TransactionJson = exports_Schema.fromJsonString(CpAMemberMountTransaction, { space: 2 });
 var syncDirectoryNative2 = async (path8) => {
@@ -82560,7 +83082,7 @@ var sourceSnapshot = ({
     };
     return {
       root: await capture(root),
-      entries: await Promise.all(scan2.repository.manifest.entries.map((entry) => capture(NodePath10.join(root, entry.path))))
+      entries: await Promise.all(scan2.repository.manifest.entries.map((entry) => capture(NodePath12.join(root, entry.path))))
     };
   }
 });
@@ -82599,7 +83121,7 @@ var runCommand2 = ({
   message: `${commandName} failed for '${path8}'`,
   reason: "CommandFailure",
   recoveryPaths,
-  try: () => new Promise((resolve14, reject) => {
+  try: () => new Promise((resolve15, reject) => {
     const child = spawn2(binary2, [...args2], { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
     child.stderr?.setEncoding("utf8");
@@ -82610,12 +83132,12 @@ var runCommand2 = ({
     child.once("error", reject);
     child.once("close", (exitCode, signal) => {
       if (exitCode === 0) {
-        resolve14();
+        resolve15();
         return;
       }
       const detail = stderr.trim();
       const operands = args2.filter((argument) => argument.startsWith("-") === false);
-      const parents = [...new Set(operands.map((operand) => NodePath10.dirname(operand)))];
+      const parents = [...new Set(operands.map((operand) => NodePath12.dirname(operand)))];
       describeRenameOperands([...operands, ...parents]).then((described) => {
         reject(new Error(`${commandName} exited ${String(exitCode)}${signal === null ? "" : ` (${signal})`}: ${binary2} ${args2.join(" ")}${detail === "" ? " (no stderr)" : `
 ${detail}`}
@@ -82628,7 +83150,7 @@ var validateRuntimePath = ({
   path: path8,
   name
 }) => exports_Effect.gen(function* () {
-  if (NodePath10.isAbsolute(path8) === false) {
+  if (NodePath12.isAbsolute(path8) === false) {
     return yield* error3({
       reason: "InvalidRequest",
       path: path8,
@@ -82674,7 +83196,7 @@ var writeExclusiveTransaction = ({
   path: path8,
   message: `Cannot create cp-a member mount transaction '${path8}'`,
   try: async () => {
-    await mkdir6(NodePath10.dirname(path8), { recursive: true });
+    await mkdir6(NodePath12.dirname(path8), { recursive: true });
     const temporary = `${path8}.tmp-${process.pid}-${randomBytes7(8).toString("hex")}`;
     const handle = await open6(temporary, "wx", 384);
     try {
@@ -82702,7 +83224,7 @@ var writeExclusiveTransaction = ({
     }
     await syncDirectoryPromise({
       runtime: runtime3,
-      path: NodePath10.dirname(path8),
+      path: NodePath12.dirname(path8),
       reason: "TransactionCreate"
     });
   }
@@ -82733,7 +83255,7 @@ var replaceTransaction = ({
     }
     await syncDirectoryPromise({
       runtime: runtime3,
-      path: NodePath10.dirname(path8),
+      path: NodePath12.dirname(path8),
       reason: "TransactionReplace"
     });
   }
@@ -82762,7 +83284,7 @@ var removeTransaction = ({
     });
     await syncDirectoryPromise({
       runtime: runtime3,
-      path: NodePath10.dirname(path8),
+      path: NodePath12.dirname(path8),
       reason: "TransactionRemove"
     });
   }
@@ -82778,7 +83300,7 @@ var runPhaseHook = ({
     transaction.destinationPath,
     transaction.stagePath,
     cpAMemberMountTransactionPath({
-      workspaceRoot: NodePath10.dirname(NodePath10.dirname(transaction.destinationPath)),
+      workspaceRoot: NodePath12.dirname(NodePath12.dirname(transaction.destinationPath)),
       member: transaction.member
     })
   ],
@@ -82973,7 +83495,7 @@ var unprotectDirectories = (root) => io2({
         return;
       await chmod4(path8, 493);
       const children = await readdir5(path8);
-      await Promise.all(children.map((child) => visit(NodePath10.join(path8, child))));
+      await Promise.all(children.map((child) => visit(NodePath12.join(path8, child))));
     };
     await visit(root);
   }
@@ -82989,7 +83511,7 @@ var protectTree = (root) => io2({
         return;
       if (info2.isDirectory() === true) {
         const children = await readdir5(path8);
-        await Promise.all(children.map((child) => visit(NodePath10.join(path8, child))));
+        await Promise.all(children.map((child) => visit(NodePath12.join(path8, child))));
         await chmod4(path8, 365);
       } else if (info2.isFile() === true) {
         await chmod4(path8, (info2.mode & 73) === 0 ? 292 : 365);
@@ -83029,7 +83551,7 @@ var replaceCapabilities = ({
   capabilitiesPath,
   cpPath
 }) => exports_Effect.gen(function* () {
-  const destination = NodePath10.join(stagePath, ".buck2", "capabilities");
+  const destination = NodePath12.join(stagePath, ".buck2", "capabilities");
   yield* io2({
     path: destination,
     message: `Cannot prepare capability projection at '${destination}'`,
@@ -83041,7 +83563,7 @@ var replaceCapabilities = ({
   });
   yield* runCommand2({
     binary: cpPath,
-    args: ["-a", `${capabilitiesPath}${NodePath10.sep}.`, destination],
+    args: ["-a", `${capabilitiesPath}${NodePath12.sep}.`, destination],
     path: destination,
     commandName: "GNU cp -a capability copy"
   });
@@ -83056,8 +83578,8 @@ var assertIndependentFileInodes = ({
   reason: "StageInvalid",
   try: () => Promise.all(scan2.repository.manifest.entries.filter((entry) => entry.kind === "file").map(async (entry) => {
     const [source, destination] = await Promise.all([
-      lstat5(NodePath10.join(sourceRoot, entry.path)),
-      lstat5(NodePath10.join(destinationRoot, entry.path))
+      lstat5(NodePath12.join(sourceRoot, entry.path)),
+      lstat5(NodePath12.join(destinationRoot, entry.path))
     ]);
     if (source.dev === destination.dev && source.ino === destination.ino) {
       throw new Error(`cp -a reused source inode for '${entry.path}'`);
@@ -83097,7 +83619,7 @@ var assertStagePostcondition = ({
   });
   yield* assertIndependentFileInodes({
     sourceRoot: capabilitiesPath,
-    destinationRoot: NodePath10.join(stagePath, ".buck2", "capabilities"),
+    destinationRoot: NodePath12.join(stagePath, ".buck2", "capabilities"),
     scan: capabilitiesScan
   });
   return stageScan;
@@ -83373,7 +83895,7 @@ var materializeCpAMemberMount = ({
       message: "Cp-a staging nonce must contain only ASCII letters, digits, underscore, or hyphen"
     });
   }
-  const stagePath = NodePath10.join(NodePath10.dirname(destinationPath), `.mr-stage-${encodeCpAMountMemberFilename(request3.member).slice(0, -5)}-${nonce}`);
+  const stagePath = NodePath12.join(NodePath12.dirname(destinationPath), `.mr-stage-${encodeCpAMountMemberFilename(request3.member).slice(0, -5)}-${nonce}`);
   const plan = {
     _tag: "MountPlan",
     operation: operation2,
@@ -83435,7 +83957,7 @@ var materializeCpAMemberMount = ({
     if (cleanupResult._tag === "Success") {
       yield* syncDirectory3({
         runtime: runtime3,
-        path: NodePath10.dirname(stagePath),
+        path: NodePath12.dirname(stagePath),
         reason: "CandidateCleanup"
       });
       yield* removeTransaction({ path: transactionPath, runtime: runtime3 });
@@ -83445,7 +83967,7 @@ var materializeCpAMemberMount = ({
   transaction = candidateRecordResult.success;
   yield* syncDirectory3({
     runtime: runtime3,
-    path: NodePath10.dirname(stagePath),
+    path: NodePath12.dirname(stagePath),
     reason: "StageCreate"
   });
   transaction = yield* updatePhase({
@@ -83458,7 +83980,7 @@ var materializeCpAMemberMount = ({
   const stageResult = yield* exports_Effect.gen(function* () {
     yield* runCommand2({
       binary: runtime3.cpPath,
-      args: ["-a", `${request3.sourcePath}${NodePath10.sep}.`, stagePath],
+      args: ["-a", `${request3.sourcePath}${NodePath12.sep}.`, stagePath],
       path: stagePath,
       commandName: "GNU cp -a source copy"
     });
@@ -83474,7 +83996,7 @@ var materializeCpAMemberMount = ({
       try: () => runtime3.capabilityCheck({
         member: request3.member,
         stagePath,
-        capabilitiesPath: NodePath10.join(stagePath, ".buck2", "capabilities")
+        capabilitiesPath: NodePath12.join(stagePath, ".buck2", "capabilities")
       })
     });
     yield* protectTree(stagePath);
@@ -83506,7 +84028,7 @@ var materializeCpAMemberMount = ({
     if (cleanupResult._tag === "Success") {
       yield* syncDirectory3({
         runtime: runtime3,
-        path: NodePath10.dirname(stagePath),
+        path: NodePath12.dirname(stagePath),
         reason: "CandidateCleanup"
       });
       yield* removeTransaction({ path: transactionPath, runtime: runtime3 });
@@ -83563,7 +84085,7 @@ var materializeCpAMemberMount = ({
     }
     yield* syncDirectory3({
       runtime: runtime3,
-      path: NodePath10.dirname(destinationPath),
+      path: NodePath12.dirname(destinationPath),
       reason: "FirstPublish"
     });
   } else {
@@ -83585,7 +84107,7 @@ var materializeCpAMemberMount = ({
     });
     yield* syncDirectory3({
       runtime: runtime3,
-      path: NodePath10.dirname(destinationPath),
+      path: NodePath12.dirname(destinationPath),
       reason: "Exchange"
     });
   }
@@ -83622,7 +84144,7 @@ var materializeCpAMemberMount = ({
   })));
   yield* syncDirectory3({
     runtime: runtime3,
-    path: NodePath10.dirname(ownedCpAMountMetadataPath({ workspaceRoot: request3.workspaceRoot, member: request3.member })),
+    path: NodePath12.dirname(ownedCpAMountMetadataPath({ workspaceRoot: request3.workspaceRoot, member: request3.member })),
     reason: "MetadataPublish"
   });
   transaction = yield* updatePhase({
@@ -83651,7 +84173,7 @@ var materializeCpAMemberMount = ({
     yield* deleteOldAtStage({ stagePath, oldIdentity });
     yield* syncDirectory3({
       runtime: runtime3,
-      path: NodePath10.dirname(stagePath),
+      path: NodePath12.dirname(stagePath),
       reason: "OldCleanup"
     });
   }
@@ -83706,7 +84228,7 @@ var validateTransactionPaths = ({
   transactionPath
 }) => {
   const destinationPath = cpAMemberMountDestinationPath(request3);
-  if (transaction.member !== request3.member || transaction.destinationPath !== destinationPath || NodePath10.dirname(transaction.stagePath) !== NodePath10.dirname(destinationPath) || transaction.stagePath === destinationPath) {
+  if (transaction.member !== request3.member || transaction.destinationPath !== destinationPath || NodePath12.dirname(transaction.stagePath) !== NodePath12.dirname(destinationPath) || transaction.stagePath === destinationPath) {
     return exports_Effect.fail(error3({
       reason: "AmbiguousRecovery",
       path: transactionPath,
@@ -83733,7 +84255,7 @@ var publishMetadataFromTransaction = ({
   })));
   yield* syncDirectory3({
     runtime: runtime3,
-    path: NodePath10.dirname(ownedCpAMountMetadataPath({ workspaceRoot, member: transaction.member })),
+    path: NodePath12.dirname(ownedCpAMountMetadataPath({ workspaceRoot, member: transaction.member })),
     reason: "MetadataPublish"
   });
 });
@@ -83766,7 +84288,7 @@ var recoverCpAMemberMount = ({
     yield* teardownBoundDirectory({ path: transaction.stagePath, identity: identity2 });
     yield* syncDirectory3({
       runtime: runtime3,
-      path: NodePath10.dirname(transaction.stagePath),
+      path: NodePath12.dirname(transaction.stagePath),
       reason: "CandidateCleanup"
     });
     yield* removeTransaction({ path: transactionPath, runtime: runtime3 });
@@ -83826,7 +84348,7 @@ var recoverCpAMemberMount = ({
       }
       yield* syncDirectory3({
         runtime: runtime3,
-        path: NodePath10.dirname(transaction.destinationPath),
+        path: NodePath12.dirname(transaction.destinationPath),
         reason: "FirstPublish"
       });
       destination = { _tag: "New" };
@@ -83893,7 +84415,7 @@ var recoverCpAMemberMount = ({
       });
       yield* syncDirectory3({
         runtime: runtime3,
-        path: NodePath10.dirname(transaction.destinationPath),
+        path: NodePath12.dirname(transaction.destinationPath),
         reason: "Exchange"
       });
       destination = yield* observeTransactionPath({
@@ -83925,7 +84447,7 @@ var recoverCpAMemberMount = ({
         });
         yield* syncDirectory3({
           runtime: runtime3,
-          path: NodePath10.dirname(transaction.stagePath),
+          path: NodePath12.dirname(transaction.stagePath),
           reason: "OldCleanup"
         });
       }
@@ -83997,7 +84519,7 @@ var teardownCpAMemberMount = ({
   yield* teardownBoundDirectory({ path: destinationPath, identity: oldIdentity.identity });
   yield* syncDirectory3({
     runtime: runtime3,
-    path: NodePath10.dirname(destinationPath),
+    path: NodePath12.dirname(destinationPath),
     reason: "MountTeardown"
   });
   const metadataPath = ownedCpAMountMetadataPath({
@@ -84013,7 +84535,7 @@ var teardownCpAMemberMount = ({
   });
   yield* syncDirectory3({
     runtime: runtime3,
-    path: NodePath10.dirname(metadataPath),
+    path: NodePath12.dirname(metadataPath),
     reason: "MetadataRemove"
   });
   return { _tag: "TornDown", destinationPath };
@@ -84021,127 +84543,6 @@ var teardownCpAMemberMount = ({
   name: "megarepo/member-mount/cp-a/teardown",
   labelValue: "cp-a-teardown"
 }));
-
-// src/composition/overlays/dist-overlay-lifecycle-schema.ts
-import { Buffer as Buffer5 } from "node:buffer";
-import * as NodePath11 from "node:path";
-var DIST_OVERLAY_TRANSACTION_VERSION = 1;
-var AbsolutePath5 = exports_Schema.String.check(exports_Schema.makeFilter((value5) => NodePath11.isAbsolute(value5) === true && NodePath11.normalize(value5) === value5 ? undefined : "Expected a normalized absolute path"));
-var MemberName2 = exports_Schema.String.check(exports_Schema.makeFilter((value5) => value5.length > 0 && value5 !== "." && value5 !== ".." && /[/\\]/u.test(value5) === false ? undefined : "Expected one non-empty member path segment"));
-var InodeIdentity = exports_Schema.Struct({ dev: exports_Schema.Natural, ino: exports_Schema.Natural });
-var DistOverlayPublishRequest = exports_Schema.Struct({
-  workspaceRoot: AbsolutePath5,
-  member: MemberName2,
-  expectedMountIdentity: InodeIdentity,
-  expectedMetadata: OwnedCpAMountMetadata,
-  target: DistOverlayTarget,
-  destination: DistOverlayDestination,
-  artifactPath: exports_Schema.NullOr(AbsolutePath5),
-  cpPath: AbsolutePath5,
-  mvPath: AbsolutePath5,
-  dryRun: exports_Schema.Boolean
-}).annotate({ identifier: "Megarepo.DistOverlayPublishRequest" });
-var DistOverlayRecoveryRequest = exports_Schema.Struct({
-  workspaceRoot: AbsolutePath5,
-  member: MemberName2,
-  target: DistOverlayTarget,
-  destination: DistOverlayDestination,
-  expectedMountIdentity: InodeIdentity,
-  mvPath: AbsolutePath5
-}).annotate({ identifier: "Megarepo.DistOverlayRecoveryRequest" });
-var DistOverlayOperation = exports_Schema.Literals(["FirstPublish", "Update", "Remove"]);
-var DistOverlayPhase = exports_Schema.Literals([
-  "Intent",
-  "CandidateCreated",
-  "CandidateValidated",
-  "Published",
-  "MetadataPublished",
-  "Cleanup"
-]);
-var DistOverlayTransaction = exports_Schema.Struct({
-  version: exports_Schema.Literal(DIST_OVERLAY_TRANSACTION_VERSION),
-  member: MemberName2,
-  target: DistOverlayTarget,
-  destination: DistOverlayDestination,
-  mountPath: AbsolutePath5,
-  destinationPath: AbsolutePath5,
-  stagePath: AbsolutePath5,
-  operation: DistOverlayOperation,
-  phaseHint: DistOverlayPhase,
-  mountIdentity: InodeIdentity,
-  oldIdentity: exports_Schema.NullOr(InodeIdentity),
-  candidateIdentity: exports_Schema.NullOr(InodeIdentity),
-  oldOverlay: exports_Schema.NullOr(R6DistOverlayManifestIdentity),
-  newOverlay: exports_Schema.NullOr(R6DistOverlayManifestIdentity),
-  previousMetadata: OwnedCpAMountMetadata,
-  nextMetadata: OwnedCpAMountMetadata
-}).annotate({ identifier: "Megarepo.DistOverlayTransaction" });
-var DistOverlayPlan = exports_Schema.TaggedStruct("DistOverlayPlan", {
-  operation: DistOverlayOperation,
-  member: MemberName2,
-  target: DistOverlayTarget,
-  destination: DistOverlayDestination,
-  destinationPath: AbsolutePath5,
-  stagePath: AbsolutePath5,
-  transactionPath: AbsolutePath5,
-  previousMetadata: OwnedCpAMountMetadata,
-  nextMetadata: OwnedCpAMountMetadata,
-  steps: exports_Schema.Array(exports_Schema.Literals([
-    "AssertUpdateLock",
-    "ValidateMount",
-    "CreateTransaction",
-    "CopyArtifact",
-    "ProtectCandidate",
-    "ValidateCandidate",
-    "Publish",
-    "ValidateRepositoryIdentity",
-    "PublishMetadata",
-    "ValidateOldIdentity",
-    "DeleteOld",
-    "RemoveTransaction"
-  ]))
-}).annotate({ identifier: "Megarepo.DistOverlayPlan" });
-var DistOverlayResult = exports_Schema.Union([
-  exports_Schema.TaggedStruct("DryRun", { plan: DistOverlayPlan }),
-  exports_Schema.TaggedStruct("Published", {
-    operation: DistOverlayOperation,
-    destinationPath: AbsolutePath5,
-    metadata: OwnedCpAMountMetadata
-  }),
-  exports_Schema.TaggedStruct("Recovered", {
-    action: exports_Schema.Literals(["RolledBack", "RolledForward"]),
-    destinationPath: AbsolutePath5
-  })
-]).annotate({ identifier: "Megarepo.DistOverlayResult" });
-
-class DistOverlayError extends exports_Schema.TaggedError()("DistOverlayError", {
-  reason: exports_Schema.Literals([
-    "InvalidRequest",
-    "UpdateLockNotOwned",
-    "UndeclaredDestination",
-    "MountIdentityMismatch",
-    "MetadataMismatch",
-    "ArtifactInvalid",
-    "DestinationRefused",
-    "TransactionCollision",
-    "CommandFailure",
-    "RepositoryIdentityChanged",
-    "MetadataPublishFailed",
-    "AmbiguousRecovery",
-    "IoFailure"
-  ]),
-  path: exports_Schema.String,
-  message: exports_Schema.String,
-  recoveryPaths: exports_Schema.Array(exports_Schema.String),
-  cause: exports_Schema.optional(exports_Schema.Defect())
-}) {
-}
-var encodeSegment = (value5) => Buffer5.from(value5, "utf8").toString("hex");
-var distOverlayTransactionPath = ({
-  workspaceRoot,
-  member,
-  destination
-}) => NodePath11.join(NodePath11.resolve(workspaceRoot), "repos", ".mr", "overlay-transactions", `v1-${encodeSegment(member)}--${encodeSegment(destination)}.json`);
 
 // src/composition/overlays/dist-overlay-lifecycle.ts
 import { spawn as spawn3 } from "node:child_process";
@@ -84158,7 +84559,7 @@ import {
   stat as stat7,
   unlink as unlink4
 } from "node:fs/promises";
-import * as NodePath12 from "node:path";
+import * as NodePath13 from "node:path";
 var strictParseOptions7 = { errors: "all", onExcessProperty: "error" };
 var TransactionJson2 = exports_Schema.fromJsonString(DistOverlayTransaction, { space: 2 });
 var failure3 = ({
@@ -84203,12 +84604,12 @@ var ensureControlDirectory = ({
   name,
   create = true
 }) => exports_Effect.gen(function* () {
-  const reposPath = NodePath12.join(workspaceRoot, "repos");
-  const controlRoot = NodePath12.join(reposPath, ".mr");
+  const reposPath = NodePath13.join(workspaceRoot, "repos");
+  const controlRoot = NodePath13.join(reposPath, ".mr");
   yield* assertRealDirectory({ path: workspaceRoot, label: "Workspace root" });
   yield* assertRealDirectory({ path: reposPath, label: "Workspace repos root" });
   yield* assertRealDirectory({ path: controlRoot, label: "Workspace control root" });
-  const path8 = NodePath12.join(controlRoot, name);
+  const path8 = NodePath13.join(controlRoot, name);
   if (create === true) {
     yield* io3({
       path: path8,
@@ -84325,12 +84726,12 @@ var syncOverlayMoveParents = ({
 }) => exports_Effect.gen(function* () {
   yield* syncLifecycleDirectory({
     runtime: runtime3,
-    path: NodePath12.dirname(destinationPath),
+    path: NodePath13.dirname(destinationPath),
     reason: `${kind}DestinationParent`
   });
   yield* syncLifecycleDirectory({
     runtime: runtime3,
-    path: NodePath12.dirname(stagePath),
+    path: NodePath13.dirname(stagePath),
     reason: `${kind}StageParent`
   });
 });
@@ -84339,7 +84740,7 @@ var syncOverlayStageCleanup = ({
   stagePath
 }) => syncLifecycleDirectory({
   runtime: runtime3,
-  path: NodePath12.dirname(stagePath),
+  path: NodePath13.dirname(stagePath),
   reason: "CleanupStageParent"
 });
 var encodeTransaction2 = (transaction) => `${exports_Schema.encodeSync(TransactionJson2)(transaction)}
@@ -84360,7 +84761,7 @@ var writeTransactionExclusive = ({
     } finally {
       await handle.close();
     }
-    await syncDirectory4(NodePath12.dirname(path8));
+    await syncDirectory4(NodePath13.dirname(path8));
   }
 });
 var replaceTransaction2 = ({
@@ -84380,7 +84781,7 @@ var replaceTransaction2 = ({
       await handle.close();
     }
     await rename8(temporary, path8);
-    await syncDirectory4(NodePath12.dirname(path8));
+    await syncDirectory4(NodePath13.dirname(path8));
   }
 });
 var removeTransaction2 = (path8) => io3({
@@ -84389,7 +84790,7 @@ var removeTransaction2 = (path8) => io3({
   recoveryPaths: [path8],
   try: async () => {
     await unlink4(path8);
-    await syncDirectory4(NodePath12.dirname(path8));
+    await syncDirectory4(NodePath13.dirname(path8));
   }
 });
 var readTransaction2 = (path8) => io3({
@@ -84427,7 +84828,7 @@ var protectTree2 = (root) => io3({
       if (info2.isSymbolicLink() === true)
         return;
       if (info2.isDirectory() === true) {
-        await Promise.all((await readdir6(path8)).map((child) => visit(NodePath12.join(path8, child))));
+        await Promise.all((await readdir6(path8)).map((child) => visit(NodePath13.join(path8, child))));
         await chmod5(path8, 365);
         return;
       }
@@ -84447,7 +84848,7 @@ var unprotectDirectories2 = async (root) => {
   const visit = async (directory4) => {
     await chmod5(directory4, 493);
     const children = await readdir6(directory4, { withFileTypes: true });
-    await Promise.all(children.filter((entry) => entry.isDirectory() === true).map((entry) => visit(NodePath12.join(directory4, entry.name))));
+    await Promise.all(children.filter((entry) => entry.isDirectory() === true).map((entry) => visit(NodePath13.join(directory4, entry.name))));
   };
   await visit(root);
 };
@@ -84536,11 +84937,11 @@ var assertNoSymlinkParents = ({
   message: `Overlay destination has a missing, escaping, or symlink parent: '${destinationPath}'`,
   reason: "DestinationRefused",
   try: async () => {
-    const relative6 = NodePath12.relative(mountPath, destinationPath);
-    if (relative6 === "" || relative6.startsWith(`..${NodePath12.sep}`) === true || NodePath12.isAbsolute(relative6) === true) {
+    const relative6 = NodePath13.relative(mountPath, destinationPath);
+    if (relative6 === "" || relative6.startsWith(`..${NodePath13.sep}`) === true || NodePath13.isAbsolute(relative6) === true) {
       throw new Error(`Overlay destination escapes member mount: '${destinationPath}'`);
     }
-    const parents = relative6.split(NodePath12.sep).slice(0, -1).map((_, index2, segments2) => NodePath12.join(mountPath, ...segments2.slice(0, index2 + 1)));
+    const parents = relative6.split(NodePath13.sep).slice(0, -1).map((_, index2, segments2) => NodePath13.join(mountPath, ...segments2.slice(0, index2 + 1)));
     await Promise.all(parents.map(async (parent2) => {
       const info2 = await lstat6(parent2);
       if (info2.isDirectory() === false || info2.isSymbolicLink() === true) {
@@ -84560,8 +84961,8 @@ var assertIndependentFileInodes2 = ({
   try: async () => {
     await Promise.all(scan2.manifest.entries.filter((entry) => entry.kind === "file").map(async (entry) => {
       const [source, destination] = await Promise.all([
-        lstat6(NodePath12.join(sourceRoot, entry.path)),
-        lstat6(NodePath12.join(destinationRoot, entry.path))
+        lstat6(NodePath13.join(sourceRoot, entry.path)),
+        lstat6(NodePath13.join(destinationRoot, entry.path))
       ]);
       if (source.dev === destination.dev && source.ino === destination.ino) {
         throw new Error(`cp -a reused artifact inode for '${entry.path}'`);
@@ -84741,7 +85142,7 @@ var publishDistOverlay = ({
   yield* assertLock({ runtime: runtime3, workspaceRoot: request3.workspaceRoot, member: request3.member });
   yield* validateCommandPath({ path: request3.cpPath, name: "cp" });
   yield* validateCommandPath({ path: request3.mvPath, name: "mv" });
-  const mountPath = NodePath12.join(request3.workspaceRoot, "repos", request3.member);
+  const mountPath = NodePath13.join(request3.workspaceRoot, "repos", request3.member);
   if (request3.expectedMetadata.member !== request3.member || request3.expectedMetadata.publishedPath !== mountPath || hasDeclaredDistOverlay({
     declarations: request3.expectedMetadata.declaredOverlays,
     target: request3.target,
@@ -84760,7 +85161,7 @@ var publishDistOverlay = ({
     expectedIdentity: request3.expectedMountIdentity,
     expectedMetadata: request3.expectedMetadata
   });
-  const destinationPath = NodePath12.join(mountPath, ...request3.destination.split("/"));
+  const destinationPath = NodePath13.join(mountPath, ...request3.destination.split("/"));
   yield* assertNoSymlinkParents({ mountPath, destinationPath });
   const oldOverlay = request3.expectedMetadata.overlays.find((overlay) => overlay.destination === request3.destination);
   if (oldOverlay !== undefined && oldOverlay.target !== request3.target) {
@@ -84808,7 +85209,7 @@ var publishDistOverlay = ({
       message: "Overlay staging nonce contains unsupported characters"
     });
   }
-  const stagePath = NodePath12.join(request3.workspaceRoot, "repos", ".mr", "overlay-stages", `v1-${Buffer.from(request3.member, "utf8").toString("hex")}--${Buffer.from(request3.destination, "utf8").toString("hex")}-${nonce}`);
+  const stagePath = NodePath13.join(request3.workspaceRoot, "repos", ".mr", "overlay-stages", `v1-${Buffer.from(request3.member, "utf8").toString("hex")}--${Buffer.from(request3.destination, "utf8").toString("hex")}-${nonce}`);
   const transactionPath = distOverlayTransactionPath(request3);
   const plan = {
     _tag: "DistOverlayPlan",
@@ -84833,7 +85234,7 @@ var publishDistOverlay = ({
     workspaceRoot: request3.workspaceRoot,
     name: "overlay-transactions"
   });
-  if (NodePath12.dirname(stagePath) !== stageRoot || NodePath12.dirname(transactionPath) !== transactionRoot) {
+  if (NodePath13.dirname(stagePath) !== stageRoot || NodePath13.dirname(transactionPath) !== transactionRoot) {
     return yield* failure3({
       reason: "InvalidRequest",
       path: stagePath,
@@ -84893,7 +85294,7 @@ var publishDistOverlay = ({
     yield* replaceTransaction2({ path: transactionPath, transaction });
     yield* runCommand3({
       binary: request3.cpPath,
-      args: ["-a", `${artifactPath}${NodePath12.sep}.`, stagePath],
+      args: ["-a", `${artifactPath}${NodePath13.sep}.`, stagePath],
       path: stagePath,
       commandName: "GNU cp -a overlay copy",
       recoveryPaths: [stagePath, transactionPath]
@@ -84984,7 +85385,7 @@ var publishDistOverlay = ({
     });
   }
   yield* moveOverlayDirectories({
-    destinationParent: NodePath12.dirname(destinationPath),
+    destinationParent: NodePath13.dirname(destinationPath),
     paths: [destinationPath, stagePath],
     effect: exports_Effect.gen(function* () {
       const [destinationParentInfo, stageParentInfo] = yield* io3({
@@ -84993,8 +85394,8 @@ var publishDistOverlay = ({
         reason: "DestinationRefused",
         recoveryPaths: [destinationPath, stagePath, transactionPath],
         try: () => Promise.all([
-          lstat6(NodePath12.dirname(destinationPath)),
-          lstat6(NodePath12.dirname(stagePath))
+          lstat6(NodePath13.dirname(destinationPath)),
+          lstat6(NodePath13.dirname(stagePath))
         ])
       });
       if ((destinationParentInfo.mode & 511) !== 493 || (stageParentInfo.mode & 511) !== 493 || destinationParentInfo.dev !== stageParentInfo.dev) {
@@ -85111,7 +85512,7 @@ var publishDistOverlay = ({
   }).pipe(exports_Effect.result);
   if (metadataResult._tag === "Failure") {
     yield* moveOverlayDirectories({
-      destinationParent: NodePath12.dirname(destinationPath),
+      destinationParent: NodePath13.dirname(destinationPath),
       paths: [destinationPath, stagePath],
       effect: operation2 === "FirstPublish" ? runCommand3({
         binary: request3.mvPath,
@@ -85225,11 +85626,11 @@ var recoverDistOverlay = ({
   yield* assertLock({ runtime: runtime3, workspaceRoot: request3.workspaceRoot, member: request3.member });
   const transactionPath = distOverlayTransactionPath(request3);
   const transaction = yield* readTransaction2(transactionPath);
-  const mountPath = NodePath12.join(request3.workspaceRoot, "repos", request3.member);
-  const destinationPath = NodePath12.join(mountPath, ...request3.destination.split("/"));
-  const expectedStageRoot = NodePath12.join(request3.workspaceRoot, "repos", ".mr", "overlay-stages");
-  const expectedTransactionRoot = NodePath12.join(request3.workspaceRoot, "repos", ".mr", "overlay-transactions");
-  if (NodePath12.dirname(transaction.stagePath) !== expectedStageRoot || NodePath12.dirname(transactionPath) !== expectedTransactionRoot || transaction.destinationPath !== destinationPath || transaction.member !== request3.member || transaction.target !== request3.target || transaction.destination !== request3.destination || transaction.mountPath !== mountPath || transaction.previousMetadata.member !== request3.member || transaction.previousMetadata.publishedPath !== mountPath || transaction.nextMetadata.member !== request3.member || transaction.nextMetadata.publishedPath !== mountPath || identitiesEqual2({ left: transaction.mountIdentity, right: request3.expectedMountIdentity }) === false) {
+  const mountPath = NodePath13.join(request3.workspaceRoot, "repos", request3.member);
+  const destinationPath = NodePath13.join(mountPath, ...request3.destination.split("/"));
+  const expectedStageRoot = NodePath13.join(request3.workspaceRoot, "repos", ".mr", "overlay-stages");
+  const expectedTransactionRoot = NodePath13.join(request3.workspaceRoot, "repos", ".mr", "overlay-transactions");
+  if (NodePath13.dirname(transaction.stagePath) !== expectedStageRoot || NodePath13.dirname(transactionPath) !== expectedTransactionRoot || transaction.destinationPath !== destinationPath || transaction.member !== request3.member || transaction.target !== request3.target || transaction.destination !== request3.destination || transaction.mountPath !== mountPath || transaction.previousMetadata.member !== request3.member || transaction.previousMetadata.publishedPath !== mountPath || transaction.nextMetadata.member !== request3.member || transaction.nextMetadata.publishedPath !== mountPath || identitiesEqual2({ left: transaction.mountIdentity, right: request3.expectedMountIdentity }) === false) {
     return yield* failure3({
       reason: "AmbiguousRecovery",
       path: transactionPath,
@@ -85293,7 +85694,7 @@ var recoverDistOverlay = ({
       newOverlay: transaction.newOverlay
     })
   ]);
-  const parent2 = NodePath12.dirname(destinationPath);
+  const parent2 = NodePath13.dirname(destinationPath);
   if (metadataState === "Previous") {
     if (transaction.operation === "FirstPublish" && destinationState === "Missing" && (stageState === "New" || stageState === "Missing") || transaction.operation !== "FirstPublish" && destinationState === "Old" && (stageState === "New" || stageState === "Missing")) {
       if (stageState === "New" && transaction.candidateIdentity !== null) {
@@ -85441,223 +85842,6 @@ var recoverDistOverlay = ({
     recoveryPaths: [destinationPath, transaction.stagePath, transactionPath]
   });
 });
-
-// src/composition/apply/composition-apply-schema.ts
-import * as NodePath13 from "node:path";
-var AbsolutePath6 = exports_Schema.String.check(exports_Schema.makeFilter((value5) => NodePath13.isAbsolute(value5) === true && NodePath13.normalize(value5) === value5 ? undefined : "Expected a normalized absolute path")).annotate({ identifier: "Megarepo.CompositionApplyAbsolutePath" });
-var MemberKey2 = exports_Schema.String.check(exports_Schema.makeFilter((value5) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value5) === true ? undefined : "Expected a canonical one-segment member key")).annotate({ identifier: "Megarepo.CompositionApplyMemberKey" });
-var LockedCommit2 = exports_Schema.String.check(exports_Schema.isPattern(/^[0-9a-f]{40,64}$/u)).annotate({
-  identifier: "Megarepo.CompositionApplyLockedCommit"
-});
-var CompositionApplyLockedMemberSchema = exports_Schema.Struct({
-  key: MemberKey2,
-  sourcePath: AbsolutePath6,
-  lockedCommit: LockedCommit2
-}).annotate({ identifier: "Megarepo.CompositionApplyLockedMember" });
-var CompositionApplyRequestSchema = exports_Schema.Struct({
-  workspaceRoot: AbsolutePath6,
-  ownedMemberKey: MemberKey2,
-  ownedMemberPath: AbsolutePath6,
-  compositionConfig: CompositionGeneratorConfig,
-  cacheSections: exports_Schema.Array(BuckCacheSectionSchema),
-  lockedMembers: exports_Schema.Array(CompositionApplyLockedMemberSchema),
-  dryRun: exports_Schema.Boolean,
-  allowVerifiedDarwinAdvance: exports_Schema.Boolean
-}).annotate({ identifier: "Megarepo.CompositionApplyRequest" });
-var CompositionOverlayBuildPlanSchema = exports_Schema.Struct({
-  memberKey: MemberKey2,
-  target: exports_Schema.String,
-  destination: exports_Schema.String,
-  canonicalLabel: exports_Schema.String,
-  executable: AbsolutePath6,
-  args: exports_Schema.Array(exports_Schema.String),
-  outputPath: AbsolutePath6,
-  isolationDir: exports_Schema.String,
-  daemonPolicy: exports_Schema.Literal("SharedDaemonUnchanged"),
-  cleanup: exports_Schema.Literal("RemoveScratchOnly")
-}).annotate({ identifier: "Megarepo.CompositionOverlayBuildPlan" });
-var CompositionOverlayPublicationPlanSchema = exports_Schema.Struct({
-  memberKey: MemberKey2,
-  target: exports_Schema.String,
-  destination: exports_Schema.String,
-  operation: exports_Schema.Literals(["FirstPublish", "Update"]),
-  steps: exports_Schema.Array(exports_Schema.Literals([
-    "BuildDeclaredDirectory",
-    "ValidateRealDirectory",
-    "PublishDistOverlay",
-    "CleanupScratch"
-  ]))
-}).annotate({ identifier: "Megarepo.CompositionOverlayPublicationPlan" });
-var RootPlannedFileSchema = exports_Schema.Struct({
-  path: exports_Schema.String,
-  old: exports_Schema.optional(exports_Schema.Struct({ mode: exports_Schema.Finite, sha256: exports_Schema.String })),
-  new: exports_Schema.optional(exports_Schema.Struct({ mode: exports_Schema.Finite, sha256: exports_Schema.String }))
-});
-var RootPublicationPlanSchema = exports_Schema.Union([
-  exports_Schema.TaggedStruct("Create", {
-    files: exports_Schema.Array(RootPlannedFileSchema),
-    configLast: exports_Schema.Literal(true)
-  }),
-  exports_Schema.TaggedStruct("Update", {
-    files: exports_Schema.Array(RootPlannedFileSchema),
-    configLast: exports_Schema.Literal(true)
-  }),
-  exports_Schema.TaggedStruct("NoChange", {
-    files: exports_Schema.Array(exports_Schema.Never),
-    configLast: exports_Schema.Literal(true)
-  }),
-  exports_Schema.TaggedStruct("Refused", {
-    reason: exports_Schema.String,
-    path: exports_Schema.String,
-    message: exports_Schema.String,
-    files: exports_Schema.Array(exports_Schema.Never),
-    configLast: exports_Schema.Literal(false)
-  })
-]).annotate({ identifier: "Megarepo.CompositionApplyRootPublicationPlan" });
-var CompositionOwnedCapabilityProjectionPlanSchema = exports_Schema.Struct({
-  memberKey: MemberKey2,
-  ownedMemberPath: AbsolutePath6,
-  projectionPath: AbsolutePath6,
-  operation: exports_Schema.Literal("InstallOwnedCapabilityProjection"),
-  steps: exports_Schema.Array(exports_Schema.Literals(["ValidateOwnedMember", "InstallProjectionAtomically", "CheckProjection"]))
-}).annotate({ identifier: "Megarepo.CompositionOwnedCapabilityProjectionPlan" });
-var CompositionOwnedCapabilityProjectionResultSchema = exports_Schema.Struct({
-  memberKey: MemberKey2,
-  projectionPath: AbsolutePath6,
-  projectionDigest: exports_Schema.String,
-  changed: exports_Schema.Boolean
-}).annotate({ identifier: "Megarepo.CompositionOwnedCapabilityProjectionResult" });
-var CompositionMemberMountPlanSchema = exports_Schema.Struct({
-  memberKey: MemberKey2,
-  sourcePath: AbsolutePath6,
-  capabilitiesPath: AbsolutePath6,
-  destinationPath: AbsolutePath6,
-  lockedCommit: LockedCommit2,
-  distOverlays: exports_Schema.Array(DistOverlayDeclaration),
-  allowVerifiedDarwinAdvance: exports_Schema.Boolean,
-  operation: exports_Schema.Literal("MaterializeOrAdvance"),
-  steps: exports_Schema.Array(exports_Schema.Literals([
-    "ValidateImmutableSource",
-    "UseResolvedCapabilityProjection",
-    "MaterializeCpAMemberMount"
-  ]))
-}).annotate({ identifier: "Megarepo.CompositionMemberMountPlan" });
-var CompositionApplyPlanStepSchema = exports_Schema.Union([
-  exports_Schema.TaggedStruct("Capability", {
-    memberKey: MemberKey2,
-    owned: exports_Schema.Boolean,
-    plan: CompositionCapabilityPlanSchema
-  }),
-  exports_Schema.TaggedStruct("OwnedCapabilityProjection", {
-    memberKey: MemberKey2,
-    plan: CompositionOwnedCapabilityProjectionPlanSchema
-  }),
-  exports_Schema.TaggedStruct("Mount", {
-    memberKey: MemberKey2,
-    plan: CompositionMemberMountPlanSchema
-  }),
-  exports_Schema.TaggedStruct("Root", { plan: RootPublicationPlanSchema }),
-  exports_Schema.TaggedStruct("Overlay", {
-    memberKey: MemberKey2,
-    declaration: DistOverlayDeclaration,
-    build: CompositionOverlayBuildPlanSchema,
-    publication: CompositionOverlayPublicationPlanSchema
-  })
-]).annotate({ identifier: "Megarepo.CompositionApplyPlanStep" });
-var CompositionApplyPlanSchema = exports_Schema.TaggedStruct("DryRun", {
-  steps: exports_Schema.Array(CompositionApplyPlanStepSchema),
-  defaultCwd: AbsolutePath6
-}).annotate({ identifier: "Megarepo.CompositionApplyPlan" });
-var OverlayResultSchema = exports_Schema.Struct({
-  target: exports_Schema.String,
-  destination: exports_Schema.String,
-  destinationPath: AbsolutePath6,
-  operation: exports_Schema.Literals(["FirstPublish", "Update"])
-});
-var CompositionApplyMemberResultSchema = exports_Schema.Struct({
-  memberKey: MemberKey2,
-  owned: exports_Schema.Boolean,
-  capability: CompositionCapabilityResolutionSchema,
-  ownedProjection: exports_Schema.optional(CompositionOwnedCapabilityProjectionResultSchema),
-  mount: exports_Schema.optional(CpAMemberMountResult),
-  overlays: exports_Schema.Array(OverlayResultSchema)
-}).annotate({ identifier: "Megarepo.CompositionApplyMemberResult" });
-var CompositionApplyRecoveryResultSchema = exports_Schema.Union([
-  exports_Schema.TaggedStruct("MountRecovery", {
-    memberKey: MemberKey2,
-    transactionPath: AbsolutePath6,
-    result: CpAMemberMountResult
-  }),
-  exports_Schema.TaggedStruct("OverlayRecovery", {
-    memberKey: MemberKey2,
-    target: exports_Schema.String,
-    destination: exports_Schema.String,
-    transactionPath: AbsolutePath6,
-    result: DistOverlayResult
-  })
-]).annotate({ identifier: "Megarepo.CompositionApplyRecoveryResult" });
-var CompositionApplyResultSchema = exports_Schema.TaggedStruct("Applied", {
-  recoveries: exports_Schema.Array(CompositionApplyRecoveryResultSchema),
-  members: exports_Schema.Array(CompositionApplyMemberResultSchema),
-  root: exports_Schema.Struct({ changedPaths: exports_Schema.Array(exports_Schema.String) }),
-  defaultCwd: AbsolutePath6
-}).annotate({ identifier: "Megarepo.CompositionApplyResult" });
-var CompositionApplyOutputSchema = exports_Schema.Union([
-  CompositionApplyPlanSchema,
-  CompositionApplyResultSchema
-]).annotate({ identifier: "Megarepo.CompositionApplyOutput" });
-
-class CompositionApplyError extends exports_Schema.TaggedError()("CompositionApplyError", {
-  reason: exports_Schema.Literals([
-    "InvalidRequest",
-    "OwnedMemberCollision",
-    "MemberKeyCollision",
-    "PlatformUnsupported",
-    "ManifestInvalid",
-    "ManifestMountMismatch",
-    "PlatformHubMissing",
-    "BuckCapabilityMissing",
-    "BuckCapabilityMismatch",
-    "OverlayDestinationConflict",
-    "UpdateLockFailure",
-    "RecoveryFailure",
-    "CapabilityFailure",
-    "MountFailure",
-    "RootPublicationFailure",
-    "OverlayBuildFailure",
-    "OverlayPublicationFailure",
-    "CleanupFailure"
-  ]),
-  phase: exports_Schema.Literals([
-    "Input",
-    "UpdateLock",
-    "Recovery",
-    "Manifest",
-    "Capability",
-    "Mount",
-    "Root",
-    "OverlayBuild",
-    "OverlayPublication",
-    "Cleanup"
-  ]),
-  message: exports_Schema.String,
-  path: exports_Schema.optional(exports_Schema.String),
-  memberKey: exports_Schema.optional(MemberKey2),
-  recoveryPaths: exports_Schema.Array(exports_Schema.String),
-  primaryFailure: exports_Schema.optional(exports_Schema.Struct({
-    reason: exports_Schema.String,
-    phase: exports_Schema.String,
-    message: exports_Schema.String
-  })),
-  cleanupFailures: exports_Schema.optional(exports_Schema.Array(exports_Schema.Struct({
-    resource: exports_Schema.Literals(["CapabilityScratch", "OverlayScratch", "WorkspaceUpdateLock"]),
-    path: exports_Schema.String,
-    message: exports_Schema.String
-  }))),
-  updateLockRecovery: exports_Schema.optional(exports_Schema.Struct({ path: exports_Schema.String, token: exports_Schema.String })),
-  cause: exports_Schema.optional(exports_Schema.Defect())
-}) {
-}
 
 // src/composition/apply/workspace-update-lock.ts
 import { randomBytes as randomBytes9 } from "node:crypto";
@@ -86964,7 +87148,7 @@ var applyComposition = async ({
           overlays: overlayResults.get(member.key) ?? []
         };
       }),
-      root: { changedPaths: root.changedPaths },
+      root: { changedPaths: root.changedPaths, watchman: root.watchmanInvalidation._tag },
       defaultCwd: request3.ownedMemberPath
     };
   };
@@ -87030,15 +87214,15 @@ import { randomBytes as randomBytes10 } from "node:crypto";
 import { constants as constants5 } from "node:fs";
 import { access as access4, lstat as lstat9, mkdir as mkdir10, open as open9, realpath as realpath5, rm as rm7 } from "node:fs/promises";
 import * as NodePath17 from "node:path";
-import { promisify as promisify3 } from "node:util";
+import { promisify as promisify4 } from "node:util";
 
 // src/composition/capabilities/capability-gc-roots.ts
 import { execFile as execFileCallback2 } from "node:child_process";
 import { mkdtemp as mkdtemp3, mkdir as mkdir9, readFile as readFile11, readdir as readdir8, readlink as readlink5, rm as rm6, stat as stat8 } from "node:fs/promises";
 import { tmpdir as tmpdir3 } from "node:os";
 import * as NodePath16 from "node:path";
-import { promisify as promisify2 } from "node:util";
-var execFile3 = promisify2(execFileCallback2);
+import { promisify as promisify3 } from "node:util";
+var execFile4 = promisify3(execFileCallback2);
 var strictParseOptions10 = { errors: "all", onExcessProperty: "error" };
 var generationPattern = /^[0-9a-f]{64}$/u;
 var storePathPattern = /^\/nix\/store\/[^/\s]+$/u;
@@ -87170,7 +87354,7 @@ var registerIndirectRoot = async ({
     storePath
   ];
   try {
-    await execFile3(runtime3.nixPath, args2, { encoding: "utf8", env, maxBuffer: 1024 * 1024 });
+    await execFile4(runtime3.nixPath, args2, { encoding: "utf8", env, maxBuffer: 1024 * 1024 });
   } catch (cause) {
     throw failure6({
       reason: "RegistrationFailed",
@@ -87195,7 +87379,7 @@ var capabilityClosure = async ({
     storePath
   ];
   try {
-    const { stdout } = await execFile3(runtime3.nixPath, args2, {
+    const { stdout } = await execFile4(runtime3.nixPath, args2, {
       encoding: "utf8",
       env,
       maxBuffer: 1024 * 1024
@@ -87367,7 +87551,7 @@ var removeCapabilityGcRootGeneration = async ({
 };
 
 // src/composition/capabilities/owned-capability-projection.ts
-var execFile4 = promisify3(execFileCallback3);
+var execFile5 = promisify4(execFileCallback3);
 var generationPattern2 = /^[0-9a-f]{64}$/u;
 
 class OwnedCapabilityProjectionError extends exports_Schema.TaggedError()("OwnedCapabilityProjectionError", {
@@ -87474,7 +87658,7 @@ var runExact = async ({
   executable,
   args: args2
 }) => {
-  await execFile4(executable, [...args2], { maxBuffer: 1024 * 1024 });
+  await execFile5(executable, [...args2], { maxBuffer: 1024 * 1024 });
 };
 var planOwnedCapabilityProjection = async ({
   memberKey,
@@ -87920,7 +88104,7 @@ var readCompositionLockFile = ({
     return ownedLock;
   return yield* readLockFile(EffectPath.unsafe.absoluteFile(NodePath19.join(workspaceRoot, LOCK_FILE_NAME)));
 });
-var execFile5 = promisify4(execFileCallback4);
+var execFile6 = promisify5(execFileCallback4);
 var OwnedManifestJson = exports_Schema.fromJsonString(OwnedWorktreeRootManifest);
 var AcquisitionJournalJson = exports_Schema.fromJsonString(OwnedWorktreeAcquisitionJournal);
 
@@ -88193,7 +88377,7 @@ var assertLockedSourceCleanPromise = async ({
   lockedCommit,
   gitPath
 }) => {
-  const run10 = (args2) => execFile5(gitPath, ["-C", sourcePath, ...args2], { encoding: "utf8", maxBuffer: 1024 * 1024 });
+  const run10 = (args2) => execFile6(gitPath, ["-C", sourcePath, ...args2], { encoding: "utf8", maxBuffer: 1024 * 1024 });
   const head4 = (await run10(["rev-parse", "HEAD"])).stdout.trim();
   if (head4 !== lockedCommit)
     throw cutoverFailure({
@@ -88431,6 +88615,10 @@ var runCompositionApply = ({
       reason: "ApplyFailed",
       message: `Composition generation did not complete; recover '${ownedWorktreeAcquisitionJournalPath(identity3.workspaceRoot)}'`
     });
+  }
+  const warning = compositionApplyWarning(composition);
+  if (warning !== undefined) {
+    yield* exports_Effect.logWarning(`${identity3.workspaceRoot}: ${warning}`);
   }
   yield* refreshWorkspaceRegistry({
     workspaceRoot: identity3.workspaceRoot,
