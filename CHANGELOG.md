@@ -138,6 +138,11 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **CI**: keep draft assistant PRs mergeable by completing the auto-review job
   successfully when no review request is needed.
+- **CI**: stop requiring `main`-only Notion integration, live-deploy, and
+  Storybook deployment jobs on pull requests. Their skipped check runs left
+  otherwise-green pull requests blocked as “expected.”
+- **Documentation**: index the existing CI measurement architecture,
+  implementation boundary, and experiment records from `context/README.md`.
 
 - **@overeng/tui-react**: stop truncating `runResult` values and JSON error
   payloads when a CLI exits non-zero. These exit-path writes now go straight to
