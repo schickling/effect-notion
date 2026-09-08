@@ -15,7 +15,7 @@ const workspaceDeps = catalog.compose({
   devDependencies: {
     workspace: [utilsDevPkg],
     external: {
-      ...catalog.pick('@effect/vitest', 'typescript', 'effect', 'vite', 'vitest'),
+      ...catalog.pick('@effect/vitest', '@types/node', 'typescript', 'effect', 'vite', 'vitest'),
     },
   },
   peerDependencies: {

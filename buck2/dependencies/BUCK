@@ -3,7 +3,7 @@
 
 # Generated file - DO NOT EDIT
 # Source: pnpm-lock.yaml
-# Store fingerprint: sha256:b4378d3e84a316a6a1b290ba6e7c86bd919137144116a460e35e0732858a2604
+# Store fingerprint: sha256:5cdc8f8a0295691c244cdf7eb1b90573064bafcdac41be228d778d0e4f23f502
 
 load("//buck2:materialization.bzl", "export_materialization_inputs")
 
@@ -15543,6 +15543,7 @@ pnpm_store_view(
     runtime = ":assemble-store.ts",
     direct = {
         "@effect/vitest": "@effect+vitest@4.0.0-rc.111_effect@4.0.0-rc.111_vitest@4.1.9",
+        "@types/node": "@types+node@26.0.0",
         "effect": "effect@4.0.0-rc.111",
         "typescript": "typescript@6.0.3",
         "vite": "vite@8.0.16_@types+node@26.0.0_esbuild@0.28.2_jiti@2.7.0",
