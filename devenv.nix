@@ -658,7 +658,7 @@ in
   # packaged wrapper; refreshed tasks can invoke composition from owned members.
   env.MR_COMPOSITION_CP_BIN = "${pkgs.coreutils}/bin/cp";
   env.MR_COMPOSITION_BUCK2_BIN = "${buck2Machine}/bin/buck2";
-  env.MR_COMPOSITION_BUCK2_PROTOCOL = "facebook/buck2-cli/2026-08-22";
+  env.MR_COMPOSITION_BUCK2_PROTOCOL = "facebook/buck2-cli/2026-09-01";
   env.MR_COMPOSITION_SYSTEM = currentSystem;
   env.MR_COMPOSITION_PLATFORM = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "linux";
   env.MR_COMPOSITION_GIT_BIN = "${pkgs.git}/bin/git";

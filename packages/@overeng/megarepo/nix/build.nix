@@ -54,7 +54,7 @@ pkgs.stdenv.mkDerivation {
     makeWrapper ${base}/bin/mr $out/bin/mr \
       --set MR_COMPOSITION_CP_BIN ${pkgs.coreutils}/bin/cp \
       --set MR_COMPOSITION_BUCK2_BIN ${buck2}/bin/buck2 \
-      --set MR_COMPOSITION_BUCK2_PROTOCOL facebook/buck2-cli/2026-08-22 \
+      --set MR_COMPOSITION_BUCK2_PROTOCOL facebook/buck2-cli/2026-09-01 \
       --set MR_COMPOSITION_SYSTEM ${pkgs.stdenv.hostPlatform.system} \
       --set MR_COMPOSITION_PLATFORM ${compositionPlatform} \
       --set MR_COMPOSITION_GIT_BIN ${pkgs.git}/bin/git \

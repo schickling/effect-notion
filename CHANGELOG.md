@@ -226,6 +226,21 @@ All notable changes to this project will be documented in this file.
   packages, Tailwind CSS 4.3.3, and supporting type, test, formatting, crypto,
   syntax-highlighting, and terminal utilities.
 
+- **buck2**: advance the repo-local Buck2 package authority from the
+  `2026-08-22` upstream release to `2026-09-01`
+  (`be6971d47dcc835b7356e1698b23039ffee4f4c2`), with the release's own
+  `prelude_hash` revision `1f8c24e0b1f85e645011f93a4073b0c6c762d7b1` and
+  refreshed `buck2`, `rust-project` and `starlark_fmt` asset hashes for all
+  three admitted platforms (`x86_64-linux`, `aarch64-linux`,
+  `aarch64-darwin`). The `buck2` capability protocol moves in lockstep to
+  `facebook/buck2-cli/2026-09-01` in `buck2-member.json`, its genie source,
+  `devenv.nix` and `@overeng/megarepo`'s `MR_COMPOSITION_BUCK2_PROTOCOL`, so a
+  composition root carrying the old protocol fails closed with
+  `BuckCapabilityMismatch` rather than mounting against a different CLI. The
+  asset list is unchanged — upstream's `binaries` set still ends at
+  `starlark_fmt` — and toolchain identity is in the action key, so this
+  invalidates cached Buck actions once.
+
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for
   revision-changing `opened`, `reopened`, and `synchronize` activity; the
