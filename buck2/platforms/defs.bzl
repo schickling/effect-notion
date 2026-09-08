@@ -60,10 +60,13 @@ product_platform = rule(
     },
 )
 
-def _remote_cache_enabled():
+# Root cache policy is shared by execution platforms and per-test executors. Both
+# must consult the synthesized root buckconfig or a disabled cache still causes
+# ExternalRunnerTestInfo to contact an unconfigured RE engine.
+def root_remote_cache_enabled():
     return read_root_config("buck2", "remote_cache_enabled", "true") == "true"
 
-def _allow_cache_uploads():
+def root_allow_cache_uploads():
     return read_root_config("buck2", "allow_cache_uploads", "true") == "true"
 
 def _native_execution_platform_impl(ctx):
@@ -78,8 +81,8 @@ def _native_execution_platform_impl(ctx):
         executor_config = CommandExecutorConfig(
             local_enabled = True,
             remote_enabled = False,
-            remote_cache_enabled = _remote_cache_enabled(),
-            allow_cache_uploads = _allow_cache_uploads(),
+            remote_cache_enabled = root_remote_cache_enabled(),
+            allow_cache_uploads = root_allow_cache_uploads(),
             use_windows_path_separators = False,
         ),
     )
