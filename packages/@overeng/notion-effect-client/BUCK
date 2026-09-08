@@ -2,13 +2,13 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/notion-effect-client/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 2
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:76b3eb2045df7a6d75598848b2e63327513dd58d693766fa6d262146a4547c19
+# Semantic fingerprint: sha256:0aa4c50268a17919f4157bba15edfca20c7dc154dcf6b19b6123e5ef4bbaf0c9
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/content-address/BUCK.genie.ts, packages/@overeng/content-address/package.json.genie.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-client/src/**/*.cts, packages/@overeng/notion-effect-client/src/**/*.js, packages/@overeng/notion-effect-client/src/**/*.mts, packages/@overeng/notion-effect-client/src/**/*.ts, packages/@overeng/notion-effect-client/src/**/*.tsx, packages/@overeng/notion-effect-client/tsconfig.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -77,7 +77,7 @@ export_materialization_inputs([
 
 alias(
     name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_notion_effect_client_6a05720e6f76",
+    actual = "//buck2/dependencies:view_packages_overeng_notion_effect_client_6a05720e6f76",
     visibility = ["PUBLIC"],
 )
 
@@ -87,9 +87,9 @@ alias(
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_notion_effect_client_6a05720e6f76",
     files = {
         "package.json": "package.json",
         "src/blocks.span-catalog.unit.test.ts": "src/blocks.span-catalog.unit.test.ts",
@@ -151,50 +151,6 @@ package_tree(
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {
-        "@overeng/content-address": {
-            "files": {
-                "dist": "//packages/@overeng/content-address:dist",
-                "package.json": "//packages/@overeng/content-address:package.json",
-            },
-            "links": ["@overeng/content-address"],
-        },
-        "@overeng/notion-core": {
-            "files": {
-                "dist": "//packages/@overeng/notion-core:dist",
-                "package.json": "//packages/@overeng/notion-core:package.json",
-            },
-            "links": ["@overeng/notion-core"],
-        },
-        "@overeng/notion-effect-schema": {
-            "files": {
-                "dist": "//packages/@overeng/notion-effect-schema:dist",
-                "package.json": "//packages/@overeng/notion-effect-schema:package.json",
-            },
-            "links": ["@overeng/notion-effect-schema"],
-        },
-        "@overeng/otel-contract": {
-            "files": {
-                "dist": "//packages/@overeng/otel-contract:dist",
-                "package.json": "//packages/@overeng/otel-contract:package.json",
-            },
-            "links": ["@overeng/otel-contract"],
-        },
-        "@overeng/utils": {
-            "files": {
-                "dist": "//packages/@overeng/utils:dist",
-                "package.json": "//packages/@overeng/utils:package.json",
-            },
-            "links": ["@overeng/utils"],
-        },
-        "@overeng/utils-dev": {
-            "files": {
-                "dist": "//packages/@overeng/utils-dev:dist",
-                "package.json": "//packages/@overeng/utils-dev:package.json",
-            },
-            "links": ["@overeng/utils-dev"],
-        },
-    },
     visibility = ["PUBLIC"],
 )
 

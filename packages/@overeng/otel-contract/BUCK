@@ -2,13 +2,13 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/otel-contract/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 2
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:cc8ef2b4687aedf25b6a8d05a6545ea12fc62c214798a0dac7388c92480ca8f5
+# Semantic fingerprint: sha256:f74c62af99dfb956fe3106ff38598a9d071112d4a68502b3423b61453d22470b
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/content-address/BUCK.genie.ts, packages/@overeng/content-address/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/otel-contract/src/**/*.cts, packages/@overeng/otel-contract/src/**/*.js, packages/@overeng/otel-contract/src/**/*.mts, packages/@overeng/otel-contract/src/**/*.ts, packages/@overeng/otel-contract/src/**/*.tsx, packages/@overeng/otel-contract/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -36,7 +36,7 @@ export_materialization_inputs([
 
 alias(
     name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_otel_contract_071b3792a33c",
+    actual = "//buck2/dependencies:view_packages_overeng_otel_contract_071b3792a33c",
     visibility = ["PUBLIC"],
 )
 
@@ -46,9 +46,9 @@ alias(
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_otel_contract_071b3792a33c",
     files = {
         "package.json": "package.json",
         "src/mod.ts": "src/mod.ts",
@@ -69,22 +69,6 @@ package_tree(
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {
-        "@overeng/content-address": {
-            "files": {
-                "dist": "//packages/@overeng/content-address:dist",
-                "package.json": "//packages/@overeng/content-address:package.json",
-            },
-            "links": ["@overeng/content-address"],
-        },
-        "@overeng/utils-dev": {
-            "files": {
-                "dist": "//packages/@overeng/utils-dev:dist",
-                "package.json": "//packages/@overeng/utils-dev:package.json",
-            },
-            "links": ["@overeng/utils-dev"],
-        },
-    },
     visibility = ["PUBLIC"],
 )
 
