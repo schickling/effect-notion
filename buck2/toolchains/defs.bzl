@@ -65,6 +65,26 @@ def require_capability(capabilities, generation, platform, tool_id):
         fail("generated {} capability has an invalid content digest".format(tool_id))
     return metadata
 
+def require_capability_closure(capabilities, generation, platform, tool_id):
+    """Returns the complete immutable runtime closure a sandboxed action may read.
+
+    The projection publishes the transitive `/nix/store` requisites of each realization
+    (`closureStorePaths`). An incomplete or non-normalized closure must fail analysis.
+    """
+    metadata = require_capability(capabilities, generation, platform, tool_id)
+    closure = metadata.get("closureStorePaths")
+    if not closure:
+        fail("generated {} capability has no closureStorePaths".format(tool_id))
+    normalized = sorted({path: None for path in closure})
+    if closure != normalized:
+        fail("generated {} capability closure paths are not sorted and unique".format(tool_id))
+    for path in closure:
+        if not path.startswith("/nix/store/") or path.count("/") != 3:
+            fail("generated {} capability closure path is not a normalized store path: {}".format(tool_id, path))
+    if metadata["closureIdentity"] not in closure:
+        fail("generated {} capability closure omits its own realization".format(tool_id))
+    return closure
+
 def host_rust_target_triple():
     """Returns the Rust target triple for the admitted native host."""
     host = host_info()
