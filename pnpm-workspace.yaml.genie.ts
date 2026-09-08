@@ -35,19 +35,6 @@ export default pnpmWorkspaceYaml.root({
         '@opentui/core@0.4.1 exact-pins string-width@7.2.0; not force-overridden because string-width 8 changes emoji/wide-char width logic that the TUI renderer relies on',
       issue: '#821',
     },
-    {
-      package: 'unplugin',
-      // @storybook/csf-plugin@10.5.10 still declares unplugin ^2.3.5, which
-      // resolves to 2.3.11, while our StyleX build integration uses v3. Both
-      // majors are required until Storybook updates. Checked against 10.5.10
-      // rather than assumed: the bump does not retire this exception. The
-      // consuming package is deliberately not named — it is moving as part of
-      // the StyleX work, and the exception is keyed by `unplugin` regardless.
-      // See #1155.
-      reason:
-        '@storybook/csf-plugin@10.5.10 declares unplugin ^2.3.5 (resolves 2.3.11) while our StyleX build integration uses catalog unplugin@3.0.0',
-      issue: '#1155',
-    },
   ],
   ...commonPnpmWorkspaceData,
   overrides: {

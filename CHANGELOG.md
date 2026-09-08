@@ -371,6 +371,18 @@ file`). Effect-TS `tsgo` remains the export type-proof compiler
   asset list is unchanged — upstream's `binaries` set still ends at
   `starlark_fmt` — and toolchain identity is in the action key, so this
   invalidates cached Buck actions once.
+- **deps/storybook**: move the Storybook cohort from 10.5.10 to 10.6.0
+  (`storybook`, `@storybook/react`, `@storybook/react-vite`,
+  `@storybook/addon-vitest`, `@storybook/addon-a11y`). The gate's API surface is
+  unchanged: `storybookTest({ initialGlobals })` still exists in
+  `@storybook/addon-vitest@10.6.0`'s `vitest-plugin` options, and both
+  `storybook/internal/preview-api` and `@storybook/addon-vitest/vitest-plugin`
+  remain exported entrypoints. `@storybook/addon-vitest@10.6.0` keeps the same
+  `vitest`/`@vitest/browser`/`@vitest/browser-playwright` peer ranges, so the
+  welded Vitest pin is unaffected. 10.6.0 folds the CSF Vite plugin into
+  storybook core — `@storybook/builder-vite@10.6.0` declares only `ts-dedent` —
+  so `@storybook/csf-plugin`, the tree's only `unplugin@2.x` source, disappears
+  and its `unplugin` catalog-duplicate exception (#1155) is retired.
 
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for

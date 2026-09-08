@@ -389,17 +389,23 @@ export const catalog = defineCatalog({
   // 10.5.x is the floor for the visual gate: `storybookTest({ initialGlobals })`
   // defines one Vitest project per theme, which is how light and dark are both
   // covered. Verified absent from 10.4.6's plugin options.
-  storybook: '10.5.10',
-  '@storybook/react': '10.5.10',
-  '@storybook/react-vite': '10.5.10',
-  /** Per-story render/interaction/a11y coverage. Peers `storybook@^10.5.10`, so the cohort moves together. */
-  '@storybook/addon-vitest': '10.5.10',
+  //
+  // 10.6.0 also retires the separate `@storybook/csf-plugin` package:
+  // `@storybook/builder-vite@10.6.0` declares `ts-dedent` as its only dependency,
+  // so the CSF Vite plugin now lives inside storybook core. csf-plugin was the
+  // only `unplugin@2.x` source in the tree, which is why the `unplugin`
+  // catalog-duplicate exception is retired together with this bump.
+  storybook: '10.6.0',
+  '@storybook/react': '10.6.0',
+  '@storybook/react-vite': '10.6.0',
+  /** Per-story render/interaction/a11y coverage. Peers `storybook@^10.6.0`, so the cohort moves together. */
+  '@storybook/addon-vitest': '10.6.0',
   /**
    * Required, not optional: `parameters.a11y.test` has no effect unless this
    * addon is registered, and it defaults to `'todo'` (warn-only), so the gate
    * must override it to `'error'`.
    */
-  '@storybook/addon-a11y': '10.5.10',
+  '@storybook/addon-a11y': '10.6.0',
   /**
    * Browser-mode runner for the story tests.
    *

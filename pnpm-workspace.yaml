@@ -52,7 +52,7 @@ allowUnusedPatches: true
 packageExtensions:
   storybook:
     dependencies:
-      '@storybook/react-vite': 10.5.10
+      '@storybook/react-vite': 10.6.0
 
 peerDependencyRules:
   allowedVersions:
