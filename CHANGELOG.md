@@ -558,6 +558,32 @@ tsconfig.check.json`, but oxlint 1.39 cannot speak the tsgolint 7 protocol, so
   `@opentui/core` store entry built against it. Declaring the dependency
   collapses both back onto the catalog's 7.0.2.
 
+- **deps/@overeng/oxc-config**: update the ESLint rule-testing cohort — the only
+  ESLint surface left in the repo, since runtime linting is oxlint and stays
+  that way. `eslint` 10.5.0 -> 10.10.0 and `@typescript-eslint/parser`,
+  `/rule-tester` and `/utils` 8.61.1 -> 8.69.0, all four inside 8.69.0's
+  `eslint ^8.57 || ^9 || ^10` and `typescript >=4.8.4 <6.1.0` peer windows, so
+  the repo's TypeScript 6.0.3 needs no exception and `strictPeerDependencies`
+  resolves clean. 8.70.0 exists but was published the same day; taking it made
+  pnpm's release-age gate write nine `minimumReleaseAgeExclude` entries into
+  generated `pnpm-workspace.yaml`, and a routine bump does not get to weaken a
+  supply-chain policy, so the cohort lands one weekly release back.
+  Neither upstream changed a rule-tester API across this window, and the 187
+  rule-tester cases for `explicit-boolean-compare`, `exports-first`,
+  `jsdoc-require-exports` and `named-args` pass unchanged against the new
+  cohort, so no test needed a compatibility edit. Two catalog entries are
+  removed rather than carried forward at their old pins: `@types/eslint`
+  (9.6.1, last published for the ESLint 9 API in 2024) is dead weight because
+  `eslint/package.json` declares `types`, so TypeScript never consults
+  DefinitelyTyped for it — the rule sources typecheck with it absent, and the
+  `@types/estree` and `@types/json-schema` it dragged along still arrive via
+  `eslint` and `@typescript-eslint/rule-tester`; and `typescript-eslint` (the
+  flat-config meta-package) had no consumer in this repo or in any megarepo
+  member. `pnpm-lock.yaml` and `buck2/dependencies/` are regenerated; the
+  `@overeng/oxc-config` pnpm FOD hash in
+  `packages/@overeng/oxc-config/nix/build.nix` is not, because computing it
+  requires a Nix build — Evergreen refresh is left to CI (see the PR body).
+
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for
   revision-changing `opened`, `reopened`, and `synchronize` activity; the

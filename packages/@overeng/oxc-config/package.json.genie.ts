@@ -24,7 +24,6 @@ const deps = catalog.compose({
     external: {
       ...catalog.pick(
         '@stylexjs/eslint-plugin',
-        '@types/eslint',
         '@typescript-eslint/parser',
         '@typescript-eslint/rule-tester',
         '@typescript-eslint/utils',

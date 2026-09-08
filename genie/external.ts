@@ -330,7 +330,6 @@ export const catalog = defineCatalog({
   '@types/react-dom': '19.2.7',
   '@types/node': '26.5.0',
   '@types/bun': '1.4.1',
-  '@types/eslint': '9.6.1',
   '@types/is-dom': '1.1.2',
   '@types/katex': '0.16.8',
 
@@ -441,12 +440,22 @@ export const catalog = defineCatalog({
   'happy-dom': '20.14.0',
 
   // Linting
-  /** Kept for rule-tester/types used by our custom lint rules even though runtime linting is oxlint. */
-  eslint: '10.5.0',
-  '@typescript-eslint/parser': '8.61.1',
-  '@typescript-eslint/rule-tester': '8.61.1',
-  '@typescript-eslint/utils': '8.61.1',
-  'typescript-eslint': '8.61.1',
+  /**
+   * Kept for the rule-tester/types used by our custom lint rules even though
+   * runtime linting is oxlint. ESLint itself ships its own `.d.ts` bundle, so
+   * there is deliberately no `@types/eslint` entry: the DefinitelyTyped package
+   * stopped at the ESLint 9 API in 2024 and TypeScript never consults it while
+   * `eslint/package.json` declares `types`.
+   *
+   * The three `@typescript-eslint/*` entries move as one weekly release train
+   * and stay one release behind the newest tag when that tag is younger than
+   * pnpm's release-age gate — taking a same-day release forces
+   * `minimumReleaseAgeExclude` entries into the generated workspace policy.
+   */
+  eslint: '10.10.0',
+  '@typescript-eslint/parser': '8.69.0',
+  '@typescript-eslint/rule-tester': '8.69.0',
+  '@typescript-eslint/utils': '8.69.0',
   prettier: '3.9.6',
   oxlint: '1.82.0',
   /** oxlint 1.82 requires the tsgolint peer at `>=7.0.2001` (the TS-7-aligned line). */
