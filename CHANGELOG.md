@@ -137,7 +137,7 @@ All notable changes to this project will be documented in this file.
 
 - **deps**: the `tw-to-stylex` catalog entry. It was a one-off Tailwind ->
   StyleX first-pass tool for application files, never referenced by any package
-  in this repo or in any peer repo, and its hand-pass requirement (it silently
+  in this repo, and its hand-pass requirement (it silently
   drops React Aria `data-[*]` state and emits raw values where the token rules
   require semantic tokens) meant it never paid for holding the whole Babel
   cohort a major version back. Removed rather than carried forward with an
