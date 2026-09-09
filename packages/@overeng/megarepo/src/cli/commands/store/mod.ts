@@ -3440,13 +3440,24 @@ const storeWorktreeNewCommand = Cli.Command.make(
         yield* fs.makeDirectory(worktreeParent, { recursive: true })
       }
 
+      const compositionIntentRev =
+        commit !== undefined || refType !== 'branch'
+          ? undefined
+          : (base ??
+            ((yield* Git.refExists({
+              repoPath: bareRepoPath,
+              ref: `refs/heads/${targetRef}`,
+            })) === true
+              ? targetRef
+              : `origin/${targetRef}`))
+
       // Composition intent is read from the target commit before any worktree is created.
       const composedMember =
-        commit !== undefined || refType !== 'branch'
+        compositionIntentRev === undefined
           ? undefined
           : yield* readComposedCreationIntent({
               bareRepoPath,
-              rev: base ?? targetRef,
+              rev: compositionIntentRev,
             })
       const composedOwnedPath =
         composedMember === undefined
