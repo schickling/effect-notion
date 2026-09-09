@@ -41,6 +41,9 @@ packages:
   - packages/@overeng/utils
   - packages/@overeng/utils-dev
 
+overrides:
+  '@effect/platform-node-shared': 4.0.0-rc.111
+
 patchedDependencies:
   '@myobie/pty@0.10.0': packages/@overeng/utils/patches/@myobie__pty@0.10.0.patch
 

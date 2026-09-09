@@ -424,6 +424,7 @@ export const translatePnpmLock = ({
       'lockfileVersion',
       'settings',
       'packageExtensionsChecksum',
+      'overrides',
       'patchedDependencies',
       'importers',
       'packages',
@@ -451,6 +452,11 @@ export const translatePnpmLock = ({
     if (typeof settings[field] !== 'boolean')
       return fail(`pnpm-lock.yaml.settings.${field} must be a boolean`)
   }
+
+  const overrides = parseStringRecord({
+    value: lock.overrides ?? {},
+    location: 'pnpm-lock.yaml.overrides',
+  })
 
   const workspacePatches = parseWorkspacePolicy({ workspaceText, readPatch })
   const lockedPatches = parseStringRecord({
@@ -734,6 +740,7 @@ export const translatePnpmLock = ({
     lockfileVersion: '9.0',
     settings,
     packageExtensionsChecksum: lock.packageExtensionsChecksum,
+    overrides,
     patchedDependencies: lockedPatches,
     importers: importerRecords,
     packages: packageRecords,
@@ -914,7 +921,7 @@ const npmArchiveBins = async ({
   }
   const decoder = new TextDecoder()
   let packageJson: unknown
-  for (let offset = 0; offset + 512 <= tar.byteLength; ) {
+  for (let offset = 0; offset + 512 <= tar.byteLength;) {
     const header = tar.subarray(offset, offset + 512)
     if (header.every((byte) => byte === 0) === true) break
     const textField = ({ start, length }: { start: number; length: number }): string => {
