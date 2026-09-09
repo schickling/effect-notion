@@ -113,15 +113,45 @@ publication_commit="${GITHUB_SHA:-$head_commit}"
 [[ -z "$(git -C "$repo_root" status --porcelain --untracked-files=normal)" ]] ||
   fail "refusing to publish from a dirty Git worktree"
 
-
-
-existing_tags="$(gh api --paginate "repos/$repository/releases" --jq '.[].tag_name')"
+# The successful paginated listing is the authority on which desired tags
+# already exist, and on what they are. A transient GET failure aborts here
+# rather than being read as absence, so a resumed run can never mistake an
+# existing release for a gap. Every row keeps its release id and draft state:
+# "the tag exists, published" and "the tag exists as a leaked draft" demand
+# opposite handling, and the id is what a human needs to resolve the latter.
+release_listing="$(gh api --paginate "repos/$repository/releases" \
+  --jq '.[] | [.tag_name, (.id | tostring), (.draft | tostring)] | @tsv')" ||
+  fail "could not list existing releases; refusing to publish"
+declare -A listed_release_ids=() listed_release_draft=()
+while IFS=$'\t' read -r listed_tag listed_id listed_draft; do
+  # A release without a tag name cannot collide with a desired tag.
+  [[ -n "$listed_tag" ]] || continue
+  [[ "$listed_id" =~ ^[0-9]+$ ]] || fail "GitHub listed release $listed_tag without a numeric id"
+  [[ "$listed_draft" == true || "$listed_draft" == false ]] ||
+    fail "GitHub listed release $listed_tag without a draft state"
+  if [[ -n "${listed_release_ids[$listed_tag]+present}" ]]; then
+    # Drafts may share a tag name with each other and with a published
+    # release; keep every id so the preflight can name them all.
+    listed_release_ids["$listed_tag"]+=" $listed_id"
+    [[ "$listed_draft" == false ]] || listed_release_draft["$listed_tag"]=true
+  else
+    listed_release_ids["$listed_tag"]="$listed_id"
+    listed_release_draft["$listed_tag"]="$listed_draft"
+  fi
+done <<<"$release_listing"
 stage="$(mktemp -d)"
-cleanup_release_id=""
+# Cleanup authority is scoped to a release GitHub still reports as a draft.
+# Deleting a published immutable release permanently burns its tag name, so an
+# unverifiable or already-published release is left alone: leaking a draft is
+# recoverable, destroying a tag is not.
+cleanup_draft_release_id=""
 cleanup() {
   status=$?
-  if [[ -n "$cleanup_release_id" ]]; then
-    gh api --method DELETE "repos/$repository/releases/$cleanup_release_id" --silent >/dev/null 2>&1 || true
+  if [[ -n "$cleanup_draft_release_id" ]]; then
+    if release_state="$(gh api "repos/$repository/releases/$cleanup_draft_release_id" 2>/dev/null)" &&
+      jq -e '.draft == true' <<<"$release_state" >/dev/null 2>&1; then
+      gh api --method DELETE "repos/$repository/releases/$cleanup_draft_release_id" --silent >/dev/null 2>&1 || true
+    fi
   fi
   rm -rf "$stage"
   exit "$status"
@@ -201,11 +231,8 @@ for row in "${product_rows[@]}"; do
   integrity_hex="$(nix hash convert --hash-algo sha256 --to base16 "$integrity")"
   [[ "$module_sha256" == "$integrity_hex" ]] || fail "$product_name module digest does not match its descriptor"
 
-  tag="buck2-product-$product_name-$module_sha256"
+  tag="buck2-product-v2-$product_name-$module_sha256"
   asset_name="$module_sha256-$module_path"
-  if grep -Fqx -- "$tag" <<<"$existing_tags"; then
-    fail "release tag already exists; refusing to clobber: $tag"
-  fi
   release_url="https://github.com/$repository/releases/download/$tag/$asset_name"
   jq -cnS \
     --argjson descriptor "$descriptor" \
@@ -225,28 +252,75 @@ jq -sS '{schema:"effect-utils/buck2-release-products/v1",products:.}' "$entries"
   fail "Git worktree changed while staging products"
 
 
+# Single authority for "this tag already holds exactly the staged module, as an
+# immutable published release". Idempotent reuse and post-publication
+# verification share it so the two can never drift apart.
+release_holds_staged_module() {
+  local release_json="$1" expected_name="$2" module_file="$3" expected_digest
+  expected_digest="$(sha256sum "$module_file")"
+  expected_digest="sha256:${expected_digest%% *}"
+  jq -e --arg name "$expected_name" --arg digest "$expected_digest" \
+    '.draft == false and .immutable == true and (.assets | length == 1) and .assets[0].name == $name and .assets[0].digest == $digest' \
+    <<<"$release_json" >/dev/null
+}
+
+# Complete reuse preflight: every desired tag the listing already reported is
+# verified here, before this run performs a single mutation. Verification must
+# not be interleaved with publication, or a mismatch on a later product would
+# only be discovered after earlier products were already published immutably.
+declare -a verified_reuse=()
+for index in "${!release_tags[@]}"; do
+  tag="${release_tags[$index]}"
+  if [[ -z "${listed_release_ids[$tag]+present}" ]]; then
+    verified_reuse+=(false)
+    continue
+  fi
+  listed_ids="${listed_release_ids[$tag]}"
+  [[ "$listed_ids" == "${listed_ids% *}" ]] ||
+    fail "$tag is held by more than one release (ids: $listed_ids); refusing to publish over it"
+  # A desired tag already held by a draft is a leaked release from an earlier
+  # run: neither a gap nor a reusable publication. Publishing beside it would
+  # attach two releases to one immutable tag, and deleting a release this run
+  # did not create is not this tool's call, so a human resolves it by id.
+  [[ "${listed_release_draft[$tag]}" == false ]] ||
+    fail "$tag already exists as an unpublished draft release (id $listed_ids); publish or delete it manually, then rerun"
+  published="$(gh api "repos/$repository/releases/tags/$tag")" ||
+    fail "$tag already exists but could not be read; refusing to publish over it"
+  release_holds_staged_module "$published" "${asset_names[$index]}" "${staged_modules[$index]}" ||
+    fail "$tag already exists and does not hold exactly the staged module; refusing to touch it"
+  gh attestation verify "${staged_modules[$index]}" --repo "$repository" >/dev/null
+  verified_reuse+=(true)
+done
+
 for index in "${!release_tags[@]}"; do
   tag="${release_tags[$index]}"
   asset_name="${asset_names[$index]}"
   staged_module="${staged_modules[$index]}"
+
+  # Already verified in the preflight: never created, uploaded to or patched.
+  if [[ "${verified_reuse[$index]}" == true ]]; then
+    printf 'buck2-products-publish: reusing verified release: %s\n' "$tag" >&2
+    continue
+  fi
+
   created="$(gh api --method POST "repos/$repository/releases" \
     -f tag_name="$tag" -f name="$tag" -f target_commitish="$publication_commit" \
     -F draft=true -F prerelease=false -F generate_release_notes=false)"
-  cleanup_release_id="$(jq -er '.id | select(type == "number")' <<<"$created")" || fail "GitHub did not return a draft release id"
+  release_id="$(jq -er '.id | select(type == "number")' <<<"$created")" || fail "GitHub did not return a draft release id"
+  cleanup_draft_release_id="$release_id"
   jq -e --arg tag "$tag" '.draft == true and .tag_name == $tag and (.assets | length == 0)' <<<"$created" >/dev/null ||
     fail "new release is not the requested empty draft"
 
   gh release upload "$tag" "$staged_module#$asset_name" --repo "$repository"
-  gh api --method PATCH "repos/$repository/releases/$cleanup_release_id" -F draft=false --silent
+  gh api --method PATCH "repos/$repository/releases/$release_id" -F draft=false --silent
+  # The release is published from here on. Drop cleanup authority before any
+  # post-publication check so a failing verification can never delete it.
+  cleanup_draft_release_id=""
 
-  release="$(gh api "repos/$repository/releases/tags/$tag")"
-  expected_digest="sha256:$(sha256sum "$staged_module")"
-  expected_digest="${expected_digest%% *}"
-  jq -e --arg name "$asset_name" --arg digest "$expected_digest" \
-    '.draft == false and .immutable == true and (.assets | length == 1) and .assets[0].name == $name and .assets[0].digest == $digest' \
-    <<<"$release" >/dev/null || fail "$tag asset set or digest does not match the staged module"
+  published="$(gh api "repos/$repository/releases/tags/$tag")"
+  release_holds_staged_module "$published" "$asset_name" "$staged_module" ||
+    fail "$tag asset set or digest does not match the staged module"
   gh attestation verify "$staged_module" --repo "$repository" >/dev/null
-  cleanup_release_id=""
 done
 
 import_root="$stage/import"

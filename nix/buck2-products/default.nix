@@ -42,7 +42,7 @@ let
       productName = descriptor.productName;
       moduleSha256 = descriptorModuleSha256 descriptor;
       canonicalDescriptor = builtins.toJSON descriptor;
-      derivedTag = "buck2-product-${productName}-${moduleSha256}";
+      derivedTag = "buck2-product-v2-${productName}-${moduleSha256}";
       derivedName = "${moduleSha256}-${descriptor.modulePath}";
       derivedUrl = "${repositoryReleaseBase}/${derivedTag}/${derivedName}";
       descriptorFile = builtins.toFile "${productName}-product.json" canonicalDescriptor;
