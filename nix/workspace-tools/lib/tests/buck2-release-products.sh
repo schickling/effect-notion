@@ -160,6 +160,8 @@ exit 97
 EOF
   chmod +x "$tmp/refusal-bin/$tool"
 done
+# The stub owns commit identity for this refusal case. CI's ambient GITHUB_SHA
+# must not preempt the dirty-worktree check under test.
 cat >"$tmp/refusal-bin/git" <<EOF
 #!/usr/bin/env bash
 printf 'git invoked\\n' >>'$tmp/refusal-tools'
@@ -170,7 +172,7 @@ case "\$*" in
 esac
 EOF
 chmod +x "$tmp/refusal-bin/git"
-if env -u "$legacy_token" PATH="$tmp/refusal-bin:$PATH" bash "$publisher" >"$publish_failure" 2>&1; then
+if env -u "$legacy_token" -u GITHUB_SHA PATH="$tmp/refusal-bin:$PATH" bash "$publisher" >"$publish_failure" 2>&1; then
   echo "buck2-release-products-test: publisher accepted a dirty worktree" >&2
   exit 1
 fi
