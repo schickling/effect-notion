@@ -8,7 +8,10 @@ import dependencyBuck from '../../buck2/dependencies/BUCK.genie.ts'
 import ciToolsBuck from '../../packages/@overeng/ci-tools/BUCK.genie.ts'
 import contentAddressBuck from '../../packages/@overeng/content-address/BUCK.genie.ts'
 import effectDistributedLockBuck from '../../packages/@overeng/effect-distributed-lock/BUCK.genie.ts'
+import effectPathBuck from '../../packages/@overeng/effect-path/BUCK.genie.ts'
 import genieBuck from '../../packages/@overeng/genie/BUCK.genie.ts'
+import kdlEffectBuck from '../../packages/@overeng/kdl-effect/BUCK.genie.ts'
+import kdlBuck from '../../packages/@overeng/kdl/BUCK.genie.ts'
 import megarepoBuck from '../../packages/@overeng/megarepo/BUCK.genie.ts'
 import type { GenieContext } from '../../packages/@overeng/genie/src/runtime/core.ts'
 import notionCliBuck from '../../packages/@overeng/notion-cli/BUCK.genie.ts'
@@ -40,7 +43,10 @@ const outputsByAdmission = {
   ciTools: ciToolsBuck.stringify(genieContext),
   contentAddress: contentAddressBuck.stringify(genieContext),
   effectDistributedLock: effectDistributedLockBuck.stringify(genieContext),
+  effectPath: effectPathBuck.stringify(genieContext),
   genie: genieBuck.stringify(genieContext),
+  kdl: kdlBuck.stringify(genieContext),
+  kdlEffect: kdlEffectBuck.stringify(genieContext),
   megarepo: megarepoBuck.stringify(genieContext),
   notionCli: notionCliBuck.stringify(genieContext),
   notionCore: notionCoreBuck.stringify(genieContext),

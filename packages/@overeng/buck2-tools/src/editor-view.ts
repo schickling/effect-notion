@@ -931,7 +931,7 @@ const rewriteSnapshotLinks = ({
           `declared backing link is unresolvable: ${sourcePath} (${error instanceof Error ? error.message : String(error)})`,
         )
       }
-      const lexicalTarget = resolve(dirname(sourcePath), target)
+      const lexicalTarget = canonicalizeParent(resolve(dirname(sourcePath), target))
       const owner = owners.find((root) => isWithin({ root: root.source, candidate: lexicalTarget }))
       if (owners.some((root) => isWithin({ root: root.source, candidate: liveTarget })) === false)
         fail(
