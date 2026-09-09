@@ -2,7 +2,7 @@
 # Source: manifest.yaml.genie.ts
 
 # registry-source: genie/weaver-registry/registry.ts
-# fingerprint: sha256:fec96ac4bcb2db312b9c5e5e216a38aad2de6db3cf2c79048daad2df9642ef6e
+# fingerprint: sha256:672ae6f9280d1908e600b356dc949fa481384bae3a922e6a17d9a451922aef38
 # regen: devenv tasks run genie:run
 name: acme-effect-utils
 
@@ -12,4 +12,4 @@ schema_url: 'https://opentelemetry.io/schemas/acme/0.1.0'
 
 dependencies:
   - name: otel
-    registry_path: 'https://github.com/open-telemetry/semantic-conventions.git@v1.37.0[model]'
+    registry_path: 'https://github.com/open-telemetry/semantic-conventions.git@v1.44.0[model]'
