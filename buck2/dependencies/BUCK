@@ -3,7 +3,7 @@
 
 # Generated file - DO NOT EDIT
 # Source: pnpm-lock.yaml
-# Store fingerprint: sha256:12e0e730ae6200d2c05b50dd0d455fa0afa8c077eff078b9fc1e3bf8968c7c1f
+# Store fingerprint: sha256:0d1a547dfdf101c0045c442e35f35451d563592a1faf4a9b5caec8d9f84b73aa
 
 load("//buck2:materialization.bzl", "export_materialization_inputs")
 
@@ -1652,37 +1652,37 @@ pnpm_package(
 )
 
 pnpm_package(
-    name = "package_restatedev_restate_sdk_clients_1_14_5_a971f34d5252",
+    name = "package_restatedev_restate_sdk_clients_1_17_0_2951ec1ddfca",
     package_name = "@restatedev/restate-sdk-clients",
-    url = "https://registry.npmjs.org/@restatedev/restate-sdk-clients/-/restate-sdk-clients-1.14.5.tgz",
-    sha256 = "4bc979def3219e2dee6fc9072c28fb1bc2ee84dcacf738b5a20634c802dd3d3c",
+    url = "https://registry.npmjs.org/@restatedev/restate-sdk-clients/-/restate-sdk-clients-1.17.0.tgz",
+    sha256 = "551997d51e34b2b5b24812e200c607e69962efd76859fea71008bc28f6c6ba70",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_restatedev_restate_sdk_core_1_14_5_2ef145b1bfd0",
+    name = "package_restatedev_restate_sdk_core_1_17_0_c3ee91927806",
     package_name = "@restatedev/restate-sdk-core",
-    url = "https://registry.npmjs.org/@restatedev/restate-sdk-core/-/restate-sdk-core-1.14.5.tgz",
-    sha256 = "368f42f9cc8d1f654b497a0bc263a6fee15f5373e7d694f26be87b8272b22a55",
+    url = "https://registry.npmjs.org/@restatedev/restate-sdk-core/-/restate-sdk-core-1.17.0.tgz",
+    sha256 = "1d73532983b4e28b84f3469f89f889b62fb59b4f363da79f724338efa86a4522",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_restatedev_restate_sdk_opentelemetry_1_14_5_382fb492a739",
+    name = "package_restatedev_restate_sdk_opentelemetry_1_17_0_c4ebd3a07d81",
     package_name = "@restatedev/restate-sdk-opentelemetry",
-    url = "https://registry.npmjs.org/@restatedev/restate-sdk-opentelemetry/-/restate-sdk-opentelemetry-1.14.5.tgz",
-    sha256 = "3dcfdce24773841bcd2361ca055f91b7e3345d359cb391abc09275a87bac21ea",
+    url = "https://registry.npmjs.org/@restatedev/restate-sdk-opentelemetry/-/restate-sdk-opentelemetry-1.17.0.tgz",
+    sha256 = "b570c5108011ac592573af36f9d63abe57390b10afb311b43c6a17c200c147e0",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_restatedev_restate_sdk_1_14_5_49221c3b922c",
+    name = "package_restatedev_restate_sdk_1_17_0_698cf31e7587",
     package_name = "@restatedev/restate-sdk",
-    url = "https://registry.npmjs.org/@restatedev/restate-sdk/-/restate-sdk-1.14.5.tgz",
-    sha256 = "610d04db29f75fa0e271b693a547d2f22f7cf17176ec85eb766dac0ff39c7746",
+    url = "https://registry.npmjs.org/@restatedev/restate-sdk/-/restate-sdk-1.17.0.tgz",
+    sha256 = "39153cdb91e5cdfe90993d2cacae0c055e3d431dbe6cd7029a3b363d5ad2b909",
     bins = {
     },
 )
@@ -8358,20 +8358,20 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_restatedev_restate_sdk_clients_1_14_5_a971f34d5252",
-    package = ":package_restatedev_restate_sdk_clients_1_14_5_a971f34d5252",
-    store_key = "@restatedev+restate-sdk-clients@1.14.5",
+    name = "entry_restatedev_restate_sdk_clients_1_17_0_2951ec1ddfca",
+    package = ":package_restatedev_restate_sdk_clients_1_17_0_2951ec1ddfca",
+    store_key = "@restatedev+restate-sdk-clients@1.17.0",
     runtime = ":assemble-store.ts",
     dependencies = {
-        "@restatedev/restate-sdk-core": ":entry_restatedev_restate_sdk_core_1_14_5_2ef145b1bfd0",
+        "@restatedev/restate-sdk-core": ":entry_restatedev_restate_sdk_core_1_17_0_c3ee91927806",
     },
     visibility = ["PUBLIC"],
 )
 
 pnpm_store_entry(
-    name = "entry_restatedev_restate_sdk_core_1_14_5_2ef145b1bfd0",
-    package = ":package_restatedev_restate_sdk_core_1_14_5_2ef145b1bfd0",
-    store_key = "@restatedev+restate-sdk-core@1.14.5",
+    name = "entry_restatedev_restate_sdk_core_1_17_0_c3ee91927806",
+    package = ":package_restatedev_restate_sdk_core_1_17_0_c3ee91927806",
+    store_key = "@restatedev+restate-sdk-core@1.17.0",
     runtime = ":assemble-store.ts",
     dependencies = {
     },
@@ -8379,25 +8379,25 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_restatedev_restate_sdk_opentelemetry_1_14_5_opentelemetry_api_1_9_1_open_662f553ab2ad",
-    package = ":package_restatedev_restate_sdk_opentelemetry_1_14_5_382fb492a739",
-    store_key = "@restatedev+restate-sdk-opentelemetry@1.14.5_@opentelemetry+api@1.9.1_@opentelemetry+core@2.11.0_@opent_63b6f7e42cd3523e",
+    name = "entry_restatedev_restate_sdk_opentelemetry_1_17_0_opentelemetry_api_1_9_1_open_36bcd961f741",
+    package = ":package_restatedev_restate_sdk_opentelemetry_1_17_0_c4ebd3a07d81",
+    store_key = "@restatedev+restate-sdk-opentelemetry@1.17.0_@opentelemetry+api@1.9.1_@opentelemetry+core@2.11.0_@opent_34d9bd20f00167ae",
     runtime = ":assemble-store.ts",
     dependencies = {
         "@opentelemetry/api": ":entry_opentelemetry_api_1_9_1_65aff18a9fc4",
         "@opentelemetry/core": ":entry_opentelemetry_core_2_11_0_opentelemetry_api_1_9_1_d60465c5ae17",
-        "@restatedev/restate-sdk": ":entry_restatedev_restate_sdk_1_14_5_49221c3b922c",
+        "@restatedev/restate-sdk": ":entry_restatedev_restate_sdk_1_17_0_698cf31e7587",
     },
     visibility = ["PUBLIC"],
 )
 
 pnpm_store_entry(
-    name = "entry_restatedev_restate_sdk_1_14_5_49221c3b922c",
-    package = ":package_restatedev_restate_sdk_1_14_5_49221c3b922c",
-    store_key = "@restatedev+restate-sdk@1.14.5",
+    name = "entry_restatedev_restate_sdk_1_17_0_698cf31e7587",
+    package = ":package_restatedev_restate_sdk_1_17_0_698cf31e7587",
+    store_key = "@restatedev+restate-sdk@1.17.0",
     runtime = ":assemble-store.ts",
     dependencies = {
-        "@restatedev/restate-sdk-core": ":entry_restatedev_restate_sdk_core_1_14_5_2ef145b1bfd0",
+        "@restatedev/restate-sdk-core": ":entry_restatedev_restate_sdk_core_1_17_0_c3ee91927806",
     },
     visibility = ["PUBLIC"],
 )
@@ -32547,9 +32547,9 @@ pnpm_store_view(
         "@opentelemetry/sdk-trace-web": "@opentelemetry+sdk-trace-web@2.11.0_@opentelemetry+api@1.9.1",
         "@opentelemetry/semantic-conventions": "@opentelemetry+semantic-conventions@1.43.0",
         "@playwright/test": "@playwright+test@1.63.0",
-        "@restatedev/restate-sdk": "@restatedev+restate-sdk@1.14.5",
-        "@restatedev/restate-sdk-clients": "@restatedev+restate-sdk-clients@1.14.5",
-        "@restatedev/restate-sdk-opentelemetry": "@restatedev+restate-sdk-opentelemetry@1.14.5_@opentelemetry+api@1.9.1_@opentelemetry+core@2.11.0_@opent_63b6f7e42cd3523e",
+        "@restatedev/restate-sdk": "@restatedev+restate-sdk@1.17.0",
+        "@restatedev/restate-sdk-clients": "@restatedev+restate-sdk-clients@1.17.0",
+        "@restatedev/restate-sdk-opentelemetry": "@restatedev+restate-sdk-opentelemetry@1.17.0_@opentelemetry+api@1.9.1_@opentelemetry+core@2.11.0_@opent_34d9bd20f00167ae",
         "@types/node": "@types+node@26.5.0",
         "effect": "effect@4.0.0-rc.111",
         "typescript": "typescript@7.0.2",
@@ -32583,10 +32583,10 @@ pnpm_store_view(
             "@redis+json@6.2.1_@redis+client@6.2.1_@opentelemetry+api@1.9.1": ":entry_redis_json_6_2_1_redis_client_6_2_1_opentelemetry_api_1_9_1_9e468cc3d6d8",
             "@redis+search@6.2.1_@redis+client@6.2.1_@opentelemetry+api@1.9.1": ":entry_redis_search_6_2_1_redis_client_6_2_1_opentelemetry_api_1_9_1_ff890285deba",
             "@redis+time-series@6.2.1_@redis+client@6.2.1_@opentelemetry+api@1.9.1": ":entry_redis_time_series_6_2_1_redis_client_6_2_1_opentelemetry_api_1_9_1_e4d2523e153b",
-            "@restatedev+restate-sdk-clients@1.14.5": ":entry_restatedev_restate_sdk_clients_1_14_5_a971f34d5252",
-            "@restatedev+restate-sdk-core@1.14.5": ":entry_restatedev_restate_sdk_core_1_14_5_2ef145b1bfd0",
-            "@restatedev+restate-sdk-opentelemetry@1.14.5_@opentelemetry+api@1.9.1_@opentelemetry+core@2.11.0_@opent_63b6f7e42cd3523e": ":entry_restatedev_restate_sdk_opentelemetry_1_14_5_opentelemetry_api_1_9_1_open_662f553ab2ad",
-            "@restatedev+restate-sdk@1.14.5": ":entry_restatedev_restate_sdk_1_14_5_49221c3b922c",
+            "@restatedev+restate-sdk-clients@1.17.0": ":entry_restatedev_restate_sdk_clients_1_17_0_2951ec1ddfca",
+            "@restatedev+restate-sdk-core@1.17.0": ":entry_restatedev_restate_sdk_core_1_17_0_c3ee91927806",
+            "@restatedev+restate-sdk-opentelemetry@1.17.0_@opentelemetry+api@1.9.1_@opentelemetry+core@2.11.0_@opent_34d9bd20f00167ae": ":entry_restatedev_restate_sdk_opentelemetry_1_17_0_opentelemetry_api_1_9_1_open_36bcd961f741",
+            "@restatedev+restate-sdk@1.17.0": ":entry_restatedev_restate_sdk_1_17_0_698cf31e7587",
             "@rolldown+pluginutils@1.0.1": ":entry_rolldown_pluginutils_1_0_1_3f649c36a41c",
             "@standard-schema+spec@1.1.0": ":entry_standard_schema_spec_1_1_0_9bfb5ac2eb33",
             "@types+chai@5.2.3": ":entry_types_chai_5_2_3_fee6bcdc2771",
@@ -32687,10 +32687,10 @@ pnpm_store_view(
             "@redis+json@6.2.1_@redis+client@6.2.1_@opentelemetry+api@1.9.1": ":entry_redis_json_6_2_1_redis_client_6_2_1_opentelemetry_api_1_9_1_9e468cc3d6d8",
             "@redis+search@6.2.1_@redis+client@6.2.1_@opentelemetry+api@1.9.1": ":entry_redis_search_6_2_1_redis_client_6_2_1_opentelemetry_api_1_9_1_ff890285deba",
             "@redis+time-series@6.2.1_@redis+client@6.2.1_@opentelemetry+api@1.9.1": ":entry_redis_time_series_6_2_1_redis_client_6_2_1_opentelemetry_api_1_9_1_e4d2523e153b",
-            "@restatedev+restate-sdk-clients@1.14.5": ":entry_restatedev_restate_sdk_clients_1_14_5_a971f34d5252",
-            "@restatedev+restate-sdk-core@1.14.5": ":entry_restatedev_restate_sdk_core_1_14_5_2ef145b1bfd0",
-            "@restatedev+restate-sdk-opentelemetry@1.14.5_@opentelemetry+api@1.9.1_@opentelemetry+core@2.11.0_@opent_63b6f7e42cd3523e": ":entry_restatedev_restate_sdk_opentelemetry_1_14_5_opentelemetry_api_1_9_1_open_662f553ab2ad",
-            "@restatedev+restate-sdk@1.14.5": ":entry_restatedev_restate_sdk_1_14_5_49221c3b922c",
+            "@restatedev+restate-sdk-clients@1.17.0": ":entry_restatedev_restate_sdk_clients_1_17_0_2951ec1ddfca",
+            "@restatedev+restate-sdk-core@1.17.0": ":entry_restatedev_restate_sdk_core_1_17_0_c3ee91927806",
+            "@restatedev+restate-sdk-opentelemetry@1.17.0_@opentelemetry+api@1.9.1_@opentelemetry+core@2.11.0_@opent_34d9bd20f00167ae": ":entry_restatedev_restate_sdk_opentelemetry_1_17_0_opentelemetry_api_1_9_1_open_36bcd961f741",
+            "@restatedev+restate-sdk@1.17.0": ":entry_restatedev_restate_sdk_1_17_0_698cf31e7587",
             "@rolldown+binding-linux-arm64-gnu@1.2.7": ":entry_rolldown_binding_linux_arm64_gnu_1_2_7_b564cdf057d1",
             "@rolldown+pluginutils@1.0.1": ":entry_rolldown_pluginutils_1_0_1_3f649c36a41c",
             "@standard-schema+spec@1.1.0": ":entry_standard_schema_spec_1_1_0_9bfb5ac2eb33",
@@ -32794,10 +32794,10 @@ pnpm_store_view(
             "@redis+json@6.2.1_@redis+client@6.2.1_@opentelemetry+api@1.9.1": ":entry_redis_json_6_2_1_redis_client_6_2_1_opentelemetry_api_1_9_1_9e468cc3d6d8",
             "@redis+search@6.2.1_@redis+client@6.2.1_@opentelemetry+api@1.9.1": ":entry_redis_search_6_2_1_redis_client_6_2_1_opentelemetry_api_1_9_1_ff890285deba",
             "@redis+time-series@6.2.1_@redis+client@6.2.1_@opentelemetry+api@1.9.1": ":entry_redis_time_series_6_2_1_redis_client_6_2_1_opentelemetry_api_1_9_1_e4d2523e153b",
-            "@restatedev+restate-sdk-clients@1.14.5": ":entry_restatedev_restate_sdk_clients_1_14_5_a971f34d5252",
-            "@restatedev+restate-sdk-core@1.14.5": ":entry_restatedev_restate_sdk_core_1_14_5_2ef145b1bfd0",
-            "@restatedev+restate-sdk-opentelemetry@1.14.5_@opentelemetry+api@1.9.1_@opentelemetry+core@2.11.0_@opent_63b6f7e42cd3523e": ":entry_restatedev_restate_sdk_opentelemetry_1_14_5_opentelemetry_api_1_9_1_open_662f553ab2ad",
-            "@restatedev+restate-sdk@1.14.5": ":entry_restatedev_restate_sdk_1_14_5_49221c3b922c",
+            "@restatedev+restate-sdk-clients@1.17.0": ":entry_restatedev_restate_sdk_clients_1_17_0_2951ec1ddfca",
+            "@restatedev+restate-sdk-core@1.17.0": ":entry_restatedev_restate_sdk_core_1_17_0_c3ee91927806",
+            "@restatedev+restate-sdk-opentelemetry@1.17.0_@opentelemetry+api@1.9.1_@opentelemetry+core@2.11.0_@opent_34d9bd20f00167ae": ":entry_restatedev_restate_sdk_opentelemetry_1_17_0_opentelemetry_api_1_9_1_open_36bcd961f741",
+            "@restatedev+restate-sdk@1.17.0": ":entry_restatedev_restate_sdk_1_17_0_698cf31e7587",
             "@rolldown+binding-linux-x64-gnu@1.2.7": ":entry_rolldown_binding_linux_x64_gnu_1_2_7_2b8bc0885731",
             "@rolldown+pluginutils@1.0.1": ":entry_rolldown_pluginutils_1_0_1_3f649c36a41c",
             "@standard-schema+spec@1.1.0": ":entry_standard_schema_spec_1_1_0_9bfb5ac2eb33",
@@ -32901,10 +32901,10 @@ pnpm_store_view(
             "@redis+json@6.2.1_@redis+client@6.2.1_@opentelemetry+api@1.9.1": ":entry_redis_json_6_2_1_redis_client_6_2_1_opentelemetry_api_1_9_1_9e468cc3d6d8",
             "@redis+search@6.2.1_@redis+client@6.2.1_@opentelemetry+api@1.9.1": ":entry_redis_search_6_2_1_redis_client_6_2_1_opentelemetry_api_1_9_1_ff890285deba",
             "@redis+time-series@6.2.1_@redis+client@6.2.1_@opentelemetry+api@1.9.1": ":entry_redis_time_series_6_2_1_redis_client_6_2_1_opentelemetry_api_1_9_1_e4d2523e153b",
-            "@restatedev+restate-sdk-clients@1.14.5": ":entry_restatedev_restate_sdk_clients_1_14_5_a971f34d5252",
-            "@restatedev+restate-sdk-core@1.14.5": ":entry_restatedev_restate_sdk_core_1_14_5_2ef145b1bfd0",
-            "@restatedev+restate-sdk-opentelemetry@1.14.5_@opentelemetry+api@1.9.1_@opentelemetry+core@2.11.0_@opent_63b6f7e42cd3523e": ":entry_restatedev_restate_sdk_opentelemetry_1_14_5_opentelemetry_api_1_9_1_open_662f553ab2ad",
-            "@restatedev+restate-sdk@1.14.5": ":entry_restatedev_restate_sdk_1_14_5_49221c3b922c",
+            "@restatedev+restate-sdk-clients@1.17.0": ":entry_restatedev_restate_sdk_clients_1_17_0_2951ec1ddfca",
+            "@restatedev+restate-sdk-core@1.17.0": ":entry_restatedev_restate_sdk_core_1_17_0_c3ee91927806",
+            "@restatedev+restate-sdk-opentelemetry@1.17.0_@opentelemetry+api@1.9.1_@opentelemetry+core@2.11.0_@opent_34d9bd20f00167ae": ":entry_restatedev_restate_sdk_opentelemetry_1_17_0_opentelemetry_api_1_9_1_open_36bcd961f741",
+            "@restatedev+restate-sdk@1.17.0": ":entry_restatedev_restate_sdk_1_17_0_698cf31e7587",
             "@rolldown+binding-darwin-arm64@1.2.7": ":entry_rolldown_binding_darwin_arm64_1_2_7_c213ca2a9ab4",
             "@rolldown+pluginutils@1.0.1": ":entry_rolldown_pluginutils_1_0_1_3f649c36a41c",
             "@standard-schema+spec@1.1.0": ":entry_standard_schema_spec_1_1_0_9bfb5ac2eb33",
