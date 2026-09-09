@@ -16,7 +16,7 @@ import { formatValidationIssues, type ValidationIssue } from '../runtime/package
  */
 const nodeJsoncParser: GenieJsoncParser = ({ text }) => {
   const errors: ParseError[] = []
-  const value: unknown = parse(text, errors)
+  const value: unknown = parse(text, errors, { allowTrailingComma: true })
   return errors.length === 0 ? value : undefined
 }
 import { findGenieFiles } from './discovery.ts'
