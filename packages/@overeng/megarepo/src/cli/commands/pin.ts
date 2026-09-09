@@ -12,6 +12,7 @@ import React from 'react'
 import { EffectPath } from '@overeng/effect-path'
 import { run } from '@overeng/tui-react'
 
+import { resolveComposedStoreWorktree } from '../../composition/acquisition/owned-worktree-acquisition.ts'
 import { teardownCpAMemberMount } from '../../composition/mounts/member-mount-cp-a.ts'
 import {
   foreignMemberMountMessage,
@@ -200,24 +201,54 @@ export const pinCommand = Cli.Command.make(
             const bareExists = yield* store.hasBareRepo(newSource)
             const refType = classifyRef(newRef)
 
-            // Get worktree path for the new ref
-            const worktreePath = store.getWorktreePath({
+            // Resolve P/W from Git registration; composed roots never carry a second identity file.
+            const worktreeRoot = store.getWorktreePath({
               source: newSource,
               ref: newRef,
               refType,
             })
+            const composedWorktreePath =
+              bareExists === true && refType === 'branch'
+                ? yield* resolveComposedStoreWorktree({
+                    bareRepo: bareRepoPath,
+                    workspaceRoot: worktreeRoot,
+                    branch: newRef,
+                  }).pipe(
+                    Effect.mapError(
+                      (cause) =>
+                        new InvalidSourceError({
+                          source: newSourceString,
+                          message: cause.message,
+                        }),
+                    ),
+                  )
+                : undefined
+            const worktreePath = composedWorktreePath ?? worktreeRoot
 
             // Get current symlink target
             const currentLink = yield* fs
               .readLink(memberPathNormalized)
               .pipe(Effect.orElseSucceed(() => null))
 
-            // Check if worktree exists
-            const worktreeExists = yield* store.hasWorktree({
-              source: newSource,
-              ref: newRef,
-              refType,
-            })
+            const worktreeExists =
+              composedWorktreePath === undefined
+                ? yield* store.hasWorktree({
+                    source: newSource,
+                    ref: newRef,
+                    refType,
+                  })
+                : yield* fs.exists(
+                    EffectPath.ops.join(
+                      composedWorktreePath,
+                      EffectPath.unsafe.relativeFile('.git'),
+                    ),
+                  )
+            if (composedWorktreePath !== undefined && worktreeExists === false) {
+              return yield* new InvalidSourceError({
+                source: newSourceString,
+                message: `Composed workspace is missing its owned Git checkout at ${composedWorktreePath}; recreate the workspace before pinning`,
+              })
+            }
 
             // Get current lock info
             const currentLockEntry = Option.getOrUndefined(
@@ -359,11 +390,7 @@ export const pinCommand = Cli.Command.make(
             }
 
             if (compositionEnabled === true) {
-              yield* runCompositionApply({
-                workspaceRoot: root.value,
-                dryRun: false,
-                callerCwd: cwd,
-              })
+              yield* runCompositionApply({ workspaceRoot: root.value, dryRun: false })
             }
 
             // Keep the store liveness record fresh after repinning so a
@@ -499,7 +526,7 @@ export const pinCommand = Cli.Command.make(
           }
 
           if (compositionEnabled === true) {
-            yield* runCompositionApply({ workspaceRoot: root.value, dryRun: false, callerCwd: cwd })
+            yield* runCompositionApply({ workspaceRoot: root.value, dryRun: false })
           }
 
           // Keep the store liveness record fresh after pinning (the symlink may
@@ -724,7 +751,7 @@ export const unpinCommand = Cli.Command.make(
           }
 
           if (compositionEnabled === true) {
-            yield* runCompositionApply({ workspaceRoot: root.value, dryRun: false, callerCwd: cwd })
+            yield* runCompositionApply({ workspaceRoot: root.value, dryRun: false })
           }
 
           tui.dispatch({

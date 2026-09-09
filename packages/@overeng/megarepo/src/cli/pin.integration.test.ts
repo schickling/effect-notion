@@ -14,6 +14,7 @@ import { expect } from 'vitest'
 
 import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
 
+import { composedWorkspacePathsFromRegistration } from '../composition/acquisition/owned-worktree-acquisition.ts'
 import {
   buildSourceStringWithRef,
   CONFIG_FILE_NAME_JSON,
@@ -405,6 +406,20 @@ describe('mr config pin', () => {
 
     it('should classify commits correctly', () => {
       expect(classifyRef('abc123def456789012345678901234567890abcd')).toBe('commit')
+    })
+
+    it('resolves a composed branch registration to P and W', () => {
+      expect(
+        composedWorkspacePathsFromRegistration({
+          registeredWorktree: '/store/repo/refs/heads/feature/repos/repo',
+          expectedWorkspaceRoot: '/store/repo/refs/heads/feature',
+        }),
+      ).toEqual({
+        workspaceRoot: '/store/repo/refs/heads/feature',
+        reposPath: '/store/repo/refs/heads/feature/repos',
+        ownedWorktree: '/store/repo/refs/heads/feature/repos/repo',
+        ownedMember: 'repo',
+      })
     })
   })
 

@@ -407,7 +407,10 @@ let
         set -euo pipefail
         member_root="''${DEVENV_ROOT:-$PWD}"
         workspace_root="$member_root"
-        if [ -f "$member_root/../../.megarepo-owned-worktree.json" ]; then
+        if [ "''${member_root%/*}" != "$member_root" ] &&
+          [ "''${member_root%/*/*}" != "''${member_root%/*}" ] &&
+          [ "''${member_root%/*}" = "''${member_root%/*/*}/repos" ] &&
+          [ -f "$member_root/.git" ]; then
           workspace_root="$(cd "$member_root/../.." && pwd -P)"
         fi
         target="$workspace_root/.buckconfig.local"
@@ -676,10 +679,17 @@ in
   tasks."genie:check".after = [ "pnpm:install" ];
   tasks."lint:check:genie".after = [ "pnpm:install" ];
   tasks."mr:bootstrap".after = [ "pnpm:install" ];
-  tasks."mr:setup".after = [ "pnpm:install" ];
+  tasks."mr:setup".after = [
+    "pnpm:install"
+    "mr:bootstrap"
+  ];
   tasks."mr:fetch-apply".after = [ "pnpm:install" ];
   tasks."mr:lock".after = [ "pnpm:install" ];
-  tasks."mr:apply".after = [ "pnpm:install" ];
+  # Serialize every source-mode task that can mutate the same composed root.
+  tasks."mr:apply".after = [
+    "pnpm:install"
+    "mr:setup"
+  ];
   tasks."mr:check".after = [ "pnpm:install" ];
   tasks."mr:source-policy-check".after = [ "pnpm:install" ];
 
@@ -1048,7 +1058,10 @@ in
           pkgs.watchman
         ]
       }
-      if [ -f "$root/../../.megarepo-owned-worktree.json" ]; then
+      if [ "''${root%/*}" != "$root" ] &&
+        [ "''${root%/*/*}" != "''${root%/*}" ] &&
+        [ "''${root%/*}" = "''${root%/*/*}/repos" ] &&
+        [ -f "$root/.git" ]; then
         export TYPESCRIPT_DIST_MODE=publish
         export WORKSPACE_ROOT="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
         export BUCK2_BIN="$WORKSPACE_ROOT/.megarepo/bin/buck2"

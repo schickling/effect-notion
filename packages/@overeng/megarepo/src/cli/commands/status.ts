@@ -51,7 +51,7 @@ import type {
   StaleLock,
   SymlinkDrift,
 } from '../renderers/StatusOutput/mod.ts'
-import { loadOwnedIdentity, type CompositionCutoverError } from './composition.ts'
+import { loadOwnedIdentity, type CompositionCommandError } from './composition.ts'
 
 /**
  * Recursively scan members and build status tree.
@@ -75,7 +75,7 @@ const scanMembersRecursive = ({
   | Schema.SchemaError
   | Git.GitCommandError
   | OwnedCpAMountMetadataError
-  | CompositionCutoverError,
+  | CompositionCommandError,
   FileSystem.FileSystem | ChildProcessSpawner | Store
 > =>
   Effect.gen(function* () {

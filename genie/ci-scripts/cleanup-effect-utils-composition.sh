@@ -9,11 +9,7 @@ bare_repo="$repo_root/.bare"
 workspace_root="$repo_root/$branch_ref"
 member_root="$workspace_root/repos/effect-utils"
 
-workspace_parent="${workspace_root%/*}"
-workspace_name="${workspace_root##*/}"
-acquisition_temp="$workspace_parent/.$workspace_name.owned-worktree-acquisition-temp"
-if [ ! -e "$workspace_root" ] && [ ! -L "$workspace_root" ] &&
-  [ ! -e "$acquisition_temp" ] && [ ! -L "$acquisition_temp" ]; then
+if [ ! -e "$workspace_root" ] && [ ! -L "$workspace_root" ]; then
   exit 0
 fi
 
@@ -29,9 +25,6 @@ repo_root="$store_root/github.com/overengineeringstudio/effect-utils"
 bare_repo="$repo_root/.bare"
 workspace_root="$repo_root/$branch_ref"
 member_root="$workspace_root/repos/effect-utils"
-workspace_parent="${workspace_root%/*}"
-workspace_name="${workspace_root##*/}"
-acquisition_temp="$workspace_parent/.$workspace_name.owned-worktree-acquisition-temp"
 
 test -d "$bare_repo"
 [ "$(git --git-dir="$bare_repo" rev-parse --is-bare-repository)" = true ]
@@ -40,13 +33,7 @@ case "$store_root" in
   *) echo "::error::refusing cleanup outside job-local runner store: $store_root" >&2; exit 1 ;;
 esac
 
-if [ -f "$workspace_root/.megarepo-owned-worktree.json" ]; then
-  owned_worktree="$member_root"
-elif [ -e "$workspace_root" ] || [ -L "$workspace_root" ]; then
-  owned_worktree="$workspace_root"
-else
-  owned_worktree="$acquisition_temp"
-fi
+owned_worktree="$member_root"
 
 current_worktree=
 registered_worktree=

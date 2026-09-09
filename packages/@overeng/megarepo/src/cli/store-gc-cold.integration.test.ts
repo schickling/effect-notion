@@ -37,6 +37,7 @@ import { expect, vi } from 'vitest'
 
 import { EffectPath, type AbsoluteDirPath, type RelativeDirPath } from '@overeng/effect-path'
 
+import { createComposedOwnedWorkspace } from '../composition/acquisition/owned-worktree-acquisition.ts'
 import * as Git from '../core/git.ts'
 import { refreshWorkspaceRegistry } from '../store/store-liveness.ts'
 import {
@@ -239,9 +240,52 @@ const outsideCwd = () =>
     return cwd
   })
 
+const createComposedGcFixture = ({ dirty = false }: { dirty?: boolean } = {}) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const fixture = yield* createStoreFixture([
+      { ...REPO, branches: ['feature/composed'], withRemote: true },
+    ])
+    const bareRepoPath = fixture.bareRepoPaths[REPO_KEY]!
+    const workspaceRoot = fixture.worktreePaths[`${REPO_KEY}#feature/composed`]!
+
+    // Turn the fixture's detached flat checkout into a real composed workspace at the same
+    // logical store path. The config commit lets the acquisition primitive publish its root
+    // config symlink exactly as production creation does.
+    yield* fs.writeFileString(
+      EffectPath.ops.join(workspaceRoot, EffectPath.unsafe.relativeFile('megarepo.kdl')),
+      'members {}\n',
+    )
+    yield* git(workspaceRoot, 'add', 'megarepo.kdl')
+    yield* git(workspaceRoot, 'commit', '--no-gpg-sign', '--no-verify', '-m', 'add config')
+    const commit = yield* getWorktreeCommit(workspaceRoot)
+    yield* git(workspaceRoot, 'push', 'origin', 'HEAD:refs/heads/feature/composed')
+    yield* git(bareRepoPath, 'worktree', 'remove', workspaceRoot)
+    yield* git(bareRepoPath, 'branch', 'feature/composed', commit)
+
+    const created = yield* createComposedOwnedWorkspace({
+      bareRepo: bareRepoPath,
+      workspaceRoot,
+      ownedMember: 'owner',
+      branch: 'feature/composed',
+      generate: () => Effect.void,
+    })
+    const ownedWorktree = EffectPath.unsafe.absoluteDir(
+      `${created.ownedWorktree.replace(/\/+$/, '')}/`,
+    )
+    if (dirty === true) {
+      yield* fs.writeFileString(
+        EffectPath.ops.join(ownedWorktree, EffectPath.unsafe.relativeFile('dirty.txt')),
+        'composed dirt\n',
+      )
+    }
+
+    return { ...fixture, bareRepoPath, workspaceRoot, ownedWorktree }
+  })
+
 describe('mr store gc — cold named-branch reclamation', () => {
   it.effect(
-    'merged + clean + reachable ⇒ archived, branch freed, mr-apply re-add works',
+    'ordinary flat merged + clean + reachable ⇒ archived, branch freed, mr-apply re-add works',
     Effect.fnUntraced(
       function* () {
         const fs = yield* FileSystem.FileSystem
@@ -280,6 +324,80 @@ describe('mr store gc — cold named-branch reclamation', () => {
         yield* git(bareRepoPath, 'branch', 'feature/merged', commit)
         yield* git(bareRepoPath, 'worktree', 'add', reAddPath, 'feature/merged')
         expect(yield* fs.exists(reAddPath)).toBe(true)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
+    'clean non-default composed workspace ⇒ kept as one logical root',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const { storePath, bareRepoPath, workspaceRoot, ownedWorktree } =
+          yield* createComposedGcFixture()
+        const cwd = yield* outsideCwd()
+        yield* seedColdObservation({ cwd, storePath })
+
+        const { results } = yield* runGc({
+          cwd,
+          storePath,
+          prRepos: [
+            {
+              relativePath: REPO_RELATIVE,
+              prs: [mergedPr('feature/composed', NOW - 30 * DAY_MS)],
+            },
+          ],
+        })
+
+        const result = findByRef(results, 'feature/composed')
+        expect(result?.status).toBe('kept')
+        expect(result?.reason).toBe('composed-workspace')
+        expect(result?.recoverPath).toBeUndefined()
+        expect(yield* fs.exists(workspaceRoot)).toBe(true)
+        expect(yield* fs.exists(ownedWorktree)).toBe(true)
+        expect(
+          yield* Git.refExists({ repoPath: bareRepoPath, ref: 'refs/heads/feature/composed' }),
+        ).toBe(true)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
+    'dirty composed workspace ⇒ kept without probing the non-Git root as HEAD',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const { storePath, workspaceRoot, ownedWorktree } = yield* createComposedGcFixture({
+          dirty: true,
+        })
+        const cwd = yield* outsideCwd()
+        yield* seedColdObservation({ cwd, storePath })
+
+        const { results } = yield* runGc({
+          cwd,
+          storePath,
+          prRepos: [
+            {
+              relativePath: REPO_RELATIVE,
+              prs: [mergedPr('feature/composed', NOW - 30 * DAY_MS)],
+            },
+          ],
+        })
+
+        const result = findByRef(results, 'feature/composed')
+        expect(result?.status).toBe('kept')
+        expect(result?.reason).toBe('composed-workspace')
+        expect(result?.reason).not.toBe('unreadable-head')
+        expect(yield* fs.exists(workspaceRoot)).toBe(true)
+        expect(
+          yield* fs.readFileString(
+            EffectPath.ops.join(ownedWorktree, EffectPath.unsafe.relativeFile('dirty.txt')),
+          ),
+        ).toBe('composed dirt\n')
       },
       Effect.provide(NodeServices.layer),
       Effect.scoped,
@@ -1371,6 +1489,31 @@ describe('mr store gc — cold named-branch reclamation', () => {
         // Not archived/kept — the legacy --all path owns it.
         expect(result?.reason).toBeUndefined()
         expect(yield* fs.exists(worktreePath)).toBe(false)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
+  it.effect(
+    '--all hard-keeps a composed root and its nested owned checkout',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const { storePath, workspaceRoot, ownedWorktree } = yield* createComposedGcFixture()
+        const cwd = yield* outsideCwd()
+        const { results } = yield* runGc({
+          cwd,
+          storePath,
+          prRepos: [{ relativePath: REPO_RELATIVE, prs: [] }],
+          args: ['--all'],
+        })
+
+        const result = findByRef(results, 'feature/composed')
+        expect(result?.status).toBe('skipped_in_use')
+        expect(result?.message).toContain('root-aware archive/delete primitive')
+        expect(yield* fs.exists(workspaceRoot)).toBe(true)
+        expect(yield* fs.exists(ownedWorktree)).toBe(true)
       },
       Effect.provide(NodeServices.layer),
       Effect.scoped,

@@ -44,6 +44,7 @@ fi
 git --git-dir="$bare_repo" fetch --no-tags --prune origin \
   '+refs/heads/main:refs/remotes/origin/main' \
   "$source_sha"
+workspace_parent="$(dirname "$workspace_root")"
 if git --git-dir="$bare_repo" show-ref --verify --quiet "$branch_ref"; then
   existing_sha="$(git --git-dir="$bare_repo" rev-parse "$branch_ref^{commit}")"
   if [ "$existing_sha" != "$source_sha" ]; then
@@ -59,12 +60,28 @@ else
     echo "::error::refusing foreign canonical workspace path: $workspace_root" >&2
     exit 1
   fi
-  git --git-dir="$bare_repo" update-ref "$branch_ref" "$source_sha"
-  mkdir -p "$(dirname "$workspace_root")"
-  git --git-dir="$bare_repo" worktree add "$workspace_root" "$branch_name"
+  mkdir -p "$workspace_parent"
+  created_member_root="$(
+    cd "$workspace_parent"
+    env -i \
+      HOME="$HOME" \
+      TMPDIR="${TMPDIR:-/tmp}" \
+      XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}" \
+      PATH="$PATH" \
+      NIX_CONFIG='accept-flake-config = true' \
+      MEGAREPO_STORE="$store_root" \
+      CI=true \
+      BUCK2_NO_REMOTE_CACHE="${BUCK2_NO_REMOTE_CACHE:-}" \
+      "$mr_bin" store worktree new overengineeringstudio/effect-utils \
+        --ref "$branch_name" \
+        --base "$source_sha" \
+        --porcelain
+  )"
+  if [ "$created_member_root" != "$member_root" ]; then
+    echo "::error::composed worktree creation returned '$created_member_root', expected '$member_root'" >&2
+    exit 1
+  fi
 fi
-
-workspace_parent="$(dirname "$workspace_root")"
 (
   cd "$workspace_parent"
   env -i \
@@ -83,7 +100,6 @@ if git -C "$workspace_root" rev-parse --is-inside-work-tree >/dev/null 2>&1; the
   echo "::error::synthesized workspace root must not be a Git worktree: $workspace_root" >&2
   exit 1
 fi
-test -f "$workspace_root/.megarepo-owned-worktree.json"
 test -f "$workspace_root/.megarepo/composition-generation.json"
 test -f "$workspace_root/.buckconfig"
 test -x "$workspace_root/.megarepo/bin/buck2"

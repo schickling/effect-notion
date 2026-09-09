@@ -128,3 +128,16 @@ derivation is cited per requirement. Nothing here is new policy.
   parallel default. (Decision
   [0027](../buck2/.decisions/0027-composed-default-worktrees.md); the
   multi-root soak is the named hardening gate.)
+- **MR-R12 Routine application is shape-preserving:** No routine command —
+  `mr apply`, `mr fetch --apply`, `mr pin`, `mr unpin`, `mr check`, or a
+  status-gated devenv task — may relocate a worktree or convert a legacy flat
+  root. A legacy projection is a typed, zero-mutation refusal instructing the
+  caller to recreate it. There is no in-place migration or recovery command.
+- **MR-R13 Composition happens directly at creation:** Worktree creation for a
+  repository whose target commit declares composition creates the branch
+  checkout directly at `P/repos/<owned>`, where `P` is its final store path.
+  Git worktree registration, together with matching `.git`, branch, and bare
+  repository identity at that path, is the permanent authority. An exact
+  incomplete birth may be retried in place; ambiguous roots and foreign bytes
+  are refused without relocation or deletion. Generated metadata describes the
+  rebuildable projection and never becomes a second root-identity authority.

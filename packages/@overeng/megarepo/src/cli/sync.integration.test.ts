@@ -305,7 +305,7 @@ describe('composition apply option policy', () => {
   })
 
   it.effect(
-    'accepts redundant --all with implicit auto in CI before entering composition apply',
+    'accepts redundant --all with implicit auto in CI before refusing legacy shape',
     Effect.fnUntraced(
       function* () {
         const workspacePath = yield* createCompositionWorkspace
@@ -318,7 +318,7 @@ describe('composition apply option policy', () => {
         const failure = Exit.isFailure(result.exit) === true ? Cause.pretty(result.exit.cause) : ''
         const diagnostic = `${result.stdout}\n${result.stderr}\n${failure}`
         expect(Exit.isFailure(result.exit)).toBe(true)
-        expect(diagnostic).toContain('Could not establish owned composition identity')
+        expect(diagnostic).toContain("Recreate it with 'mr store worktree new'")
         expect(diagnostic).not.toContain(
           'Composition apply owns the complete member set; --only and --skip are unavailable',
         )

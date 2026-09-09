@@ -744,7 +744,6 @@ export const runCommand = ({
             const composition = yield* runCompositionApply({
               workspaceRoot: root.value,
               dryRun,
-              callerCwd: cwd,
             })
             const ignoredMembers = config.generators?.composition?.ignoredMembers ?? []
             const ignoredLock = yield* readCompositionLockFile({

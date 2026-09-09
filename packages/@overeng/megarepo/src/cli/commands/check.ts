@@ -41,11 +41,10 @@ export const checkCommand = Cli.Command.make(
       const lockFileOpt =
         config.generators?.composition?.enabled === true
           ? yield* Effect.gen(function* () {
-              const identity = yield* Effect.option(loadOwnedIdentity({ workspaceRoot: root }))
+              const identity = yield* loadOwnedIdentity({ workspaceRoot: root })
               return yield* readCompositionLockFile({
                 workspaceRoot: root,
-                ownedMemberPath:
-                  Option.isSome(identity) === true ? identity.value.ownedSourcePath : root,
+                ownedMemberPath: identity.ownedSourcePath,
               })
             })
           : yield* readLockFile(rootLockPath)
@@ -84,10 +83,11 @@ export const checkCommand = Cli.Command.make(
         }
       }
 
-      if (result.violations.length > 0) {
+      const violationCount = result.violations.length
+      if (violationCount > 0) {
         return yield* new CheckCommandError({
-          message: `Megarepo checks failed with ${result.violations.length} violation(s)`,
-          violationCount: result.violations.length,
+          message: `Megarepo checks failed with ${violationCount} violation(s)`,
+          violationCount,
         })
       }
     }).pipe(

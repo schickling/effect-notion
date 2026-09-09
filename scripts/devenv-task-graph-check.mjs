@@ -188,7 +188,7 @@ ok({
 })
 ok({
   condition:
-    materializerSource.includes('.megarepo-owned-worktree.json') === true &&
+    materializerSource.includes('[ -f "$root/.git" ]') === true &&
     materializerSource.includes('TYPESCRIPT_DIST_MODE=publish') === true &&
     materializerSource.includes('TYPESCRIPT_DIST_MODE=check') === true &&
     materializerSource.includes('TSGO_BIN=') === true &&

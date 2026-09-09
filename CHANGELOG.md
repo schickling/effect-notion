@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **@overeng/megarepo**: composition-enabled branch worktrees are now created
+  directly at their final `P/repos/<owned>` path and use Git registration as
+  identity authority. Routine commands refuse legacy flat roots without
+  mutation, composed roots are protected from every GC mode, and the permanent
+  migration lifecycle commands and metadata have been removed.
+
 
 - **@overeng/utils**: `@overeng/utils/node/storybook/gate` — a reusable
   story-driven visual and accessibility gate. Every story becomes a browser
