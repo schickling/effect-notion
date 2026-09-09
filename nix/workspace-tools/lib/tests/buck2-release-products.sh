@@ -55,7 +55,7 @@ jq -e --argjson expected "$expected_names" '
   all(
     .releases | to_entries[];
     .key as $product |
-    (.value.tag | sub("^buck2-product-v2-\($product)-"; "")) as $digest |
+    (.value.tag | sub("^buck2-product-v3-\($product)-"; "")) as $digest |
     ($digest | test("^[0-9a-f]{64}$")) and
     (.value.name | startswith("\($digest)-")) and
     .value.url == "https://github.com/overengineeringstudio/effect-utils/releases/download/\(.value.tag)/\(.value.name)"
@@ -205,6 +205,13 @@ if grep -F 'immutable-releases' "$publisher" >/dev/null; then
   exit 1
 fi
 grep -F '.immutable == true' "$publisher" >/dev/null
+# GitHub names an asset after the uploaded file, and reads "path#label" as a
+# display label only. A publisher that passed the required asset name as a
+# label would publish an asset under the wrong, unfetchable name.
+if grep -F 'gh release upload' "$publisher" | grep -F '#' >/dev/null; then
+  echo "buck2-release-products-test: publisher passes a #label to gh release upload" >&2
+  exit 1
+fi
 if grep -E '(^|[[:space:]])set[[:space:]]+-[^[:space:]]*x' "$publisher" >/dev/null; then
   echo "buck2-release-products-test: publisher enables shell tracing around secrets" >&2
   exit 1
@@ -267,7 +274,7 @@ live_add_product() {
      }' >"$descriptor"
   descriptor_sha="$(jq -cS . "$descriptor" | tr -d '\n' | sha256sum)"
   descriptor_sha="${descriptor_sha%% *}"
-  tag="buck2-product-v2-$name-$sha"
+  tag="buck2-product-v3-$name-$sha"
   asset="$sha-$module_path"
   jq -nS \
     --slurpfile descriptor "$descriptor" \
@@ -498,13 +505,21 @@ case "$sub" in
     fi
     tag="${2:-}"
     spec="${3:-}"
-    printf 'UPLOAD %s\n' "${spec##*#}" >>"$log"
+    # Real gh semantics: the asset name is the basename of the uploaded file.
+    # Anything after "#" is only the asset's display label, so a "#name"
+    # suffix can never rename the asset.
+    path="${spec%%#*}"
+    name="${path##*/}"
+    printf 'UPLOAD %s\n' "$name" >>"$log"
+    if [[ "$spec" == *#* ]]; then
+      printf 'UPLOAD-LABEL %s\n' "${spec#*#}" >>"$log"
+    fi
     if [[ -e "$state/fail-upload" ]]; then
       printf 'gh stub: upload failed\n' >&2
       exit 1
     fi
-    digest="$(sha256sum "${spec%%#*}")" || exit 1
-    release_update "$tag" --arg name "${spec##*#}" --arg digest "sha256:${digest%% *}" \
+    digest="$(sha256sum "$path")" || exit 1
+    release_update "$tag" --arg name "$name" --arg digest "sha256:${digest%% *}" \
       '.assets += [{name: $name, digest: $digest}]' || {
       printf 'gh stub: no release for tag: %s\n' "$tag" >&2
       exit 1
@@ -634,11 +649,29 @@ live_reject() {
   fi
 }
 
+# What GitHub ended up holding for a tag: exactly one asset, named after the
+# uploaded file, with the digest of the module bytes.
+live_uploaded_asset() {
+  local label="$1" tag="$2" expected_name="$3" module="$4" digest
+  digest="$(sha256sum "$module")"
+  if ! jq -e --arg name "$expected_name" --arg digest "sha256:${digest%% *}" \
+    '(.assets | length == 1) and .assets[0].name == $name and .assets[0].digest == $digest' \
+    "$live/state-$label/by-tag/$tag.json" >/dev/null; then
+    echo "buck2-release-products-test: live $label did not publish $expected_name for $tag" >&2
+    cat "$live/state-$label/by-tag/$tag.json" >&2
+    exit 1
+  fi
+}
+
 # Pre-publication failure: the draft is still a draft, so cleanup must confirm
 # that with GitHub and then delete it.
 live_scenario upload-failure fail-upload
 live_expect upload-failure "CREATE-DRAFT $live_expected_tag"
 live_expect upload-failure "UPLOAD $live_expected_asset"
+# The stub names the asset after the uploaded file, so this line also proves
+# the uploaded path's basename is exactly the contracted asset name, and that
+# no "#label" was used to fake it.
+live_reject upload-failure 'UPLOAD-LABEL'
 live_reject upload-failure 'PATCH-RELEASE'
 live_expect upload-failure 'GET-RELEASE 4242'
 live_expect upload-failure 'DELETE-RELEASE 4242'
@@ -651,6 +684,10 @@ live_expect attestation-failure "CREATE-DRAFT $live_expected_tag"
 live_expect attestation-failure 'PATCH-RELEASE 4242 draft=false'
 live_expect attestation-failure "GET-BY-TAG $live_expected_tag"
 live_expect attestation-failure 'ATTESTATION verify'
+live_reject attestation-failure 'UPLOAD-LABEL'
+live_expect attestation-failure "UPLOAD $live_expected_asset"
+live_uploaded_asset attestation-failure "$live_expected_tag" "$live_expected_asset" \
+  "${live_module[live-product]}"
 live_reject attestation-failure 'GET-RELEASE'
 live_reject attestation-failure 'DELETE-RELEASE'
 echo "buck2-release-products-test: live post-publication failure issued no DELETE"
@@ -750,6 +787,9 @@ live_expect resume-remaining "CREATE-DRAFT ${live_tag[live-second]}"
 live_expect resume-remaining "UPLOAD ${live_asset[live-second]}"
 live_expect resume-remaining 'PATCH-RELEASE 4242 draft=false'
 live_expect resume-remaining "GET-BY-TAG ${live_tag[live-second]}"
+live_reject resume-remaining 'UPLOAD-LABEL'
+live_uploaded_asset resume-remaining "${live_tag[live-second]}" "${live_asset[live-second]}" \
+  "${live_module[live-second]}"
 live_reject resume-remaining 'DELETE-RELEASE'
 echo "buck2-release-products-test: live resumed run published only the missing product"
 

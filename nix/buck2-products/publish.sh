@@ -183,7 +183,7 @@ done
 
 entries="$stage/entries.jsonl"
 : >"$entries"
-declare -a staged_modules=()
+declare -a release_assets=()
 declare -a release_tags=()
 declare -a asset_names=()
 for row in "${product_rows[@]}"; do
@@ -215,8 +215,14 @@ for row in "${product_rows[@]}"; do
   fi
 
   module_path="$(jq -r '.modulePath' <<<"$descriptor")"
+  # The release asset name embeds the module path verbatim and a GitHub asset
+  # name cannot contain "/", so a module path with directories could never be
+  # published under its contracted name. Refuse it here instead of uploading
+  # something the loader would reject.
+  [[ "$module_path" != */* ]] ||
+    fail "$product_name module path is not one release-asset-safe path segment: $module_path"
   product_stage="$stage/products/$product_name"
-  mkdir -p "$product_stage/$(dirname "$module_path")"
+  mkdir -p "$product_stage"
   staged_module="$product_stage/$module_path"
   cp -- "$source_module" "$staged_module"
   cmp -- "$source_module" "$staged_module" || fail "$product_name staged module bytes changed"
@@ -231,15 +237,26 @@ for row in "${product_rows[@]}"; do
   integrity_hex="$(nix hash convert --hash-algo sha256 --to base16 "$integrity")"
   [[ "$module_sha256" == "$integrity_hex" ]] || fail "$product_name module digest does not match its descriptor"
 
-  tag="buck2-product-v2-$product_name-$module_sha256"
+  tag="buck2-product-v3-$product_name-$module_sha256"
   asset_name="$module_sha256-$module_path"
   release_url="https://github.com/$repository/releases/download/$tag/$asset_name"
+  # GitHub derives the asset name from the uploaded file's basename; a "#name"
+  # suffix only sets the asset's display label. The contracted asset name is
+  # therefore produced as a real filename here, in its own per-product
+  # directory so identical basenames across products cannot collide.
+  asset_stage="$stage/release-assets/$product_name"
+  mkdir -p "$asset_stage"
+  release_asset="$asset_stage/$asset_name"
+  cp -- "$staged_module" "$release_asset"
+  cmp -- "$source_module" "$release_asset" || fail "$product_name release asset bytes differ from the module output"
+  [[ "${release_asset##*/}" == "$asset_name" ]] ||
+    fail "$product_name release asset filename is not the contracted asset name"
   jq -cnS \
     --argjson descriptor "$descriptor" \
     --arg descriptorSha256 "$descriptor_sha256" \
     --arg tag "$tag" --arg name "$asset_name" --arg url "$release_url" --arg hash "$integrity" \
     '{descriptor:$descriptor, descriptorSha256:$descriptorSha256, release:{tag:$tag,name:$name,url:$url,hash:$hash}}' >>"$entries"
-  staged_modules+=("$staged_module")
+  release_assets+=("$release_asset")
   release_tags+=("$tag")
   asset_names+=("$asset_name")
 done
@@ -252,12 +269,12 @@ jq -sS '{schema:"effect-utils/buck2-release-products/v1",products:.}' "$entries"
   fail "Git worktree changed while staging products"
 
 
-# Single authority for "this tag already holds exactly the staged module, as an
-# immutable published release". Idempotent reuse and post-publication
-# verification share it so the two can never drift apart.
+# Single authority for "this tag already holds exactly the uploaded release
+# asset, as an immutable published release". Idempotent reuse and
+# post-publication verification share it so the two can never drift apart.
 release_holds_staged_module() {
-  local release_json="$1" expected_name="$2" module_file="$3" expected_digest
-  expected_digest="$(sha256sum "$module_file")"
+  local release_json="$1" expected_name="$2" asset_file="$3" expected_digest
+  expected_digest="$(sha256sum "$asset_file")"
   expected_digest="sha256:${expected_digest%% *}"
   jq -e --arg name "$expected_name" --arg digest "$expected_digest" \
     '.draft == false and .immutable == true and (.assets | length == 1) and .assets[0].name == $name and .assets[0].digest == $digest' \
@@ -286,16 +303,16 @@ for index in "${!release_tags[@]}"; do
     fail "$tag already exists as an unpublished draft release (id $listed_ids); publish or delete it manually, then rerun"
   published="$(gh api "repos/$repository/releases/tags/$tag")" ||
     fail "$tag already exists but could not be read; refusing to publish over it"
-  release_holds_staged_module "$published" "${asset_names[$index]}" "${staged_modules[$index]}" ||
+  release_holds_staged_module "$published" "${asset_names[$index]}" "${release_assets[$index]}" ||
     fail "$tag already exists and does not hold exactly the staged module; refusing to touch it"
-  gh attestation verify "${staged_modules[$index]}" --repo "$repository" >/dev/null
+  gh attestation verify "${release_assets[$index]}" --repo "$repository" >/dev/null
   verified_reuse+=(true)
 done
 
 for index in "${!release_tags[@]}"; do
   tag="${release_tags[$index]}"
   asset_name="${asset_names[$index]}"
-  staged_module="${staged_modules[$index]}"
+  release_asset="${release_assets[$index]}"
 
   # Already verified in the preflight: never created, uploaded to or patched.
   if [[ "${verified_reuse[$index]}" == true ]]; then
@@ -311,16 +328,18 @@ for index in "${!release_tags[@]}"; do
   jq -e --arg tag "$tag" '.draft == true and .tag_name == $tag and (.assets | length == 0)' <<<"$created" >/dev/null ||
     fail "new release is not the requested empty draft"
 
-  gh release upload "$tag" "$staged_module#$asset_name" --repo "$repository"
+  # The uploaded path's basename is the asset name GitHub records; a "#label"
+  # suffix would only set a display label, so none is passed.
+  gh release upload "$tag" "$release_asset" --repo "$repository"
   gh api --method PATCH "repos/$repository/releases/$release_id" -F draft=false --silent
   # The release is published from here on. Drop cleanup authority before any
   # post-publication check so a failing verification can never delete it.
   cleanup_draft_release_id=""
 
   published="$(gh api "repos/$repository/releases/tags/$tag")"
-  release_holds_staged_module "$published" "$asset_name" "$staged_module" ||
+  release_holds_staged_module "$published" "$asset_name" "$release_asset" ||
     fail "$tag asset set or digest does not match the staged module"
-  gh attestation verify "$staged_module" --repo "$repository" >/dev/null
+  gh attestation verify "$release_asset" --repo "$repository" >/dev/null
 done
 
 import_root="$stage/import"
