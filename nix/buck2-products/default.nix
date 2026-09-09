@@ -26,8 +26,11 @@ let
     "sizeBytes"
     "target"
   ];
-  validRelativePath =
-    path: builtins.match "[A-Za-z0-9][A-Za-z0-9._+-]*(/[A-Za-z0-9][A-Za-z0-9._+-]*)*" path != null;
+  # The release asset name embeds the module path verbatim, and a GitHub
+  # release asset name cannot contain "/": the module path is therefore one
+  # path segment, not a relative path.
+  validModulePathSegment =
+    path: builtins.match "[A-Za-z0-9][A-Za-z0-9._+-]*" path != null;
   descriptorModuleSha256 =
     descriptor:
     builtins.convertHash {
@@ -42,7 +45,7 @@ let
       productName = descriptor.productName;
       moduleSha256 = descriptorModuleSha256 descriptor;
       canonicalDescriptor = builtins.toJSON descriptor;
-      derivedTag = "buck2-product-v2-${productName}-${moduleSha256}";
+      derivedTag = "buck2-product-v3-${productName}-${moduleSha256}";
       derivedName = "${moduleSha256}-${descriptor.modulePath}";
       derivedUrl = "${repositoryReleaseBase}/${derivedTag}/${derivedName}";
       descriptorFile = builtins.toFile "${productName}-product.json" canonicalDescriptor;
@@ -87,8 +90,8 @@ let
       }
     ) "buck2-products: ${productName} is not platform-invariant";
     assert lib.assertMsg (
-      validRelativePath descriptor.modulePath
-    ) "buck2-products: ${productName} has an unsafe module path";
+      validModulePathSegment descriptor.modulePath
+    ) "buck2-products: ${productName} module path is not one release-asset-safe path segment";
     assert lib.assertMsg (
       builtins.isList descriptor.externalCapabilities
       && builtins.all builtins.isString descriptor.externalCapabilities
