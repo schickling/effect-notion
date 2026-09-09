@@ -9,6 +9,11 @@ export BUCK2_RELEASE_PRODUCTS_REPO="$repo_root"
 
 loader_expr='pkgs = {
     fetchurl = release: release;
+    writeText = name: text: {
+      type = "derivation";
+      outPath = "/nix/store/test-\${name}";
+      inherit name text;
+    };
     lib = {
       assertMsg = condition: message: if condition then true else throw message;
       unique = builtins.foldl'\'' (
@@ -25,6 +30,9 @@ eval_loader() {
   in {
     inherit (tracked) declaredProductNames publishedProductNames fullyPublished;
     releases = builtins.mapAttrs (_: product: product.release) tracked.products;
+    descriptorsAreDerivations = builtins.all (
+      product: (product.descriptor.type or null) == \"derivation\"
+    ) (builtins.attrValues tracked.products);
   }"
 }
 
@@ -51,6 +59,7 @@ jq -e --argjson expected "$expected_names" '
   .fullyPublished == true and
   .declaredProductNames == $expected and
   .publishedProductNames == $expected and
+  .descriptorsAreDerivations == true and
   (.releases | keys) == $expected and
   all(
     .releases | to_entries[];
