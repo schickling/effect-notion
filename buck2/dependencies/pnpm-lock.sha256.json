@@ -1,6 +1,6 @@
 {
   "schema": "effect-utils/buck2-pnpm-sha256/v1",
-  "lockfileFingerprint": "sha256:2fb5703c90aa3e93ff057489901808021b38b5cdf7b935f5f7dc7eecac37885d",
+  "lockfileFingerprint": "sha256:e607b75311132f7de1bbeee247f78b562b8a726461fa8c918eb2c8790b58a674",
   "source": "pnpm-lock.yaml",
   "generator": "buck2/dependencies/pnpm-lock.sha256.json.genie.ts",
   "regenerate": "devenv tasks run genie:run",
@@ -122,10 +122,10 @@
       "integrity": "sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==",
       "sha256": "514a4ed09355fe1417f03e89c5a5f518745e2eb75a4069d25b55a3e7298069de"
     },
-    "@blazediff/core@1.9.1": {
+    "@blazediff/core@1.10.0": {
       "bins": {},
-      "integrity": "sha512-ehg3jIkYKulZh+8om/O25vkvSsXXwC+skXmyA87FFx6A/45eqOkZsBltMw/TVteb0mloiGT8oGRTcjRAz66zaA==",
-      "sha256": "d10e0acae6327276066fc6720dbd65bd372ba81cb4445e7f472ca50addab186a"
+      "integrity": "sha512-AOQff0zgR7cGsZL+4E7hVkmujoPUpm0J9xzWGWZj5wCjd3gmxESXAPfKyuzs93VdpQNFhHlBhfOjrcZ+XTERtQ==",
+      "sha256": "7f50ae061c238ebc6b592222c23b131ca1d5f8921ab1197dcbb2e004f2b94237"
     },
     "@csstools/css-tokenizer@3.0.4": {
       "bins": {},
@@ -1041,11 +1041,6 @@
       "integrity": "sha512-Z/CZor/F8H74/+IoeLroEQXQoVxvmjVtUgATJ95KPBolHxMaHLXLsYU0wosIiiORxmfRCnpen5pQl1n4+pBWQw==",
       "sha256": "5aef9231ed30ff52e3e50f5d7ee3c9b813ffe1a0ba00b30dc62515d225ae3e3b"
     },
-    "@storybook/addon-vitest@10.6.0": {
-      "bins": {},
-      "integrity": "sha512-GY2SwSXLNgyMqjQ59J7YTkEQTHdEbBMggOvbbuhuPUBhWo97OGSDCmn1UW3nXDZvkoWyWhF9T9628m1uei7FbA==",
-      "sha256": "13538f11eb91e93af102c1caa9fe1616d6f566e4a02319503561f69b1901ef36"
-    },
     "@storybook/builder-vite@10.6.0": {
       "bins": {},
       "integrity": "sha512-7zt8tYB6dnSO8fbjUz91MHexGDpf9HrLlA3FAmlVb+2ZL3eWUs499L3I6BDUymcWu7oW5WCBJlB8ERj8ZLLzig==",
@@ -1511,70 +1506,60 @@
       "integrity": "sha512-yxLaQV9gkhS8ezJqCM6+ndU7mDY6gqAg75NQ+0IjwEI8IYOmQCgkRwHKVSfWXW076DsqMo0Dk+0FK1U+M5RgFw==",
       "sha256": "b0b481b1dea9e13ab06487bc3147f70c15b3a5bd592b2b65886dc205782d5148"
     },
-    "@vitest/browser-playwright@4.1.9": {
+    "@vitest/browser-playwright@5.0.0": {
       "bins": {},
-      "integrity": "sha512-Bq1rOGf9waevzG3EOkO/dene6bvKTUsZMVg8S1i+WH3JcMjuXEjiahP9rAqZRELUqjBySOJsvvSWqK/B3wjKQw==",
-      "sha256": "0a8502ce920b3505e0eb63dee6927f0dd3c7d613da8adbca50d88f0a4fc851d8"
+      "integrity": "sha512-N+gED9y4/8pypaHjz/x0ah3CjoBr+N0hWWT+Gq4VXtMzyB+rUIdHni0ulzpD1j4H77iWy5Jg8PRMlVn6kjxo6g==",
+      "sha256": "a0f3091ac6d6ec91e5e3d0da8dd52fd2dbee9b24196a6824f458da65ddee607a"
     },
-    "@vitest/browser@4.1.9": {
+    "@vitest/browser@5.0.0": {
       "bins": {},
-      "integrity": "sha512-j1BKtWmPcqpMhmx/L9EPLgAJpCb0zKfwoWLmqBbxaogCXHjOwHFSEoHCBfnGtx93xKQwilZ26m+UOsHqHMkRNg==",
-      "sha256": "94121cfa1147f86c702b8ce51db665ccf615675535892329ddb9e365371a38ff"
+      "integrity": "sha512-JC9FG5xIRxPHXJPcdCaluIJcEoeM0IwGQ3xneuJk09LXKHRNs40BqWDWymQikbb20yOpYvzpKzmYgPRuSzKmvg==",
+      "sha256": "b6b9c4bd9b254d83592ec8df97cb08205ceaf3a286cccfa0629871e09d8355b1"
     },
     "@vitest/expect@3.2.4": {
       "bins": {},
       "integrity": "sha512-Io0yyORnB6sikFlt8QW5K7slY4OjqNX9jmJQ02QDda8lyM6B5oNgVWoSoKPac8/kgnCUzuHQKrSLtu/uOqqrig==",
       "sha256": "dd259b1c520933a42375e2353c0d5b3d983f947d8650306060b16256d06d12c6"
     },
-    "@vitest/expect@4.1.9": {
+    "@vitest/mocker@5.0.0": {
       "bins": {},
-      "integrity": "sha512-vl/rYsUKcBr3SnQn166+XR5ZQcgMx3DQhFWdfli/cWpLnLUmbxZvyrJZotLFUryib+LtArYMSTJ5RbQ57ZqrlA==",
-      "sha256": "3c1d4640ab70883230b912265f91d038df7ebfc99265e8e90c65e2e8b8fb9d47"
-    },
-    "@vitest/mocker@4.1.9": {
-      "bins": {},
-      "integrity": "sha512-EVkXzBjrPGM+cK8/ANWgBrkUCfJfb38/EfTSO8h7pWvKkyPkpWxvR7BkD2MyItMF62C97zAEoqdpUixwR/e+Rw==",
-      "sha256": "e3a968a475bbae015dd68118e4449b061146f7b6eb0257cac9e0a410da2e56fc"
+      "integrity": "sha512-66PGTMIiVJP3t4a5yxU9qPtf7MdTBs8jmToMvy+HVflB3Yy13WJZTtPePdvU+wjRV02SKK5doLbSA6o9pwOmiA==",
+      "sha256": "e93557215ab477ee29cc09ee4b93d2b190221c1f6b235d2948741989703cd79b"
     },
     "@vitest/pretty-format@3.2.4": {
       "bins": {},
       "integrity": "sha512-IVNZik8IVRJRTr9fxlitMKeJeXFFFN0JaB9PHPGQ8NKQbGpfjlTx9zO4RefN8gp7eqjNy8nyK3NZmBzOPeIxtA==",
       "sha256": "7fe0e0a8763935b065ce97e0038e0a279b0f9bae05cb58f9340c9e33caa5e255"
     },
-    "@vitest/pretty-format@4.1.9": {
+    "@vitest/pretty-format@5.0.0": {
       "bins": {},
-      "integrity": "sha512-s0iufns3iIFitdgm+YR7g1whCAaGtXz459VS9/PqyKDEEFgYIhsHOQmXgIgDuYCt7DeQmiZT0Qe2OA2p4ZPu5A==",
-      "sha256": "2c1d3a207b9150a4a33a8e927a09be8d49ffbcc645ef1b8e9d562cd084e0c522"
-    },
-    "@vitest/runner@4.1.9": {
-      "bins": {},
-      "integrity": "sha512-KXLMDtc7oe70+3mJfGrPUWPesswH+3sTxAMAMl8DG7I8IUQT4XW718dY5ID3vPUcmlu27CcKfY4P3h3I29SLJg==",
-      "sha256": "5ab32cca977a9ff823dcc83f9da1a60ea693d94d563a5338ad1ca60f6639852c"
-    },
-    "@vitest/snapshot@4.1.9": {
-      "bins": {},
-      "integrity": "sha512-Jc7RKGNBo8Z28WYIm0Niej4xdSPByRf6mU58VpHQkd6Zh05rlnA+twjbK5HyeIGHxrzsc3mJgS43uM0CZKzaIA==",
-      "sha256": "4c27b6bb4446be95bd962501dc69520eea833456f85e6f40b45cdb1ba75d9a1e"
+      "integrity": "sha512-PVRNuB3wpReb4SQEs4zTKM4KWFhQ5pw3spE8naoDJNB5T5aWRzGKHwXcLUllr0WeOTXpB6bSr3CJLo5+7XQSSQ==",
+      "sha256": "de1b5b131bcac6c2c80ea9cf588ad60bf0840d65e73947d8077c6c2a78d7a91c"
     },
     "@vitest/spy@3.2.4": {
       "bins": {},
       "integrity": "sha512-vAfasCOe6AIK70iP5UD11Ac4siNUNJ9i/9PZ3NKx07sG6sUxeag1LWdNrMWeKKYBLlzuK+Gn65Yd5nyL6ds+nw==",
       "sha256": "d630d88641a84963ae00b4071cdf29fa210e270a175d4fb79c4d3e9811cac805"
     },
-    "@vitest/spy@4.1.9": {
+    "@vitest/spy@5.0.0": {
       "bins": {},
-      "integrity": "sha512-fHpsS6mIi+PiEW+vcRVOMkX1oSaPKne3VOclSFICPcGOmfKgXPU5iAah+wcNcj2xPrCCmfq99IDGf+EojhhvhA==",
-      "sha256": "824d5fdc246d220cedfb670c627b1fff89277a739d5a3aec435f53bba76d4797"
+      "integrity": "sha512-uy+luWBAPw9XfthoHi5AkfHUnuPYEESjl0p/r+meoBnU8bxg5GDQ3Ey8MjcJ6sqahkL4PFyrvfMJJBw7LbU06g==",
+      "sha256": "ba18c85d110440fc20db608994460be4d8047ed0b8ad7119ca4e71fadb09531a"
+    },
+    "@vitest/ui@5.0.0": {
+      "bins": {},
+      "integrity": "sha512-h2FIFwggCY2GxUd2UdQoYNVQkOIqEQLPhNREcl3FUiRsdzQep7NWwYbSmhGEA9nFLPDq5pXzRMcBZQU8Py83sg==",
+      "sha256": "80edb35c0267018d24d488ad7a0145977b777b48fd0877d12d018e58ebccda2f"
     },
     "@vitest/utils@3.2.4": {
       "bins": {},
       "integrity": "sha512-fB2V0JFrQSMsCo9HiSq3Ezpdv4iYaXRG1Sx8edX3MwxfyNn83mKiGzOcH+Fkxt4MHxr3y42fQi1oeAInqgX2QA==",
       "sha256": "24b9d45a802d27c5a3206866219c9ffa4338d76f057b4b16b1714470028aa495"
     },
-    "@vitest/utils@4.1.9": {
+    "@vitest/utils@5.0.0": {
       "bins": {},
-      "integrity": "sha512-A51o8ymO5PpqlWNnBP9ZHPXDIpuMtTLlGSjN7la4US+LJzoUMyhwjA5QXlm39JexgwHKW4Xjs8Z2d3dLCXOeuA==",
-      "sha256": "6c3eb48edaff71d58e6447ea0bfe4ec4ceee99c98015a20a313909c8d3b18105"
+      "integrity": "sha512-dO++xL3vDfvhTAVimfkuQUA3k+JClIF1i1vAkPqpcGAthRmeWnXmHB7YPViPvgCwviX8u7Y5W1u2N//AaQr3fw==",
+      "sha256": "943f021d61ff107d8ae151aa1afdfc6f09d79e661c4ae81c4f3b1c6bf06a7f15"
     },
     "@webcontainer/env@1.1.1": {
       "bins": {},
@@ -2083,6 +2068,11 @@
       "bins": {},
       "integrity": "sha512-YoZjBdafyLIop9lSxXVI33oLD5kN31q4Td+CasofLLYeLXRFeOsuOw0Uo+XNRi9PZlbfdlN2GmRtm4tCEQ9/KA==",
       "sha256": "f595847384551d1de2ac23cc1bc761045db94041de0b15181b7a3129fd9045c2"
+    },
+    "fflate@0.8.3": {
+      "bins": {},
+      "integrity": "sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==",
+      "sha256": "38c2cd824402407b43153c782274aec2ea83ea688e4aa0b743c5f2c305857d92"
     },
     "file-entry-cache@8.0.0": {
       "bins": {},
@@ -3156,10 +3146,10 @@
       "integrity": "sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==",
       "sha256": "746a0b1c98dafa3f96769e200a23fd10dacece300b312d111d19bb65c85c3d48"
     },
-    "tinybench@2.9.0": {
+    "tinybench@6.1.4": {
       "bins": {},
-      "integrity": "sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==",
-      "sha256": "3a38e953c2366359670fb41e7efae2d8a818ac12615fbea6f9d0614010582e39"
+      "integrity": "sha512-9APumHG7r4yOk4X4WlkmE71aZcv1gvin1czO3OQ1U9iJcFA5Ja/ygyb0vPOVHTthFozUYs8CLoLUlM8grb2lTQ==",
+      "sha256": "ee2460626d2f193b77da4720c6e45d860429985ade2f5c62f12420f7abcb5c0e"
     },
     "tinyexec@1.3.0": {
       "bins": {},
@@ -3231,13 +3221,13 @@
       "integrity": "sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==",
       "sha256": "8035d10cc48e2692358ac06cbadfa795279aaf6b3c04f29bd322f6df09513f8e"
     },
-    "typescript@6.0.3": {
+    "typescript@5.9.3": {
       "bins": {
         "tsc": "bin/tsc",
         "tsserver": "bin/tsserver"
       },
-      "integrity": "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==",
-      "sha256": "33cd0ee1beaa8c9e9d15a9da836c62ddea4c34a42d7c2d349dbc80d94165d22a"
+      "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
+      "sha256": "10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3"
     },
     "typescript@7.0.2": {
       "bins": {
@@ -3335,12 +3325,12 @@
       "integrity": "sha512-ub4okH7Z5KLjb6hDyjqrGXqWtWvoYdU3IGm/NorpgHncKoLTCfRIbvlhBm7r0YstIaQRYlp4yEbFqDcKSzXSSg==",
       "sha256": "91ac953765942a6f17277078d34ecd4e5acdd999d0344262879c50a1baaf85d1"
     },
-    "vitest@4.1.9": {
+    "vitest@5.0.0": {
       "bins": {
         "vitest": "vitest.mjs"
       },
-      "integrity": "sha512-nE3/LEyc0z87uHYLZebqCUOaJr2hdtuPp7BQ4BosVFnfltxgAvMG08NyrSGlPpOUWvR27c5flSmYFTNr78L9GQ==",
-      "sha256": "66fa80790f79e04523861f77ddf8d327343333578ef46a3397d866aca248add4"
+      "integrity": "sha512-gpsMNoRhMjMktVxPtstOH4/PJuPyovVaMDr4oDilXaGH1EcqM2OE96SoHT2VIQ6fTGtTjqmHDrEu2X9RQiXf8Q==",
+      "sha256": "602c520b9225cbb26d7d9d749169ff0866da24dde092a87cadd4b7c8056f7268"
     },
     "web-tree-sitter@0.25.10": {
       "bins": {},
@@ -3422,5 +3412,5 @@
       "sha256": "2c162e000f5fb5a816987d6f8ad7aad295203f777a5992d514ae4660778a51a4"
     }
   },
-  "fingerprint": "sha256:2dc2773def49f6de0c83adea67411e3cf246cfe455352becdb2b7f7ff49ac5a1"
+  "fingerprint": "sha256:e6b8e6880226143bd1ed0a5dbe7e65366b2fa08bb6d46b2512c19d0be47c08c2"
 }
