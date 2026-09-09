@@ -119,7 +119,7 @@ importers:
         specifier: workspace:^
         version: link:../utils
       '@playwright/test':
-        specifier: 1.63.0
+        specifier: ^1.63.0
         version: 1.63.0
       effect:
         specifier: ^4.0.0-rc.111
@@ -1379,7 +1379,7 @@ importers:
         specifier: workspace:^
         version: link:../otel-contract
       '@playwright/test':
-        specifier: 1.63.0
+        specifier: ^1.63.0
         version: 1.63.0
       '@restatedev/restate-sdk':
         specifier: 1.14.5
