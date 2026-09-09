@@ -499,38 +499,64 @@ case "$sub" in
     esac
     ;;
   release)
-    if [[ "${1:-}" != upload ]]; then
-      printf 'UNEXPECTED-RELEASE %s\n' "$*" >>"$log"
-      exit 97
-    fi
-    tag="${2:-}"
-    spec="${3:-}"
-    # Real gh semantics: the asset name is the basename of the uploaded file.
-    # Anything after "#" is only the asset's display label, so a "#name"
-    # suffix can never rename the asset.
-    path="${spec%%#*}"
-    name="${path##*/}"
-    printf 'UPLOAD %s\n' "$name" >>"$log"
-    if [[ "$spec" == *#* ]]; then
-      printf 'UPLOAD-LABEL %s\n' "${spec#*#}" >>"$log"
-    fi
-    if [[ -e "$state/fail-upload" ]]; then
-      printf 'gh stub: upload failed\n' >&2
-      exit 1
-    fi
-    digest="$(sha256sum "$path")" || exit 1
-    release_update "$tag" --arg name "$name" --arg digest "sha256:${digest%% *}" \
-      '.assets += [{name: $name, digest: $digest}]' || {
-      printf 'gh stub: no release for tag: %s\n' "$tag" >&2
-      exit 1
-    }
-    ;;
-  attestation)
-    printf 'ATTESTATION %s\n' "${1:-}" >>"$log"
-    if [[ -e "$state/fail-attestation" ]]; then
-      printf 'gh stub: attestation verify failed\n' >&2
-      exit 1
-    fi
+    case "${1:-}" in
+      upload)
+        tag="${2:-}"
+        spec="${3:-}"
+        # Real gh semantics: the asset name is the basename of the uploaded
+        # file. Anything after "#" is only the asset's display label, so a
+        # "#name" suffix can never rename the asset.
+        path="${spec%%#*}"
+        name="${path##*/}"
+        printf 'UPLOAD %s\n' "$name" >>"$log"
+        if [[ "$spec" == *#* ]]; then
+          printf 'UPLOAD-LABEL %s\n' "${spec#*#}" >>"$log"
+        fi
+        if [[ -e "$state/fail-upload" ]]; then
+          printf 'gh stub: upload failed\n' >&2
+          exit 1
+        fi
+        digest="$(sha256sum "$path")" || exit 1
+        release_update "$tag" --arg name "$name" --arg digest "sha256:${digest%% *}" \
+          '.assets += [{name: $name, digest: $digest}]' || {
+          printf 'gh stub: no release for tag: %s\n' "$tag" >&2
+          exit 1
+        }
+        ;;
+      verify-asset)
+        # Real gh semantics: the release attestation is looked up by tag, and
+        # the local file is matched against that release's asset by name and
+        # digest.
+        tag="${2:-}"
+        path="${3:-}"
+        name="${path##*/}"
+        printf 'VERIFY-ASSET %s %s\n' "$tag" "$name" >>"$log"
+        if [[ -e "$state/fail-verify-asset" ]]; then
+          printf 'gh stub: release asset verification failed\n' >&2
+          exit 1
+        fi
+        file="$(release_file "$tag")"
+        if [[ ! -f "$file" ]]; then
+          printf 'gh stub: no release for tag: %s\n' "$tag" >&2
+          exit 1
+        fi
+        if [[ ! -f "$path" ]]; then
+          printf 'gh stub: no such release asset file: %s\n' "$path" >&2
+          exit 1
+        fi
+        digest="$(sha256sum "$path")" || exit 1
+        if ! jq -e --arg name "$name" --arg digest "sha256:${digest%% *}" \
+          '(.assets | length == 1) and .assets[0].name == $name and .assets[0].digest == $digest' \
+          "$file" >/dev/null; then
+          printf 'gh stub: %s does not hold %s\n' "$tag" "$name" >&2
+          exit 1
+        fi
+        ;;
+      *)
+        printf 'UNEXPECTED-RELEASE %s\n' "$*" >>"$log"
+        exit 97
+        ;;
+    esac
     ;;
   *)
     printf 'UNEXPECTED-SUBCOMMAND %s\n' "$sub" >>"$log"
@@ -679,17 +705,17 @@ echo "buck2-release-products-test: live upload failure deleted the confirmed dra
 
 # Post-publication failure: the release is published, so no DELETE may be
 # issued and cleanup must not even hold delete authority any more.
-live_scenario attestation-failure fail-attestation
-live_expect attestation-failure "CREATE-DRAFT $live_expected_tag"
-live_expect attestation-failure 'PATCH-RELEASE 4242 draft=false'
-live_expect attestation-failure "GET-BY-TAG $live_expected_tag"
-live_expect attestation-failure 'ATTESTATION verify'
-live_reject attestation-failure 'UPLOAD-LABEL'
-live_expect attestation-failure "UPLOAD $live_expected_asset"
-live_uploaded_asset attestation-failure "$live_expected_tag" "$live_expected_asset" \
+live_scenario verify-asset-failure fail-verify-asset
+live_expect verify-asset-failure "CREATE-DRAFT $live_expected_tag"
+live_expect verify-asset-failure 'PATCH-RELEASE 4242 draft=false'
+live_expect verify-asset-failure "GET-BY-TAG $live_expected_tag"
+live_expect verify-asset-failure "VERIFY-ASSET $live_expected_tag $live_expected_asset"
+live_reject verify-asset-failure 'UPLOAD-LABEL'
+live_expect verify-asset-failure "UPLOAD $live_expected_asset"
+live_uploaded_asset verify-asset-failure "$live_expected_tag" "$live_expected_asset" \
   "${live_module[live-product]}"
-live_reject attestation-failure 'GET-RELEASE'
-live_reject attestation-failure 'DELETE-RELEASE'
+live_reject verify-asset-failure 'GET-RELEASE'
+live_reject verify-asset-failure 'DELETE-RELEASE'
 echo "buck2-release-products-test: live post-publication failure issued no DELETE"
 
 # Publish reported failure but applied server-side: cleanup asks GitHub, learns
@@ -708,10 +734,22 @@ live_realized 1
 live_run reuse-exact "$live/inventory.json" ok
 live_expect reuse-exact 'LIST-RELEASES'
 live_expect reuse-exact "GET-BY-TAG $live_expected_tag"
-live_expect reuse-exact 'ATTESTATION verify'
+live_expect reuse-exact "VERIFY-ASSET $live_expected_tag $live_expected_asset"
 live_expect_reuse_only reuse-exact
 grep -F "reusing verified release: $live_expected_tag" "$live/reuse-exact.log" >/dev/null
 echo "buck2-release-products-test: live rerun reused the published release untouched"
+
+# The REST asset predicate and the release attestation are independent gates:
+# a release the predicate accepts is still refused when its release
+# attestation does not verify, and nothing is published beside it.
+live_prepare reuse-unverifiable fail-verify-asset
+live_published_release "$live_expected_tag" "$live_expected_asset" "${live_module[live-product]}"
+live_realized 1
+live_run reuse-unverifiable "$live/inventory.json" fail
+live_expect reuse-unverifiable "GET-BY-TAG $live_expected_tag"
+live_expect reuse-unverifiable "VERIFY-ASSET $live_expected_tag $live_expected_asset"
+live_expect_reuse_only reuse-unverifiable
+echo "buck2-release-products-test: live unverifiable existing release failed closed"
 
 # Any existing release that is not an exact, published, immutable, single-asset
 # match of the staged module aborts before this run mutates anything.
@@ -722,7 +760,7 @@ live_mismatch() {
   live_realized 1
   live_run "$label" "$live/inventory.json" fail
   live_expect "$label" "GET-BY-TAG $live_expected_tag"
-  live_reject "$label" 'ATTESTATION'
+  live_reject "$label" 'VERIFY-ASSET'
   live_expect_reuse_only "$label"
   grep -F "does not hold exactly the staged module" "$live/$label.log" >/dev/null
 }
@@ -741,7 +779,7 @@ live_listed "$live_expected_tag" 9101 false
 live_realized 1
 live_run reuse-unreadable "$live/inventory.json" fail
 live_expect reuse-unreadable "GET-BY-TAG $live_expected_tag"
-live_reject reuse-unreadable 'ATTESTATION'
+live_reject reuse-unreadable 'VERIFY-ASSET'
 live_expect_reuse_only reuse-unreadable
 grep -F "already exists but could not be read" "$live/reuse-unreadable.log" >/dev/null
 echo "buck2-release-products-test: live unreadable existing release failed closed"
@@ -756,7 +794,7 @@ live_realized 1
 live_run reuse-listed-draft "$live/inventory.json" fail
 live_expect reuse-listed-draft 'LIST-RELEASES'
 live_reject reuse-listed-draft 'GET-BY-TAG'
-live_reject reuse-listed-draft 'ATTESTATION'
+live_reject reuse-listed-draft 'VERIFY-ASSET'
 live_expect_reuse_only reuse-listed-draft
 grep -F "already exists as an unpublished draft release (id 9201)" \
   "$live/reuse-listed-draft.log" >/dev/null
@@ -769,7 +807,7 @@ live_realized 1
 live_run list-failure "$live/inventory.json" fail
 live_expect list-failure 'LIST-RELEASES'
 live_reject list-failure 'GET-BY-TAG'
-live_reject list-failure 'ATTESTATION'
+live_reject list-failure 'VERIFY-ASSET'
 live_expect_reuse_only list-failure
 grep -F "could not list existing releases" "$live/list-failure.log" >/dev/null
 echo "buck2-release-products-test: live listing failure aborted the run"
@@ -781,12 +819,14 @@ live_published_release "$live_expected_tag" "$live_expected_asset" "${live_modul
 live_realized 2
 live_run resume-remaining "$live/inventory-both.json" ok
 live_expect resume-remaining "GET-BY-TAG $live_expected_tag"
+live_expect resume-remaining "VERIFY-ASSET $live_expected_tag $live_expected_asset"
 live_reject resume-remaining "CREATE-DRAFT $live_expected_tag"
 live_reject resume-remaining "UPLOAD $live_expected_asset"
 live_expect resume-remaining "CREATE-DRAFT ${live_tag[live-second]}"
 live_expect resume-remaining "UPLOAD ${live_asset[live-second]}"
 live_expect resume-remaining 'PATCH-RELEASE 4242 draft=false'
 live_expect resume-remaining "GET-BY-TAG ${live_tag[live-second]}"
+live_expect resume-remaining "VERIFY-ASSET ${live_tag[live-second]} ${live_asset[live-second]}"
 live_reject resume-remaining 'UPLOAD-LABEL'
 live_uploaded_asset resume-remaining "${live_tag[live-second]}" "${live_asset[live-second]}" \
   "${live_module[live-second]}"
@@ -803,7 +843,7 @@ live_realized 2
 live_run preflight-mismatch "$live/inventory-both.json" fail
 live_expect preflight-mismatch "GET-BY-TAG ${live_tag[live-second]}"
 live_expect_reuse_only preflight-mismatch
-live_reject preflight-mismatch 'ATTESTATION'
+live_reject preflight-mismatch 'VERIFY-ASSET'
 grep -F "does not hold exactly the staged module" "$live/preflight-mismatch.log" >/dev/null
 echo "buck2-release-products-test: live preflight mismatch blocked every product"
 
