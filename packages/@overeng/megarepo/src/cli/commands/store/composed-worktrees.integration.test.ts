@@ -87,6 +87,66 @@ describe('store worktree collection understands composed workspaces', () => {
       }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
   )
 
+  it.effect('keeps an ordinary branch ending in repos/<repo> flat', () =>
+    Effect.gen(function* () {
+      const repo = yield* makeStoreRepo
+      const branch = 'feature/repos/owner'
+      yield* git(repo.bareRepo, 'branch', branch, 'main')
+      const flat = NodePath.join(repo.repoPath, 'refs', 'heads', branch)
+      yield* git(repo.bareRepo, 'worktree', 'add', flat, branch)
+
+      const collected = yield* collect(repo)
+      const worktree = collected.find((entry) => entry.ref === branch)!
+      expect(worktree.path).toBe(`${flat}/`)
+      expect(worktree.ownedWorktree).toBeUndefined()
+      expect(worktree.composedRoot).toBeUndefined()
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+  )
+
+  it.effect('does not infer a composed root from an unregistered repos directory', () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const repo = yield* makeStoreRepo
+      yield* git(repo.bareRepo, 'branch', 'broken', 'main')
+      const broken = NodePath.join(repo.repoPath, 'refs', 'heads', 'broken')
+      yield* fs.makeDirectory(
+        EffectPath.unsafe.absoluteDir(`${NodePath.join(broken, 'repos', 'owner')}/`),
+        { recursive: true },
+      )
+
+      const collected = yield* collect(repo)
+      const worktree = collected.find((entry) => entry.ref === 'broken')!
+      expect(worktree.broken).toBe(true)
+      expect(worktree.composedRoot).toBeUndefined()
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+  )
+
+  it.effect('rejects an invalid nested Git identity instead of reporting it as composed', () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const repo = yield* makeStoreRepo
+      const composedRoot = NodePath.join(repo.repoPath, 'refs', 'heads', 'feature')
+      const created = yield* createComposedOwnedWorkspace({
+        bareRepo: repo.bareRepo,
+        workspaceRoot: composedRoot,
+        ownedMember: 'owner',
+        branch: 'feature',
+        startPoint: 'main',
+        generate: () => Effect.void,
+      })
+      yield* fs.writeFileString(
+        EffectPath.unsafe.absoluteFile(NodePath.join(created.ownedWorktree, '.git')),
+        'gitdir: /tmp/foreign\n',
+      )
+
+      const failure = yield* collect(repo).pipe(Effect.flip)
+      expect(failure).toMatchObject({
+        _tag: 'OwnedWorktreeAcquisitionError',
+        reason: 'GitIdentityConflict',
+      })
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+  )
+
   it.effect('sees dirty bytes in the nested owned checkout, not the empty composed root', () =>
     Effect.gen(function* () {
       const repo = yield* makeStoreRepo

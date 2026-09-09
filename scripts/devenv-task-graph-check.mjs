@@ -188,7 +188,9 @@ ok({
 })
 ok({
   condition:
-    materializerSource.includes('[ -f "$root/.git" ]') === true &&
+    source.includes('composed_workspace_root()') === true &&
+    source.includes('worktree list --porcelain -z') === true &&
+    source.includes('backlink=') === true &&
     materializerSource.includes('TYPESCRIPT_DIST_MODE=publish') === true &&
     materializerSource.includes('TYPESCRIPT_DIST_MODE=check') === true &&
     materializerSource.includes('TSGO_BIN=') === true &&

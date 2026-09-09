@@ -13,7 +13,7 @@ import * as Git from '../../core/git.ts'
 import type { MegarepoStore } from '../../store/store.ts'
 import { Store } from '../../store/store.ts'
 import { makeCanonicalTempDirectoryScoped } from '../../test-utils/temp-root.ts'
-import { runCompositionApply } from './composition.ts'
+import { preflightCompositionCommand, runCompositionApply } from './composition.ts'
 
 const GIT_USER = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test User'] as const
 
@@ -21,8 +21,9 @@ const makeLegacyWorkspace = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem
   const tmp = yield* makeCanonicalTempDirectoryScoped()
   const source = NodePath.join(tmp, 'source')
-  const bareRepo = NodePath.join(tmp, 'repo.git')
-  const workspaceRoot = NodePath.join(tmp, 'workspace')
+  const repoRoot = NodePath.join(tmp, 'repo')
+  const bareRepo = NodePath.join(repoRoot, '.bare')
+  const workspaceRoot = NodePath.join(repoRoot, 'refs', 'heads', 'main')
   const git = (cwd: string, ...args: ReadonlyArray<string>) =>
     Git.runCommand({ cwd, args: [...GIT_USER, ...args] })
   yield* fs.makeDirectory(EffectPath.unsafe.absoluteDir(`${source}/`), { recursive: true })
@@ -50,6 +51,7 @@ const makeLegacyWorkspace = Effect.gen(function* () {
   )
   yield* git(source, 'add', '-A')
   yield* git(source, 'commit', '--no-gpg-sign', '--no-verify', '-m', 'base')
+  yield* fs.makeDirectory(EffectPath.unsafe.absoluteDir(`${repoRoot}/`), { recursive: true })
   yield* git(tmp, 'clone', '--bare', source, bareRepo)
   yield* git(bareRepo, 'worktree', 'add', workspaceRoot, 'main')
   const store: MegarepoStore = {
@@ -93,6 +95,58 @@ describe('routine composition apply is shape-preserving', () => {
       expect(failure.message).toContain('mr store worktree new')
       expect(failure.message).not.toContain('cutover')
       expect(yield* fingerprint(fixture)).toEqual(before)
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+  )
+
+  it.effect('detects registered W when P config was replaced with a non-composition config', () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const fixture = yield* makeLegacyWorkspace
+      yield* fixture.git(fixture.bareRepo, 'worktree', 'remove', '--force', fixture.workspaceRoot)
+      const ownedWorktree = NodePath.join(fixture.workspaceRoot, 'repos', 'owner')
+      yield* fs.makeDirectory(
+        EffectPath.unsafe.absoluteDir(`${NodePath.dirname(ownedWorktree)}/`),
+        { recursive: true },
+      )
+      yield* fixture.git(fixture.bareRepo, 'worktree', 'add', ownedWorktree, 'main')
+      const rootConfig = EffectPath.unsafe.absoluteFile(
+        NodePath.join(fixture.workspaceRoot, 'megarepo.json'),
+      )
+      const replacement = yield* Schema.encodeEffect(
+        Schema.fromJsonString(Schema.Unknown, { space: 2 }),
+      )({ members: {} })
+      yield* fs.writeFileString(rootConfig, `${replacement}\n`)
+
+      const failure = yield* preflightCompositionCommand({
+        workspaceRoot: EffectPath.unsafe.absoluteDir(`${fixture.workspaceRoot}/`),
+        compositionEnabled: false,
+      }).pipe(Effect.flip)
+
+      expect(failure.reason).toBe('InvalidIdentity')
+      expect(failure.message).toContain(
+        `must resolve into '${fixture.workspaceRoot}/repos/<owned>'`,
+      )
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+  )
+
+  it.effect('does not infer composition from an ordinary symlinked member checkout', () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const fixture = yield* makeLegacyWorkspace
+      const ordinaryRoot = NodePath.join(fixture.tmp, 'ordinary')
+      const repos = NodePath.join(ordinaryRoot, 'repos')
+      yield* fs.makeDirectory(EffectPath.unsafe.absoluteDir(`${repos}/`), { recursive: true })
+      yield* fs.symlink(
+        fixture.workspaceRoot,
+        EffectPath.unsafe.absoluteFile(NodePath.join(repos, 'owner')),
+      )
+
+      const identity = yield* preflightCompositionCommand({
+        workspaceRoot: EffectPath.unsafe.absoluteDir(`${ordinaryRoot}/`),
+        compositionEnabled: false,
+      })
+
+      expect(identity).toBeUndefined()
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
   )
 })

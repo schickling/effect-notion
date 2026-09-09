@@ -211,27 +211,36 @@ const assertGitIdentity = ({
     const expectedAdminParent = NodePath.join(normalizePath(bareRepo), 'worktrees')
     const adminDir =
       match === null ? undefined : NodePath.resolve(NodePath.dirname(dotGit), match[1]!)
-    if (
-      adminDir === undefined ||
-      (adminDir !== expectedAdminParent &&
-        adminDir.startsWith(`${expectedAdminParent}${NodePath.sep}`) === false)
-    ) {
+    if (adminDir === undefined || NodePath.dirname(adminDir) !== expectedAdminParent) {
       return yield* failure({
         reason: 'GitIdentityConflict',
         path: dotGit,
         message: `Git administration pointer '${dotGit}' does not belong to '${bareRepo}'`,
       })
     }
+    const backlink = NodePath.join(adminDir, 'gitdir')
+    const backlinkResult = yield* fs.readFileString(asFile(backlink)).pipe(Effect.result)
+    if (
+      backlinkResult._tag === 'Failure' ||
+      NodePath.resolve(adminDir, backlinkResult.success.trim()) !== normalizePath(dotGit)
+    ) {
+      return yield* failure({
+        reason: 'GitIdentityConflict',
+        path: backlink,
+        message: `Git administration backlink '${backlink}' does not point to '${dotGit}'`,
+        ...(backlinkResult._tag === 'Failure' ? { cause: backlinkResult.failure } : {}),
+      })
+    }
 
     const registrations = yield* command({ path: bareRepo, effect: Git.listWorktrees(bareRepo) })
-    const atPath = registrations.filter(
-      (candidate) => normalizePath(candidate.path) === paths.ownedWorktree,
+    const atBranch = registrations.filter(
+      (candidate) => Option.getOrUndefined(candidate.branch) === branch,
     )
-    if (atPath.length !== 1 || Option.getOrUndefined(atPath[0]!.branch) !== branch) {
+    if (atBranch.length !== 1 || normalizePath(atBranch[0]!.path) !== paths.ownedWorktree) {
       return yield* failure({
         reason: 'GitIdentityConflict',
         path: paths.ownedWorktree,
-        message: `Expected exactly one '${branch}' worktree registration at '${paths.ownedWorktree}'`,
+        message: `Expected '${branch}' to have exactly one worktree registration at '${paths.ownedWorktree}'`,
       })
     }
     const currentBranch = yield* command({
@@ -475,12 +484,104 @@ export const resolveComposedStoreWorktree = ({
     const atBranch = registrations.filter(
       (candidate) => Option.getOrUndefined(candidate.branch) === branch,
     )
-    if (atBranch.length !== 1) return undefined
+    if (atBranch.length === 0) return undefined
+    if (atBranch.length !== 1) {
+      return yield* failure({
+        reason: 'GitIdentityConflict',
+        path: workspaceRoot,
+        message: `Branch '${branch}' has ${atBranch.length} Git worktree registrations`,
+      })
+    }
+    const registeredWorktree = normalizePath(atBranch[0]!.path)
+    if (registeredWorktree === normalizePath(workspaceRoot)) return undefined
     const paths = composedWorkspacePathsFromRegistration({
-      registeredWorktree: atBranch[0]!.path,
+      registeredWorktree,
       expectedWorkspaceRoot: workspaceRoot,
     })
-    if (paths === undefined) return undefined
+    if (paths === undefined) {
+      return yield* failure({
+        reason: 'GitIdentityConflict',
+        path: registeredWorktree,
+        message: `Branch '${branch}' is registered outside canonical P or P/repos/<owned>`,
+      })
+    }
+    yield* assertComposedOwnedWorkspace({
+      bareRepo,
+      workspaceRoot,
+      ownedMember: paths.ownedMember,
+      branch,
+    })
+    return asDir(paths.ownedWorktree)
+  })
+
+/** Resolve the registered branch worktree to either canonical P or composed W. */
+export const resolveStoreBranchWorktree = ({
+  bareRepo: rawBareRepo,
+  workspaceRoot: rawWorkspaceRoot,
+  branch,
+}: {
+  readonly bareRepo: string
+  readonly workspaceRoot: string
+  readonly branch: string
+}): Effect.Effect<
+  AbsoluteDirPath,
+  OwnedWorktreeAcquisitionError,
+  FileSystem.FileSystem | ChildProcessSpawner
+> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const bareRepo = normalizePath(rawBareRepo)
+    const workspaceRoot = normalizePath(rawWorkspaceRoot)
+    const registrations = yield* command({
+      path: bareRepo,
+      effect: Git.listWorktrees(bareRepo),
+    })
+    const atBranch = registrations.filter(
+      (candidate) => Option.getOrUndefined(candidate.branch) === branch,
+    )
+    const atWorkspaceRoot = registrations.filter(
+      (candidate) => normalizePath(candidate.path) === workspaceRoot,
+    )
+    if (atBranch.length === 0) {
+      if (atWorkspaceRoot.length === 1) return asDir(workspaceRoot)
+      const workspaceRootExists = yield* fs.exists(asDir(workspaceRoot)).pipe(
+        Effect.mapError((cause) =>
+          failure({
+            reason: 'IoFailure',
+            path: workspaceRoot,
+            message: `Could not inspect workspace root '${workspaceRoot}'`,
+            cause,
+          }),
+        ),
+      )
+      if (atWorkspaceRoot.length === 0 && workspaceRootExists === false) return asDir(workspaceRoot)
+      return yield* failure({
+        reason: 'GitIdentityConflict',
+        path: workspaceRoot,
+        message: `Workspace root '${workspaceRoot}' exists without an exact Git worktree registration for branch '${branch}'`,
+      })
+    }
+    if (atBranch.length !== 1) {
+      return yield* failure({
+        reason: 'GitIdentityConflict',
+        path: workspaceRoot,
+        message: `Branch '${branch}' has ${atBranch.length} Git worktree registrations`,
+      })
+    }
+
+    const registeredWorktree = normalizePath(atBranch[0]!.path)
+    if (registeredWorktree === workspaceRoot) return asDir(workspaceRoot)
+    const paths = composedWorkspacePathsFromRegistration({
+      registeredWorktree,
+      expectedWorkspaceRoot: workspaceRoot,
+    })
+    if (paths === undefined) {
+      return yield* failure({
+        reason: 'GitIdentityConflict',
+        path: registeredWorktree,
+        message: `Branch '${branch}' is registered outside canonical P or P/repos/<owned>`,
+      })
+    }
     yield* assertComposedOwnedWorkspace({
       bareRepo,
       workspaceRoot,

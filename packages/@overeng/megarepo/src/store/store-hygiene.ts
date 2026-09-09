@@ -10,7 +10,7 @@ import * as FileSystem from 'effect/FileSystem'
 import { type PlatformError } from 'effect/PlatformError'
 import type { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 
-import { resolveComposedStoreWorktree } from '../composition/acquisition/owned-worktree-acquisition.ts'
+import { resolveStoreBranchWorktree } from '../composition/acquisition/owned-worktree-acquisition.ts'
 import {
   type MegarepoConfig,
   type MemberSource,
@@ -37,6 +37,7 @@ export type StoreIssueType =
   | 'dirty'
   | 'unpushed'
   | 'orphaned'
+  | 'ambiguous_worktree'
 
 /** A detected consistency problem in the megarepo store for a specific member */
 export interface StoreIssue {
@@ -152,24 +153,29 @@ export const validateStoreMembers = ({
         refType: 'commit',
       })
 
-      const branchGitPath = `${branchWorktreePath}.git`.replace(/\/\.git$/, '/.git')
-      const commitGitPath = `${commitWorktreePath}.git`.replace(/\/\.git$/, '/.git')
-      let branchGitExists = yield* fs.exists(branchGitPath).pipe(Effect.orElseSucceed(() => false))
-      if (branchGitExists === false && classifyRef(lockedMember.ref) === 'branch') {
-        const composedWorktree = yield* resolveComposedStoreWorktree({
+      if (classifyRef(lockedMember.ref) === 'branch') {
+        const resolution = yield* resolveStoreBranchWorktree({
           bareRepo: bareRepoPath,
           workspaceRoot: branchWorktreePath,
           branch: lockedMember.ref,
-        }).pipe(Effect.orElseSucceed(() => undefined))
-        if (composedWorktree !== undefined) {
-          branchWorktreePath = composedWorktree
-          branchGitExists = true
+        }).pipe(Effect.result)
+        if (resolution._tag === 'Failure') {
+          issues.push({
+            severity: 'error',
+            type: 'ambiguous_worktree',
+            memberName,
+            message: resolution.failure.message,
+          })
+          continue
         }
+        branchWorktreePath = resolution.success
       }
-      const commitGitExists = yield* fs
-        .exists(commitGitPath)
+      const branchGitExists = yield* fs
+        .exists(`${branchWorktreePath}.git`.replace(/\/\.git$/u, '/.git'))
         .pipe(Effect.orElseSucceed(() => false))
-
+      const commitGitExists = yield* fs
+        .exists(`${commitWorktreePath}.git`.replace(/\/\.git$/u, '/.git'))
+        .pipe(Effect.orElseSucceed(() => false))
       if (branchGitExists === false && commitGitExists === false) {
         issues.push({
           severity: 'error',

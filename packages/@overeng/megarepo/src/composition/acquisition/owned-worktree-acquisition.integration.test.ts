@@ -13,6 +13,7 @@ import { makeCanonicalTempDirectoryScoped } from '../../test-utils/temp-root.ts'
 import {
   assertComposedOwnedWorkspace,
   createComposedOwnedWorkspace,
+  resolveStoreBranchWorktree,
   type OwnedWorkspaceGenerationContext,
 } from './owned-worktree-acquisition.ts'
 
@@ -66,6 +67,19 @@ const create = <E, R>(
   })
 
 describe('direct composed worktree creation', () => {
+  it.effect('resolves an absent unregistered root as the creatable canonical P', () =>
+    Effect.gen(function* () {
+      const fixture = yield* makeFixture
+      expect(
+        yield* resolveStoreBranchWorktree({
+          bareRepo: fixture.bareRepo,
+          workspaceRoot: fixture.workspaceRoot,
+          branch: 'feature',
+        }),
+      ).toBe(`${fixture.workspaceRoot}/`)
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+  )
+
   it.effect('creates Git directly at the stable final W path and links the root config', () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem
@@ -77,6 +91,13 @@ describe('direct composed worktree creation', () => {
       )
       const registrations = yield* Git.listWorktrees(fixture.bareRepo)
       expect(registrations.some((entry) => entry.path === fixture.ownedWorktree)).toBe(true)
+      expect(
+        yield* resolveStoreBranchWorktree({
+          bareRepo: fixture.bareRepo,
+          workspaceRoot: fixture.workspaceRoot,
+          branch: 'feature',
+        }),
+      ).toBe(`${fixture.ownedWorktree}/`)
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
   )
 
@@ -90,6 +111,56 @@ describe('direct composed worktree creation', () => {
       const after = yield* fs.stat(EffectPath.unsafe.absoluteDir(`${fixture.ownedWorktree}/`))
       expect(result.ownedWorktree).toBe(fixture.ownedWorktree)
       expect(after.ino).toStrictEqual(before.ino)
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+  )
+
+  it.effect(
+    'rejects an existing P after its worktree registration is lost without deleting it',
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem
+        const fixture = yield* makeFixture
+        yield* create(fixture, () => Effect.void)
+        const dotGit = NodePath.join(fixture.ownedWorktree, '.git')
+        const pointer = (yield* fs.readFileString(EffectPath.unsafe.absoluteFile(dotGit))).trim()
+        const adminDir = NodePath.resolve(
+          NodePath.dirname(dotGit),
+          pointer.slice('gitdir: '.length),
+        )
+        const preserved = NodePath.join(fixture.ownedWorktree, 'preserved.txt')
+        yield* fs.writeFileString(EffectPath.unsafe.absoluteFile(preserved), 'keep\n')
+        yield* fs.remove(EffectPath.unsafe.absoluteDir(`${adminDir}/`), { recursive: true })
+
+        const failure = yield* resolveStoreBranchWorktree({
+          bareRepo: fixture.bareRepo,
+          workspaceRoot: fixture.workspaceRoot,
+          branch: 'feature',
+        }).pipe(Effect.flip)
+        expect(failure.reason).toBe('GitIdentityConflict')
+        expect(yield* fs.readFileString(EffectPath.unsafe.absoluteFile(preserved))).toBe('keep\n')
+      }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+  )
+
+  it.effect('rejects a linked-worktree admin directory with a non-reciprocal backlink', () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const fixture = yield* makeFixture
+      yield* create(fixture, () => Effect.void)
+      const dotGit = NodePath.join(fixture.ownedWorktree, '.git')
+      const pointer = (yield* fs.readFileString(EffectPath.unsafe.absoluteFile(dotGit))).trim()
+      const adminDir = NodePath.resolve(NodePath.dirname(dotGit), pointer.slice('gitdir: '.length))
+      yield* fs.writeFileString(
+        EffectPath.unsafe.absoluteFile(NodePath.join(adminDir, 'gitdir')),
+        `${NodePath.join(fixture.tmp, 'swapped', '.git')}\n`,
+      )
+
+      const failure = yield* assertComposedOwnedWorkspace({
+        bareRepo: fixture.bareRepo,
+        workspaceRoot: fixture.workspaceRoot,
+        ownedMember: 'owner',
+        branch: 'feature',
+      }).pipe(Effect.flip)
+      expect(failure.reason).toBe('GitIdentityConflict')
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
   )
 
@@ -117,6 +188,36 @@ describe('direct composed worktree creation', () => {
       const failure = yield* create(fixture, () => Effect.void).pipe(Effect.flip)
       expect(failure.reason).toBe('GitIdentityConflict')
       expect(failure.message).toContain(elsewhere)
+      const resolutionFailure = yield* resolveStoreBranchWorktree({
+        bareRepo: fixture.bareRepo,
+        workspaceRoot: fixture.workspaceRoot,
+        branch: 'feature',
+      }).pipe(Effect.flip)
+      expect(resolutionFailure.reason).toBe('GitIdentityConflict')
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+  )
+
+  it.effect('rejects duplicate registrations for the owned branch', () =>
+    Effect.gen(function* () {
+      const fixture = yield* makeFixture
+      yield* create(fixture, () => Effect.void)
+      const duplicate = NodePath.join(fixture.tmp, 'duplicate')
+      yield* git(fixture.bareRepo, 'worktree', 'add', '--force', '--force', duplicate, 'feature')
+
+      const assertionFailure = yield* assertComposedOwnedWorkspace({
+        bareRepo: fixture.bareRepo,
+        workspaceRoot: fixture.workspaceRoot,
+        ownedMember: 'owner',
+        branch: 'feature',
+      }).pipe(Effect.flip)
+      expect(assertionFailure.reason).toBe('GitIdentityConflict')
+
+      const resolutionFailure = yield* resolveStoreBranchWorktree({
+        bareRepo: fixture.bareRepo,
+        workspaceRoot: fixture.workspaceRoot,
+        branch: 'feature',
+      }).pipe(Effect.flip)
+      expect(resolutionFailure.reason).toBe('GitIdentityConflict')
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
   )
 

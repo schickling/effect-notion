@@ -14,6 +14,7 @@ import {
   CompositionGeneratorConfig,
   MegarepoConfig,
 } from '../core/config.ts'
+import * as Git from '../core/git.ts'
 import {
   LockFile,
   LOCK_FILE_NAME,
@@ -329,6 +330,72 @@ describe('composition apply option policy', () => {
   )
 
   it.effect(
+    'refuses fetch --apply before changing config or lock for an invalid composed root',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const store = yield* createStoreFixture([
+          { host: 'example.com', owner: 'acme', repo: 'lib' },
+        ])
+        const { workspacePath } = yield* createWorkspaceWithLock({
+          members: { lib: 'https://example.com/acme/lib#main' },
+          lockEntries: {
+            lib: {
+              url: 'https://example.com/acme/lib',
+              ref: 'main',
+              commit: '0000000000000000000000000000000000000000',
+            },
+          },
+        })
+        const configPath = EffectPath.ops.join(
+          workspacePath,
+          EffectPath.unsafe.relativeFile(CONFIG_FILE_NAME_JSON),
+        )
+        const lockPath = EffectPath.ops.join(
+          workspacePath,
+          EffectPath.unsafe.relativeFile(LOCK_FILE_NAME),
+        )
+        const config = new MegarepoConfig({
+          members: { lib: 'https://example.com/acme/lib#main' },
+          generators: {
+            composition: new CompositionGeneratorConfig({
+              enabled: true,
+              platformHub: 'hub',
+            }),
+          },
+        })
+        const configContent = yield* Schema.encodeEffect(
+          Schema.fromJsonString(MegarepoConfig, { space: 2 }),
+        )(config)
+        yield* fs.writeFileString(configPath, `${configContent}\n`)
+        yield* fs.remove(
+          EffectPath.ops.join(workspacePath, EffectPath.unsafe.relativeFile('.git')),
+          { recursive: true },
+        )
+        const configBefore = yield* fs.readFile(configPath)
+        const lockBefore = yield* fs.readFile(lockPath)
+
+        const result = yield* runFetchApplyCommand({
+          cwd: workspacePath,
+          args: ['--output', 'json'],
+          env: { MEGAREPO_STORE: store.storePath.slice(0, -1) },
+        })
+
+        expect(Exit.isFailure(result.exit)).toBe(true)
+        const failure = Exit.isFailure(result.exit) === true ? Cause.pretty(result.exit.cause) : ''
+        expect(`${result.stdout}\n${result.stderr}\n${failure}`).toContain(
+          `must resolve into '${workspacePath.replace(/\/$/u, '')}/repos/<owned>'`,
+        )
+        expect(yield* fs.readFile(configPath)).toEqual(configBefore)
+        expect(yield* fs.readFile(lockPath)).toEqual(lockBefore)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+    { timeout: 15_000 },
+  )
+
+  it.effect(
     'rejects selectors and explicit commit mode that conflict with composition ownership',
     Effect.fnUntraced(
       function* () {
@@ -375,6 +442,103 @@ describe('composition apply option policy', () => {
 })
 
 describe('mr apply', () => {
+  it.effect(
+    'preserves an exact registered composed W during tracking apply',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const store = yield* createStoreFixture([
+          {
+            host: 'github.com',
+            owner: 'owner',
+            repo: 'repo',
+            branches: ['feature'],
+          },
+        ])
+        const repoKey = 'github.com/owner/repo'
+        const bareRepo = store.bareRepoPaths[repoKey]!
+        const workspaceRoot = store.worktreePaths[`${repoKey}#feature`]!
+        const ownedWorktree = EffectPath.ops.join(
+          workspaceRoot,
+          EffectPath.unsafe.relativeDir('repos/repo/'),
+        )
+
+        yield* runGitCommand(bareRepo, 'worktree', 'remove', '--force', workspaceRoot)
+        yield* fs.makeDirectory(ownedWorktree, { recursive: true })
+        yield* runGitCommand(bareRepo, 'worktree', 'add', ownedWorktree, 'feature')
+        yield* fs.writeFileString(
+          EffectPath.ops.join(ownedWorktree, EffectPath.unsafe.relativeFile('megarepo.kdl')),
+          'members {}\n',
+        )
+        yield* runGitCommand(ownedWorktree, 'add', 'megarepo.kdl')
+        yield* runGitCommand(
+          ownedWorktree,
+          '-c',
+          'user.name=Test User',
+          '-c',
+          'user.email=test@example.com',
+          'commit',
+          '--no-gpg-sign',
+          '--no-verify',
+          '-m',
+          'add megarepo config',
+        )
+        yield* fs.symlink(
+          'repos/repo/megarepo.kdl',
+          EffectPath.ops.join(workspaceRoot, EffectPath.unsafe.relativeFile('megarepo.kdl')),
+        )
+        const commit = yield* Git.getCurrentCommit(ownedWorktree)
+        const before = yield* fs.stat(ownedWorktree)
+        const consumer = yield* createWorkspaceWithLock({
+          members: { repo: 'owner/repo#feature' },
+          lockEntries: {
+            repo: {
+              url: 'https://github.com/owner/repo',
+              ref: 'feature',
+              commit,
+            },
+          },
+        })
+
+        for (const expectedStatus of ['applied', 'already_synced']) {
+          const result = yield* runApplyCommand({
+            cwd: consumer.workspacePath,
+            args: ['--output', 'json', '--worktree-mode', 'tracking'],
+            env: {
+              AGENT_POLICY_BYPASS: '1',
+              MEGAREPO_STORE: store.storePath.slice(0, -1),
+            },
+          })
+          expect(result.exitCode).toBe(0)
+          expect(decodeSyncJsonOutput(result.stdout.trim()).results[0]?.status).toBe(expectedStatus)
+        }
+
+        const consumerLink = EffectPath.ops.join(
+          consumer.workspacePath,
+          EffectPath.unsafe.relativeFile('repos/repo'),
+        )
+        expect(yield* fs.readLink(consumerLink)).toBe(ownedWorktree.replace(/\/$/u, ''))
+        expect(
+          yield* fs.exists(
+            EffectPath.ops.join(workspaceRoot, EffectPath.unsafe.relativeFile('.git')),
+          ),
+        ).toBe(false)
+        expect(
+          yield* fs.exists(
+            EffectPath.ops.join(ownedWorktree, EffectPath.unsafe.relativeFile('.git')),
+          ),
+        ).toBe(true)
+        expect((yield* fs.stat(ownedWorktree)).ino).toStrictEqual(before.ino)
+        const registration = (yield* Git.listWorktrees(bareRepo)).filter(
+          (entry) => Option.getOrUndefined(entry.branch) === 'feature',
+        )
+        expect(registration.map((entry) => entry.path)).toEqual([ownedWorktree.replace(/\/$/u, '')])
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+
   describe('with local path members', () => {
     it.effect(
       'should create symlinks for local path members',

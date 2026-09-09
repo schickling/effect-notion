@@ -25,6 +25,7 @@ import {
 import { OutputModeTag, run } from '@overeng/tui-react'
 
 import {
+  assertComposedOwnedWorkspace,
   composedWorkspacePathsFromRegistration,
   createComposedOwnedWorkspace,
 } from '../../../composition/acquisition/owned-worktree-acquisition.ts'
@@ -885,17 +886,37 @@ export const collectRepoStoreWorktrees = ({
     const gitWorktrees = yield* Git.listWorktrees(bareRepoPath)
     for (const worktree of gitWorktrees) {
       const registeredPath = worktree.path.replace(/\/+$/, '')
+      const registeredRelativePath =
+        registeredPath.startsWith(refsPrefix) === true
+          ? registeredPath.slice(refsPrefix.length)
+          : registeredPath.startsWith(realRefsPrefix) === true
+            ? registeredPath.slice(realRefsPrefix.length)
+            : undefined
+      if (registeredRelativePath === undefined) continue
       const composedPaths = composedWorkspacePathsFromRegistration({
         registeredWorktree: registeredPath,
       })
-      const normalizedPath = composedPaths?.workspaceRoot ?? registeredPath
-      const relativePath =
-        normalizedPath.startsWith(refsPrefix) === true
-          ? normalizedPath.slice(refsPrefix.length)
-          : normalizedPath.startsWith(realRefsPrefix) === true
-            ? normalizedPath.slice(realRefsPrefix.length)
+      const composedRelativePath =
+        composedPaths?.workspaceRoot.startsWith(refsPrefix) === true
+          ? composedPaths.workspaceRoot.slice(refsPrefix.length)
+          : composedPaths?.workspaceRoot.startsWith(realRefsPrefix) === true
+            ? composedPaths.workspaceRoot.slice(realRefsPrefix.length)
             : undefined
-      if (relativePath === undefined) continue
+      const registeredBranch = Option.getOrUndefined(worktree.branch)
+      const isComposed =
+        composedPaths !== undefined &&
+        composedRelativePath?.startsWith('heads/') === true &&
+        composedRelativePath.slice('heads/'.length) === registeredBranch
+      if (isComposed === true) {
+        yield* assertComposedOwnedWorkspace({
+          bareRepo: bareRepoPath,
+          workspaceRoot: composedPaths.workspaceRoot,
+          ownedMember: composedPaths.ownedMember,
+          branch: registeredBranch!,
+        })
+      }
+      const normalizedPath = isComposed === true ? composedPaths.workspaceRoot : registeredPath
+      const relativePath = isComposed === true ? composedRelativePath : registeredRelativePath
       if (relativePath.split('/').some((segment) => segment.startsWith('.') === true) === true)
         continue
 
@@ -916,12 +937,12 @@ export const collectRepoStoreWorktrees = ({
         refType,
         path: EffectPath.unsafe.absoluteDir(`${repoPrefix}/refs/${relativePath}/`),
         broken: false,
-        ...(composedPaths === undefined
-          ? {}
-          : {
+        ...(isComposed === true
+          ? {
               ownedWorktree: EffectPath.unsafe.absoluteDir(`${registeredPath}/`),
               composedRoot: true as const,
-            }),
+            }
+          : {}),
       })
     }
 
@@ -954,17 +975,7 @@ export const collectRepoStoreWorktrees = ({
         if (seenPaths.has(normalizedPath) === true) continue
 
         seenPaths.add(normalizedPath)
-        const reposPath = EffectPath.ops.join(
-          worktree.path,
-          EffectPath.unsafe.relativeDir('repos/'),
-        )
-        const rootGitPath = EffectPath.ops.join(
-          worktree.path,
-          EffectPath.unsafe.relativeFile('.git'),
-        )
-        const composedRoot =
-          (yield* fs.exists(reposPath)) === true && (yield* fs.exists(rootGitPath)) === false
-        result.push(composedRoot === true ? { ...worktree, composedRoot: true } : worktree)
+        result.push(worktree)
       }
     }
 

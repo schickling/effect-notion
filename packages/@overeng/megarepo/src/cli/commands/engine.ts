@@ -78,7 +78,11 @@ import type {
   LockSharedSourceUpdate,
   SyncAction,
 } from '../renderers/SyncOutput/schema.ts'
-import { readCompositionLockFile, runCompositionApply } from './composition.ts'
+import {
+  preflightCompositionCommand,
+  readCompositionLockFile,
+  runCompositionApply,
+} from './composition.ts'
 
 /** Policy for apply-time lock-file rewrites. */
 export type LockSyncMode = 'auto' | 'off' | 'direct' | 'recursive'
@@ -689,6 +693,13 @@ export const runCommand = ({
         })
       }
     }
+    const compositionIdentity =
+      appliesWorkspace === true
+        ? yield* preflightCompositionCommand({
+            workspaceRoot: root.value,
+            compositionEnabled,
+          })
+        : undefined
 
     const skippedMembers = memberNames.filter((memberName) => {
       if (onlyMembers !== undefined && onlyMembers.length > 0) {
@@ -739,16 +750,16 @@ export const runCommand = ({
     const effectiveMode = applyAfterFetch === true ? 'apply' : mode
 
     const doSync = (progressHandle?: SyncUIHandle) =>
-      effectiveMode === 'apply' && compositionEnabled === true
+      compositionIdentity !== undefined
         ? Effect.gen(function* () {
             const composition = yield* runCompositionApply({
-              workspaceRoot: root.value,
+              workspaceRoot: compositionIdentity.workspaceRoot,
               dryRun,
             })
             const ignoredMembers = config.generators?.composition?.ignoredMembers ?? []
             const ignoredLock = yield* readCompositionLockFile({
-              workspaceRoot: root.value,
-              ownedMemberPath: composition.defaultCwd,
+              workspaceRoot: compositionIdentity.workspaceRoot,
+              ownedMemberPath: compositionIdentity.ownedSourcePath,
             })
             const legacyResults = yield* Effect.forEach(ignoredMembers, (name) =>
               syncMember({

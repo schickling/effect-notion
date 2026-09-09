@@ -1,4 +1,5 @@
 import { execFile as execFileCallback } from 'node:child_process'
+import { lstat } from 'node:fs/promises'
 import * as NodePath from 'node:path'
 import { promisify } from 'node:util'
 
@@ -183,6 +184,119 @@ export const loadOwnedIdentity = ({
       bareRepo,
       branch: branchOption.value,
     }
+  }).pipe(Effect.mapError(preserveCompositionError))
+
+/**
+ * Detect a direct registered W independently of P's root config, then validate that the config
+ * still names that exact composed identity. Ordinary Git roots are never inferred as composed.
+ */
+export const preflightCompositionCommand = ({
+  workspaceRoot,
+  compositionEnabled,
+}: {
+  readonly workspaceRoot: AbsoluteDirPath
+  readonly compositionEnabled: boolean
+}): Effect.Effect<
+  OwnedIdentity | undefined,
+  CompositionCommandError,
+  FileSystem.FileSystem | ChildProcessSpawner
+> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const root = workspaceRoot.replace(/\/+$/u, '')
+    const rootGit = EffectPath.unsafe.absoluteFile(NodePath.join(root, '.git'))
+    if ((yield* fs.exists(rootGit)) === true) {
+      return compositionEnabled === true ? yield* loadOwnedIdentity({ workspaceRoot }) : undefined
+    }
+
+    const repos = EffectPath.unsafe.absoluteDir(`${NodePath.join(root, 'repos')}/`)
+    const entries =
+      (yield* fs.exists(repos)) === true ? yield* fs.readDirectory(repos) : ([] as string[])
+    const registeredOwnedWorktrees: string[] = []
+    for (const entry of entries) {
+      const ownedWorktree = NodePath.join(root, 'repos', entry)
+      const entryStat = yield* Effect.promise(() =>
+        lstat(ownedWorktree).then(
+          (info) => info,
+          () => undefined,
+        ),
+      )
+      if (entryStat?.isDirectory() !== true || entryStat.isSymbolicLink() === true) continue
+      const dotGit = EffectPath.unsafe.absoluteFile(NodePath.join(ownedWorktree, '.git'))
+      const dotGitStat = yield* Effect.promise(() =>
+        lstat(dotGit).then(
+          (info) => info,
+          () => undefined,
+        ),
+      )
+      if (dotGitStat?.isFile() !== true || dotGitStat.isSymbolicLink() === true) continue
+
+      const pointer = (yield* fs.readFileString(dotGit)).trim()
+      const match = /^gitdir: (.+)$/u.exec(pointer)
+      const adminDir =
+        match === null ? undefined : NodePath.resolve(NodePath.dirname(dotGit), match[1]!)
+      if (adminDir === undefined || NodePath.basename(NodePath.dirname(adminDir)) !== 'worktrees') {
+        return yield* compositionFailure({
+          reason: 'InvalidIdentity',
+          path: dotGit,
+          message: `Git administration pointer '${dotGit}' is not a registered worktree identity`,
+        })
+      }
+
+      const branchResult = yield* Git.getCurrentBranch(
+        EffectPath.unsafe.absoluteDir(`${ownedWorktree}/`),
+      ).pipe(Effect.result)
+      if (branchResult._tag === 'Failure') {
+        return yield* compositionFailure({
+          reason: 'InvalidIdentity',
+          path: ownedWorktree,
+          message: `Cannot read the registered worktree branch at '${ownedWorktree}'`,
+          cause: branchResult.failure,
+        })
+      }
+      if (Option.isNone(branchResult.success) === true) continue
+      const bareRepo = NodePath.dirname(NodePath.dirname(adminDir))
+      const repoRoot = NodePath.dirname(bareRepo)
+      const expectedRoot = NodePath.join(repoRoot, 'refs', 'heads', branchResult.success.value)
+      if (NodePath.resolve(expectedRoot) !== NodePath.resolve(root)) continue
+      const backlink = EffectPath.unsafe.absoluteFile(NodePath.join(adminDir, 'gitdir'))
+      const backlinkResult = yield* fs.readFileString(backlink).pipe(Effect.result)
+      if (
+        backlinkResult._tag === 'Failure' ||
+        NodePath.resolve(adminDir, backlinkResult.success.trim()) !== NodePath.resolve(dotGit)
+      ) {
+        return yield* compositionFailure({
+          reason: 'InvalidIdentity',
+          path: backlink,
+          message: `Git administration backlink '${backlink}' does not point to '${dotGit}'`,
+          ...(backlinkResult._tag === 'Failure' ? { cause: backlinkResult.failure } : {}),
+        })
+      }
+      registeredOwnedWorktrees.push(ownedWorktree)
+    }
+
+    if (registeredOwnedWorktrees.length === 0) {
+      return compositionEnabled === true ? yield* loadOwnedIdentity({ workspaceRoot }) : undefined
+    }
+    if (registeredOwnedWorktrees.length !== 1) {
+      return yield* compositionFailure({
+        reason: 'InvalidIdentity',
+        path: repos,
+        message: `Composition root '${root}' has multiple registered owned worktrees`,
+      })
+    }
+
+    const identity = yield* loadOwnedIdentity({ workspaceRoot })
+    if (
+      NodePath.resolve(identity.ownedMemberPath) !== NodePath.resolve(registeredOwnedWorktrees[0]!)
+    ) {
+      return yield* compositionFailure({
+        reason: 'InvalidIdentity',
+        path: root,
+        message: `Root config does not identify registered owned worktree '${registeredOwnedWorktrees[0]}'`,
+      })
+    }
+    return identity
   }).pipe(Effect.mapError(preserveCompositionError))
 
 /** Admit exact clean detached commit worktrees before any composition side effect. */

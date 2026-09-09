@@ -324,6 +324,24 @@ describe('store-hygiene', () => {
           })
 
           expect(issues.filter((issue) => issue.type === 'broken_worktree')).toEqual([])
+
+          yield* fs.writeFileString(
+            EffectPath.unsafe.absoluteFile(NodePath.join(workspaceRoot, 'repos', 'myrepo', '.git')),
+            'gitdir: /tmp/foreign\n',
+          )
+          const ambiguousIssues = yield* validateStoreMembers({
+            memberNames: ['myrepo'],
+            config: makeTestConfig({ myrepo: 'owner/myrepo#feature' }),
+            lockFile: makeTestLockFile({ myrepo: { ref: 'feature', commit } }),
+            store,
+          })
+          expect(ambiguousIssues).toMatchObject([
+            { severity: 'error', type: 'ambiguous_worktree', memberName: 'myrepo' },
+          ])
+          expect(yield* fixStoreIssues({ issues: ambiguousIssues, store })).toMatchObject([
+            { status: 'skipped', issueType: 'ambiguous_worktree' },
+          ])
+          expect(yield* fs.exists(EffectPath.unsafe.absoluteDir(`${workspaceRoot}/`))).toBe(true)
         }).pipe(Effect.scoped),
       ))
   })
@@ -364,7 +382,7 @@ describe('store-hygiene', () => {
         }),
       ))
 
-    it('blocks on broken_worktree (directory exists but .git missing)', () =>
+    it('blocks on an existing worktree root without a Git registration', () =>
       runWithContext(
         Effect.gen(function* () {
           const fs = yield* FileSystem.FileSystem
@@ -376,7 +394,14 @@ describe('store-hygiene', () => {
           })
 
           const bareRepoPath = `${basePath}github.com/owner/myrepo/.bare/`
-          yield* fs.makeDirectory(bareRepoPath, { recursive: true })
+          yield* fs.makeDirectory(
+            EffectPath.unsafe.absoluteDir(`${NodePath.dirname(bareRepoPath)}/`),
+            { recursive: true },
+          )
+          yield* Git.runCommand({
+            cwd: NodePath.dirname(bareRepoPath),
+            args: ['init', '--bare', bareRepoPath],
+          })
 
           const worktreePath = `${basePath}github.com/owner/myrepo/refs/heads/main/`
           yield* fs.makeDirectory(worktreePath, { recursive: true })
@@ -387,7 +412,7 @@ describe('store-hygiene', () => {
 
           expect(result).toBeInstanceOf(StoreHygieneError)
           if (result instanceof StoreHygieneError) {
-            expect(result.issues.some((i) => i.type === 'broken_worktree')).toBe(true)
+            expect(result.issues.some((i) => i.type === 'ambiguous_worktree')).toBe(true)
           }
 
           yield* fs.remove(basePath, { recursive: true })
