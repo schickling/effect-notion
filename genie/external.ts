@@ -502,11 +502,6 @@ export const commonPnpmPolicySettings = {
   strictPeerDependencies: true as const,
   peerDependencyRules: {
     allowedVersions: {
-      // bun-ffi-structs@0.2.3 (via @myobie/pty) declares typescript ^5 but the
-      // repo compiles with TS 6; resolution is proven fine.
-      typescript: '>=6.0.0',
-      eslint: '>=10.0.0',
-      vitest: '>=4.0.0',
       // @stylexjs/unplugin@0.19 declares unplugin ^2 but works with v3;
       // proven by the effect-schema-form-aria StyleX pilot (build + storybook).
       unplugin: '>=3.0.0',

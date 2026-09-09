@@ -158,9 +158,6 @@ export const commonPnpmWorkspaceData = {
     // entries instead of shadowing them.
     allowedVersions: {
       ...commonPnpmPolicySettings.peerDependencyRules.allowedVersions,
-      typescript: '>=6.0.0',
-      eslint: '>=10.0.0',
-      vitest: '>=4.0.0',
     },
   },
 }
