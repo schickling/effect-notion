@@ -48,7 +48,7 @@ let
       derivedTag = "buck2-product-v3-${productName}-${moduleSha256}";
       derivedName = "${moduleSha256}-${descriptor.modulePath}";
       derivedUrl = "${repositoryReleaseBase}/${derivedTag}/${derivedName}";
-      descriptorFile = builtins.toFile "${productName}-product.json" canonicalDescriptor;
+      descriptorFile = pkgs.writeText "${productName}-product.json" canonicalDescriptor;
     in
     assert lib.assertMsg (
       builtins.attrNames entry == [
