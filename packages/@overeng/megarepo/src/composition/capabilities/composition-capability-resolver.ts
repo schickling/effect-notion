@@ -699,6 +699,25 @@ type ToolProjectionManifest = typeof ToolProjectionManifest.Type
 export const CapabilityProjectionManifestJsonSchema = ToolProjectionManifestJson
 /** Decoded per-tool projected manifest: the tool's pinned realization, closure, and protocol. */
 export type CapabilityProjectionManifest = ToolProjectionManifest
+
+/** Binds a projected tool to its exact Nix realization, independent of executable depth. */
+export const makeCapabilityProjectionManifest = ({
+  platform,
+  resolved,
+}: {
+  readonly platform: 'x86_64-linux' | 'aarch64-linux' | 'aarch64-macos'
+  readonly resolved: ResolvedCompositionCapability
+}): CapabilityProjectionManifest => ({
+  closureIdentity: resolved.nixOutputPath,
+  closureStorePaths: resolved.closureStorePaths,
+  contentDigest: resolved.executableDigest.slice('sha256:'.length),
+  executableStorePath: resolved.executablePath,
+  executionPlatform: platform,
+  protocol: resolved.capability.protocol,
+  runtimeContract: 'native-executable/v1',
+  schema: 'effect-utils/buck2-support-tools/v1',
+  toolId: resolved.capability.toolId,
+})
 const toolBuckBytes =
   'export_file(name = "executable", src = "executable", visibility = ["PUBLIC"])\n' +
   'export_file(name = "manifest", src = "manifest.json", visibility = ["PUBLIC"])\n'
@@ -755,18 +774,8 @@ const projectResolvedCapabilities = async ({
   readonly platform: 'x86_64-linux' | 'aarch64-linux' | 'aarch64-macos'
   readonly resolved: ReadonlyArray<ResolvedCompositionCapability>
 }) => {
-  const manifests = resolved.map(
-    ({ capability, executablePath, executableDigest, closureStorePaths: closure }) => ({
-      closureIdentity: NodePath.dirname(NodePath.dirname(executablePath)),
-      closureStorePaths: closure,
-      contentDigest: executableDigest.slice('sha256:'.length),
-      executableStorePath: executablePath,
-      executionPlatform: platform,
-      protocol: capability.protocol,
-      runtimeContract: 'native-executable/v1' as const,
-      schema: 'effect-utils/buck2-support-tools/v1' as const,
-      toolId: capability.toolId,
-    }),
+  const manifests = resolved.map((resolvedCapability) =>
+    makeCapabilityProjectionManifest({ platform, resolved: resolvedCapability }),
   )
   const files = manifests.flatMap((manifest) => [
     { path: `${platform}/${manifest.toolId}/BUCK`, bytes: toolBuckBytes },
