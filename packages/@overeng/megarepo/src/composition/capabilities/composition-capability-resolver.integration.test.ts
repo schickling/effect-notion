@@ -25,6 +25,7 @@ import {
 } from './composition-capability-resolver-schema.ts'
 import {
   checkCompositionCapabilityProjection,
+  makeCapabilityProjectionManifest,
   resolveCompositionCapabilities,
   resolvedCompositionCapabilityByToolId,
   type CompositionCapabilityRuntime,
@@ -188,6 +189,32 @@ describe('composition capability resolver', () => {
         closureStorePaths: [bashOutput, alternateOutput].toSorted().toReversed(),
       }),
     ).toThrow(/sorted unique/u)
+  })
+
+  it('preserves the exact Nix output as closure identity for a nested executable', () => {
+    const decode = Schema.decodeUnknownSync(ResolvedCompositionCapabilitySchema)
+    const nestedExecutable = `${bashOutput}/bin/subdir/tool`
+    const resolved = decode({
+      capability: manifest({
+        capabilities: [
+          {
+            toolId: 'nested-tool',
+            protocol: 'test/nested/v1',
+            flakePackage: 'nested-package',
+            executable: 'bin/subdir/tool',
+          },
+        ],
+      }).capabilities[0],
+      nixOutputPath: bashOutput,
+      executablePath: nestedExecutable,
+      executableDigest: `sha256:${'0'.repeat(64)}`,
+      closureStorePaths: [bashOutput],
+    })
+
+    expect(makeCapabilityProjectionManifest({ platform: 'x86_64-linux', resolved })).toMatchObject({
+      closureIdentity: bashOutput,
+      executableStorePath: nestedExecutable,
+    })
   })
 
   it.each(['defs.bzl', 'BUCK'] as const)(

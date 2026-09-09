@@ -457,7 +457,7 @@ const runCommand = async ({
     await Promise.all(
       Object.entries(options.writableDirectories).map(async ([name, directory]) => {
         const target = join(scratch, 'writable', directory)
-        await mkdir(dirname(target), { recursive: true })
+        await mkdir(target, { recursive: true })
         return [name, target] as const
       }),
     ),
