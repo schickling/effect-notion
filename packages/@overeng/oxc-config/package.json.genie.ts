@@ -33,9 +33,8 @@ const deps = catalog.compose({
         'vitest',
         'oxlint-tsgolint',
       ),
-      // @typescript-eslint's classic compiler-API test harness cannot load TypeScript 7 yet.
-      // Runtime linting is oxlint; keep this test-only parser dependency on the last compatible pin.
-      typescript: '6.0.3',
+      /** @typescript-eslint does not yet support the TypeScript 7 package API. */
+      typescript: '5.9.3',
     },
   },
 })
