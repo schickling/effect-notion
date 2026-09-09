@@ -839,12 +839,12 @@
       "integrity": "sha512-5MyjFuqf+g8OUPJBSGWHJtmoWnzFJYyOg4To9WMQshZYEWig/vtu7JtJ03VWnzHv9LJkAUeApY0gVCOywFR/iQ==",
       "sha256": "1671c11dabe05cb2a93eefdd7129e9f50f1b19adf4d665f6fcd972e9b7a702b0"
     },
-    "@playwright/test@1.61.0": {
+    "@playwright/test@1.63.0": {
       "bins": {
         "playwright": "cli.js"
       },
-      "integrity": "sha512-cKA5B6lpFEMyMGjxF54QihfYpB4FkEGH+qZhtArDEG+wezQAJY8Pq6C7T1SjWz+FFzt3TbyoXBQYk/0292TdJA==",
-      "sha256": "68c29e11b748d89160346958fdaaa0ff6512cbec9ca535ed3530a026bd0561c1"
+      "integrity": "sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ==",
+      "sha256": "fc594f36b7b4aafece614ec6852ad728423215a76edd0a2a1821bb0c49539c4e"
     },
     "@polka/url@1.0.0-next.29": {
       "bins": {},
@@ -2114,11 +2114,6 @@
       "integrity": "sha512-5+ybhBZANEJxaH3X5evAFatUxLfEHSr7n6kYJ+1Qd0mUqr4eu9gIf6GDbWHf8RJijHrjjO8G+la14SlL2SeS1Q==",
       "sha256": "5ddc55129d365193496e8ae1f6e21e4beabe639b6c00f5f67e2e0843b72efa55"
     },
-    "fsevents@2.3.2": {
-      "bins": {},
-      "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
-      "sha256": "e17ade950c193fe09adfc7915fe29ac26166c8782d00e7c3879e7e9de02c5428"
-    },
     "fsevents@2.3.3": {
       "bins": {},
       "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
@@ -2813,19 +2808,19 @@
       "integrity": "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==",
       "sha256": "697b463be3cdbd9ffc8f4194fd5019a69ddf95875fb703d78b2b115cc9e740a8"
     },
-    "playwright-core@1.61.0": {
+    "playwright-core@1.63.0": {
       "bins": {
         "playwright-core": "cli.js"
       },
-      "integrity": "sha512-caX7TrY3Ml6egyDX0WUcTHDxodl/b51y5wJOdCEA36QviK/s2g081hvmGs8eaE3DWb6NYZQ6BjO/QkNRPenoPA==",
-      "sha256": "b5ab14f09f3aaacdedbc2cb1431b0552cec8995fba35d841779a4ed535ce0200"
+      "integrity": "sha512-rYCsBF/M5HjUch52bbtVONEFjv6Xu8sm8h72dNlR5bzIE1fvC/bxgspzkjSfU+MweEMmPM8KJebG6nnyxo5mCg==",
+      "sha256": "208593d4e1bcd8f8fe5f869cad1cc332dc7f1d70dc1d58c102dc3ac36e30f26c"
     },
-    "playwright@1.61.0": {
+    "playwright@1.63.0": {
       "bins": {
         "playwright": "cli.js"
       },
-      "integrity": "sha512-Z+7BeeqQPRRzklHsVFP4KTGIyMxKUmfeRA4WisM6G3/XW6nwGeX6fX9qYaDa+CiUqpOkb2f6X3nar05R3kSuJQ==",
-      "sha256": "d3a9f26c471ed0fa28888101e2bfe25056bff3104ee4366c56524ea7c204015e"
+      "integrity": "sha512-+7ziBLidS4NaNCdt57SUDT+wYmmd5fmiQejUic/kb+YsYSCPyOOE9sebzMjNmQrsnNpDJqd4WHvV/8lfKfUDUg==",
+      "sha256": "195a5ee9bfed7c6e9c03965950e32e5e4dbedaa02e740e5a530eb4b87dae050c"
     },
     "pngjs@7.0.0": {
       "bins": {},

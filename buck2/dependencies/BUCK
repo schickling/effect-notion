@@ -1534,10 +1534,10 @@ pnpm_package(
 )
 
 pnpm_package(
-    name = "package_playwright_test_1_61_0_ef696b52ebe8",
+    name = "package_playwright_test_1_63_0_9bc3d88e065e",
     package_name = "@playwright/test",
-    url = "https://registry.npmjs.org/@playwright/test/-/test-1.61.0.tgz",
-    sha256 = "68c29e11b748d89160346958fdaaa0ff6512cbec9ca535ed3530a026bd0561c1",
+    url = "https://registry.npmjs.org/@playwright/test/-/test-1.63.0.tgz",
+    sha256 = "fc594f36b7b4aafece614ec6852ad728423215a76edd0a2a1821bb0c49539c4e",
     bins = {
         "playwright": "cli.js",
     },
@@ -3810,15 +3810,6 @@ pnpm_package(
 )
 
 pnpm_package(
-    name = "package_fsevents_2_3_2_a34585cd8b76",
-    package_name = "fsevents",
-    url = "https://registry.npmjs.org/fsevents/-/fsevents-2.3.2.tgz",
-    sha256 = "e17ade950c193fe09adfc7915fe29ac26166c8782d00e7c3879e7e9de02c5428",
-    bins = {
-    },
-)
-
-pnpm_package(
     name = "package_fsevents_2_3_3_6dbcd7937292",
     package_name = "fsevents",
     url = "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
@@ -5025,20 +5016,20 @@ pnpm_package(
 )
 
 pnpm_package(
-    name = "package_playwright_core_1_61_0_940c3e3a7d2e",
+    name = "package_playwright_core_1_63_0_e708629117d9",
     package_name = "playwright-core",
-    url = "https://registry.npmjs.org/playwright-core/-/playwright-core-1.61.0.tgz",
-    sha256 = "b5ab14f09f3aaacdedbc2cb1431b0552cec8995fba35d841779a4ed535ce0200",
+    url = "https://registry.npmjs.org/playwright-core/-/playwright-core-1.63.0.tgz",
+    sha256 = "208593d4e1bcd8f8fe5f869cad1cc332dc7f1d70dc1d58c102dc3ac36e30f26c",
     bins = {
         "playwright-core": "cli.js",
     },
 )
 
 pnpm_package(
-    name = "package_playwright_1_61_0_443cf4572383",
+    name = "package_playwright_1_63_0_104e1ee57575",
     package_name = "playwright",
-    url = "https://registry.npmjs.org/playwright/-/playwright-1.61.0.tgz",
-    sha256 = "d3a9f26c471ed0fa28888101e2bfe25056bff3104ee4366c56524ea7c204015e",
+    url = "https://registry.npmjs.org/playwright/-/playwright-1.63.0.tgz",
+    sha256 = "195a5ee9bfed7c6e9c03965950e32e5e4dbedaa02e740e5a530eb4b87dae050c",
     bins = {
         "playwright": "cli.js",
     },
