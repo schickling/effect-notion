@@ -16,6 +16,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import type { BunPlugin } from 'bun'
 
 import { canonicalizePath } from './real-path.ts'
+import { hashDeclaredInputRoots } from './typescript-runner.ts'
 
 /** One declared Buck artifact root a package tree's symlinks may resolve into. */
 export type ClosureRoot = {
@@ -1014,6 +1015,8 @@ const runBundle = async (command: PackageCommand): Promise<void> => {
 const run = async (command: PackageCommand): Promise<void> => {
   if (command.mode === 'bundle') return runBundle(command)
 
+  const inputRoots = [command.packageTree, ...command.readRoots]
+  const before = await hashDeclaredInputRoots(inputRoots)
   const plan = planPackageLaunch({ command })
   if (command.mode === 'build-dir')
     await mkdir(plan.output ?? fail('build output is missing'), { recursive: true })
@@ -1027,6 +1030,10 @@ const run = async (command: PackageCommand): Promise<void> => {
   })
   const exitCode = await child.exited
   child = undefined
+  const after = await hashDeclaredInputRoots(inputRoots)
+  if (after !== before) {
+    fail(`declared inputs changed while ${command.entrypoint} was running`)
+  }
   if (exitCode !== 0) fail(`${command.entrypoint} exited ${exitCode}`)
   if (command.mode === 'check' || command.mode === 'native-check') {
     await writeFile(plan.output ?? fail('verdict output is missing'), 'ok\n')
