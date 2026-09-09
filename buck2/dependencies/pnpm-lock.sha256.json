@@ -554,55 +554,55 @@
       "integrity": "sha512-eSYWTm620tTk45EKSedaUL8MFYI8hW164hIXsgIHyxu3VobUB3fFCu5t0hQby6OoWRPsG1KkKUG2M5UadiLiVg==",
       "sha256": "4465839df9cf25046eacb64e37a38e7a2d033546356335190234bad60bd85d42"
     },
-    "@opentui/core-darwin-arm64@0.4.1": {
+    "@opentui/core-darwin-arm64@0.5.11": {
       "bins": {},
-      "integrity": "sha512-ocs73hj9n0zLArOTpUWIXCWU6ERThG+3wQzO78EvfaR4hb5FRrDHGKWTzXpr6ukSKsUtKdztK5XYTPsJ5e3vww==",
-      "sha256": "b0a9786c9286fb85b90fac7e7390d7a9eee5e304b45af8eba0ffddc379468d69"
+      "integrity": "sha512-DRXY5ioq+n1ZNAMAcaFaBunr0cmi2gqucjbTW7lgFp8t9uN3fNZnLTDOqkCTQtT2XhrU4GXqySaPSQ4qFG/EAQ==",
+      "sha256": "9c255c8102399586d8347d5774df977aa86abd4d0370a2ddec67a7668913a2ba"
     },
-    "@opentui/core-darwin-x64@0.4.1": {
+    "@opentui/core-darwin-x64@0.5.11": {
       "bins": {},
-      "integrity": "sha512-YogRtDBfxGeOkcSHDMsGkKFBIt3cWPMPGNu2AmEN6a5KKjDYwAZCudwbDJaUbZDCJjfAUHz9iXjhJVXJBXs9vQ==",
-      "sha256": "8373384281342512ea03687e15ffa77389b130c426deac6b237984c76e53341c"
+      "integrity": "sha512-yP/8GliJDiJNm8YYJKvgWuy6xyCEd8d4GwBVOIzCFOI7ZIbGP8GOTvmwIjRW4Paw20pTttWMWyRoQiCvOXvH2g==",
+      "sha256": "a9a7cfc48d9d02b44c2258b82c26ba8d0ecda6a195f7849fd24bb6f11e2bcaff"
     },
-    "@opentui/core-linux-arm64-musl@0.4.1": {
+    "@opentui/core-linux-arm64-musl@0.5.11": {
       "bins": {},
-      "integrity": "sha512-Eps9qB+vQ/Lel4ZYqMH87Um9oiU17Vu4oWzvRi40Yf+69vA1a3R4D7KUCeY3OxKWnRnwAHkMU9TxNnjKngPH/w==",
-      "sha256": "3677954a52410f290fd53ce5b08895cb8499fcad5cd48611d9162d7bedcb7255"
+      "integrity": "sha512-x+xeR2LYibvIi/qQetRjJR008sFRve60QuDcO8ItxUwzFeKTDzl5CEiZpBXfm5I4FhRNuyuj0TSPIFadMvrjFQ==",
+      "sha256": "a70919bba6570b18a83e86b938aa570ce6ff7c438e55dc077e6adb1e45b69637"
     },
-    "@opentui/core-linux-arm64@0.4.1": {
+    "@opentui/core-linux-arm64@0.5.11": {
       "bins": {},
-      "integrity": "sha512-sBZTS1eEGeVSQ8fAmDALKQcT7FckrhK64oHfEO7W0lJ+lXapfJuOKtTM33na54V56GAM9guk4RD4cbPeTXEh4g==",
-      "sha256": "3a1bceda9930807202488259e6d2b612a203b77bdbe7bc679f499a3fb5fda1f4"
+      "integrity": "sha512-zBIsRFHlLUYFNhapRSNt9dz4mC8gZ4Wxcfy3A+2AwqsgCipcr2FkIuAXYqN08q+IvqFX7DfqgIFGWDNedHTPUg==",
+      "sha256": "bbddef419f11e45bda0cace5ca4a71cc993cd1c1df5bf48b14dd8beda5462d76"
     },
-    "@opentui/core-linux-x64-musl@0.4.1": {
+    "@opentui/core-linux-x64-musl@0.5.11": {
       "bins": {},
-      "integrity": "sha512-UYcp8XGX4DZXN+VYUVuCrJkbFMJ0L+VUVu0t5KqqaeJ74fI4NZ+DmwNqPPg1+C+EIzoW4QChlEUdhlZRdiEQiA==",
-      "sha256": "e9bffd2300d707d82fd565b2769b2a6bfc08ad50bc005cf02c6f257dbe659759"
+      "integrity": "sha512-MyqOnSs8pTYG2xmFr1xt6xZIuHu2Xu4pkle9my9JdE+WClmusHf0YN9Eas6jQLAq5XUi34r22wMeK0juk93zyw==",
+      "sha256": "654badbf28a581daaa18d4ec08cf29ec2ec2f457c09895b9a018573ffcca9baa"
     },
-    "@opentui/core-linux-x64@0.4.1": {
+    "@opentui/core-linux-x64@0.5.11": {
       "bins": {},
-      "integrity": "sha512-9/xjYGzX5RdUl0qmGQY0OCayjJ4VffDhsBmApQdseUkMT6LGL3RumI4zPK3Y9vo1fuy6ffLnriLFOktOgutXDg==",
-      "sha256": "0fc24abdcb70a799bbb60276dd0f51ffee3c3e3f746eefdb27f6c853b3b26fbe"
+      "integrity": "sha512-pSOXqOADrv+zINOgR3FDFA9zVRaim3zl8/yhtO+X9rEJ6f34z3gDund0Gf88hNJSMpZK5xWtipEVm28RY5VF8w==",
+      "sha256": "f9c47d9b9e41995e53b948a7e3779fcc51eb44734b7d9b9b8a323f5fa100d3d4"
     },
-    "@opentui/core-win32-arm64@0.4.1": {
+    "@opentui/core-win32-arm64@0.5.11": {
       "bins": {},
-      "integrity": "sha512-hkIbpUJcKd4iLetTygPlFS45teOBTto49aXuxNeafYQUNd3ehiSwJENNBlAGULLfq+KP3dMJoWUiOcbuPVOQRA==",
-      "sha256": "2fd8f0f6a16ae6e125e9e3a1d1ca22831d912b8f2a124e2eff25e545a2f202dc"
+      "integrity": "sha512-MGGRXIDJ//HyaqC5ndSr7/CUl+ICdYEAMcjbA00UWsthh4ZO/rYhPkyqOaTn5ck6+G4ca3/+M76J+jImMYTjNg==",
+      "sha256": "66b9c6b55edbb100c057bee76a0550ab90f012def2a2b19692a7e05e7806e691"
     },
-    "@opentui/core-win32-x64@0.4.1": {
+    "@opentui/core-win32-x64@0.5.11": {
       "bins": {},
-      "integrity": "sha512-s1kGBcloy4ksl3wFCMqqOUFtXWlTTpzxe6pkLFhFhzgqKsMXHE9pwebiS3pzJkkFUxah5MYG+kbcn2Dw2Gdncg==",
-      "sha256": "791d1a5a6a28e0be14b524cc61a2e8ee4d748fc2fdbf77398d1f4f5fe690a28c"
+      "integrity": "sha512-sMEGX9rhiPd1gBa190jzj5uIdzKCMImxHmr22hJLxIRWqejxWvqGnRBkW68wT8NfMViDiMtZWavgWL7GgmYCAQ==",
+      "sha256": "b0a83b4c0330ea1e9ac8673ebac4dfba16cf02e80c3f8a2d957e5865293944a5"
     },
-    "@opentui/core@0.4.1": {
+    "@opentui/core@0.5.11": {
       "bins": {},
-      "integrity": "sha512-ejlunoFCGLcghYGdfamI/DlWHsgCTLbuoL2JeOmFuLsN+DM5phje3CQbGR4tpl24cadCgHJQFomjoQ9Htvin+Q==",
-      "sha256": "9625412aa3a52b0117e57bda9ea6637cf8474e8111f2e4be051751bd75f0cfbc"
+      "integrity": "sha512-pImMfjCNx7JUp9Df1LRZBDLisWqgzOLXZKXO+hh3jA9ujBFPQnZOqbG+/N5uVAAX8IZGaqhYSQRwSZIFBmcfbQ==",
+      "sha256": "1a56af9f1c350499b91df4c613a1990f96b8fcd95ad4bdf78559a4511a414744"
     },
-    "@opentui/react@0.4.1": {
+    "@opentui/react@0.5.11": {
       "bins": {},
-      "integrity": "sha512-hYNS8yhwVA+aGru74rtaxI81TM+rEIhMVOdooQOZRHcyVlml3inmKcI5n0Kroy4Vj4M0rCiVAPhovvqf+xfxGA==",
-      "sha256": "277c2c6b1d9f913b6b546668593e483c07a24c87359c4d6ae14dd92ab78a5d04"
+      "integrity": "sha512-ACH6Kpl3/O1zdNL0sZtzrnxfw0+auJu4eefIbPTAPuNEessyuhd2xvV4agrdWRJCeogywS7er5k7uS/8YRWnZg==",
+      "sha256": "1ea9bbd49244fc8a7af97c754654c1cf9593e186b342a2b8ae44579ce44755b7"
     },
     "@oxc-parser/binding-android-arm-eabi@0.127.0": {
       "bins": {},
@@ -1722,10 +1722,10 @@
       "integrity": "sha512-nEh+kZOPY1w+gcCMobZ6ETUp9WfibndnosbpwB1iJk/8Gt5ZF2bhS6+B6bPYz424KtwsR6Rflc3tCz1/ghX2dQ==",
       "sha256": "f73cfcb821a2cede2090673c1b533ec18fc8f82afd4e6006ffe538086abb4a2e"
     },
-    "bun-ffi-structs@0.2.3": {
+    "bun-ffi-structs@0.3.1": {
       "bins": {},
-      "integrity": "sha512-pgJiXP+hEgFo9qG51J6ItfY4ocs3vniwNzJ9WhoakB3QB2GdzQxX2EXssentPYlB2hOfJrTjO6iIQkWYzUodpg==",
-      "sha256": "13e9555e84fd596d130795fe81bce05bb64387e59441a5d7aaece7b6f621f93f"
+      "integrity": "sha512-3gM7PpVWLyrwxWjcilSiGuhWanhZivvo6l0u573NziPH6f/gwk6McbaYgn7oJWov6pKGRTDbrg94W5DcJsKTtQ==",
+      "sha256": "bfe8c37f6d3ed44e930bc3ee7f4e784324583dd9f753d7dafdd0e493a37c8350"
     },
     "bun-types@1.4.1": {
       "bins": {},

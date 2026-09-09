@@ -1021,91 +1021,91 @@ pnpm_package(
 )
 
 pnpm_package(
-    name = "package_opentui_core_darwin_arm64_0_4_1_b547ef969906",
+    name = "package_opentui_core_darwin_arm64_0_5_11_b33ab39400ed",
     package_name = "@opentui/core-darwin-arm64",
-    url = "https://registry.npmjs.org/@opentui/core-darwin-arm64/-/core-darwin-arm64-0.4.1.tgz",
-    sha256 = "b0a9786c9286fb85b90fac7e7390d7a9eee5e304b45af8eba0ffddc379468d69",
+    url = "https://registry.npmjs.org/@opentui/core-darwin-arm64/-/core-darwin-arm64-0.5.11.tgz",
+    sha256 = "9c255c8102399586d8347d5774df977aa86abd4d0370a2ddec67a7668913a2ba",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_opentui_core_darwin_x64_0_4_1_1e473020a602",
+    name = "package_opentui_core_darwin_x64_0_5_11_279b7bc4ce0d",
     package_name = "@opentui/core-darwin-x64",
-    url = "https://registry.npmjs.org/@opentui/core-darwin-x64/-/core-darwin-x64-0.4.1.tgz",
-    sha256 = "8373384281342512ea03687e15ffa77389b130c426deac6b237984c76e53341c",
+    url = "https://registry.npmjs.org/@opentui/core-darwin-x64/-/core-darwin-x64-0.5.11.tgz",
+    sha256 = "a9a7cfc48d9d02b44c2258b82c26ba8d0ecda6a195f7849fd24bb6f11e2bcaff",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_opentui_core_linux_arm64_musl_0_4_1_1c8023deecaf",
+    name = "package_opentui_core_linux_arm64_musl_0_5_11_dff8a32879b5",
     package_name = "@opentui/core-linux-arm64-musl",
-    url = "https://registry.npmjs.org/@opentui/core-linux-arm64-musl/-/core-linux-arm64-musl-0.4.1.tgz",
-    sha256 = "3677954a52410f290fd53ce5b08895cb8499fcad5cd48611d9162d7bedcb7255",
+    url = "https://registry.npmjs.org/@opentui/core-linux-arm64-musl/-/core-linux-arm64-musl-0.5.11.tgz",
+    sha256 = "a70919bba6570b18a83e86b938aa570ce6ff7c438e55dc077e6adb1e45b69637",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_opentui_core_linux_arm64_0_4_1_022e0e1eae75",
+    name = "package_opentui_core_linux_arm64_0_5_11_c1c63b0c0df3",
     package_name = "@opentui/core-linux-arm64",
-    url = "https://registry.npmjs.org/@opentui/core-linux-arm64/-/core-linux-arm64-0.4.1.tgz",
-    sha256 = "3a1bceda9930807202488259e6d2b612a203b77bdbe7bc679f499a3fb5fda1f4",
+    url = "https://registry.npmjs.org/@opentui/core-linux-arm64/-/core-linux-arm64-0.5.11.tgz",
+    sha256 = "bbddef419f11e45bda0cace5ca4a71cc993cd1c1df5bf48b14dd8beda5462d76",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_opentui_core_linux_x64_musl_0_4_1_545c5921515f",
+    name = "package_opentui_core_linux_x64_musl_0_5_11_80fd54c0c65d",
     package_name = "@opentui/core-linux-x64-musl",
-    url = "https://registry.npmjs.org/@opentui/core-linux-x64-musl/-/core-linux-x64-musl-0.4.1.tgz",
-    sha256 = "e9bffd2300d707d82fd565b2769b2a6bfc08ad50bc005cf02c6f257dbe659759",
+    url = "https://registry.npmjs.org/@opentui/core-linux-x64-musl/-/core-linux-x64-musl-0.5.11.tgz",
+    sha256 = "654badbf28a581daaa18d4ec08cf29ec2ec2f457c09895b9a018573ffcca9baa",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_opentui_core_linux_x64_0_4_1_f54286b15ba6",
+    name = "package_opentui_core_linux_x64_0_5_11_7bd266afe6f5",
     package_name = "@opentui/core-linux-x64",
-    url = "https://registry.npmjs.org/@opentui/core-linux-x64/-/core-linux-x64-0.4.1.tgz",
-    sha256 = "0fc24abdcb70a799bbb60276dd0f51ffee3c3e3f746eefdb27f6c853b3b26fbe",
+    url = "https://registry.npmjs.org/@opentui/core-linux-x64/-/core-linux-x64-0.5.11.tgz",
+    sha256 = "f9c47d9b9e41995e53b948a7e3779fcc51eb44734b7d9b9b8a323f5fa100d3d4",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_opentui_core_win32_arm64_0_4_1_427db35d298b",
+    name = "package_opentui_core_win32_arm64_0_5_11_d619858821de",
     package_name = "@opentui/core-win32-arm64",
-    url = "https://registry.npmjs.org/@opentui/core-win32-arm64/-/core-win32-arm64-0.4.1.tgz",
-    sha256 = "2fd8f0f6a16ae6e125e9e3a1d1ca22831d912b8f2a124e2eff25e545a2f202dc",
+    url = "https://registry.npmjs.org/@opentui/core-win32-arm64/-/core-win32-arm64-0.5.11.tgz",
+    sha256 = "66b9c6b55edbb100c057bee76a0550ab90f012def2a2b19692a7e05e7806e691",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_opentui_core_win32_x64_0_4_1_9a38d287cf96",
+    name = "package_opentui_core_win32_x64_0_5_11_be130e89d866",
     package_name = "@opentui/core-win32-x64",
-    url = "https://registry.npmjs.org/@opentui/core-win32-x64/-/core-win32-x64-0.4.1.tgz",
-    sha256 = "791d1a5a6a28e0be14b524cc61a2e8ee4d748fc2fdbf77398d1f4f5fe690a28c",
+    url = "https://registry.npmjs.org/@opentui/core-win32-x64/-/core-win32-x64-0.5.11.tgz",
+    sha256 = "b0a83b4c0330ea1e9ac8673ebac4dfba16cf02e80c3f8a2d957e5865293944a5",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_opentui_core_0_4_1_bf56196a80ff",
+    name = "package_opentui_core_0_5_11_520f91ec2257",
     package_name = "@opentui/core",
-    url = "https://registry.npmjs.org/@opentui/core/-/core-0.4.1.tgz",
-    sha256 = "9625412aa3a52b0117e57bda9ea6637cf8474e8111f2e4be051751bd75f0cfbc",
+    url = "https://registry.npmjs.org/@opentui/core/-/core-0.5.11.tgz",
+    sha256 = "1a56af9f1c350499b91df4c613a1990f96b8fcd95ad4bdf78559a4511a414744",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_opentui_react_0_4_1_4528d8532b25",
+    name = "package_opentui_react_0_5_11_f97ba836b99a",
     package_name = "@opentui/react",
-    url = "https://registry.npmjs.org/@opentui/react/-/react-0.4.1.tgz",
-    sha256 = "277c2c6b1d9f913b6b546668593e483c07a24c87359c4d6ae14dd92ab78a5d04",
+    url = "https://registry.npmjs.org/@opentui/react/-/react-0.5.11.tgz",
+    sha256 = "1ea9bbd49244fc8a7af97c754654c1cf9593e186b342a2b8ae44579ce44755b7",
     bins = {
     },
 )
@@ -3113,10 +3113,10 @@ pnpm_package(
 )
 
 pnpm_package(
-    name = "package_bun_ffi_structs_0_2_3_f507193d3613",
+    name = "package_bun_ffi_structs_0_3_1_b795c25b36d8",
     package_name = "bun-ffi-structs",
-    url = "https://registry.npmjs.org/bun-ffi-structs/-/bun-ffi-structs-0.2.3.tgz",
-    sha256 = "13e9555e84fd596d130795fe81bce05bb64387e59441a5d7aaece7b6f621f93f",
+    url = "https://registry.npmjs.org/bun-ffi-structs/-/bun-ffi-structs-0.3.1.tgz",
+    sha256 = "bfe8c37f6d3ed44e930bc3ee7f4e784324583dd9f753d7dafdd0e493a37c8350",
     bins = {
     },
 )
