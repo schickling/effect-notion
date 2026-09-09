@@ -63,6 +63,7 @@ filegroup(
     name = "package_command_runtime",
     srcs = {
         "package-command-runner.ts": "packages/@overeng/buck2-tools/src/package-command-runner.ts",
+        "typescript-runner.ts": "packages/@overeng/buck2-tools/src/typescript-runner.ts",
         "real-path.ts": "packages/@overeng/buck2-tools/src/real-path.ts",
     },
     visibility = ["PUBLIC"],
