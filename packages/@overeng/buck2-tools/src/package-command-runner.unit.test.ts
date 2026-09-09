@@ -380,7 +380,7 @@ describe('post-build portability assertions', () => {
   })
 
   it('accepts lexical and canonical spellings of a symlinked build root', () => {
-    const canonicalRoot = scratch('portable-canonical-')
+    const canonicalRoot = realpathSync(scratch('portable-canonical-'))
     const aliasParent = scratch('portable-alias-')
     const root = join(aliasParent, 'root')
     symlinkSync(canonicalRoot, root, 'dir')
@@ -394,7 +394,7 @@ describe('post-build portability assertions', () => {
   })
 
   it('rejects residual lexical and canonical build-root spellings', () => {
-    const canonicalRoot = scratch('portable-canonical-')
+    const canonicalRoot = realpathSync(scratch('portable-canonical-'))
     const aliasParent = scratch('portable-alias-')
     const root = join(aliasParent, 'root')
     symlinkSync(canonicalRoot, root, 'dir')

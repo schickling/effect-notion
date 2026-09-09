@@ -377,9 +377,11 @@ describe('editor view publisher', () => {
       const backingRoot = join(fixture.root, 'inputs', 'store-entry')
       mkdirSync(join(backingRoot, 'dep'), { recursive: true })
       writeFileSync(join(backingRoot, 'dep', 'index.js'), 'export default "external"\n')
+      const backingAlias = join(fixture.root, 'inputs', 'store-entry-alias')
+      symlinkSync(backingRoot, backingAlias, 'dir')
       const linkedView = join(fixture.root, 'inputs', 'node_modules-linked')
       mkdirSync(linkedView)
-      symlinkSync(join(backingRoot, 'dep'), join(linkedView, 'dep'))
+      symlinkSync(join(backingAlias, 'dep'), join(linkedView, 'dep'))
 
       await expect(
         publishEditorView({ ...fixture.options, nodeModules: linkedView }),
