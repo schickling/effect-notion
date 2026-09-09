@@ -3,7 +3,10 @@ import { Buffer } from 'node:buffer'
 import { buck2TypeScriptAdmission as ciToolsAdmission } from '../../packages/@overeng/ci-tools/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as contentAddressAdmission } from '../../packages/@overeng/content-address/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as effectDistributedLockAdmission } from '../../packages/@overeng/effect-distributed-lock/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as effectPathAdmission } from '../../packages/@overeng/effect-path/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as genieAdmission } from '../../packages/@overeng/genie/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as kdlEffectAdmission } from '../../packages/@overeng/kdl-effect/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as kdlAdmission } from '../../packages/@overeng/kdl/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as megarepoAdmission } from '../../packages/@overeng/megarepo/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as notionCliAdmission } from '../../packages/@overeng/notion-cli/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as notionCoreAdmission } from '../../packages/@overeng/notion-core/BUCK.genie.ts'
@@ -47,7 +50,10 @@ export const buck2TypeScriptAdmissions = {
   ciTools: ciToolsAdmission,
   contentAddress: contentAddressAdmission,
   effectDistributedLock: effectDistributedLockAdmission,
+  effectPath: effectPathAdmission,
   genie: genieAdmission,
+  kdl: kdlAdmission,
+  kdlEffect: kdlEffectAdmission,
   megarepo: megarepoAdmission,
   notionCli: notionCliAdmission,
   notionCore: notionCoreAdmission,
