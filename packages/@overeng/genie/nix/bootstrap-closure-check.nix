@@ -19,7 +19,7 @@ let
       or (throw "packages/@overeng/genie/package.json must declare dependencies.typescript");
   typescriptTarball = pkgs.fetchurl {
     url = "https://registry.npmjs.org/typescript/-/typescript-${typescriptVersion}.tgz";
-    hash = "sha256-M80O4b6qjJ6dFanag2xi3epMNKQtfC00nbyA2UFl0io=";
+    hash = "sha256-2iUT9LlRdtbd6LUaq3r+ipJ2VsnSdzaXk/d/flk3HAg=";
   };
   typescriptNodeModule =
     pkgs.runCommand "typescript-${typescriptVersion}-node-module"
@@ -40,6 +40,7 @@ let
     "packages/@overeng/genie/src/core/phase.ts"
     "packages/@overeng/genie/src/runtime/node/bootstrap-closure.ts"
     "packages/@overeng/genie/src/runtime/node/bootstrap-closure-check-cli.ts"
+    "packages/@overeng/genie/src/runtime/node/ts-api.ts"
   ];
 in
 pkgs.stdenvNoCC.mkDerivation {
