@@ -56,6 +56,18 @@ filegroup(
     visibility = ["PUBLIC"],
 )
 
+# Package command actions execute this runner beside its only relative import.
+# The rules address the entry inside this declared tree rather than reaching
+# back into the source checkout.
+filegroup(
+    name = "package_command_runtime",
+    srcs = {
+        "package-command-runner.ts": "packages/@overeng/buck2-tools/src/package-command-runner.ts",
+        "real-path.ts": "packages/@overeng/buck2-tools/src/real-path.ts",
+    },
+    visibility = ["PUBLIC"],
+)
+
 # Hermetic TypeScript actions execute this source with their pinned Bun runtime.
 # Single-file staging: this runner must import nothing relative.
 export_file(

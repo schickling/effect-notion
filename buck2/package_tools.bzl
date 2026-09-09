@@ -34,13 +34,19 @@ def _relative(value, field):
         if part in ["", ".", ".."]:
             fail("{} must be a normalized relative path: {}".format(field, value))
 
+def _runner(ctx):
+    return cmd_args(
+        ctx.attrs._runner[DefaultInfo].default_outputs[0],
+        format = "{}/package-command-runner.ts",
+    )
+
 
 def _runner_args(ctx, mode, output = None):
     package_tree = ctx.attrs.package_tree[PackageTreeInfo]
     toolchain = ctx.attrs._bun[BunToolchainInfo]
     args = cmd_args([
         toolchain.executable,
-        ctx.attrs._runner,
+        _runner(ctx),
         mode,
         toolchain.executable,
         package_tree.tree,
@@ -97,8 +103,9 @@ package_bin_check = rule(
             default = "//buck2/toolchains:bun",
             providers = [BunToolchainInfo],
         )),
-        "_runner": attrs.default_only(attrs.source(
-            default = "//packages/@overeng/buck2-tools:src/package-command-runner.ts",
+        "_runner": attrs.default_only(attrs.dep(
+            default = "//:package_command_runtime",
+            providers = [DefaultInfo],
         )),
     },
 )
@@ -129,8 +136,9 @@ package_bin_build = rule(
             default = "//buck2/toolchains:bun",
             providers = [BunToolchainInfo],
         )),
-        "_runner": attrs.default_only(attrs.source(
-            default = "//packages/@overeng/buck2-tools:src/package-command-runner.ts",
+        "_runner": attrs.default_only(attrs.dep(
+            default = "//:package_command_runtime",
+            providers = [DefaultInfo],
         )),
     },
 )
@@ -185,8 +193,9 @@ package_bin = rule(
             default = "//buck2/toolchains:bun",
             providers = [BunToolchainInfo],
         )),
-        "_runner": attrs.default_only(attrs.source(
-            default = "//packages/@overeng/buck2-tools:src/package-command-runner.ts",
+        "_runner": attrs.default_only(attrs.dep(
+            default = "//:package_command_runtime",
+            providers = [DefaultInfo],
         )),
     },
 )
@@ -211,7 +220,7 @@ def _package_bundle_impl(ctx):
     target_identity = "{}//{}:{}".format(ctx.label.cell, ctx.label.package, ctx.label.name)
     args = cmd_args([
         toolchain.executable,
-        ctx.attrs._runner,
+        _runner(ctx),
         "bundle",
         toolchain.executable,
         package_tree.tree,
@@ -278,8 +287,9 @@ _package_bin_artifact = rule(
             default = "//buck2/dependencies:platform_gated_packages",
             providers = [PnpmPlatformGatedPackagesInfo],
         )),
-        "_runner": attrs.default_only(attrs.source(
-            default = "//packages/@overeng/buck2-tools:src/package-command-runner.ts",
+        "_runner": attrs.default_only(attrs.dep(
+            default = "//:package_command_runtime",
+            providers = [DefaultInfo],
         )),
     },
 )

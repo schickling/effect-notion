@@ -18,9 +18,15 @@ def _validate_product_name(value):
     allowed = alphanumeric + "._+-"
     if value[0] not in alphanumeric:
         fail("javascript_product product_name must start with an ASCII letter or digit")
-    for character in value:
+    for character in value.elems():
         if character not in allowed:
             fail("javascript_product product_name contains an unsupported character: {}".format(character))
+
+def _runner(ctx):
+    return cmd_args(
+        ctx.attrs._runner[DefaultInfo].default_outputs[0],
+        format = "{}/package-command-runner.ts",
+    )
 
 
 def _javascript_product_impl(ctx):
@@ -30,7 +36,7 @@ def _javascript_product_impl(ctx):
     toolchain = ctx.attrs._bun[BunToolchainInfo]
     args = cmd_args([
         toolchain.executable,
-        ctx.attrs._runner,
+        _runner(ctx),
         "product-descriptor",
         "--descriptor",
         descriptor.as_output(),
@@ -71,8 +77,9 @@ _javascript_product = rule(
             default = "//buck2/toolchains:bun",
             providers = [BunToolchainInfo],
         )),
-        "_runner": attrs.default_only(attrs.source(
-            default = "//packages/@overeng/buck2-tools:src/package-command-runner.ts",
+        "_runner": attrs.default_only(attrs.dep(
+            default = "//:package_command_runtime",
+            providers = [DefaultInfo],
         )),
     },
 )
