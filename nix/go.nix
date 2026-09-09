@@ -16,20 +16,20 @@
 # linked, so they run unmodified on NixOS and nothing rewrites the tree.
 let
   release = {
-    version = "1.26.5";
+    version = "1.27.1";
     baseUrl = "https://go.dev/dl";
     platforms = {
       x86_64-linux = {
         goPlatform = "linux-amd64";
-        hash = "sha256-XCw7FsrvodloqUwdrKBKfKMBpJbZsIbhetd7uBOT8FM=";
+        hash = "sha256-Y9M58NpatTY1pW8kkKeYTf4S38/yKtdJ9j7a9ZAWhEU=";
       };
       aarch64-linux = {
         goPlatform = "linux-arm64";
-        hash = "sha256-/keJ6SsfMzWGgIZLvocEKJ57tfwgfYBiPDCJNb1pbUk=";
+        hash = "sha256-NFC0Wj+e6FaHknNqXF5wofLps2w1qPdJWMA+UdfZK+w=";
       };
       aarch64-darwin = {
         goPlatform = "darwin-arm64";
-        hash = "sha256-77h/8or5oYjQU2711C5j3VK6gmPNc0Spk8xI3RHe22o=";
+        hash = "sha256-7iFdV+DsJpxgzJzspo5r2jIbqe5a/iT0sJiHA8LYfRI=";
       };
     };
   };
