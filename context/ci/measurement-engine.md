@@ -1,7 +1,7 @@
 # CI Measurement Engine
 
 This document specifies the reusable CI measurement engine. It builds on
-[ci-measurements.md](./ci-measurements.md).
+[measurements.md](./measurements.md).
 
 ## Status
 
@@ -146,9 +146,10 @@ This keeps the merge contract under our control while still allowing the best
 external system to own trend visualization or specialized microbenchmarking.
 
 The Bencher experiment in
-[ci-measurement-experiments.md](./ci-measurement-experiments.md) confirms this
-boundary: Bencher is useful for historical storage and scalar threshold alerts,
-but it does not natively gate on same-run paired base/head evidence.
+[.experiments/0001-bencher-evaluation.md](./.experiments/0001-bencher-evaluation.md)
+confirms this boundary: Bencher is useful for historical storage and scalar
+threshold alerts, but it does not natively gate on same-run paired base/head
+evidence.
 
 ## Rollout
 

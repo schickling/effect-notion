@@ -15,7 +15,7 @@ This spec defines:
 - the single-publisher write-coordination primitives.
 
 It does not define the CI measurement architecture (see
-[../../ci-measurements.md](../../ci-measurements.md)) or non-CI store traits
+[../../ci/measurements.md](../../ci/measurements.md)) or non-CI store traits
 (see [../04-store-authority/spec.md](../04-store-authority/spec.md)).
 
 ## Requirement Trace

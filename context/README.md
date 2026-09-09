@@ -18,12 +18,8 @@ implementation details.
   observability contracts
 - [content-address/](./content-address/) - VRS for reusable
   content-addressed descriptors, stores, resolvers, and artifact URIs
-- [CI Measurements](./ci-measurements.md) - measurement classes, evidence
-  contracts, gate semantics, and lane cadence
-- [CI Measurement Engine](./ci-measurement-engine.md) - typed engine boundary,
-  commands, schemas, and adoption state
-- [CI Measurement Experiments](./ci-measurement-experiments.md) - experiment
-  records and rejected approaches
+- [ci/](./ci/) - repository-local CI VRS for semantic event admission,
+  required checks, generated authority, measurement cadence, and experiments
 - [effect/](./effect/) - Effect socket examples and related package files
 - [opentui/](./opentui/) - OpenTUI integration example
 - [npm-release/](./npm-release/) - VRS for verifying that an npm registry

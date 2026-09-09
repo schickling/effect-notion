@@ -41,7 +41,7 @@ import {
   withCiSourceRoot,
   defaultRefPolicyCheckJob,
 } from '../../genie/ci-workflow.ts'
-import { type CoreCIJobName, perfLaneLabel } from '../../genie/ci.ts'
+import { type CoreCIJobName } from '../../genie/ci.ts'
 import { type GitHubWorkflowArgs } from '../../packages/@overeng/genie/src/runtime/mod.ts'
 
 const workflowReportFlakeRef =
@@ -290,45 +290,30 @@ const nixDiagnosticsSummaryStep = {
 const jobTimeoutMinutes = 30
 
 /**
- * The `labeled` pull-request activity type exists only so `ci:perf` can opt one pull
- * request into the paired wall-clock lane. It does not change the commit under test, so
- * every other lane ignores it — a label must never re-run product CI or duplicate a
- * measurement artifact for a SHA that was already measured.
- */
-const notPerfLabelEventIf =
-  "!(github.event_name == 'pull_request' && github.event.action == 'labeled')"
-
-/**
- * `schedule` exists only for the nightly measurement snapshot of `main`: the paired
- * `devenv-perf` lane, the two deterministic measurement lanes, and the aggregate report.
+ * `schedule` exists only for the nightly deterministic measurement snapshot of
+ * `main`: the two deterministic measurement lanes and the aggregate report.
  * Product lanes carry this guard so a cron never re-runs the product matrix.
  */
 const notNightlyMeasurementIf = "github.event_name != 'schedule'"
 
-const normalCiIf = `\${{ (${ciMeasurementNotBaselineBackfillPredicate}) && ${notNightlyMeasurementIf} && ${notPerfLabelEventIf} }}`
+const normalCiIf = `\${{ (${ciMeasurementNotBaselineBackfillPredicate}) && ${notNightlyMeasurementIf} }}`
 const trustedSecretCiIf = `\${{ (${ciMeasurementNotBaselineBackfillPredicate}) && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}`
 
-/** Deterministic measurement lanes: like `normalCiIf`, but they also feed the nightly snapshot. */
-const measurementLaneIf = `\${{ (${ciMeasurementNotBaselineBackfillPredicate}) && ${notPerfLabelEventIf} }}`
+/** Deterministic measurement lanes also feed the nightly snapshot. */
+const measurementLaneIf = `\${{ ${ciMeasurementNotBaselineBackfillPredicate} }}`
 
 /**
- * `source-shape` also produces the subject artifact for a measurement baseline backfill,
- * so unlike the other measurement lanes it keeps the backfill dispatch path.
+ * The paired wall-clock lane runs only when explicitly requested by an operator.
+ * It stays outside automatic PR, push, and scheduled cadence because its advisory
+ * evidence does not affect those events' outcomes.
  */
-const sourceShapeLaneIf = `\${{ ${notPerfLabelEventIf} }}`
+const devenvPerfLaneIf = `\${{ github.event_name == 'workflow_dispatch' }}`
 
 /**
- * The paired wall-clock lane. Nightly trend telemetry on `main`, an operator dispatch
- * (including a measurement baseline backfill), or a pull request that carries `ci:perf`.
- * Deliberately not on every push: 35 advisory minutes per run bought nothing that a
- * targeted per-admission probe plus a daily trend series does not.
- */
-const devenvPerfLaneIf = `\${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, '${perfLaneLabel}')) }}`
-
-/**
- * The report aggregates whichever measurement lanes ran on `main`: all three nightly, the
- * two deterministic ones on a push. A skipped `devenv-perf` must not skip the report, so
- * the condition inspects `needs` results instead of relying on implicit success.
+ * The report aggregates whichever measurement lanes ran on `main`: the two
+ * deterministic lanes on push/schedule, and all three lanes on dispatch. A
+ * skipped `devenv-perf` must not skip the report, so the condition inspects
+ * `needs` results instead of relying on implicit success.
  */
 const measurementReportIf = [
   '${{ !cancelled()',
@@ -813,7 +798,6 @@ const extraJobs: Record<string, any> = {
   },
   // Checkout exemption: source-shape measures actions-checkout bytes only; it runs no devenv/Buck.
   'source-shape': {
-    if: sourceShapeLaneIf,
     'runs-on': namespaceRunner({
       profile: 'namespace-profile-linux-x86-64',
       runId: '${{ github.run_id }}',
@@ -898,9 +882,9 @@ const extraJobs: Record<string, any> = {
       downloadPreviousGitHubArtifactStep({
         artifactName: 'devenv-perf',
         outputDir: `${ciMeasurementReportDir}/baseline/devenv-perf`,
-        // The paired lane's trend series is the nightly `schedule` run, so a `push` scan
-        // would burn its whole candidate budget on runs that never carried the artifact.
-        candidateEvents: ['schedule'],
+        // The paired lane's trend series now comes from explicit dispatches, so a
+        // schedule scan would only consume candidates that cannot carry the artifact.
+        candidateEvents: ['workflow_dispatch'],
         maxRuns: 20,
       }),
       downloadPreviousGitHubArtifactStep({
@@ -1104,14 +1088,10 @@ export default ciWorkflow({
   name: 'CI',
   on: {
     push: { branches: ['main'] },
-    // `labeled` is present only so applying `ci:perf` materializes the paired
-    // wall-clock lane for a pull request that is already open; every other lane
-    // guards against label events because they do not change the commit under test.
-    pull_request: { types: ['opened', 'reopened', 'synchronize', 'labeled'] },
-    // Nightly measurement snapshot of `main` (03:17 UTC): the paired `devenv-perf`
-    // lane, the two deterministic measurement lanes, and `ci/measurements-report`.
-    // This is the trend series the report compares against, and the only cadence on
-    // which the 35-minute paired lane is paid.
+    pull_request: { types: ['opened', 'reopened', 'synchronize'] },
+    // Nightly deterministic measurement snapshot of `main` (03:17 UTC):
+    // `nix-closure-sizes`, `source-shape`, and `ci/measurements-report`.
+    // Product lanes and the dispatch-only `devenv-perf` lane do not run.
     schedule: [{ cron: '17 3 * * *' }],
     workflow_dispatch: {
       inputs: {

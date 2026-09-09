@@ -39,8 +39,17 @@ const generatedCiWorkflowYamlSource = readFileSync(
   new URL(['../../../../../../.github/workflows', 'ci.yml'].join('/'), import.meta.url),
   'utf8',
 )
+const generatedCiWorkflowTriggers = generatedCiWorkflowYamlSource.split('\njobs:\n')[0] ?? ''
 const generatedAutoReviewWorkflowYamlSource = readFileSync(
   new URL(['../../../../../../.github/workflows', 'auto-review.yml'].join('/'), import.meta.url),
+  'utf8',
+)
+const generatedLabelsSource = readFileSync(
+  new URL(['../../../../../../.github', 'labels.json.genie.ts'].join('/'), import.meta.url),
+  'utf8',
+)
+const generatedLabelsJsonSource = readFileSync(
+  new URL(['../../../../../../.github', 'labels.json'].join('/'), import.meta.url),
   'utf8',
 )
 const generatedRepoSettings = JSON.parse(
@@ -124,9 +133,9 @@ const generatedCiJobKeys = Array.from(
 ).filter((jobKey): jobKey is string => jobKey !== undefined)
 
 const advisoryCheckContexts = new Set(['ci/measurements-report', 'notify-alignment'])
-// Opt-in lanes (see OPT_IN_CI_JOB_NAMES in genie/ci.ts) are non-advisory but do not run on
-// every pull request, so branch protection cannot require them: a skipped lane reports no
-// check run at all and a required-but-absent context would wait forever.
+// Dispatch-only lanes (see OPT_IN_CI_JOB_NAMES in genie/ci.ts) are non-advisory but do
+// not run on every pull request, so branch protection cannot require them: an absent lane
+// produces no check run and a required-but-absent context would wait forever.
 const optInCheckContexts = new Set(['devenv-perf'])
 const mainOnlyCheckContexts: Record<string, true> = {
   'test-integration-notion': true,
@@ -238,6 +247,24 @@ describe('pull request control-event workflows', () => {
     expect(generatedAutoReviewWorkflowYamlSource).toContain(
       "      - name: Request review from schickling\n        if: github.event.pull_request.user.login == 'schickling-assistant' && github.event.pull_request.draft == false",
     )
+  })
+
+  it('admits only revision-changing pull request events', () => {
+    expect(generatedCiWorkflowYamlSource).toContain(
+      '  pull_request:\n    types: [opened, reopened, synchronize]',
+    )
+    expect(generatedCiWorkflowTriggers).not.toContain('labeled')
+    expect(generatedWorkflowSource).not.toContain('notPerfLabelEventIf')
+  })
+
+  it('runs devenv-perf only for explicit dispatch without label coupling', () => {
+    expect(generatedDevenvPerfJob).toContain("if: ${{ github.event_name == 'workflow_dispatch' }}")
+    expect(generatedDevenvPerfJob).not.toContain("github.event_name == 'schedule'")
+    expect(generatedWorkflowSource).not.toContain('perfLaneLabel')
+    expect(generatedWorkflowSource).not.toContain('ci:perf')
+    expect(generatedLabelsSource).not.toContain('ci:perf')
+    expect(generatedLabelsJsonSource).not.toContain('ci:perf')
+    expect(generatedCiWorkflowYamlSource).toContain('BASELINE_CANDIDATE_EVENTS: workflow_dispatch')
   })
 })
 

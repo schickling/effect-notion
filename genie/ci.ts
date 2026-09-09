@@ -62,20 +62,10 @@ export const MAIN_ONLY_CI_JOB_NAMES = [
  * These cannot be required status checks: a lane that is skipped reports no check run at
  * all, so branch protection would wait for a status that never arrives.
  *
- * `devenv-perf` is the paired wall-clock lane. It is trend telemetry on a nightly cadence
- * against `main` plus an opt-in `ci:perf` label for a pull request that needs the numbers
- * before merge, because a 35-minute advisory measurement is not worth paying on every push.
+ * `devenv-perf` is the paired wall-clock lane. Its cost is paid only for an explicit
+ * operator `workflow_dispatch`.
  */
 export const OPT_IN_CI_JOB_NAMES = ['devenv-perf'] as const
-
-/**
- * Pull-request label that opts one pull request into the `devenv-perf` lane.
- *
- * A maintainer-managed, revocable CI capability grant in the `ci:*` axis, repo-local
- * because only this repository has the lane. The workflow trigger and the label catalog
- * must agree on the exact string, so both read it from here.
- */
-export const perfLaneLabel = 'ci:perf'
 
 /** Workflow jobs that intentionally do not block merging. */
 export const advisoryCIJobNames = ['ci-measurements-report', 'notify-alignment'] as const
