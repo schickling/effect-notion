@@ -55,7 +55,7 @@ jq -e --argjson expected "$expected_names" '
   all(
     .releases | to_entries[];
     .key as $product |
-    (.value.tag | sub("^buck2-product-\($product)-"; "")) as $digest |
+    (.value.tag | sub("^buck2-product-v2-\($product)-"; "")) as $digest |
     ($digest | test("^[0-9a-f]{64}$")) and
     (.value.name | startswith("\($digest)-")) and
     .value.url == "https://github.com/overengineeringstudio/effect-utils/releases/download/\(.value.tag)/\(.value.name)"
@@ -211,4 +211,561 @@ if grep -E '(^|[[:space:]])set[[:space:]]+-[^[:space:]]*x' "$publisher" >/dev/nu
 fi
 cmp "$repo_root/nix/buck2-products/manifest.json" "$tmp/manifest.before.json"
 echo "buck2-release-products-test: publisher dry-run/refusal OK"
+
+# Mocked live publication. Real hashing tools, fake Buck/Git/Nix and a stateful
+# fake GitHub that records every API call. These cases pin the publication
+# boundary: a pre-publication failure must delete the draft GitHub still
+# reports as a draft, any post-publication failure must never issue a DELETE
+# (deleting a published immutable release burns its tag forever), and a rerun
+# must verify and reuse an already published release instead of touching it.
+live="$tmp/live"
+mkdir -p "$live/bin" "$live/build"
+real_nix="$(command -v nix)"
+printf '{}\n' >"$live/outputs.json"
+
+# Each product is materialized once: real bytes, a real digest, a real v2
+# descriptor, a real inventory entry and a Buck output mapping. Scenarios then
+# compose inventories from these products, so partially published multi-product
+# runs are testable.
+declare -A live_tag=() live_asset=() live_module=()
+live_add_product() {
+  local name="$1" module_path="$2" body="$3"
+  local target="root//live:$name"
+  local module="$live/build/$module_path"
+  printf '%s\n' "$body" >"$module"
+  local size sha sri descriptor descriptor_sha tag asset
+  size="$(stat -c '%s' "$module")"
+  sha="$(sha256sum "$module")"
+  sha="${sha%% *}"
+  sri="$(nix hash convert --hash-algo sha256 --to sri "$sha")"
+  descriptor="$live/build/$name.product.json"
+  jq -nS \
+    --arg name "$name" \
+    --arg target "$target" \
+    --arg modulePath "$module_path" \
+    --arg integrity "$sri" \
+    --argjson sizeBytes "$size" \
+    '{
+       externalCapabilities: [],
+       externalModules: [],
+       integrity: $integrity,
+       modulePath: $modulePath,
+       platform: { abi: "any", architecture: "any", os: "any" },
+       productKind: "cli",
+       productName: $name,
+       provenance: {
+         configuredTarget: ($target + " (live-test-cfg)"),
+         dependencyClosureIdentity: "live-test-closure",
+         module: "live-test-module"
+       },
+       runtimeContract: "javascript-esm",
+       runtimeContractVersion: "v1",
+       runtimeKind: "bun",
+       schema: "effect-utils/javascript-product/v2",
+       sizeBytes: $sizeBytes,
+       target: $target
+     }' >"$descriptor"
+  descriptor_sha="$(jq -cS . "$descriptor" | tr -d '\n' | sha256sum)"
+  descriptor_sha="${descriptor_sha%% *}"
+  tag="buck2-product-v2-$name-$sha"
+  asset="$sha-$module_path"
+  jq -nS \
+    --slurpfile descriptor "$descriptor" \
+    --arg descriptorSha256 "$descriptor_sha" \
+    --arg tag "$tag" \
+    --arg name "$asset" \
+    --arg hash "$sri" \
+    '{
+       descriptor: $descriptor[0],
+       descriptorSha256: $descriptorSha256,
+       release: {
+         tag: $tag,
+         name: $name,
+         url: ("https://github.com/overengineeringstudio/effect-utils/releases/download/" + $tag + "/" + $name),
+         hash: $hash
+       }
+     }' >"$live/entry-$name.json"
+  jq --arg target "$target" --arg module "$module" --arg descriptor "$descriptor" \
+    '.[$target] = $module | .[$target + "[descriptor]"] = $descriptor' \
+    "$live/outputs.json" >"$live/outputs.next.json"
+  mv "$live/outputs.next.json" "$live/outputs.json"
+  live_tag["$name"]="$tag"
+  live_asset["$name"]="$asset"
+  live_module["$name"]="$module"
+}
+
+live_inventory() {
+  local path="$1"
+  shift
+  local name
+  local -a entries=()
+  for name in "$@"; do
+    entries+=("$live/entry-$name.json")
+  done
+  jq -sS '{schema:"effect-utils/buck2-release-products/v1",products:.}' "${entries[@]}" >"$path"
+}
+
+live_add_product live-product live-product.mjs 'export const liveProduct = "live";'
+live_add_product live-second live-second.mjs 'export const liveSecond = "second";'
+live_expected_tag="${live_tag[live-product]}"
+live_expected_asset="${live_asset[live-product]}"
+live_inventory "$live/inventory.json" live-product
+live_inventory "$live/inventory-both.json" live-product live-second
+
+cat >"$live/bin/buck2" <<EOF
+#!/usr/bin/env bash
+set -uo pipefail
+for arg in "\$@"; do
+  case "\$arg" in
+    build|--show-full-output) continue ;;
+  esac
+  path="\$(jq -r --arg target "\$arg" '.[\$target] // empty' '$live/outputs.json')"
+  [[ -n "\$path" ]] || exit 96
+  printf '%s %s\n' "\$arg" "\$path"
+done
+EOF
+chmod +x "$live/bin/buck2"
+
+# Clean, stable worktree identity: the publication-boundary cases under test
+# must not be preempted by this checkout's real Git state.
+cat >"$live/bin/git" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in
+  *rev-parse*) printf '%040d\n' 1 ;;
+  *status*) : ;;
+  *) exit 97 ;;
+esac
+EOF
+chmod +x "$live/bin/git"
+
+# Real hashing, mocked realization: these cases exercise the publication
+# boundary, not Nix evaluation, and no scenario may reach the network.
+cat >"$live/bin/nix" <<EOF
+#!/usr/bin/env bash
+set -uo pipefail
+case "\${1:-}" in
+  hash) exec '$real_nix' "\$@" ;;
+  build)
+    paths="\${GH_FAKE_STATE:-}/realized-paths"
+    [[ -f "\$paths" ]] || exit 96
+    cat "\$paths"
+    ;;
+  *)
+    printf 'nix stub: unexpected invocation: %s\n' "\$*" >&2
+    exit 96
+    ;;
+esac
+EOF
+chmod +x "$live/bin/nix"
+
+# The fake models releases individually: one JSON document per tag plus an
+# id -> tag index. A by-tag read is therefore never synthesized from "whatever
+# the publisher uploaded last", so a scenario with two products cannot
+# accidentally verify one product against the other's asset.
+cat >"$live/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -uo pipefail
+state="${GH_FAKE_STATE:?gh stub requires GH_FAKE_STATE}"
+log="$state/calls.log"
+
+release_file() { printf '%s/by-tag/%s.json' "$state" "$1"; }
+
+tag_for_id() {
+  [[ -f "$state/by-id/$1" ]] || return 1
+  cat "$state/by-id/$1"
+}
+
+release_update() {
+  local tag="$1"
+  shift
+  local file
+  file="$(release_file "$tag")"
+  [[ -f "$file" ]] || return 1
+  jq -c "$@" "$file" >"$file.next" || return 1
+  mv "$file.next" "$file"
+}
+
+sub="${1:-}"
+shift || true
+case "$sub" in
+  api)
+    method=GET
+    path=""
+    declare -A field=()
+    args=("$@")
+    i=0
+    while ((i < ${#args[@]})); do
+      case "${args[i]}" in
+        --method)
+          method="${args[i + 1]}"
+          ((i += 2))
+          continue
+          ;;
+        -f|-F)
+          kv="${args[i + 1]}"
+          field["${kv%%=*}"]="${kv#*=}"
+          ((i += 2))
+          continue
+          ;;
+        --jq)
+          ((i += 2))
+          continue
+          ;;
+        -*) ;;
+        *) path="${args[i]}" ;;
+      esac
+      ((i += 1))
+    done
+    case "$method:$path" in
+      GET:*/releases)
+        printf 'LIST-RELEASES\n' >>"$log"
+        if [[ -e "$state/fail-list" ]]; then
+          printf 'gh stub: release listing failed\n' >&2
+          exit 1
+        fi
+        # Rows as the publisher's --jq renders them: tag, id, draft.
+        if [[ -s "$state/listing" ]]; then
+          cat "$state/listing"
+        fi
+        ;;
+      POST:*/releases)
+        tag="${field[tag_name]:-}"
+        printf 'CREATE-DRAFT %s\n' "$tag" >>"$log"
+        id="$(cat "$state/next-id")"
+        printf '%s\n' "$((id + 1))" >"$state/next-id"
+        printf '%s\n' "$tag" >"$state/by-id/$id"
+        jq -cn --arg tag "$tag" --argjson id "$id" \
+          '{id: $id, draft: true, immutable: false, tag_name: $tag, assets: []}' \
+          >"$(release_file "$tag")"
+        cat "$(release_file "$tag")"
+        ;;
+      PATCH:*/releases/*)
+        id="${path##*/}"
+        printf 'PATCH-RELEASE %s draft=%s\n' "$id" "${field[draft]:-}" >>"$log"
+        tag="$(tag_for_id "$id")" || {
+          printf 'gh stub: unknown release id: %s\n' "$id" >&2
+          exit 1
+        }
+        release_update "$tag" --argjson draft "${field[draft]:-null}" \
+          '.draft = $draft | .immutable = ($draft == false)' || exit 1
+        # Publish applied server-side but the call reports failure.
+        if [[ -e "$state/fail-patch-after-apply" ]]; then
+          printf 'gh stub: patch reported failure after applying\n' >&2
+          exit 1
+        fi
+        ;;
+      GET:*/releases/tags/*)
+        tag="${path##*/}"
+        printf 'GET-BY-TAG %s\n' "$tag" >>"$log"
+        if [[ -e "$state/fail-get-by-tag" ]]; then
+          printf 'gh stub: release read failed\n' >&2
+          exit 1
+        fi
+        if [[ ! -f "$(release_file "$tag")" ]]; then
+          printf 'gh stub: no release for tag: %s\n' "$tag" >&2
+          exit 1
+        fi
+        cat "$(release_file "$tag")"
+        ;;
+      GET:*/releases/*)
+        id="${path##*/}"
+        printf 'GET-RELEASE %s\n' "$id" >>"$log"
+        tag="$(tag_for_id "$id")" || {
+          printf 'gh stub: unknown release id: %s\n' "$id" >&2
+          exit 1
+        }
+        jq -c '{id: .id, draft: .draft, tag_name: .tag_name}' "$(release_file "$tag")"
+        ;;
+      DELETE:*/releases/*)
+        id="${path##*/}"
+        printf 'DELETE-RELEASE %s\n' "$id" >>"$log"
+        tag="$(tag_for_id "$id")" || {
+          printf 'gh stub: unknown release id: %s\n' "$id" >&2
+          exit 1
+        }
+        rm -f "$(release_file "$tag")" "$state/by-id/$id"
+        ;;
+      *)
+        printf 'UNEXPECTED-API %s %s\n' "$method" "$path" >>"$log"
+        exit 97
+        ;;
+    esac
+    ;;
+  release)
+    if [[ "${1:-}" != upload ]]; then
+      printf 'UNEXPECTED-RELEASE %s\n' "$*" >>"$log"
+      exit 97
+    fi
+    tag="${2:-}"
+    spec="${3:-}"
+    printf 'UPLOAD %s\n' "${spec##*#}" >>"$log"
+    if [[ -e "$state/fail-upload" ]]; then
+      printf 'gh stub: upload failed\n' >&2
+      exit 1
+    fi
+    digest="$(sha256sum "${spec%%#*}")" || exit 1
+    release_update "$tag" --arg name "${spec##*#}" --arg digest "sha256:${digest%% *}" \
+      '.assets += [{name: $name, digest: $digest}]' || {
+      printf 'gh stub: no release for tag: %s\n' "$tag" >&2
+      exit 1
+    }
+    ;;
+  attestation)
+    printf 'ATTESTATION %s\n' "${1:-}" >>"$log"
+    if [[ -e "$state/fail-attestation" ]]; then
+      printf 'gh stub: attestation verify failed\n' >&2
+      exit 1
+    fi
+    ;;
+  *)
+    printf 'UNEXPECTED-SUBCOMMAND %s\n' "$sub" >>"$log"
+    exit 97
+    ;;
+esac
+EOF
+chmod +x "$live/bin/gh"
+
+live_calls=""
+live_state=""
+live_prepare() {
+  local label="$1"
+  shift
+  local state="$live/state-$label"
+  rm -rf "$state"
+  mkdir -p "$state/by-tag" "$state/by-id"
+  # Draft ids this run allocates start here and increment per create.
+  printf '4242\n' >"$state/next-id"
+  : >"$state/calls.log"
+  : >"$state/listing"
+  local flag
+  for flag in "$@"; do
+    : >"$state/$flag"
+  done
+  live_state="$state"
+  live_calls="$state/calls.log"
+}
+
+live_run() {
+  local label="$1"
+  local inventory="$2"
+  local expect="$3"
+  local log="$live/$label.log"
+  local status=0
+  env -u GITHUB_SHA -u GITHUB_EVENT_NAME GH_FAKE_STATE="$live_state" PATH="$live/bin:$PATH" \
+    bash "$publisher" --inventory "$inventory" >"$log" 2>&1 || status=$?
+  if [[ "$expect" == ok && "$status" -ne 0 ]]; then
+    echo "buck2-release-products-test: expected live $label to succeed" >&2
+    sed -n '1,160p' "$log" >&2
+    exit 1
+  fi
+  if [[ "$expect" == fail && "$status" -eq 0 ]]; then
+    echo "buck2-release-products-test: expected live $label to fail" >&2
+    sed -n '1,160p' "$log" >&2
+    exit 1
+  fi
+}
+
+live_scenario() {
+  local label="$1"
+  shift
+  live_prepare "$label" "$@"
+  live_run "$label" "$live/inventory.json" fail
+}
+
+# Ids of releases that already exist before a scenario runs. Kept clear of the
+# 4242.. range the fake allocates for drafts this run creates.
+live_next_existing_id=9001
+
+# What the paginated listing reports for one release: tag, id, draft.
+live_listed() {
+  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >>"$live_state/listing"
+}
+
+# Declares an already published release: listed as published, and readable by
+# tag. The jq override turns the exact match into each way a stale release can
+# be wrong; the listing row stays published, so an override models a by-tag
+# read that disagrees with the listing rather than a listed draft.
+live_published_release() {
+  local tag="$1" name="$2" file="$3" override="${4:-.}" digest id
+  digest="$(sha256sum "$file")"
+  id="$live_next_existing_id"
+  live_next_existing_id=$((id + 1))
+  jq -cn --arg tag "$tag" --argjson id "$id" --arg name "$name" \
+    --arg digest "sha256:${digest%% *}" \
+    "{id: \$id, draft: false, immutable: true, tag_name: \$tag, assets: [{name: \$name, digest: \$digest}]} | ($override)" \
+    >"$live_state/by-tag/$tag.json"
+  printf '%s\n' "$tag" >"$live_state/by-id/$id"
+  live_listed "$tag" "$id" false
+}
+
+live_realized() {
+  local products="$1" index
+  : >"$live_state/realized-paths"
+  for ((index = 0; index < products * 2; index++)); do
+    printf '/nix/store/live-realized-%s\n' "$index" >>"$live_state/realized-paths"
+  done
+}
+
+live_expect_reuse_only() {
+  local label="$1"
+  live_reject "$label" 'CREATE-DRAFT'
+  live_reject "$label" 'UPLOAD'
+  live_reject "$label" 'PATCH-RELEASE'
+  live_reject "$label" 'DELETE-RELEASE'
+}
+
+live_expect() {
+  local label="$1"
+  local line="$2"
+  if ! grep -Fqx -- "$line" "$live_calls"; then
+    echo "buck2-release-products-test: live $label did not perform: $line" >&2
+    sed -n '1,80p' "$live_calls" >&2
+    exit 1
+  fi
+}
+
+live_reject() {
+  local label="$1"
+  local pattern="$2"
+  if grep -Fq -- "$pattern" "$live_calls"; then
+    echo "buck2-release-products-test: live $label must not perform: $pattern" >&2
+    sed -n '1,80p' "$live_calls" >&2
+    exit 1
+  fi
+}
+
+# Pre-publication failure: the draft is still a draft, so cleanup must confirm
+# that with GitHub and then delete it.
+live_scenario upload-failure fail-upload
+live_expect upload-failure "CREATE-DRAFT $live_expected_tag"
+live_expect upload-failure "UPLOAD $live_expected_asset"
+live_reject upload-failure 'PATCH-RELEASE'
+live_expect upload-failure 'GET-RELEASE 4242'
+live_expect upload-failure 'DELETE-RELEASE 4242'
+echo "buck2-release-products-test: live upload failure deleted the confirmed draft"
+
+# Post-publication failure: the release is published, so no DELETE may be
+# issued and cleanup must not even hold delete authority any more.
+live_scenario attestation-failure fail-attestation
+live_expect attestation-failure "CREATE-DRAFT $live_expected_tag"
+live_expect attestation-failure 'PATCH-RELEASE 4242 draft=false'
+live_expect attestation-failure "GET-BY-TAG $live_expected_tag"
+live_expect attestation-failure 'ATTESTATION verify'
+live_reject attestation-failure 'GET-RELEASE'
+live_reject attestation-failure 'DELETE-RELEASE'
+echo "buck2-release-products-test: live post-publication failure issued no DELETE"
+
+# Publish reported failure but applied server-side: cleanup asks GitHub, learns
+# the release is no longer a draft, and refuses to delete it.
+live_scenario patch-failure fail-patch-after-apply
+live_expect patch-failure 'PATCH-RELEASE 4242 draft=false'
+live_expect patch-failure 'GET-RELEASE 4242'
+live_reject patch-failure 'DELETE-RELEASE'
+echo "buck2-release-products-test: live ambiguous publish left the release intact"
+
+# Resumption: the tag the listing already reports holds exactly the staged
+# module, so the run verifies it, reuses it and mutates nothing.
+live_prepare reuse-exact
+live_published_release "$live_expected_tag" "$live_expected_asset" "${live_module[live-product]}"
+live_realized 1
+live_run reuse-exact "$live/inventory.json" ok
+live_expect reuse-exact 'LIST-RELEASES'
+live_expect reuse-exact "GET-BY-TAG $live_expected_tag"
+live_expect reuse-exact 'ATTESTATION verify'
+live_expect_reuse_only reuse-exact
+grep -F "reusing verified release: $live_expected_tag" "$live/reuse-exact.log" >/dev/null
+echo "buck2-release-products-test: live rerun reused the published release untouched"
+
+# Any existing release that is not an exact, published, immutable, single-asset
+# match of the staged module aborts before this run mutates anything.
+live_mismatch() {
+  local label="$1" override="$2"
+  live_prepare "$label"
+  live_published_release "$live_expected_tag" "$live_expected_asset" "${live_module[live-product]}" "$override"
+  live_realized 1
+  live_run "$label" "$live/inventory.json" fail
+  live_expect "$label" "GET-BY-TAG $live_expected_tag"
+  live_reject "$label" 'ATTESTATION'
+  live_expect_reuse_only "$label"
+  grep -F "does not hold exactly the staged module" "$live/$label.log" >/dev/null
+}
+live_mismatch reuse-by-tag-draft '.draft = true'
+live_mismatch reuse-mutable '.immutable = false'
+live_mismatch reuse-extra-asset '.assets += [{name: "extra", digest: "sha256:extra"}]'
+live_mismatch reuse-no-asset '.assets = []'
+live_mismatch reuse-asset-name '.assets[0].name = ("renamed-" + .assets[0].name)'
+live_mismatch reuse-asset-digest '.assets[0].digest = ("sha256:" + ("0" * 64))'
+echo "buck2-release-products-test: live mismatched existing releases failed closed"
+
+# A listed tag that cannot be read is not a licence to republish it: the run
+# aborts on the failed read, before any mutation.
+live_prepare reuse-unreadable fail-get-by-tag
+live_listed "$live_expected_tag" 9101 false
+live_realized 1
+live_run reuse-unreadable "$live/inventory.json" fail
+live_expect reuse-unreadable "GET-BY-TAG $live_expected_tag"
+live_reject reuse-unreadable 'ATTESTATION'
+live_expect_reuse_only reuse-unreadable
+grep -F "already exists but could not be read" "$live/reuse-unreadable.log" >/dev/null
+echo "buck2-release-products-test: live unreadable existing release failed closed"
+
+# A desired tag the listing reports as a draft is a leaked release from an
+# earlier run, not a gap: publishing beside it would attach two releases to one
+# immutable tag. The run aborts before any mutation, names the id a human needs
+# to resolve it, and neither reads nor deletes it.
+live_prepare reuse-listed-draft
+live_listed "$live_expected_tag" 9201 true
+live_realized 1
+live_run reuse-listed-draft "$live/inventory.json" fail
+live_expect reuse-listed-draft 'LIST-RELEASES'
+live_reject reuse-listed-draft 'GET-BY-TAG'
+live_reject reuse-listed-draft 'ATTESTATION'
+live_expect_reuse_only reuse-listed-draft
+grep -F "already exists as an unpublished draft release (id 9201)" \
+  "$live/reuse-listed-draft.log" >/dev/null
+echo "buck2-release-products-test: live listed draft blocked publication before mutation"
+
+# The listing is the sole authority on which tags exist, so a failed listing
+# aborts the run instead of reading as "nothing is published yet".
+live_prepare list-failure fail-list
+live_realized 1
+live_run list-failure "$live/inventory.json" fail
+live_expect list-failure 'LIST-RELEASES'
+live_reject list-failure 'GET-BY-TAG'
+live_reject list-failure 'ATTESTATION'
+live_expect_reuse_only list-failure
+grep -F "could not list existing releases" "$live/list-failure.log" >/dev/null
+echo "buck2-release-products-test: live listing failure aborted the run"
+
+# The incident shape: products 1..N are published, the run is resumed. The
+# published product is verified and skipped, the remaining one is published.
+live_prepare resume-remaining
+live_published_release "$live_expected_tag" "$live_expected_asset" "${live_module[live-product]}"
+live_realized 2
+live_run resume-remaining "$live/inventory-both.json" ok
+live_expect resume-remaining "GET-BY-TAG $live_expected_tag"
+live_reject resume-remaining "CREATE-DRAFT $live_expected_tag"
+live_reject resume-remaining "UPLOAD $live_expected_asset"
+live_expect resume-remaining "CREATE-DRAFT ${live_tag[live-second]}"
+live_expect resume-remaining "UPLOAD ${live_asset[live-second]}"
+live_expect resume-remaining 'PATCH-RELEASE 4242 draft=false'
+live_expect resume-remaining "GET-BY-TAG ${live_tag[live-second]}"
+live_reject resume-remaining 'DELETE-RELEASE'
+echo "buck2-release-products-test: live resumed run published only the missing product"
+
+# Verification order: the mismatched release belongs to the LAST product, while
+# the first is absent. Reuse verification is a complete preflight, so the
+# absent product must not be published before the mismatch is discovered.
+live_prepare preflight-mismatch
+live_published_release "${live_tag[live-second]}" "${live_asset[live-second]}" \
+  "${live_module[live-second]}" '.assets[0].digest = ("sha256:" + ("0" * 64))'
+live_realized 2
+live_run preflight-mismatch "$live/inventory-both.json" fail
+live_expect preflight-mismatch "GET-BY-TAG ${live_tag[live-second]}"
+live_expect_reuse_only preflight-mismatch
+live_reject preflight-mismatch 'ATTESTATION'
+grep -F "does not hold exactly the staged module" "$live/preflight-mismatch.log" >/dev/null
+echo "buck2-release-products-test: live preflight mismatch blocked every product"
+
+cmp "$repo_root/nix/buck2-products/manifest.json" "$tmp/manifest.before.json"
 echo "buck2-release-products-test: OK"
