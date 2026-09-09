@@ -16,8 +16,6 @@ pkgs.buildNpmPackage (finalAttrs: {
   npmDepsHash = "sha256-oaD0HMwJnlFoEoHal47qqsmagE7OnAt/rCqE61FC67M=";
 
   dontNpmBuild = true;
-  npmInstallFlags = [ "--omit=optional" ];
-  npmPruneFlags = [ "--omit=optional" ];
   npmRebuildFlags = [ "--ignore-scripts" ];
   nativeBuildInputs = [ pkgs.makeWrapper ];
 
