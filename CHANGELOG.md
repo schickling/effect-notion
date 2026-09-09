@@ -655,6 +655,15 @@ tsconfig.check.json`, but oxlint 1.39 cannot speak the tsgolint 7 protocol, so
   than duplicated; the accepted event-admission decision records the 35-minute
   performance-lane cost and preserves targeted Buck2 probes as admission
   evidence.
+
+- **devenv SecretSpec tasks**: move the shared secrets workflow onto native
+  SecretSpec 0.20. `secrets:check` now emits the value-free
+  `check --explain` report, `secrets:prefetch` resolves exactly the selected
+  profile through `secretspec run -- true`, and `secrets-run` forwards native
+  profile, provider, scope, file, reason, and caller controls directly. This is
+  a clean break: consumers must replace `[x-op-proxy.refs]` with native
+  provider-backed `ref` declarations, and the wrapper-specific `--cache` option
+  is removed because caching belongs to the configured provider.
 - **buck2 hub**: a Go toolchain and a content-addressed Go module supply. The
   hub declares a `go` `ToolchainAuthority` and `toolchains//:go_bootstrap`, and
   third-party Go code arrives as one `sha256`-pinned `http_archive` per module
