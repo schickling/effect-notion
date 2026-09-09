@@ -305,7 +305,10 @@ for index in "${!release_tags[@]}"; do
     fail "$tag already exists but could not be read; refusing to publish over it"
   release_holds_staged_module "$published" "${asset_names[$index]}" "${release_assets[$index]}" ||
     fail "$tag already exists and does not hold exactly the staged module; refusing to touch it"
-  gh attestation verify "${release_assets[$index]}" --repo "$repository" >/dev/null
+  # GitHub attests every immutable release automatically; `gh release
+  # verify-asset` is the documented check for that release attestation, and it
+  # is bound to this exact tag and local asset file.
+  gh release verify-asset "$tag" "${release_assets[$index]}" --repo "$repository" >/dev/null
   verified_reuse+=(true)
 done
 
@@ -339,7 +342,7 @@ for index in "${!release_tags[@]}"; do
   published="$(gh api "repos/$repository/releases/tags/$tag")"
   release_holds_staged_module "$published" "$asset_name" "$release_asset" ||
     fail "$tag asset set or digest does not match the staged module"
-  gh attestation verify "$release_asset" --repo "$repository" >/dev/null
+  gh release verify-asset "$tag" "$release_asset" --repo "$repository" >/dev/null
 done
 
 import_root="$stage/import"
