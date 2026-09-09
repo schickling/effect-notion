@@ -111,6 +111,7 @@ const composition = registryFromMembers({
       dependency: {
         name: 'otel',
         registry_path: `https://github.com/open-telemetry/semantic-conventions.git@${PINNED_UPSTREAM_SEMCONV_VERSION}[model]`,
+        schema_url: `https://opentelemetry.io/schemas/${PINNED_UPSTREAM_SEMCONV_VERSION.slice(1)}`,
       },
       providesNamespaces: ['http'],
     },

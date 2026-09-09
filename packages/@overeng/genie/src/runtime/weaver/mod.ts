@@ -165,7 +165,11 @@ export type AttributeGroup = {
 }
 
 /** A declared upstream registry this one depends on (weaver `imports`/`dependencies`). */
-export type Dependency = { readonly name: string; readonly registry_path: string }
+export type Dependency = {
+  readonly name: string
+  readonly registry_path: string
+  readonly schema_url: string
+}
 
 /** The whole authored registry: metadata, upstream dependencies, attribute groups, and signals. */
 export type Registry = {
@@ -379,7 +383,11 @@ export const renderManifest = ({
       ? {
           dependencies: registry.dependencies
             .toSorted((a, b) => a.name.localeCompare(b.name))
-            .map((d) => ({ name: d.name, registry_path: d.registry_path })),
+            .map((d) => ({
+              name: d.name,
+              registry_path: d.registry_path,
+              schema_url: d.schema_url,
+            })),
         }
       : {}),
   })

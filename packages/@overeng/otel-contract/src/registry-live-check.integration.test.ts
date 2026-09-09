@@ -148,7 +148,7 @@ const materializeHermeticRegistry = (): string => {
   return dir
 }
 
-/** Run `weaver registry live-check` on a sample file against the hermetic registry; yield exit code. */
+/** Run live-check in stable policy mode; upstream 1.44 still contains experimental definition/2 files. */
 const runLiveCheck = (registryDir: string, sampleFile: string): number => {
   const res = spawnSync(
     WEAVER_BIN!,
@@ -161,7 +161,6 @@ const runLiveCheck = (registryDir: string, sampleFile: string): number => {
       sampleFile,
       '--input-format',
       'json',
-      '--future',
       '--output',
       'none',
       '--no-stream',

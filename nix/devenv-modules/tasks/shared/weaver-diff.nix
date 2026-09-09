@@ -120,12 +120,23 @@ in
         $chmod -R u+w "$cur"
         $sed -i "s|registry_path: .*|registry_path: $model|" "$cur/manifest.yaml"
 
+        # Weaver 0.26 requires dependency schema_url. Normalize a pre-0.26 baseline to the
+        # current pinned dependency identity so this migration does not mask first-party changes.
+        if ! ${pkgs.gnugrep}/bin/grep -q '^    schema_url:' "$base/manifest.yaml"; then
+          dependency_schema_url="$($sed -n 's/^    schema_url: *//p' "$cur/manifest.yaml" | $sed -n '1p')"
+          if [ -z "$dependency_schema_url" ]; then
+            echo "✗ weaver:diff: current dependency has no schema_url" >&2
+            exit 1
+          fi
+          $sed -i "/^    registry_path:/a\\    schema_url: $dependency_schema_url" "$base/manifest.yaml"
+        fi
+
         echo "weaver:diff: comparing emitted registry against baseline $base_commit (merge-base of ${baselineRef}..HEAD)"
 
         # --- Run the diff (structured JSON report) ---
         set +e
         "$weaver_pkg/bin/weaver" registry diff \
-          --baseline-registry "$base" -r "$cur" --future \
+          --baseline-registry "$base" -r "$cur" \
           --format json -o "$out" --diagnostic-stdout
         diff_exit=$?
         set -e
