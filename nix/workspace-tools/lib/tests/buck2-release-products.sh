@@ -204,7 +204,6 @@ if grep -F 'immutable-releases' "$publisher" >/dev/null; then
   echo "buck2-release-products-test: publisher requires the admin-only immutability endpoint" >&2
   exit 1
 fi
-grep -F 'release(tagName:$tag){isImmutable}' "$publisher" >/dev/null
 grep -F '.immutable == true' "$publisher" >/dev/null
 if grep -E '(^|[[:space:]])set[[:space:]]+-[^[:space:]]*x' "$publisher" >/dev/null; then
   echo "buck2-release-products-test: publisher enables shell tracing around secrets" >&2

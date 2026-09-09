@@ -239,10 +239,6 @@ for index in "${!release_tags[@]}"; do
   gh release upload "$tag" "$staged_module#$asset_name" --repo "$repository"
   gh api --method PATCH "repos/$repository/releases/$cleanup_release_id" -F draft=false --silent
 
-  verified="$(gh api graphql \
-    -f query='query($owner:String!,$name:String!,$tag:String!){repository(owner:$owner,name:$name){release(tagName:$tag){isImmutable}}}' \
-    -f owner="${repository%%/*}" -f name="${repository#*/}" -f tag="$tag")"
-  jq -e '.data.repository.release.isImmutable == true' <<<"$verified" >/dev/null || fail "$tag did not become immutable"
   release="$(gh api "repos/$repository/releases/tags/$tag")"
   expected_digest="sha256:$(sha256sum "$staged_module")"
   expected_digest="${expected_digest%% *}"
