@@ -2772,15 +2772,9 @@ signal <NAME>`) on non-zero exit; bound `process.executable.name` / the span
 - **devenv/tasks/shared/ts.nix**: Fix `ts:emit` missing `--build` flag
   - `tscWithDiagnostics` was called without `--build`, causing tsc to treat `tsconfig.all.json` as a source file
   - Previously masked by `setup:opt:*` wrappers silently swallowing the failure
-- **beads packaging**: Avoid long emulated builds by using patched prebuilt `bd` release binaries (v0.55.4)
-  - `nix/beads.nix` now fetches release tarballs instead of compiling Go sources under QEMU
-  - Linux binaries are patched with Nix loader/RPATH (`icu74`) so Dolt-enabled `bd` runs correctly
 - **@overeng/genie**: `genie --check` now fails fast on fatal `.genie.ts` import/build errors and marks interrupted sibling checks as canceled
   - Prevents indefinite stalls when a sibling check remains in-flight after a fatal import/build failure
   - Final JSON/TUI failure state is reconciled from `GenieGenerationFailedError.files` to avoid stale `active` entries
-- **beads packaging/tasks**: Fix `bd` Dolt startup failures on macOS by building with CGO enabled and updating beads task/hook invocations for current CLI flags
-  - `nix/beads.nix` now builds `bd` from source (`buildGo126Module`) with CGO + ICU/SQLite inputs instead of prebuilt no-CGO release tarballs
-  - `nix/devenv-modules/tasks/shared/beads.nix` now uses Dolt-directory bootstrap checks and removes deprecated `--no-daemon/--no-db` flag usage
 
 ### Changed
 
