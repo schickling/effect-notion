@@ -80,13 +80,13 @@ export const discoverGenieFiles = (repoRoot: string): readonly string[] => {
 /**
  * Runs the standalone bootstrap import-closure checker CLI.
  */
-export const bootstrapClosureCheckMain = ({
+export const bootstrapClosureCheckMain = async ({
   argv,
   defaultRepoRoot,
 }: {
   argv: readonly string[]
   defaultRepoRoot: string
-}): void => {
+}): Promise<void> => {
   try {
     const { repoRoot, help } = parseArgs({ argv, defaultRepoRoot })
     if (help === true) {
@@ -99,7 +99,9 @@ export const bootstrapClosureCheckMain = ({
       (file) => parseGeneratorPhase(readFileSync(file, 'utf8')) === 'bootstrap',
     )
 
-    const { violations, checkedSources } = checkBootstrapClosure({ genieFiles: bootstrapFiles })
+    const { violations, checkedSources } = await checkBootstrapClosure({
+      genieFiles: bootstrapFiles,
+    })
 
     if (violations.length > 0) {
       console.error(

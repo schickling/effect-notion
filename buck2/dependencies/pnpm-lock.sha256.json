@@ -1,6 +1,6 @@
 {
   "schema": "effect-utils/buck2-pnpm-sha256/v1",
-  "lockfileFingerprint": "sha256:31ae2d8d8b0c07a181c6e2e894ee8924b103151f36b2c056b1c7300b5d191168",
+  "lockfileFingerprint": "sha256:e8abc66e29d2d305972068ada3f88b8507e27633c220b8e233522b3a73a17d47",
   "source": "pnpm-lock.yaml",
   "generator": "buck2/dependencies/pnpm-lock.sha256.json.genie.ts",
   "regenerate": "devenv tasks run genie:run",
@@ -1405,6 +1405,106 @@
       "bins": {},
       "integrity": "sha512-6fJ9MHWtK14C1DSkiMlHUSOmrVebL7150xZJBlJiL62jjhIA4JmOq6flwBgDxIdBKKdoiZRel+dfPD5MLfny3w==",
       "sha256": "eee8972fd313747542440605a5d3ec7fd9863d66321c054ff87c1a5fb981b854"
+    },
+    "@typescript/typescript-aix-ppc64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ==",
+      "sha256": "b6e558bbdc9206b7b99f6f4f4ce4fa4f6157640ab580cc7d563703767d43d8cc"
+    },
+    "@typescript/typescript-darwin-arm64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-gowzar9MwS/aRWp6f3a4KUqzRjAZjOsmGNCM6LcTgXum+dBfgsBVMN+AgvOCCbguXyick6LJhpBszxMebJ8syA==",
+      "sha256": "902e2fe1cf0799198ef902c6b8c310a450fef629a6baba41d45641ef75c04ebd"
+    },
+    "@typescript/typescript-darwin-x64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-SZ9xZInqApNlNGc9s0W1VSsktYSOe9cFqNOIqmN1Gs8SmkjKZYFt017G4VwPxASInODuAdbTW7sXiFUf893RgA==",
+      "sha256": "eba158cb54050f723d5ff781438f33de5640054440bb4f2bd170cfe9bc2eb551"
+    },
+    "@typescript/typescript-freebsd-arm64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-W5NH4y/J0plIIS5b2xvTEkU7JFxyqdMAOgf+Ilhl0vHQXKO5dZoxd+C/jEtq56c4F3wk71RB4BMRQ2XdI+bwYQ==",
+      "sha256": "42d23a91be92d7e761cc808b10c34430f1f5f6cb6dc9c594e832fdf7d65d4c5b"
+    },
+    "@typescript/typescript-freebsd-x64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-UMGDx5sTpzNw3WiPebH7l90IWfJggEd+egHt/q6p7/Cm3zqoV7VxkGXt+3DxPIw8CcmvAB0j3sVVfbhX+M4Tpw==",
+      "sha256": "d982b0db967346becc4ccbc8cdac69e0335995c419bf129616e18a87832edb8c"
+    },
+    "@typescript/typescript-linux-arm64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-Qh4eU4/y3yDjnfjjyPYihMj5/ODIlmt+Bzu17OI+fiSRDW57QmU5SiN63exPRNJPKUzcc1INa1NXdrJ+MqHjUQ==",
+      "sha256": "c83d931ac9dd7549cde6e71246aa9d6a9812843023df3e277fe3b5dcf41dd0ea"
+    },
+    "@typescript/typescript-linux-arm@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-gffT3xPz9sR7j/YJExkyPntrI0P2EP9XbOyWzth2/Gs0RstK+90RBcO0ncXoXy/beYll1SXw846Nf2zdnEz0QQ==",
+      "sha256": "33a15a7badb207a38957373c410b970319baac8960109232ab64502497caea06"
+    },
+    "@typescript/typescript-linux-loong64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-uEHck9i8hoAzXPiYRib1O7miOnz23SxIeVl6F4LXox+qov1K35jHcEW6VHKvZI+pyvl7fZEP4MCU5LYvIq1GuQ==",
+      "sha256": "4d0a2d19f0563df4d12b1e4197a5aefc9827b2977aa48282e7647926085d3c1f"
+    },
+    "@typescript/typescript-linux-mips64el@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-R4KvAMnE43W5Qeqb0Ly56O3mWMWIAgsMyz36DCaycd5nbg/9kzm0liw3JocfRqyJY0KPmzFjbswozXyW0DnIYA==",
+      "sha256": "6743a786c65e33b5b17d34bd9f2a66446dce95dc028cf21b6e6a975e7f576352"
+    },
+    "@typescript/typescript-linux-ppc64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-DORx5b3sd/4S7eayxm4FQv+A7CrkUIGRaHiwI8oiHTAI1fAPWhF4J0vAlkC8biAlHSVVwxMQ3tjZ2/DVbnQiiA==",
+      "sha256": "8c30ad95ff40cff8bba2ab294abde3bfee6fa12b2b649f80ec90ef3188842db1"
+    },
+    "@typescript/typescript-linux-riscv64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-wf0jqEDOjrPRnKwYRyyJDRo11KMbvMFrU+q4zqKyChODBzvlkbhNQfKvLxQCcwTpdDaXSHZTVuh0JoCrKCUMHQ==",
+      "sha256": "b5afba89cef6c1c9e6142893018fdbd04183abe1e281a710fe31bb9578d2dc72"
+    },
+    "@typescript/typescript-linux-s390x@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-IkwJc3L7yhytWd/ewjyxNDfOmswCm9GWMJT/ue/dU4aZNbwZeYAetq42VyLmsmSjvoX7z74X6ZaYCtzAr0EuGw==",
+      "sha256": "badc50ce68cd84c462fcbddfe0c8a7acf9b16a334397cc73e889f6e783f1903d"
+    },
+    "@typescript/typescript-linux-x64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-EYdf2cNg7rgCWJnxCdJ+F3V39O8ihb37eHAu1LK8oAFizgTQbPOK7zHHXbPt8rX24COqODXeI3sIf0fCXG7H/A==",
+      "sha256": "7ecad6f67377e831856367ab062ef394f21506a611405bf8ac0ff039348637d3"
+    },
+    "@typescript/typescript-netbsd-arm64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-+polYF4MF04aPpO5FTkHran9yUQDSXqy5GiSDKpsll5jy3l3+g9QLhpf39T+ePtefhXLOGrLl0QIjkQP6VnelA==",
+      "sha256": "afc662ba78fe126f96209b39d6c64c08088ff12b6df363c4bae04a6b79a26000"
+    },
+    "@typescript/typescript-netbsd-x64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-8YIT0EHM/3dq10ZOVF/A7pc/YSMtbcecct4rWtexrnSCHOPcpC2KTLXfTCR6vDpnSiY12heNb1GiN/wu+T/FyA==",
+      "sha256": "9eb8b25b298b61912cb821e598d883742fa24778267fa88dc94b86acfe3edfe7"
+    },
+    "@typescript/typescript-openbsd-arm64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-APT8+ClYnuYm1u9+kgGXoMj2VzWzcymwh2gNSQVySHfkRDGOTVkoWLjCmOQSaO+PoqQ57B0flRp9SA+7GnnkzQ==",
+      "sha256": "c8729f2a2ea9a0f0efb0c36ea7b638ebdaad0eaf31943406a488ab3083e13b5a"
+    },
+    "@typescript/typescript-openbsd-x64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-yX7s+Q0Dln0Dt9tEzZsAjXXR/+ytBM7AlglaqyeMPxQszJ1JhlJdZ6jLA+IzldHtflX81em7lDao1xXu+aRRkg==",
+      "sha256": "90aeadb743517361f902c6e7ef1e57113175aaf483fb5f2abc1701c8246c66a4"
+    },
+    "@typescript/typescript-sunos-x64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-dLJDGaLZ1D4HPQn62u1n8mBDkJREwMsAkCdkwd4Ieqw+x3TUyTsqY0YiBCtE6H6OzzgGk3iuZ3vFWRS+E8/d1g==",
+      "sha256": "a625970be8f04944de633929eb0777c2c60c6c242590b79fc37750cf4a577e85"
+    },
+    "@typescript/typescript-win32-arm64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-Gyl1Vy6OsWesLzmq+EP0Fb7b4Nid5232AvcA2SFcdYreldpNtYFFofPjnt62y9hQy7VTaZp65ICJjuAQRaVcIQ==",
+      "sha256": "0a73534e6ee50cdbb2a29ac48657ca0ad13cf0f424cf63808e4df7baeb87b8be"
+    },
+    "@typescript/typescript-win32-x64@7.0.2": {
+      "bins": {},
+      "integrity": "sha512-0BQ3HkAHHlKLSp1qRvf3SUhGpGsDuhB/jgFw75guyqbxJqEaS0Cw/VFO8i2nHglJUzQCRtMMR/IBAKE3ETMC4g==",
+      "sha256": "61fc4e141d2bc687db580e71bbfa63b9c209f0310645d82ca1b457eb3a24fd19"
     },
     "@ungap/structured-clone@1.4.0": {
       "bins": {},
@@ -3144,13 +3244,12 @@
       "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
       "sha256": "10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3"
     },
-    "typescript@6.0.3": {
+    "typescript@7.0.2": {
       "bins": {
-        "tsc": "bin/tsc",
-        "tsserver": "bin/tsserver"
+        "tsc": "bin/tsc"
       },
-      "integrity": "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==",
-      "sha256": "33cd0ee1beaa8c9e9d15a9da836c62ddea4c34a42d7c2d349dbc80d94165d22a"
+      "integrity": "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA==",
+      "sha256": "da2513f4b95176d6dde8b51aab7afe8a927656c9d277369793f77f7e59371c08"
     },
     "ufo@1.6.4": {
       "bins": {},
@@ -3333,5 +3432,5 @@
       "sha256": "2c162e000f5fb5a816987d6f8ad7aad295203f777a5992d514ae4660778a51a4"
     }
   },
-  "fingerprint": "sha256:cfa4e5c26ee6612e0bd825af7eea62e42f0957ed8ae1727e8fa085898103ee8f"
+  "fingerprint": "sha256:4c4bccb3f230ba3ecf8d3d407809d2c376a271f6532a146fb9203bf9a5d38cae"
 }

@@ -12,6 +12,7 @@ export default tsconfigJson({
     ...packageTsconfigCompilerOptions,
     ...nodeTypes,
     lib: domLib,
+    types: ['node'],
   },
   include: ['src/**/*'],
   references: [],

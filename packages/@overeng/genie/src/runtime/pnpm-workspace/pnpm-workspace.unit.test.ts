@@ -289,7 +289,7 @@ describe('root patch coverage validation', () => {
     )
   }
 
-  it('passes when root config includes all required patches', () => {
+  it('passes when root config includes all required patches', async () => {
     const utils = makeUtilsWithPatches()
     const app = makeApp([utils])
 
@@ -301,14 +301,14 @@ describe('root patch coverage validation', () => {
       },
     })
 
-    const issues = workspaceFile.validate?.({
+    const issues = await workspaceFile.validate?.({
       location: '.',
       cwd: repo.repoRoot,
     })
     expect(issues).toEqual([])
   })
 
-  it('reports missing patch when root config omits a required patch', () => {
+  it('reports missing patch when root config omits a required patch', async () => {
     const utils = makeUtilsWithPatches()
     const app = makeApp([utils])
 
@@ -317,7 +317,7 @@ describe('root patch coverage validation', () => {
       repoName: repo.repoName,
     })
 
-    const issues = workspaceFile.validate?.({
+    const issues = await workspaceFile.validate?.({
       location: '.',
       cwd: repo.repoRoot,
     })
@@ -329,7 +329,7 @@ describe('root patch coverage validation', () => {
     })
   })
 
-  it('detects patches from transitive workspace deps', () => {
+  it('detects patches from transitive workspace deps', async () => {
     const transitiveRepo = createTempRepo('packages/utils', 'packages/app', 'packages/wrapper')
     const utils = makeUtilsWithPatches()
     const app = makeApp([utils])
@@ -350,7 +350,7 @@ describe('root patch coverage validation', () => {
       repoName: transitiveRepo.repoName,
     })
 
-    const issues = workspaceFile.validate?.({
+    const issues = await workspaceFile.validate?.({
       location: '.',
       cwd: transitiveRepo.repoRoot,
     })
@@ -361,7 +361,7 @@ describe('root patch coverage validation', () => {
     })
   })
 
-  it('passes when no packages declare patches', () => {
+  it('passes when no packages declare patches', async () => {
     const utilsComposition = catalog.compose({
       workspace: workspace({
         repoName: repo.repoName,
@@ -376,7 +376,7 @@ describe('root patch coverage validation', () => {
       repoName: repo.repoName,
     })
 
-    const issues = workspaceFile.validate?.({
+    const issues = await workspaceFile.validate?.({
       location: '.',
       cwd: repo.repoRoot,
     })

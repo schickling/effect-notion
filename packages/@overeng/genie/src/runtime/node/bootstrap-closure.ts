@@ -148,7 +148,7 @@ const runtimeSpecifiersOf = (sourceFile: SourceFile): readonly StringLiteral[] =
  * resolver for `#`/`#mr` and the compiler's resolution for relative paths. Bare specifiers are never resolved
  * (they are violations, not edges to follow) so this never touches `node_modules`.
  */
-const resolveFollowableSpecifier = ({
+const resolveFollowableSpecifier = async ({
   specifier,
   importerFile,
   analysis,
@@ -156,24 +156,24 @@ const resolveFollowableSpecifier = ({
   specifier: StringLiteral
   importerFile: string
   analysis: TsFileAnalysis
-}): string | undefined =>
+}): Promise<string | undefined> =>
   isImportMapSpecifier(specifier.text) === true
     ? resolveImportMapSpecifierForImporterSync({
         specifier: specifier.text,
         importerPath: importerFile,
       })
-    : analysis.resolveModuleSpecifier(specifier)
+    : await analysis.resolveModuleSpecifier(specifier)
 
 /**
  * Walk the transitive runtime import closure of each `.genie.ts` source and report those that reach a
  * runtime-only package, with the shortest importer chain to the offending edge.
  */
-export const checkBootstrapClosure = ({
+export const checkBootstrapClosure = async ({
   genieFiles,
 }: {
   /** Absolute paths of the `.genie.ts` sources to check. */
   genieFiles: readonly string[]
-}): BootstrapClosureResult => {
+}): Promise<BootstrapClosureResult> => {
   /** Per-file analysis, memoized globally — the runtime import graph is identical across all roots. */
   type FileEdges = {
     /** Bare runtime-only specifiers directly imported by this file (closure boundaries). */
@@ -182,18 +182,18 @@ export const checkBootstrapClosure = ({
     readonly followTargets: readonly string[]
   }
   const edgesCache = new Map<string, FileEdges>()
-  const edgesOf = ({
+  const edgesOf = async ({
     file,
     session,
   }: {
     file: string
     session: TsFileAnalysisSession
-  }): FileEdges => {
+  }): Promise<FileEdges> => {
     const cached = edgesCache.get(file)
     if (cached !== undefined) return cached
     const violationSpecifiers: string[] = []
     const followTargets: string[] = []
-    const analysis = existsSync(file) === true ? session.analyze(file) : undefined
+    const analysis = existsSync(file) === true ? await session.analyze(file) : undefined
     if (analysis !== undefined) {
       for (const specifier of runtimeSpecifiersOf(analysis.sourceFile)) {
         if (isViolationSpecifier(specifier.text) === true) {
@@ -202,7 +202,7 @@ export const checkBootstrapClosure = ({
           isRelativeSpecifier(specifier.text) === true ||
           isImportMapSpecifier(specifier.text) === true
         ) {
-          const resolved = resolveFollowableSpecifier({
+          const resolved = await resolveFollowableSpecifier({
             specifier,
             importerFile: file,
             analysis,
@@ -217,13 +217,13 @@ export const checkBootstrapClosure = ({
   }
 
   /** BFS from a root; returns the shortest chain to the first runtime-only specifier, or undefined. */
-  const findViolation = ({
+  const findViolation = async ({
     root,
     session,
   }: {
     root: string
     session: TsFileAnalysisSession
-  }): BootstrapClosureViolation | undefined => {
+  }): Promise<BootstrapClosureViolation | undefined> => {
     const seen = new Set<string>()
     const queue: (readonly string[])[] = [[root]]
     while (queue.length > 0) {
@@ -232,7 +232,7 @@ export const checkBootstrapClosure = ({
       if (seen.has(current) === true) continue
       seen.add(current)
 
-      const { violationSpecifiers, followTargets } = edgesOf({ file: current, session })
+      const { violationSpecifiers, followTargets } = await edgesOf({ file: current, session })
       if (violationSpecifiers.length > 0) {
         return { source: root, specifier: violationSpecifiers[0]!, chain }
       }
@@ -244,13 +244,16 @@ export const checkBootstrapClosure = ({
   }
 
   const sortedGenieFiles = [...genieFiles].toSorted()
-  const violations = withTsFileAnalysis({
+  const violations = await withTsFileAnalysis({
     cwd: process.cwd(),
-    use: (session) =>
-      sortedGenieFiles.flatMap((root) => {
-        const violation = findViolation({ root, session })
-        return violation === undefined ? [] : [violation]
-      }),
+    use: async (session) => {
+      const found: BootstrapClosureViolation[] = []
+      for (const root of sortedGenieFiles) {
+        const violation = await findViolation({ root, session })
+        if (violation !== undefined) found.push(violation)
+      }
+      return found
+    },
   })
 
   return { violations, checkedSources: sortedGenieFiles }

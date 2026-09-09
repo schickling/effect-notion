@@ -48,7 +48,6 @@ import {
 
 import { withTsFileAnalysis } from '../../node/ts-api.ts'
 import type { TsFileAnalysisSession } from '../../node/ts-api.ts'
-
 import type { ExportEnvironmentContract, PackageJsonValidationRuntime } from '../mod.ts'
 import type { ValidationIssue } from '../validation.ts'
 
@@ -224,19 +223,15 @@ const findForbiddenGlobals = ({
   const issues: ValidationIssue[] = []
   const forbiddenGlobals = new Set(profile.forbiddenGlobals)
 
-  const addBindingNames = ({
-    target,
-    name,
-  }: {
-    target: Set<string>
-    name: BindingName
-  }): void => {
+  const addBindingNames = ({ target, name }: { target: Set<string>; name: BindingName }): void => {
     if (isIdentifier(name) === true) {
       target.add(name.text)
       return
     }
     for (const element of name.elements) {
-      if (isBindingElement(element) === true) addBindingNames({ target, name: element.name })
+      if (isBindingElement(element) === true && element.name !== undefined) {
+        addBindingNames({ target, name: element.name })
+      }
     }
   }
 
@@ -389,7 +384,7 @@ const importedSpecifiersOf = (sourceFile: SourceFile): readonly string[] => {
   return specifiers
 }
 
-const scanGraph = ({
+const scanGraph = async ({
   entry,
   profile,
   packageName,
@@ -401,7 +396,7 @@ const scanGraph = ({
   packageName: string
   exportPath: string
   session: TsFileAnalysisSession
-}): GraphResult => {
+}): Promise<GraphResult> => {
   const seen = new Set<string>()
   const pending = [entry]
   const issues: ValidationIssue[] = []
@@ -411,7 +406,7 @@ const scanGraph = ({
     if (file === undefined || seen.has(file) === true) continue
     seen.add(file)
 
-    const analysis = session.analyze(file)
+    const analysis = await session.analyze(file)
     if (analysis === undefined) continue
 
     for (const specifier of importedSpecifiersOf(analysis.sourceFile)) {
@@ -771,7 +766,7 @@ export const createNodePackageJsonValidationRuntime = ({
   validateExportEnvironments: (args) =>
     withTsFileAnalysis({
       cwd: args.cwd,
-      use: (session) => {
+      use: async (session) => {
         const start = performance.now()
         const issues: ValidationIssue[] = []
         let hits = 0
@@ -827,7 +822,7 @@ export const createNodePackageJsonValidationRuntime = ({
             }
 
             for (const entry of entries) {
-              const graph = scanGraph({
+              const graph = await scanGraph({
                 entry,
                 profile,
                 packageName: args.packageName,

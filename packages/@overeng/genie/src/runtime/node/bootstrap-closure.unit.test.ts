@@ -33,7 +33,7 @@ afterEach(() => {
 })
 
 describe('checkBootstrapClosure', () => {
-  it('FAILs on a wide barrel with the correct importer chain (source -> barrel -> runtime -> effect)', () => {
+  it('FAILs on a wide barrel with the correct importer chain (source -> barrel -> runtime -> effect)', async () => {
     const dir = makeDir()
     write(dir, 'runtime.ts', `import { Effect } from 'effect'\nexport const value = Effect`)
     // A wide barrel that `export *`s a module reaching a bare runtime-only package.
@@ -44,7 +44,7 @@ describe('checkBootstrapClosure', () => {
       `import { value } from './barrel.ts'\nexport default value`,
     )
 
-    const { violations } = checkBootstrapClosure({ genieFiles: [source] })
+    const { violations } = await checkBootstrapClosure({ genieFiles: [source] })
 
     expect(violations).toHaveLength(1)
     expect(violations[0]!.specifier).toBe('effect')
@@ -58,7 +58,7 @@ describe('checkBootstrapClosure', () => {
     )
   })
 
-  it('PASSes a narrow direct import that never reaches a bare package', () => {
+  it('PASSes a narrow direct import that never reaches a bare package', async () => {
     const dir = makeDir()
     write(
       dir,
@@ -71,12 +71,12 @@ describe('checkBootstrapClosure', () => {
       `import { helper } from './safe.ts'\nexport default helper`,
     )
 
-    const { violations } = checkBootstrapClosure({ genieFiles: [source] })
+    const { violations } = await checkBootstrapClosure({ genieFiles: [source] })
 
     expect(violations).toHaveLength(0)
   })
 
-  it('follows a lock-pinned `#mr` member edge: FAILs when the member reaches a bare package, PASSes a safe member import', () => {
+  it('follows a lock-pinned `#mr` member edge: FAILs when the member reaches a bare package, PASSes a safe member import', async () => {
     const dir = makeDir()
     const memberDir = path.join(dir, 'member-x')
     write(memberDir, 'reaches-bare.ts', `import { Effect } from 'effect'\nexport const a = Effect`)
@@ -100,7 +100,7 @@ describe('checkBootstrapClosure', () => {
       `import { b } from '#mr/member-x/safe.ts'\nexport default b`,
     )
 
-    const { violations } = checkBootstrapClosure({ genieFiles: [failRoot, safeRoot] })
+    const { violations } = await checkBootstrapClosure({ genieFiles: [failRoot, safeRoot] })
 
     const failViolation = violations.find((violation) => violation.source === failRoot)
     expect(failViolation).toBeDefined()
@@ -110,7 +110,7 @@ describe('checkBootstrapClosure', () => {
     expect(violations.find((violation) => violation.source === safeRoot)).toBeUndefined()
   })
 
-  it('excludes type-only edges (import type, export { type }, import type * as) even when the target reaches a bare package', () => {
+  it('excludes type-only edges (import type, export { type }, import type * as) even when the target reaches a bare package', async () => {
     const dir = makeDir()
     write(
       dir,
@@ -129,12 +129,12 @@ describe('checkBootstrapClosure', () => {
       ].join('\n'),
     )
 
-    const { violations } = checkBootstrapClosure({ genieFiles: [source] })
+    const { violations } = await checkBootstrapClosure({ genieFiles: [source] })
 
     expect(violations).toHaveLength(0)
   })
 
-  it('follows an import with a value default even when its named bindings are all inline-`type`', () => {
+  it('follows an import with a value default even when its named bindings are all inline-`type`', async () => {
     const dir = makeDir()
     // `helper.ts` reaches a bare runtime-only package; the source imports it with a value default
     // plus only inline-`type` named bindings — the default is a runtime edge and must be followed.
@@ -149,14 +149,14 @@ describe('checkBootstrapClosure', () => {
       `import helper, { type Options } from './helper.ts'\nexport default helper as unknown as Options`,
     )
 
-    const { violations } = checkBootstrapClosure({ genieFiles: [source] })
+    const { violations } = await checkBootstrapClosure({ genieFiles: [source] })
 
     expect(violations).toHaveLength(1)
     expect(violations[0]!.specifier).toBe('effect')
     expect(violations[0]!.chain).toEqual([source, path.join(dir, 'helper.ts')])
   })
 
-  it('detects a dynamic `import(...)` with a string-literal bare specifier as a violation', () => {
+  it('detects a dynamic `import(...)` with a string-literal bare specifier as a violation', async () => {
     const dir = makeDir()
     const source = write(
       dir,
@@ -164,14 +164,14 @@ describe('checkBootstrapClosure', () => {
       `export const load = async () => import('effect')`,
     )
 
-    const { violations } = checkBootstrapClosure({ genieFiles: [source] })
+    const { violations } = await checkBootstrapClosure({ genieFiles: [source] })
 
     expect(violations).toHaveLength(1)
     expect(violations[0]!.specifier).toBe('effect')
     expect(violations[0]!.chain).toEqual([source])
   })
 
-  it('does NOT flag node builtins (bare `crypto` and `node:`-prefixed)', () => {
+  it('does NOT flag node builtins (bare `crypto` and `node:`-prefixed)', async () => {
     const dir = makeDir()
     const source = write(
       dir,
@@ -179,16 +179,16 @@ describe('checkBootstrapClosure', () => {
       `import 'crypto'\nimport 'node:fs'\nexport const ok = true`,
     )
 
-    const { violations } = checkBootstrapClosure({ genieFiles: [source] })
+    const { violations } = await checkBootstrapClosure({ genieFiles: [source] })
 
     expect(violations).toHaveLength(0)
   })
 
-  it('flags a bare first-party scoped package (not resolvable pre-install) as a violation', () => {
+  it('flags a bare first-party scoped package (not resolvable pre-install) as a violation', async () => {
     const dir = makeDir()
     const source = write(dir, 'firstparty.genie.ts', `import '@scope/pkg'\nexport const ok = true`)
 
-    const { violations } = checkBootstrapClosure({ genieFiles: [source] })
+    const { violations } = await checkBootstrapClosure({ genieFiles: [source] })
 
     expect(violations).toHaveLength(1)
     expect(violations[0]!.specifier).toBe('@scope/pkg')

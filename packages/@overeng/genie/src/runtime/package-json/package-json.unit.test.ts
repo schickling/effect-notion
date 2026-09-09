@@ -287,7 +287,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('validates that contracted exports are mirrored in publishConfig.exports', () => {
+  it('validates that contracted exports are mirrored in publishConfig.exports', async () => {
     const result = packageJson({
       name: '@test/package',
       version: '1.0.0',
@@ -301,7 +301,7 @@ describe('packageJson', () => {
       },
     })
 
-    expect(result.validate?.(mockGenieContext)).toContainEqual({
+    expect(await result.validate?.(mockGenieContext)).toContainEqual({
       severity: 'error',
       packageName: '@test/package',
       dependency: '.',
@@ -311,7 +311,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('does not require export environment contracts by default', () => {
+  it('does not require export environment contracts by default', async () => {
     const result = packageJson({
       name: '@test/package',
       version: '1.0.0',
@@ -320,14 +320,14 @@ describe('packageJson', () => {
       },
     })
 
-    expect(result.validate?.(mockGenieContext)).not.toContainEqual(
+    expect(await result.validate?.(mockGenieContext)).not.toContainEqual(
       expect.objectContaining({
         rule: 'package-json-export-environment-contract-coverage',
       }),
     )
   })
 
-  it('allows export environment contract coverage to be baked into a configured generator', () => {
+  it('allows export environment contract coverage to be baked into a configured generator', async () => {
     const configuredPackageJson = definePackageJson({
       validation: {
         exportEnvironmentContracts: {
@@ -344,7 +344,7 @@ describe('packageJson', () => {
       },
     })
 
-    expect(result.validate?.(mockGenieContext)).toContainEqual({
+    expect(await result.validate?.(mockGenieContext)).toContainEqual({
       severity: 'warning',
       packageName: '@test/package',
       dependency: '.',
@@ -354,7 +354,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('allows per-call export environment contract coverage overrides on a configured generator', () => {
+  it('allows per-call export environment contract coverage overrides on a configured generator', async () => {
     const configuredPackageJson = definePackageJson({
       validation: {
         exportEnvironmentContracts: {
@@ -381,14 +381,14 @@ describe('packageJson', () => {
       },
     )
 
-    expect(result.validate?.(mockGenieContext)).not.toContainEqual(
+    expect(await result.validate?.(mockGenieContext)).not.toContainEqual(
       expect.objectContaining({
         rule: 'package-json-export-environment-contract-coverage',
       }),
     )
   })
 
-  it('warns for uncontracted exports when export environment contract coverage is warn', () => {
+  it('warns for uncontracted exports when export environment contract coverage is warn', async () => {
     const result = packageJson(
       {
         name: '@test/package',
@@ -407,7 +407,7 @@ describe('packageJson', () => {
       },
     )
 
-    expect(result.validate?.(mockGenieContext)).toContainEqual({
+    expect(await result.validate?.(mockGenieContext)).toContainEqual({
       severity: 'warning',
       packageName: '@test/package',
       dependency: '.',
@@ -417,7 +417,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('errors for uncontracted exports when export environment contract coverage is error', () => {
+  it('errors for uncontracted exports when export environment contract coverage is error', async () => {
     const result = packageJson(
       {
         name: '@test/package',
@@ -436,7 +436,7 @@ describe('packageJson', () => {
       },
     )
 
-    expect(result.validate?.(mockGenieContext)).toContainEqual({
+    expect(await result.validate?.(mockGenieContext)).toContainEqual({
       severity: 'error',
       packageName: '@test/package',
       dependency: '.',
@@ -446,7 +446,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('ignores covered and explicitly ignored exports in contract coverage validation', () => {
+  it('ignores covered and explicitly ignored exports in contract coverage validation', async () => {
     const result = packageJson(
       {
         name: '@test/package',
@@ -473,13 +473,13 @@ describe('packageJson', () => {
     )
 
     expect(
-      result
-        .validate?.(mockGenieContext)
-        .filter((issue) => issue.rule === 'package-json-export-environment-contract-coverage'),
+      (await result.validate?.(mockGenieContext))?.filter(
+        (issue) => issue.rule === 'package-json-export-environment-contract-coverage',
+      ),
     ).toEqual([])
   })
 
-  it('allows source-only contracted exports to be absent from publishConfig.exports', () => {
+  it('allows source-only contracted exports to be absent from publishConfig.exports', async () => {
     const result = packageJson({
       name: '@test/package',
       version: '1.0.0',
@@ -499,7 +499,7 @@ describe('packageJson', () => {
       },
     })
 
-    expect(result.validate?.(mockGenieContext)).not.toContainEqual({
+    expect(await result.validate?.(mockGenieContext)).not.toContainEqual({
       severity: 'error',
       packageName: '@test/package',
       dependency: './test',
@@ -509,7 +509,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('uses the package-json node validation runtime to catch forbidden imports', () => {
+  it('uses the package-json node validation runtime to catch forbidden imports', async () => {
     const repo = createTempRepo('packages/pkg')
     const packageDir = repo.memberDirs['packages/pkg']!
     fs.mkdirSync(path.join(packageDir, 'src'))
@@ -527,7 +527,7 @@ describe('packageJson', () => {
       },
     })
 
-    const issues = result.validate?.({
+    const issues = await result.validate?.({
       cwd: repo.repoRoot,
       location: 'packages/pkg',
       validation: { packageJson: nodePackageJsonValidationRuntime },
@@ -542,7 +542,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('forbids bare Node builtin imports in constrained export environments', () => {
+  it('forbids bare Node builtin imports in constrained export environments', async () => {
     const repo = createTempRepo('packages/pkg')
     const packageDir = repo.memberDirs['packages/pkg']!
     fs.mkdirSync(path.join(packageDir, 'src'))
@@ -560,7 +560,7 @@ describe('packageJson', () => {
       },
     })
 
-    const issues = result.validate?.({
+    const issues = await result.validate?.({
       cwd: repo.repoRoot,
       location: 'packages/pkg',
       validation: { packageJson: nodePackageJsonValidationRuntime },
@@ -575,7 +575,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('follows NodeNext .js source imports when scanning export environments', () => {
+  it('follows NodeNext .js source imports when scanning export environments', async () => {
     const repo = createTempRepo('packages/pkg')
     const packageDir = repo.memberDirs['packages/pkg']!
     fs.mkdirSync(path.join(packageDir, 'src'))
@@ -591,7 +591,7 @@ describe('packageJson', () => {
       },
     })
 
-    const issues = result.validate?.({
+    const issues = await result.validate?.({
       cwd: repo.repoRoot,
       location: 'packages/pkg',
       validation: { packageJson: nodePackageJsonValidationRuntime },
@@ -606,7 +606,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('follows directory entrypoints when scanning extensionless source imports', () => {
+  it('follows directory entrypoints when scanning extensionless source imports', async () => {
     const repo = createTempRepo('packages/pkg')
     const packageDir = repo.memberDirs['packages/pkg']!
     fs.mkdirSync(path.join(packageDir, 'src/feature'), { recursive: true })
@@ -625,7 +625,7 @@ describe('packageJson', () => {
       },
     })
 
-    const issues = result.validate?.({
+    const issues = await result.validate?.({
       cwd: repo.repoRoot,
       location: 'packages/pkg',
       validation: { packageJson: nodePackageJsonValidationRuntime },
@@ -640,7 +640,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('forbids direct process global usage in cheap isomorphic validation', () => {
+  it('forbids direct process global usage in cheap isomorphic validation', async () => {
     const repo = createTempRepo('packages/pkg')
     const packageDir = repo.memberDirs['packages/pkg']!
     fs.mkdirSync(path.join(packageDir, 'src'))
@@ -655,7 +655,7 @@ describe('packageJson', () => {
       },
     })
 
-    const issues = result.validate?.({
+    const issues = await result.validate?.({
       cwd: repo.repoRoot,
       location: 'packages/pkg',
       validation: { packageJson: nodePackageJsonValidationRuntime },
@@ -670,7 +670,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('does not let scoped forbidden-global declarations mask outer usage', () => {
+  it('does not let scoped forbidden-global declarations mask outer usage', async () => {
     const repo = createTempRepo('packages/pkg')
     const packageDir = repo.memberDirs['packages/pkg']!
     fs.mkdirSync(path.join(packageDir, 'src'))
@@ -691,7 +691,7 @@ describe('packageJson', () => {
       },
     })
 
-    const issues = result.validate?.({
+    const issues = await result.validate?.({
       cwd: repo.repoRoot,
       location: 'packages/pkg',
       validation: { packageJson: nodePackageJsonValidationRuntime },
@@ -706,7 +706,7 @@ describe('packageJson', () => {
     ).toHaveLength(1)
   })
 
-  it('validates package export patterns against matching source files', () => {
+  it('validates package export patterns against matching source files', async () => {
     const repo = createTempRepo('packages/pkg')
     const packageDir = repo.memberDirs['packages/pkg']!
     fs.mkdirSync(path.join(packageDir, 'src/testing/e2e'), { recursive: true })
@@ -729,7 +729,7 @@ describe('packageJson', () => {
       },
     })
 
-    const issues = result.validate?.({
+    const issues = await result.validate?.({
       cwd: repo.repoRoot,
       location: 'packages/pkg',
       validation: { packageJson: nodePackageJsonValidationRuntime },
@@ -751,7 +751,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('resolves conditional export targets in emitted condition order', () => {
+  it('resolves conditional export targets in emitted condition order', async () => {
     const repo = createTempRepo('packages/pkg')
     const packageDir = repo.memberDirs['packages/pkg']!
     fs.mkdirSync(path.join(packageDir, 'src'))
@@ -776,7 +776,7 @@ describe('packageJson', () => {
       },
     })
 
-    const issues = result.validate?.({
+    const issues = await result.validate?.({
       cwd: repo.repoRoot,
       location: 'packages/pkg',
       validation: { packageJson: nodePackageJsonValidationRuntime },
@@ -791,7 +791,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('invalidates strict proof cache entries when dependency metadata changes', () => {
+  it('invalidates strict proof cache entries when dependency metadata changes', async () => {
     const repo = createTempRepo('packages/pkg')
     const packageDir = repo.memberDirs['packages/pkg']!
     fs.mkdirSync(path.join(packageDir, 'src'))
@@ -800,8 +800,8 @@ describe('packageJson', () => {
     fs.writeFileSync(path.join(packageDir, 'package.json'), '{"name":"@test/package"}\n')
     fs.writeFileSync(path.join(packageDir, 'src/mod.ts'), 'export const value = 1\n')
 
-    const validate = () =>
-      nodePackageJsonValidationRuntime.validateExportEnvironments({
+    const validate = async () =>
+      await nodePackageJsonValidationRuntime.validateExportEnvironments({
         cwd: repo.repoRoot,
         location: 'packages/pkg',
         packageName: '@test/package',
@@ -816,18 +816,18 @@ describe('packageJson', () => {
         },
       })
 
-    expect(validate().cache).toEqual({ hits: 0, misses: 1 })
-    expect(validate().cache).toEqual({ hits: 1, misses: 0 })
+    expect((await validate()).cache).toEqual({ hits: 0, misses: 1 })
+    expect((await validate()).cache).toEqual({ hits: 1, misses: 0 })
 
     fs.writeFileSync(
       path.join(repo.repoRoot, 'pnpm-lock.yaml'),
       'lockfileVersion: 11.0\nchanged: true\n',
     )
 
-    expect(validate().cache).toEqual({ hits: 0, misses: 1 })
+    expect((await validate()).cache).toEqual({ hits: 0, misses: 1 })
   }, 30_000)
 
-  it('runs strict type proof through an explicit compiler executable', () => {
+  it('runs strict type proof through an explicit compiler executable', async () => {
     const repo = createTempRepo('packages/pkg')
     const packageDir = repo.memberDirs['packages/pkg']!
     const compilerLog = path.join(repo.repoRoot, 'compiler-args.log')
@@ -850,7 +850,7 @@ describe('packageJson', () => {
     const runtime = createNodePackageJsonValidationRuntime({
       typeProofCompiler: { path: compilerBin, kind: 'tsgo' },
     })
-    const result = runtime.validateExportEnvironments({
+    const result = await runtime.validateExportEnvironments({
       cwd: repo.repoRoot,
       location: 'packages/pkg',
       packageName: '@test/package',
@@ -870,7 +870,7 @@ describe('packageJson', () => {
     expect(fs.readFileSync(compilerLog, 'utf8')).toContain('--project')
   })
 
-  it('reports strict type proof compiler failures as validation issues', () => {
+  it('reports strict type proof compiler failures as validation issues', async () => {
     const repo = createTempRepo('packages/pkg')
     const packageDir = repo.memberDirs['packages/pkg']!
     const compilerBin = path.join(repo.repoRoot, 'fake-tsgo')
@@ -893,7 +893,7 @@ describe('packageJson', () => {
     const runtime = createNodePackageJsonValidationRuntime({
       typeProofCompiler: { path: compilerBin, kind: 'tsgo' },
     })
-    const result = runtime.validateExportEnvironments({
+    const result = await runtime.validateExportEnvironments({
       cwd: repo.repoRoot,
       location: 'packages/pkg',
       packageName: '@test/package',
@@ -917,7 +917,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('reports missing strict type proof compilers as validation issues', () => {
+  it('reports missing strict type proof compilers as validation issues', async () => {
     const repo = createTempRepo('packages/pkg')
     const packageDir = repo.memberDirs['packages/pkg']!
     const compilerBin = path.join(repo.repoRoot, 'missing-tsgo')
@@ -927,7 +927,7 @@ describe('packageJson', () => {
     const runtime = createNodePackageJsonValidationRuntime({
       typeProofCompiler: { path: compilerBin, kind: 'tsgo' },
     })
-    const result = runtime.validateExportEnvironments({
+    const result = await runtime.validateExportEnvironments({
       cwd: repo.repoRoot,
       location: 'packages/pkg',
       packageName: '@test/package',
@@ -951,7 +951,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('does not silently fall back to tsc from PATH for strict type proof', () => {
+  it('does not silently fall back to tsc from PATH for strict type proof', async () => {
     const repo = createTempRepo('packages/pkg')
     const packageDir = repo.memberDirs['packages/pkg']!
     const binDir = path.join(repo.repoRoot, 'bin')
@@ -966,7 +966,7 @@ describe('packageJson', () => {
     process.env.PATH = binDir
     delete process.env.GENIE_EXPORT_TYPE_PROOF_COMPILER
     try {
-      const result = createNodePackageJsonValidationRuntime().validateExportEnvironments({
+      const result = await createNodePackageJsonValidationRuntime().validateExportEnvironments({
         cwd: repo.repoRoot,
         location: 'packages/pkg',
         packageName: '@test/package',
@@ -998,7 +998,7 @@ describe('packageJson', () => {
     }
   })
 
-  it('accepts a strict isomorphic TypeScript proof for the pure genie runtime entry', () => {
+  it('accepts a strict isomorphic TypeScript proof for the pure genie runtime entry', async () => {
     const repoRoot = path.resolve(import.meta.dirname, '../../../../../..')
     const result = packageJson({
       name: '@overeng/genie',
@@ -1011,7 +1011,7 @@ describe('packageJson', () => {
       },
     })
 
-    const issues = result.validate?.({
+    const issues = await result.validate?.({
       cwd: repoRoot,
       location: 'packages/@overeng/genie',
       validation: { packageJson: nodePackageJsonValidationRuntime },
@@ -1020,7 +1020,7 @@ describe('packageJson', () => {
     expect(issues).toEqual([])
   }, 30_000)
 
-  it('preserves non-emitted metadata when provided as the second argument', () => {
+  it('preserves non-emitted metadata when provided as the second argument', async () => {
     const result = packageJson(
       {
         name: '@test/package',
@@ -1051,7 +1051,7 @@ describe('packageJson', () => {
         coverage: 'warn',
       },
     })
-    expect(result.validate?.(mockGenieContext)).toContainEqual(
+    expect(await result.validate?.(mockGenieContext)).toContainEqual(
       expect.objectContaining({
         severity: 'warning',
         dependency: '.',
@@ -1061,7 +1061,7 @@ describe('packageJson', () => {
     expect(JSON.parse(result.stringify(mockGenieContext))).not.toHaveProperty('meta')
   })
 
-  it('requires workspace metadata when local workspace deps are emitted', () => {
+  it('requires workspace metadata when local workspace deps are emitted', async () => {
     const result = packageJson({
       name: '@test/package',
       version: '1.0.0',
@@ -1070,7 +1070,7 @@ describe('packageJson', () => {
       },
     })
 
-    expect(result.validate?.(mockGenieContext)).toContainEqual({
+    expect(await result.validate?.(mockGenieContext)).toContainEqual({
       severity: 'error',
       packageName: '@test/package',
       dependency: '@test/utils',
@@ -1080,7 +1080,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('rejects manual dependency buckets when composition is provided', () => {
+  it('rejects manual dependency buckets when composition is provided', async () => {
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'genie-composition-'))
     const packageDir = path.join(repo, 'packages', '@test', 'package')
     fs.mkdirSync(path.join(repo, '.git'), { recursive: true })
@@ -1107,7 +1107,7 @@ describe('packageJson', () => {
       composition,
     )
 
-    expect(result.validate?.(mockGenieContext)).toContainEqual({
+    expect(await result.validate?.(mockGenieContext)).toContainEqual({
       severity: 'error',
       packageName: '@test/package',
       dependency: '(composition)',
@@ -1117,7 +1117,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('rejects raw workspace metadata', () => {
+  it('rejects raw workspace metadata', async () => {
     const result = packageJson(
       {
         name: '@test/package',
@@ -1135,7 +1135,7 @@ describe('packageJson', () => {
       } as any,
     )
 
-    expect(result.validate?.(mockGenieContext)).toContainEqual({
+    expect(await result.validate?.(mockGenieContext)).toContainEqual({
       severity: 'error',
       packageName: '@test/package',
       dependency: '(workspace metadata)',
@@ -1145,7 +1145,7 @@ describe('packageJson', () => {
     })
   })
 
-  it('rejects raw workspace metadata even without local workspace specs', () => {
+  it('rejects raw workspace metadata even without local workspace specs', async () => {
     const result = packageJson(
       {
         name: '@test/package',
@@ -1163,7 +1163,7 @@ describe('packageJson', () => {
       } as any,
     )
 
-    expect(result.validate?.(mockGenieContext)).toContainEqual({
+    expect(await result.validate?.(mockGenieContext)).toContainEqual({
       severity: 'error',
       packageName: '@test/package',
       dependency: '(workspace metadata)',
@@ -1254,7 +1254,7 @@ describe('packageJson validate hook', () => {
     expect(typeof result.validate).toBe('function')
   })
 
-  it('returns no issues when recomposition is correct', () => {
+  it('returns no issues when recomposition is correct', async () => {
     const repo = createTempRepo('packages/utils', 'packages/app')
     const utilsComposition = validationCatalog.compose({
       workspace: workspace({
@@ -1306,10 +1306,10 @@ describe('packageJson validate hook', () => {
       appComposition,
     )
 
-    expect(result.validate!(ctx)).toEqual([])
+    expect(await result.validate!(ctx)).toEqual([])
   })
 
-  it('reports issues when peer deps are missing', () => {
+  it('reports issues when peer deps are missing', async () => {
     const repo = createTempRepo('packages/utils', 'packages/app')
     const utilsComposition = validationCatalog.compose({
       workspace: workspace({
@@ -1360,15 +1360,15 @@ describe('packageJson validate hook', () => {
       appComposition,
     )
 
-    const issues = result.validate!(ctx)
+    const issues = await result.validate!(ctx)
     expect(issues).toHaveLength(1)
     expect(issues[0]).toMatchObject({ rule: 'recompose-peer-deps' })
   })
 
-  it('returns empty array when name is missing', () => {
+  it('returns empty array when name is missing', async () => {
     const result = packageJson({ version: '1.0.0' })
     const ctx = makeValidationContext([])
-    expect(result.validate!(ctx)).toEqual([])
+    expect(await result.validate!(ctx)).toEqual([])
   })
 })
 

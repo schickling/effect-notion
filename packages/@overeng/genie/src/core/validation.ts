@@ -105,8 +105,9 @@ export const runGenieValidation = ({
         },
       }
 
-      if (loaded.output.validate !== undefined) {
-        issues.push(...loaded.output.validate(ctx))
+      const validate = loaded.output.validate
+      if (validate !== undefined) {
+        issues.push(...(yield* Effect.promise(() => Promise.resolve(validate(ctx)))))
         continue
       }
 
