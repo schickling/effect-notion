@@ -22,8 +22,8 @@ set -euo pipefail
 #   6. ERROR PROPAGATION: a failing resolution exits with the same code from
 #      both `secrets-run` and the task exec.
 #   7. NO LEGACY PATH: no gawk parser, no `[x-op-proxy.refs]`, no per-ref
-#      `op-proxy read`, no provider-local `--cache`, no env skip/filter, no
-#      exports, no env-provider handoff anywhere in the module or its scripts.
+#      `op-proxy read`, no wrapper `--cache`, no env skip/filter, no exports,
+#      and no env-provider handoff anywhere in the module or its scripts.
 #   8. STANDALONE REPO: with no manifest both tasks are a clean no-op (exit 0,
 #      zero resolution calls), which keeps repos without secrets working.
 

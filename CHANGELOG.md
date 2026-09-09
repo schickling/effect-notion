@@ -662,8 +662,8 @@ tsconfig.check.json`, but oxlint 1.39 cannot speak the tsgolint 7 protocol, so
   profile through `secretspec run -- true`, and `secrets-run` forwards native
   profile, provider, scope, file, reason, and caller controls directly. This is
   a clean break: consumers must replace `[x-op-proxy.refs]` with native
-  provider-backed `ref` declarations, and the wrapper-specific `--cache` option
-  is removed because caching belongs to the configured provider.
+  provider-backed `ref` declarations. The wrapper-specific `--cache` option is
+  removed because cache policy belongs to the op-proxy server.
 - **buck2 hub**: a Go toolchain and a content-addressed Go module supply. The
   hub declares a `go` `ToolchainAuthority` and `toolchains//:go_bootstrap`, and
   third-party Go code arrives as one `sha256`-pinned `http_archive` per module

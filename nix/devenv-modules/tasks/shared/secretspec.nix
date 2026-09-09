@@ -13,8 +13,8 @@
 # Nothing here parses the manifest, discovers it by walking up from the cwd,
 # reads individual references, skips or filters environment variables, exports
 # values, or re-implements provider/profile/reason precedence. Provider-backed
-# values (e.g. the op-proxy provider) are resolved by the provider in one call
-# per selected profile and cached by the provider, not here.
+# values (e.g. the op-proxy provider) are resolved in one call per selected
+# profile; the op-proxy server, not this module or the provider, owns cache policy.
 {
   file ? "secretspec.toml",
 }:
