@@ -10,6 +10,7 @@ import * as FileSystem from 'effect/FileSystem'
 import { type PlatformError } from 'effect/PlatformError'
 import type { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 
+import { resolveComposedStoreWorktree } from '../composition/acquisition/owned-worktree-acquisition.ts'
 import {
   type MegarepoConfig,
   type MemberSource,
@@ -141,7 +142,7 @@ export const validateStoreMembers = ({
 
       // Check both the branch worktree (refs/heads/<ref>/) and the commit worktree
       // (refs/commits/<sha>/). Content-aware selection in apply mode may use either.
-      const branchWorktreePath = store.getWorktreePath({
+      let branchWorktreePath = store.getWorktreePath({
         source,
         ref: lockedMember.ref,
       })
@@ -153,9 +154,18 @@ export const validateStoreMembers = ({
 
       const branchGitPath = `${branchWorktreePath}.git`.replace(/\/\.git$/, '/.git')
       const commitGitPath = `${commitWorktreePath}.git`.replace(/\/\.git$/, '/.git')
-      const branchGitExists = yield* fs
-        .exists(branchGitPath)
-        .pipe(Effect.orElseSucceed(() => false))
+      let branchGitExists = yield* fs.exists(branchGitPath).pipe(Effect.orElseSucceed(() => false))
+      if (branchGitExists === false && classifyRef(lockedMember.ref) === 'branch') {
+        const composedWorktree = yield* resolveComposedStoreWorktree({
+          bareRepo: bareRepoPath,
+          workspaceRoot: branchWorktreePath,
+          branch: lockedMember.ref,
+        }).pipe(Effect.orElseSucceed(() => undefined))
+        if (composedWorktree !== undefined) {
+          branchWorktreePath = composedWorktree
+          branchGitExists = true
+        }
+      }
       const commitGitExists = yield* fs
         .exists(commitGitPath)
         .pipe(Effect.orElseSucceed(() => false))
