@@ -39,6 +39,7 @@ import {
   createWorkspaceWithLock,
   type StoreFixtureResult,
 } from '../test-utils/store-setup.ts'
+import { makeCanonicalTempDirectoryScoped } from '../test-utils/temp-root.ts'
 import { Cwd } from './context.ts'
 import { mrCommand } from './mod.ts'
 
@@ -2850,7 +2851,9 @@ describe('mr fetch', () => {
           const fs = yield* FileSystem.FileSystem
 
           // Create temp directory for all test artifacts
-          const tmpDir = EffectPath.unsafe.absoluteDir(`${yield* fs.makeTempDirectoryScoped()}/`)
+          const tmpDir = EffectPath.unsafe.absoluteDir(
+            `${yield* makeCanonicalTempDirectoryScoped()}/`,
+          )
 
           // 1. Create source repo (acts as the remote origin)
           const sourceRepoPath = EffectPath.ops.join(

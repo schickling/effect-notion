@@ -33,6 +33,7 @@ import {
 import { classifyRef } from '../core/ref.ts'
 import { makeConsoleCapture } from '../test-utils/consoleCapture.ts'
 import { addCommit, initGitRepo, readConfig } from '../test-utils/setup.ts'
+import { makeCanonicalTempDirectoryScoped } from '../test-utils/temp-root.ts'
 import { mrCommand } from './mod.ts'
 
 /**
@@ -43,7 +44,7 @@ const createMinimalTestSetup = ({ composition = false }: { composition?: boolean
     const fs = yield* FileSystem.FileSystem
 
     // Create temp directory structure
-    const tmpDir = EffectPath.unsafe.absoluteDir(`${yield* fs.makeTempDirectoryScoped()}/`)
+    const tmpDir = EffectPath.unsafe.absoluteDir(`${yield* makeCanonicalTempDirectoryScoped()}/`)
     const workspacePath = EffectPath.ops.join(tmpDir, EffectPath.unsafe.relativeDir('workspace/'))
 
     yield* fs.makeDirectory(workspacePath, { recursive: true })

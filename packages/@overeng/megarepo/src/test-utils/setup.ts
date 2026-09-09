@@ -14,6 +14,7 @@ import { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner
 import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
 
 import { MegarepoConfig } from '../core/config.ts'
+import { makeCanonicalTempDirectoryScoped } from './temp-root.ts'
 
 // =============================================================================
 // Types
@@ -113,7 +114,7 @@ export const createBareRepo = (name: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
 
-    const tmpDir = EffectPath.unsafe.absoluteDir(`${yield* fs.makeTempDirectoryScoped()}/`)
+    const tmpDir = EffectPath.unsafe.absoluteDir(`${yield* makeCanonicalTempDirectoryScoped()}/`)
     const repoPath = EffectPath.ops.join(tmpDir, EffectPath.unsafe.relativeDir(`${name}.git/`))
 
     yield* fs.makeDirectory(repoPath, { recursive: true })
@@ -181,7 +182,7 @@ export const createWorkspace = (fixture?: WorkspaceFixture) =>
     const fs = yield* FileSystem.FileSystem
 
     // Create temp directory
-    const tmpDir = EffectPath.unsafe.absoluteDir(`${yield* fs.makeTempDirectoryScoped()}/`)
+    const tmpDir = EffectPath.unsafe.absoluteDir(`${yield* makeCanonicalTempDirectoryScoped()}/`)
     const workspaceName = fixture?.name ?? 'test-workspace'
     const workspacePath = EffectPath.ops.join(
       tmpDir,
@@ -254,7 +255,7 @@ export const createStore = (repos: ReadonlyArray<RepoFixture>) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
 
-    const tmpDir = EffectPath.unsafe.absoluteDir(`${yield* fs.makeTempDirectoryScoped()}/`)
+    const tmpDir = EffectPath.unsafe.absoluteDir(`${yield* makeCanonicalTempDirectoryScoped()}/`)
     const storePath = EffectPath.ops.join(tmpDir, EffectPath.unsafe.relativeDir('.megarepo/'))
 
     yield* fs.makeDirectory(storePath, { recursive: true })
