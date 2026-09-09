@@ -341,7 +341,7 @@ export const catalog = defineCatalog({
   'jsonc-parser': '3.3.1',
   '@playwright/test': '1.63.0',
   vite: '8.2.2',
-  vitest: '5.0.0',
+  vitest: '4.1.9',
   '@vitejs/plugin-react': '6.1.1',
   unplugin: '3.3.0',
 
@@ -425,8 +425,8 @@ export const catalog = defineCatalog({
    * pass real regressions silently, so the gate overrides threshold, anti-alias
    * handling, and mismatched-pixel budget explicitly.
    */
-  '@vitest/browser': '5.0.0',
-  '@vitest/browser-playwright': '5.0.0',
+  '@vitest/browser': '4.1.9',
+  '@vitest/browser-playwright': '4.1.9',
   playwright: '1.63.0',
 
   // xterm (terminal emulator for browser/testing)

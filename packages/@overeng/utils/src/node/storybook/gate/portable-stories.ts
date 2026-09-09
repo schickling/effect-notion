@@ -52,8 +52,8 @@ export const portableStoryTests = async ({
   readonly configDir: string
   readonly theme: StoryGateTheme | undefined
 }): Promise<Plugin[]> => {
-  const absoluteConfigDir = resolve(process.cwd(), configDir)
-  const root = resolve(absoluteConfigDir, '..')
+  const root = process.cwd()
+  const absoluteConfigDir = resolve(root, configDir)
   const { presets } = await experimental_loadStorybook({
     configDir: absoluteConfigDir,
     packageJson: {},

@@ -54,7 +54,7 @@
     "cli-truncate": "6.1.1",
     "effect": "4.0.0-rc.111",
     "string-width": "8.2.2",
-    "vitest": "5.0.0",
+    "vitest": "4.1.9",
     "yoga-layout": "3.2.1"
   },
   "devDependencies": {
@@ -80,7 +80,7 @@
     "storybook": "10.6.0",
     "typescript": "7.0.2",
     "vite": "8.2.2",
-    "vitest": "5.0.0"
+    "vitest": "4.1.9"
   },
   "peerDependencies": {
     "@effect/atom-react": "^4.0.0-rc.111",

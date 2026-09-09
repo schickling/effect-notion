@@ -19,7 +19,7 @@
     "@types/bun": "1.4.1",
     "@types/node": "26.5.0",
     "typescript": "7.0.2",
-    "vitest": "5.0.0"
+    "vitest": "4.1.9"
   },
   "publishConfig": {
     "access": "public",
