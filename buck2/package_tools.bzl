@@ -6,6 +6,7 @@ load("//buck2/toolchains:defs.bzl", "BunToolchainInfo")
 JavaScriptModuleInfo = provider(fields = {
     "module": Artifact,
     "descriptor": Artifact,
+    "dependency_closure_identity": str,
 })
 
 
@@ -218,6 +219,10 @@ def _package_bundle_impl(ctx):
     module = ctx.actions.declare_output(ctx.attrs.output)
     descriptor = ctx.actions.declare_output("module.json")
     target_identity = "{}//{}:{}".format(ctx.label.cell, ctx.label.package, ctx.label.name)
+    dependency_closure_identity = "runtime={};package_tree={}".format(
+        ctx.attrs.target,
+        ctx.attrs.package_tree.label,
+    )
     args = cmd_args([
         toolchain.executable,
         _runner(ctx),
@@ -265,7 +270,11 @@ def _package_bundle_impl(ctx):
             other_outputs = [descriptor],
             sub_targets = {"descriptor": [DefaultInfo(default_output = descriptor)]},
         ),
-        JavaScriptModuleInfo(module = module, descriptor = descriptor),
+        JavaScriptModuleInfo(
+            module = module,
+            descriptor = descriptor,
+            dependency_closure_identity = dependency_closure_identity,
+        ),
     ]
 
 

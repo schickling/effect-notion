@@ -48,6 +48,10 @@ def _javascript_product_impl(ctx):
         ctx.attrs.product_name,
         "--target-identity",
         str(ctx.label.raw_target()),
+        "--provenance",
+        "configuredTarget={}".format(ctx.label),
+        "--provenance",
+        "dependencyClosureIdentity={}".format(module.dependency_closure_identity),
     ])
     ctx.actions.run(
         args,
