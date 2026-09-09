@@ -269,7 +269,7 @@ test_composed_worktree_selection() {
   printf 'parent sentinel\n' > "$TEST_ROOT/lookalike/.buckconfig.local"
   (
     cd "$standalone"
-    DEVENV_ROOT="$standalone" bash "$TEST_ROOT/enter-shell.sh"
+    env -u BUCK2_NO_REMOTE_CACHE DEVENV_ROOT="$standalone" bash "$TEST_ROOT/enter-shell.sh"
   )
   grep -qxF 'parent sentinel' "$TEST_ROOT/lookalike/.buckconfig.local"
   test -f "$standalone/.buckconfig.local"
@@ -291,7 +291,7 @@ test_composed_worktree_selection() {
   mkdir -p "$workspace_root/.megarepo/bin"
   (
     cd "$member_root"
-    DEVENV_ROOT="$member_root" bash "$TEST_ROOT/enter-shell.sh"
+    env -u BUCK2_NO_REMOTE_CACHE DEVENV_ROOT="$member_root" bash "$TEST_ROOT/enter-shell.sh"
   )
   test -f "$workspace_root/.buckconfig.local"
   test ! -e "$member_root/.buckconfig.local"
@@ -309,7 +309,7 @@ test_composed_worktree_selection() {
   rm -f "$workspace_root/.buckconfig.local"
   (
     cd "$member_root"
-    DEVENV_ROOT="$member_root" bash "$TEST_ROOT/enter-shell.sh"
+    env -u BUCK2_NO_REMOTE_CACHE DEVENV_ROOT="$member_root" bash "$TEST_ROOT/enter-shell.sh"
   )
   test ! -e "$workspace_root/.buckconfig.local"
   test ! -e "$member_root/.buckconfig.local"
