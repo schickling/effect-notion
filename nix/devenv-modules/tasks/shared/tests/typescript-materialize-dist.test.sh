@@ -10,7 +10,7 @@ DECLARATION_ENTRYPOINT="src/mod.d.ts"
 PROJECT="tsconfig.json"
 DIFF_BIN="$(command -v diff)"
 REAL_MV="$(command -v mv)"
-TEST_ROOT="$(mktemp -d)"
+TEST_ROOT="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$TEST_ROOT"' EXIT
 export AGENT_POLICY_BYPASS=1
 
