@@ -26,7 +26,7 @@ let
     workspaceRoot = src;
     # Managed by the repo FOD refresh workflow — do not edit manually.
     depsBuilds = {
-      "." = mkSharedHash "sha256-D+WG7bEUz1ET1Ht7Q9ERxa8LVJwc+nJp28HquGnF4WI=";
+      "." = mkSharedHash "sha256-5mB8LomPP4+v3UjzecPOxnUED/q+tW83C+zLgmoRCs4=";
     };
     nativeNodePackages = opentuiCoreNative.packages;
     smokeTestArgs = [ "--help" ];
