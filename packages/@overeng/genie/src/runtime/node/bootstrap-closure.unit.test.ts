@@ -1,4 +1,13 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -7,7 +16,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { discoverGenieFiles } from './bootstrap-closure-check-cli.ts'
 import {
   canonicalResolvedPath,
+  canonicalSegment,
   checkBootstrapClosure,
+  directoryEntriesOf,
   formatViolationChain,
 } from './bootstrap-closure.ts'
 
@@ -305,15 +316,54 @@ describe('canonicalResolvedPath', () => {
     )
   })
 
-  it('keeps an exact on-disk spelling when a case-sensitive filesystem holds both', () => {
+  // Whether two spellings are two files is a property of the filesystem, not of this code: APFS holds
+  // `Leaf.ts` and `leaf.ts` as ONE file, ext4 as two. Assert what the host can actually represent —
+  // the exact-hit rule itself is proven everywhere by the pure `canonicalSegment` tests below.
+  it('resolves a requested spelling to the identity the filesystem actually represents', () => {
     const dir = makeDir()
     const importer = write(dir, 'pkg/source.genie.ts', `export default {}`)
     write(dir, 'pkg/Leaf.ts', `export default {}`)
     write(dir, 'pkg/leaf.ts', `export default {}`)
+    const entries = readdirSync(path.join(dir, 'pkg'))
+    const distinctIdentities =
+      entries.includes('Leaf.ts') === true && entries.includes('leaf.ts') === true
 
-    const exact = path.join(dir, 'pkg', 'leaf.ts')
+    const requested = path.join(dir, 'pkg', 'leaf.ts')
+    const canonical = canonicalResolvedPath({ file: requested, importer, listings: new Map() })
 
-    expect(canonicalResolvedPath({ file: exact, importer, listings: new Map() })).toBe(exact)
+    if (distinctIdentities === true) {
+      // Case-sensitive: both spellings exist as separate files, so the exact one must survive.
+      expect(canonical).toBe(requested)
+    } else {
+      // Case-insensitive: one file under whichever spelling created it. Canonicalization must name
+      // that spelling, and it must still be the same file — inode, not `realpath`, which is exactly
+      // the call that does NOT restore case on macOS.
+      expect(entries).toContain(path.basename(canonical))
+      expect(statSync(canonical).ino).toBe(statSync(requested).ino)
+    }
+    // Either way the answer is a fixed point: canonicalizing it again changes nothing.
+    expect(canonicalResolvedPath({ file: canonical, importer, listings: new Map() })).toBe(
+      canonical,
+    )
+  })
+})
+
+// The exact-hit branch cannot be staged on a case-insensitive filesystem, so it is proven against the
+// pure name-selection rule instead — identical on every host.
+describe('canonicalSegment', () => {
+  const entries = directoryEntriesOf(['Leaf.ts', 'leaf.ts', 'Nested-Dir'])
+
+  it('keeps an exact spelling when the directory holds both cases', () => {
+    expect(canonicalSegment({ segment: 'leaf.ts', entries })).toBe('leaf.ts')
+    expect(canonicalSegment({ segment: 'Leaf.ts', entries })).toBe('Leaf.ts')
+  })
+
+  it('restores the on-disk spelling for a folded name with no exact match', () => {
+    expect(canonicalSegment({ segment: 'nested-dir', entries })).toBe('Nested-Dir')
+  })
+
+  it('returns an unknown component unchanged', () => {
+    expect(canonicalSegment({ segment: 'missing.ts', entries })).toBe('missing.ts')
   })
 })
 

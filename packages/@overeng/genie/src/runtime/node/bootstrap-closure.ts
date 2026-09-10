@@ -144,7 +144,7 @@ const runtimeSpecifiersOf = (sourceFile: SourceFile): readonly StringLiteral[] =
 }
 
 /** One directory read back from disk: its entries, plus the case-folded index used to restore spelling. */
-type DirectoryEntries = {
+export type DirectoryEntries = {
   readonly names: ReadonlySet<string>
   readonly byLowerCase: ReadonlyMap<string, string>
 }
@@ -174,6 +174,34 @@ const directoryListing = ({
   listings.set(directory, entries)
   return entries
 }
+
+/**
+ * Which on-disk entry a resolved path component names.
+ *
+ * An exact hit is authoritative — a case-sensitive filesystem may hold `Leaf.ts` AND `leaf.ts`, and
+ * rewriting one to the other would name a different file. Only when no entry carries that exact
+ * spelling does the case-folded index answer, which is what restores the spelling a case-insensitive
+ * filesystem folded away. An unknown component is returned unchanged: the path simply is not there.
+ *
+ * Pure, so both branches are testable on any filesystem — the case-sensitive one cannot be staged on
+ * macOS, which refuses to hold the two spellings as distinct files.
+ */
+export const canonicalSegment = ({
+  segment,
+  entries,
+}: {
+  segment: string
+  entries: DirectoryEntries
+}): string =>
+  entries.names.has(segment) === true
+    ? segment
+    : (entries.byLowerCase.get(segment.toLowerCase()) ?? segment)
+
+/** Build the lookup shape {@link canonicalSegment} reads from a plain list of directory entries. */
+export const directoryEntriesOf = (names: readonly string[]): DirectoryEntries => ({
+  names: new Set(names),
+  byLowerCase: new Map(names.map((name) => [name.toLowerCase(), name])),
+})
 
 /**
  * The single on-disk identity of a file the compiler resolved FROM `importer`: symlinks resolved, and
@@ -218,13 +246,12 @@ export const canonicalResolvedPath = ({
     index += 1
   }
   for (; index < segments.length; index += 1) {
-    const segment = segments[index]!
-    const { names, byLowerCase } = directoryListing({ directory: canonical, listings })
-    // An exact hit is authoritative — a case-sensitive filesystem may hold both spellings — and the
-    // case-folded hit is what restores the spelling a case-insensitive one folded away.
     canonical = path.join(
       canonical,
-      names.has(segment) === true ? segment : (byLowerCase.get(segment.toLowerCase()) ?? segment),
+      canonicalSegment({
+        segment: segments[index]!,
+        entries: directoryListing({ directory: canonical, listings }),
+      }),
     )
   }
   return canonical
