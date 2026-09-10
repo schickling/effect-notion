@@ -77,10 +77,13 @@ else
         --base "$source_sha" \
         --porcelain
   )"
-  if [ "$created_member_root" != "$workspace_root" ]; then
-    echo "::error::worktree creation returned '$created_member_root', expected '$workspace_root'" >&2
-    exit 1
-  fi
+  case "$created_member_root" in
+    "$workspace_root"|"$member_root") ;;
+    *)
+      echo "::error::worktree creation returned '$created_member_root', expected '$workspace_root' or '$member_root'" >&2
+      exit 1
+      ;;
+  esac
 fi
 (
   cd "$workspace_parent"
