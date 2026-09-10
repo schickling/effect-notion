@@ -132,6 +132,14 @@ All notable changes to this project will be documented in this file.
 
 ### Removed
 
+- **genie**: the stale `peerDependencyRules.allowedVersions` entries for
+  `typescript`, `eslint`, and `vitest` are gone from
+  `commonPnpmPolicySettings` (and their restatements in `genie/internal.ts`).
+  The validator reported all three as suppressing no catalog conflict:
+  `typescript-eslint` ranges now cover catalog eslint 10 / TS 6, and
+  `@effect/vitest` peers cover catalog vitest 4. The live `unplugin`
+  entry is untouched. Regenerated `pnpm-workspace.yaml` accordingly.
+
 - **@overeng/megarepo**: the deprecated `MegarepoStore` members `getRepoPath`
   and `hasRepo` are gone. Both were aliases kept only for the rename:
   `getRepoPath` returned exactly what `getRepoBasePath` returns, and `hasRepo`
