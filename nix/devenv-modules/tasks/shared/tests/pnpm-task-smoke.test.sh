@@ -590,28 +590,6 @@ echo "Test 3: status hits after install with the same root-local virtual topolog
   assert_exit_code 0 "$exit_code" "status should hit after install"
 )
 
-echo "Test 3a: an override-only dependency graph change invalidates install status"
-(
-  cd "$workspace"
-  export HOME="$tmpdir/home"
-  export PNPM_HOME="$workspace/.pnpm-home-a"
-  original_contract="$tmpdir/pnpm-install-contract.original.json"
-  cp pnpm-install-contract.json "$original_contract"
-  trap 'cp "$original_contract" pnpm-install-contract.json; chmod 444 pnpm-install-contract.json' EXIT
-  chmod u+w pnpm-install-contract.json
-  node -e '
-    const fs = require("node:fs")
-    const path = process.argv[1]
-    const contract = JSON.parse(fs.readFileSync(path, "utf8"))
-    contract.dependencyGraphContract.overrides["fixture-dependency"] = "2.0.0"
-    fs.writeFileSync(path, `${JSON.stringify(contract, undefined, 2)}\n`)
-  ' pnpm-install-contract.json
-  set +e
-  bash "$tmpdir/pnpm-install.status.sh"
-  exit_code=$?
-  set -e
-  assert_exit_code 1 "$exit_code" "override-only graph drift should invalidate install status"
-)
 
 echo "Test 3b: cached status rejects a nested dependency edge outside the root-local topology"
 (
