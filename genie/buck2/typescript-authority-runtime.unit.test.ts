@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   authoritativeBuck2TypeScriptAdmissions,
+  buck2TypeScriptTestTargets,
   type AuthoritativeBuck2TypeScriptAdmission,
 } from './typescript-admissions.ts'
 import {
@@ -96,6 +97,25 @@ describe('Buck2 TypeScript authority runtime planning', () => {
       planBuck2TypeScriptBuild({
         admissions: fixtureAdmissions,
         buck2Bin: '/workspace/.megarepo/bin/buck2',
+        testTargets: ['//packages/@example/widget:test'],
+      }),
+    ).toEqual([
+      '/workspace/.megarepo/bin/buck2',
+      'build',
+      'effect_utils//packages/@example/widget:typecheck',
+      'effect_utils//packages/@example/widget:test',
+      'effect_utils//buck2/toolchains:archive_tool',
+      'effect_utils//buck2/toolchains:product_tool',
+      '--local-only',
+    ])
+
+    // A package with no declared lane adds nothing: the gate must not invent a
+    // target name for it.
+    expect(
+      planBuck2TypeScriptBuild({
+        admissions: fixtureAdmissions,
+        buck2Bin: '/workspace/.megarepo/bin/buck2',
+        testTargets: [],
       }),
     ).toEqual([
       '/workspace/.megarepo/bin/buck2',
@@ -133,10 +153,16 @@ describe('Buck2 TypeScript authority runtime planning', () => {
       ...authoritativeBuck2TypeScriptAdmissions.map(
         ({ typecheckTarget }) => `effect_utils${typecheckTarget}`,
       ),
+      ...buck2TypeScriptTestTargets.map((target) => `effect_utils${target}`),
       'effect_utils//buck2/toolchains:archive_tool',
       'effect_utils//buck2/toolchains:product_tool',
       '--local-only',
     ])
+
+    // Every admitted package that has test files declares a lane, so the gate
+    // covers them all rather than a subset that silently shrinks.
+    expect(buck2TypeScriptTestTargets.length).toBeGreaterThan(0)
+    expect(buck2TypeScriptTestTargets.every((target) => target.endsWith(':test'))).toBe(true)
   })
 
   it('forwards task signals to the active child and propagates its signal outcome', async () => {

@@ -32,6 +32,21 @@ export const buck2TypeScriptAdmission = {
     },
   ],
   editorViewConsumer: false,
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+      // Only the story-module and wire-baseline suites are bounded: story discovery, capture,
+      // rendering, and the CLI contract all reach outside the package tree for the repository
+      // checkout, so they stay unbounded (decision 0026).
+      excludes: [
+        'test/StoryCapture.test.ts',
+        'test/StoryDiscovery.test.ts',
+        'test/StoryRenderer.test.ts',
+        'test/cli.contract.test.ts',
+      ],
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default withJavaScriptCandidates({

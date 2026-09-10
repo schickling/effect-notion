@@ -10,37 +10,10 @@
       "path": "./context/opentui"
     },
     {
-      "path": "./packages/@overeng/agent-session-ingest"
-    },
-    {
       "path": "./packages/@overeng/buck2-tools"
     },
     {
-      "path": "./packages/@overeng/ci-tools"
-    },
-    {
-      "path": "./packages/@overeng/content-address"
-    },
-    {
-      "path": "./packages/@overeng/effect-ai-claude-cli"
-    },
-    {
-      "path": "./packages/@overeng/effect-distributed-lock"
-    },
-    {
-      "path": "./packages/@overeng/effect-path"
-    },
-    {
-      "path": "./packages/@overeng/effect-react"
-    },
-    {
-      "path": "./packages/@overeng/effect-rpc-tanstack"
-    },
-    {
       "path": "./packages/@overeng/effect-rpc-tanstack/examples/basic"
-    },
-    {
-      "path": "./packages/@overeng/effect-schema-form"
     },
     {
       "path": "./packages/@overeng/effect-schema-form-aria"
@@ -49,73 +22,16 @@
       "path": "./packages/@overeng/genie"
     },
     {
-      "path": "./packages/@overeng/kdl"
-    },
-    {
       "path": "./packages/@overeng/kdl-effect"
     },
     {
       "path": "./packages/@overeng/megarepo"
     },
     {
-      "path": "./packages/@overeng/notion-cli"
-    },
-    {
-      "path": "./packages/@overeng/notion-core"
-    },
-    {
-      "path": "./packages/@overeng/notion-datasource-sync"
-    },
-    {
-      "path": "./packages/@overeng/notion-effect-client"
-    },
-    {
-      "path": "./packages/@overeng/notion-effect-schema"
-    },
-    {
-      "path": "./packages/@overeng/notion-md"
-    },
-    {
-      "path": "./packages/@overeng/notion-property-write"
-    },
-    {
-      "path": "./packages/@overeng/notion-react"
-    },
-    {
-      "path": "./packages/@overeng/npm-release"
-    },
-    {
-      "path": "./packages/@overeng/otel-contract"
-    },
-    {
-      "path": "./packages/@overeng/oxc-config"
-    },
-    {
-      "path": "./packages/@overeng/pty-effect"
-    },
-    {
-      "path": "./packages/@overeng/react-inspector"
-    },
-    {
       "path": "./packages/@overeng/react-inspector/tsconfig.strict-consumer.json"
     },
     {
-      "path": "./packages/@overeng/restate-effect"
-    },
-    {
-      "path": "./packages/@overeng/tui-core"
-    },
-    {
-      "path": "./packages/@overeng/tui-react"
-    },
-    {
       "path": "./packages/@overeng/tui-stories"
-    },
-    {
-      "path": "./packages/@overeng/utils"
-    },
-    {
-      "path": "./packages/@overeng/utils-dev"
     }
   ]
 }

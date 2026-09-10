@@ -60,6 +60,37 @@ export const buck2TypeScriptAdmission = {
     declarationEntrypoint: 'src/mod.d.ts',
     projectFile: 'tsconfig.json',
   },
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+      // The store, replica, and planner suites are built on `node:sqlite`, which pinned Bun
+      // does not implement, so Node evaluates the lane through the attested NODE_BIN. The
+      // e2e suites reach live services and stay with the devenv task (decision 0026).
+      tools: { NODE_BIN: '//buck2/toolchains:tool_node' },
+      vitestRuntime: 'node',
+      excludes: [
+        'src/e2e/body-adapter.e2e.test.ts',
+        'src/e2e/cli.e2e.test.ts',
+        'src/e2e/conflict-resolution.e2e.test.ts',
+        'src/e2e/daemon.e2e.test.ts',
+        'src/e2e/dry-run-suppression.e2e.test.ts',
+        'src/e2e/fake-service.e2e.test.ts',
+        'src/e2e/live-demo-replica.e2e.test.ts',
+        'src/e2e/live-notion.e2e.test.ts',
+        'src/e2e/local-convergence-production.e2e.test.ts',
+        'src/e2e/local-workspace-fs.e2e.test.ts',
+        'src/e2e/nmd-canonical-comparability.e2e.test.ts',
+        'src/e2e/one-shot-sync.e2e.test.ts',
+        'src/e2e/otel.e2e.test.ts',
+        'src/e2e/property-materialization-production.e2e.test.ts',
+        'src/e2e/realistic-workflows.e2e.test.ts',
+        'src/e2e/sqlite-storage-contract.e2e.test.ts',
+        'src/e2e/watch-authority-mode.e2e.test.ts',
+        'src/e2e/watch-dry-run.e2e.test.ts',
+      ],
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)

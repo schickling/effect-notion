@@ -169,7 +169,8 @@ const runActionlintRaw = ({
 
 /**
  * Resolve actionlint binary via GENIE_ACTIONLINT_BIN env var.
- * Set by nix wrappers (build.nix --set, mkSourceCli runtimeEnv) to avoid subprocess overhead.
+ * Set by the packaged product wrapper (`--set GENIE_ACTIONLINT_BIN`, declared as
+ * the `actionlint` external capability) to avoid subprocess overhead.
  */
 const resolveActionlintBin = (): string | undefined => {
   const bin = process.env.GENIE_ACTIONLINT_BIN

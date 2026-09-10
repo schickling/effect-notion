@@ -12,6 +12,15 @@ export const buck2TypeScriptAdmission = {
     declarationEntrypoint: 'src/index.d.ts',
     projectFile: 'tsconfig.json',
   },
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+      // The config's `setupFiles` entry is a package-root file, outside every source root,
+      // so it is staged with the config itself.
+      configInputs: ['vitest.setup.ts'],
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)

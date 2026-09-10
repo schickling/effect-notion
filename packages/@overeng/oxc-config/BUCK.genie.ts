@@ -14,6 +14,12 @@ export const buck2TypeScriptAdmission = {
     declarationEntrypoint: 'src/mod.d.ts',
     projectFile: 'tsconfig.json',
   },
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default withJavaScriptCandidates({

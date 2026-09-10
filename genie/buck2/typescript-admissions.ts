@@ -129,6 +129,20 @@ export const buck2TypeScriptDistOverlays = authoritativeBuck2TypeScriptAdmission
     Buffer.from(left.destination).compare(Buffer.from(right.destination)),
   )
 
+/**
+ * Every Buck test target the admitted packages declare, byte-sorted.
+ *
+ * `buck2:check` builds these beside the typecheck targets so a declared lane
+ * cannot rot: its rule, its staged package tree, and its attested tools are
+ * proven to analyse and stage on every check. Test EXECUTION is a separate
+ * question and is still source-owned — see `context/buck2/roadmap.md` Phase 3.
+ */
+export const buck2TypeScriptTestTargets = Object.values(buck2TypeScriptAdmissions)
+  .flatMap((admission: Buck2TypeScriptAdmission): readonly `//${string}`[] =>
+    (admission.tests ?? []).map((target) => `//${admission.packagePath}:${target.name}` as const),
+  )
+  .toSorted((left, right) => Buffer.from(left).compare(Buffer.from(right)))
+
 /** Byte-sorted package paths whose editor dependency surface is currently admitted. */
 export const editorViewConsumerPackagePaths = Object.values(buck2TypeScriptAdmissions)
   .filter((admission) => admission.editorViewConsumer === true)

@@ -69,6 +69,18 @@ filegroup(
     visibility = ["PUBLIC"],
 )
 
+# JavaScript command and test actions execute this runner beside its declared
+# import closure. `//buck2:javascript.bzl` addresses the entry inside this tree,
+# so the runner never reaches back into the source checkout for its own modules.
+filegroup(
+    name = "javascript_action_runtime",
+    srcs = {
+        "javascript-runner.ts": "packages/@overeng/buck2-tools/src/javascript-runner.ts",
+        "typescript-runner.ts": "packages/@overeng/buck2-tools/src/typescript-runner.ts",
+    },
+    visibility = ["PUBLIC"],
+)
+
 # Hermetic TypeScript actions execute this source with their pinned Bun runtime.
 # Single-file staging: this runner must import nothing relative.
 export_file(

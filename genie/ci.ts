@@ -16,6 +16,9 @@ export type RunnerProfile = (typeof RUNNER_PROFILES)[number]
 
 /** Core CI job keys used for the typed product-job block in the workflow generator. */
 export const CORE_CI_JOB_NAMES = [
+  // Split typecheck authority: `buck2:check` for Buck-authoritative packages, `ts:check:strict`
+  // for the residual root TypeScript solution. This lane runs both, so there is no separate
+  // `buck2` lane — `buck2:check` would otherwise be paid twice on independent runners.
   'typecheck',
   'lint',
   'test',
@@ -25,8 +28,6 @@ export const CORE_CI_JOB_NAMES = [
   'pnpm-builder-contract',
   'pnpm-regression',
   'bundle-smoke',
-  // Local-only Buck graph, receipt, bridge, and benchmark-contract evidence.
-  'buck2',
   // Rust lane: delegates build/test/clippy/fmt semantics to devenv task cargo:check.
   'cargo',
   // Additive Weaver semantic-conventions gate (separate lane; degrades if weaver unavailable).

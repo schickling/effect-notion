@@ -15,8 +15,9 @@ All notable changes to this project will be documented in this file.
 - **Buck2 (inert)**: added sandbox-free package, editor-view, and product
   actions; normalized dependency views; tracked remote-cache configuration with
   a local opt-out; and immutable-release digest-manifest, consumer, and
-  publisher machinery. Ordinary checks do not publish products; pnpm, `tsgo`,
-  and Vitest remain authoritative for this change.
+  publisher machinery. Ordinary checks did not publish products; the authority
+  flip that makes these actions load-bearing is the cutover recorded under
+  Changed below.
 - **@overeng/utils**: `@overeng/utils/node/storybook/gate` — a reusable
   story-driven visual and accessibility gate. Every story becomes a browser
   test that renders, plays, checks accessibility and compares a screenshot
@@ -136,6 +137,16 @@ All notable changes to this project will be documented in this file.
   names the unavailable script together with the file that asks for it.
 
 ### Removed
+
+- **nix**: the repository-local pnpm source builders for the ci-tools, Genie,
+  Genie bootstrap-closure-check, megarepo, notion-cli, notion-md, npm-release,
+  and tui-stories CLIs are gone, together with their fixed-output dependency
+  derivations, the `*-dirty` flake packages, the `*-pnpm-deps` flake outputs,
+  and the devenv source-CLI helper. Every one of those CLIs is now wrapped from
+  its reviewed, content-addressed Buck product; `nix build .#<cli>` and the
+  activated shell resolve the same bytes CI published. `oxc-config`'s pnpm
+  builder stays: its oxlint plugin bundle is an npm-plugin artifact, not a
+  JavaScript product.
 
 - **@overeng/megarepo**: the deprecated `MegarepoStore` members `getRepoPath`
   and `hasRepo` are gone. Both were aliases kept only for the rename:
@@ -288,10 +299,30 @@ All notable changes to this project will be documented in this file.
   effect-rpc-tanstack, pty-effect, restate-effect, ci-tools,
   effect-schema-form, react-inspector). Public type conditions consume Buck
   declarations while runtime defaults remain at source, and package-local
-  project references to now-authoritative siblings are dropped. Root solution
-  membership stays derived and unchanged here; the packages leave both root
-  TypeScript solutions when the authority-derived root filter is restored by
-  the cutover.
+  project references to now-authoritative siblings are dropped. All thirteen
+  leave both root TypeScript solutions, because root-solution membership is
+  derived from the same authority registry.
+
+- **Buck2 authority cutover**: Buck is now the sole producer for the admitted
+  JavaScript/TypeScript surface. Root-solution membership became the exact
+  complement of Buck authority — `isRootTsconfigCheckProject` and
+  `isRootTsconfigEmitProject` read the same `authoritativeBuck2TypeScriptAdmissions`
+  registry that drives the dist overlays, so the 29 admitted projects leave
+  both root TypeScript solutions and the 10 projects no Buck target owns are
+  all that root `tsc` still checks. `check:quick` and `check:all` gate on
+  `buck2:check`; the residual root solution runs after
+  `buck2:typescript:materialize-dist`, which publishes the Buck-owned
+  declarations it reads. 32 packages now declare a `//<packagePath>:test` Buck
+  lane over their bounded suites, which `buck2:check` builds so the lane's
+  rule, staged package tree, and attested tools cannot rot; a new attested
+  `node` executor capability serves the suites that need Node built-ins Bun
+  does not implement. Test EXECUTION stays source-owned for now — the baseline
+  test-collection gate reads retained Vitest JSON that a Buck test action does
+  not write, and the unbounded remainder of each suite needs its own declared
+  lane first — so `test:<package>` is unchanged. Unbounded suites stay outside
+  Buck by policy: integration, e2e, live-deploy, PTY, Playwright and Storybook
+  remain source-owned, as does native Rust product authority for `otelite` and
+  `otel-scrape`, whose per-tuple products this repository has never emitted.
 
 - **deps**: update the compatible patch and minor dependency cohort, including
   React 19.2.8, OpenTelemetry SDK 2.11, Vite 8.2.2, current TanStack router

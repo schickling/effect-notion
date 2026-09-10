@@ -5,14 +5,15 @@ load("//buck2:package_tools.bzl", "package_bin_artifact")
 load("//buck2/products:defs.bzl", "javascript_product")
 
 # Projection source: packages/@overeng/ci-tools/BUCK.genie.ts
-# Projection schema version: 3
+# Projection schema version: 4
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:04e3dd497a46891c11052eb7531231877622ab79e1483a10ee8acd5a787f4c56
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/ci-tools/BUCK.genie.ts, packages/@overeng/ci-tools/BUCK.genie.ts, packages/@overeng/ci-tools/bin/**/*.cts, packages/@overeng/ci-tools/bin/**/*.js, packages/@overeng/ci-tools/bin/**/*.mts, packages/@overeng/ci-tools/bin/**/*.ts, packages/@overeng/ci-tools/bin/**/*.tsx, packages/@overeng/ci-tools/package.json.genie.ts, packages/@overeng/ci-tools/src/**/*.cts, packages/@overeng/ci-tools/src/**/*.js, packages/@overeng/ci-tools/src/**/*.mts, packages/@overeng/ci-tools/src/**/*.ts, packages/@overeng/ci-tools/src/**/*.tsx, packages/@overeng/ci-tools/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:7d75e25fb78829f600464e45d1904d76be7aafbfb1bbee402416508001aa7cb3
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/ci-tools/BUCK.genie.ts, packages/@overeng/ci-tools/BUCK.genie.ts, packages/@overeng/ci-tools/bin/**/*.cts, packages/@overeng/ci-tools/bin/**/*.js, packages/@overeng/ci-tools/bin/**/*.mts, packages/@overeng/ci-tools/bin/**/*.ts, packages/@overeng/ci-tools/bin/**/*.tsx, packages/@overeng/ci-tools/package.json.genie.ts, packages/@overeng/ci-tools/src/**/*.cts, packages/@overeng/ci-tools/src/**/*.js, packages/@overeng/ci-tools/src/**/*.mts, packages/@overeng/ci-tools/src/**/*.ts, packages/@overeng/ci-tools/src/**/*.tsx, packages/@overeng/ci-tools/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:javascript.bzl", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -80,6 +81,7 @@ package_view(
         "src/workflow-report.test.ts": "src/workflow-report.test.ts",
         "src/workflow-report.ts": "src/workflow-report.ts",
         "tsconfig.json": "tsconfig.json",
+        "vitest.config.ts": "vitest.config.ts",
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
@@ -105,6 +107,22 @@ tsgo_emit(
     declaration_sources = {
     },
     declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    excludes = [
+        "src/deploy-netlify.e2e.test.ts",
+        "src/deploy-netlify.live.e2e.test.ts",
+        "src/deploy-vercel.e2e.test.ts",
+        "src/deploy-vercel.live.e2e.test.ts",
+        "src/workflow-report.e2e.test.ts",
+    ],
+    tools = {
+        "BUN_BIN": "//buck2/toolchains:tool_bun",
+    },
     visibility = ["PUBLIC"],
 )
 
