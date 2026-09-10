@@ -290,6 +290,10 @@ run_downstream_pure_eval_regression() {
     echo "error: prepared deps derivation does not disable pnpm package-manager self-resolution: $drv" >&2
     exit 1
   fi
+  if [ "$(grep -oF 'manage-package-manager-versions=false' <<<"$install_phase" | wc -l)" -lt 2 ]; then
+    echo "error: prepared deps policy does not disable pnpm self-resolution before CLI startup: $drv" >&2
+    exit 1
+  fi
   if [[ "$install_phase" != *'--config.dedupe-injected-deps=false'* ]]; then
     echo "error: prepared deps derivation may traverse injected packages outside the staged workspace: $drv" >&2
     exit 1
@@ -328,6 +332,7 @@ run_downstream_pure_eval_regression() {
     packageImportMethod \
     nodeLinker \
     optimisticRepeatInstall \
+    managePackageManagerVersions \
     verifyDepsBeforeRun \
     sideEffectsCache \
     sideEffectsCacheReadonly \
@@ -349,6 +354,7 @@ run_downstream_pure_eval_regression() {
       cache-dir \
       package-import-method \
       node-linker \
+      manage-package-manager-versions \
       verify-deps-before-run \
       side-effects-cache \
       side-effects-cache-readonly \

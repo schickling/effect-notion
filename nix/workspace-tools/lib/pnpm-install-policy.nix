@@ -30,6 +30,7 @@ rec {
     "strict-store-pkg-content-check=true"
     "enable-global-virtual-store=false"
     "pm-on-fail=ignore"
+    "manage-package-manager-versions=false"
     "verify-deps-before-run=false"
     "node-linker=isolated"
     "child-concurrency=1"
@@ -58,6 +59,7 @@ rec {
     "verify-store-integrity"
     "strict-store-pkg-content-check"
     "pm-on-fail"
+    "manage-package-manager-versions"
     "verify-deps-before-run"
     "child-concurrency"
     "network-concurrency"
@@ -83,6 +85,7 @@ rec {
     "strictStorePkgContentCheck"
     "ignoreScripts"
     "pmOnFail"
+    "managePackageManagerVersions"
     "childConcurrency"
     "networkConcurrency"
   ];
