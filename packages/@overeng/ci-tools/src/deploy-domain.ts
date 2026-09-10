@@ -395,7 +395,7 @@ const DeployWorkflowReportRecord = Schema.TaggedStruct('WorkflowReportRecord', {
 }).annotate({ identifier: 'CiTools.Deploy.WorkflowReportRecord' })
 
 const validateWorkflowReportRecord = (record: WorkflowReportRecord): WorkflowReportRecord =>
-  Schema.decodeUnknownSync(DeployWorkflowReportRecord)(record) as WorkflowReportRecord
+  Schema.decodeSync(DeployWorkflowReportRecord)(record) as WorkflowReportRecord
 
 const deployRecordId = (provider: DeployProvider, target: string) => `deploy-${provider}-${target}`
 
@@ -604,7 +604,7 @@ export const deploySpanAttributes = (opts: {
             ? opts.input.provider
             : opts.input.target
 
-  return Schema.decodeUnknownSync(DeploySpanAttributes)({
+  return Schema.decodeSync(DeploySpanAttributes)({
     'span.label': shortSpanLabel(label),
     'ci_tools.deploy.provider': opts.input.provider,
     'ci_tools.deploy.target': opts.input.target,

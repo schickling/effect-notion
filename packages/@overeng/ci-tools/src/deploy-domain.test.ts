@@ -103,7 +103,7 @@ describe('deploy domain schemas', () => {
 
     expect(
       Result.isFailure(
-        Schema.decodeUnknownResult(DeployInputV1)({
+        Schema.decodeResult(DeployInputV1)({
           ...sampleInput,
           alias: 'Unsafe_Alias',
         }),

@@ -24,8 +24,7 @@ import {
  * Generic number placeholder for annotation round-trip tests: only the AST
  * shape matters here, so the concrete numeric domain is irrelevant.
  */
-// @effect-diagnostics-next-line schemaNumber:off -- generic test placeholder; Schema.Finite changes AST shape and breaks annotation lookups under test
-const NumberSchema = Schema.Number
+const NumberSchema = Schema.Finite
 describe('Lineage annotations: round-trip', () => {
   it('sourceOfTruth', () => {
     const s = NumberSchema.pipe(sourceOfTruth({ owner: 'orders', system: 'pg' }))

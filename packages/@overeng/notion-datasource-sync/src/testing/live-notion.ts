@@ -1509,10 +1509,10 @@ export const runLiveNotionDemoShowcase = async ({
       { concurrency: 2 },
     ),
   )
-  const workspaceRoot = Schema.decodeUnknownSync(AbsolutePath)(
+  const workspaceRoot = Schema.decodeSync(AbsolutePath)(
     await mkdtemp(join(tmpdir(), 'notion-ds-sync-demo-')),
   )
-  const rootId = Schema.decodeUnknownSync(SyncRootId)(`demo:${config.runId}`)
+  const rootId = Schema.decodeSync(SyncRootId)(`demo:${config.runId}`)
 
   try {
     const observationLayer = Layer.mergeAll(

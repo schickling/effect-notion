@@ -103,7 +103,7 @@ const relationPatchVerificationHash = (
         // of an invariant-guaranteed value. A failure here is a defect, not a typed error,
         // so we keep the sync decode rather than widen the channel with `ParseError`.
         // @effect-diagnostics-next-line schemaSyncInEffect:off
-        propertyId: Schema.decodeUnknownSync(PropertyId)(propertyId),
+        propertyId: Schema.decodeSync(PropertyId)(propertyId),
         startCursor: null,
       })
       .pipe(Stream.runCollect)

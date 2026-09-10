@@ -258,7 +258,7 @@ export const makeClaudeAdapter = (options: {
   readonly initialReadMaxBytes?: number
 }): SessionSourceAdapter<ClaudeSessionRecord> =>
   makeAppendOnlyJsonlAdapter({
-    sourceId: Schema.decodeUnknownSync(SourceId)(options.sourceId ?? 'claude'),
+    sourceId: Schema.decodeSync(SourceId)(options.sourceId ?? 'claude'),
     discoverArtifacts: listClaudeJsonlFiles({
       root: options.projectsRoot,
       ...(options.discoverySinceEpochMs !== undefined && {
@@ -275,7 +275,7 @@ export const makeClaudeAdapter = (options: {
       ),
       Effect.map((paths) =>
         paths.map((path) => ({
-          artifact: Schema.decodeUnknownSync(ArtifactDescriptor)({
+          artifact: Schema.decodeSync(ArtifactDescriptor)({
             sourceId: options.sourceId ?? 'claude',
             artifactId: toClaudeArtifactId({ projectsRoot: options.projectsRoot, path }),
             path,

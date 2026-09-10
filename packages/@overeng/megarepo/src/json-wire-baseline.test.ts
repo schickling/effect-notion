@@ -9,7 +9,7 @@ const encodeJson = <A, I>(schema: Schema.Codec<A, I>, value: A): string =>
   Schema.encodeSync(Schema.fromJsonString(schema, { space: 2 }))(value)
 
 const decodeJson = <A, I>(schema: Schema.Codec<A, I>, encoded: string): A =>
-  Schema.decodeUnknownSync(Schema.fromJsonString(schema))(encoded)
+  Schema.decodeSync(Schema.fromJsonString(schema))(encoded)
 
 const roundTrip = <A, I>(schema: Schema.Codec<A, I>, value: A) => {
   const encoded = encodeJson(schema, value)

@@ -24,7 +24,7 @@ export const buildContentVersion = (options: {
   readonly headHash?: string
   readonly tailHash: string
 }) =>
-  Schema.decodeUnknownSync(ContentVersionSchema)({
+  Schema.decodeSync(ContentVersionSchema)({
     sizeBytes: options.sizeBytes,
     modifiedAtEpochMs: options.modifiedAtEpochMs,
     ...(options.headHash !== undefined && { headHash: options.headHash }),

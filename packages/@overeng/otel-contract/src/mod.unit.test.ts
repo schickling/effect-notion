@@ -28,19 +28,19 @@ import {
 describe('OTEL schema names', () => {
   it('exports branded refined schemas for contract names and keys', async () => {
     await expect(
-      Effect.runPromise(Schema.decodeUnknownEffect(OtelAttributeKey)('service.name')),
+      Effect.runPromise(Schema.decodeEffect(OtelAttributeKey)('service.name')),
     ).resolves.toBe('service.name')
     await expect(
-      Effect.runPromise(Schema.decodeUnknownEffect(OtelAttributeKey)('notion-react.page_id')),
+      Effect.runPromise(Schema.decodeEffect(OtelAttributeKey)('notion-react.page_id')),
     ).resolves.toBe('notion-react.page_id')
     await expect(
-      Effect.runPromise(Schema.decodeUnknownEffect(OtelSpanName)('notion-md.pull-page')),
+      Effect.runPromise(Schema.decodeEffect(OtelSpanName)('notion-md.pull-page')),
     ).resolves.toBe('notion-md.pull-page')
     await expect(
-      Effect.runPromise(Schema.decodeUnknownEffect(OtelMetricName)('restate_invocations_total')),
+      Effect.runPromise(Schema.decodeEffect(OtelMetricName)('restate_invocations_total')),
     ).resolves.toBe('restate_invocations_total')
     await expect(
-      Effect.runPromise(Schema.decodeUnknownEffect(OtelServiceName)('notion-md-cli')),
+      Effect.runPromise(Schema.decodeEffect(OtelServiceName)('notion-md-cli')),
     ).resolves.toBe('notion-md-cli')
   })
 
@@ -88,7 +88,7 @@ describe('OTEL schema names', () => {
 describe('ServiceIdentity', () => {
   it('decodes a valid identity into branded name/namespace/version', async () => {
     const identity = await Effect.runPromise(
-      Schema.decodeUnknownEffect(ServiceIdentity)({
+      Schema.decodeEffect(ServiceIdentity)({
         name: 'megarepo',
         namespace: 'overeng',
         version: '1.2.3',
@@ -101,7 +101,7 @@ describe('ServiceIdentity', () => {
     await expect(
       Effect.runPromise(
         Effect.result(
-          Schema.decodeUnknownEffect(ServiceIdentity)({
+          Schema.decodeEffect(ServiceIdentity)({
             name: 'bad name',
             namespace: 'overeng',
             version: '1.0.0',
@@ -117,7 +117,7 @@ describe('ServiceIdentity', () => {
       { name: 'svc', namespace: 'overeng', version: '' },
     ]) {
       await expect(
-        Effect.runPromise(Effect.result(Schema.decodeUnknownEffect(ServiceIdentity)(bad))),
+        Effect.runPromise(Effect.result(Schema.decodeEffect(ServiceIdentity)(bad))),
       ).resolves.toMatchObject({ _tag: 'Failure' })
     }
   })
@@ -130,9 +130,9 @@ describe('ServiceNameFromParts', () => {
     )
     expect(name).toBe('my-project-worker')
     // The result is a real OtelServiceName (decodes through the brand unchanged).
-    await expect(
-      Effect.runPromise(Schema.decodeUnknownEffect(OtelServiceName)(name)),
-    ).resolves.toBe('my-project-worker')
+    await expect(Effect.runPromise(Schema.decodeEffect(OtelServiceName)(name))).resolves.toBe(
+      'my-project-worker',
+    )
   })
 
   it('rejects an empty or whitespace part as a decode failure', async () => {
@@ -175,7 +175,7 @@ describe('serviceIdentityFromBinding', () => {
     expect(identity).toEqual({ name: 'my-project-worker', namespace: 'acme', version: '1.2.3' })
     // Re-decoding through the struct confirms the result is a valid ServiceIdentity.
     await expect(
-      Effect.runPromise(Schema.decodeUnknownEffect(ServiceIdentity)(identity)),
+      Effect.runPromise(Schema.decodeEffect(ServiceIdentity)(identity)),
     ).resolves.toEqual(identity)
   })
 
@@ -954,9 +954,9 @@ describe('OtelMetric', () => {
       }),
     })
     expect(Gauge.name).toBe('store_gc_rss_bytes')
-    await expect(
-      Effect.runPromise(Schema.decodeUnknownEffect(OtelMetricName)(Gauge.name)),
-    ).resolves.toBe('store_gc_rss_bytes')
+    await expect(Effect.runPromise(Schema.decodeEffect(OtelMetricName)(Gauge.name))).resolves.toBe(
+      'store_gc_rss_bytes',
+    )
     expect(() => OtelMetric.gauge({ name: ' ', labels: Schema.Struct({}) })).toThrow()
   })
 

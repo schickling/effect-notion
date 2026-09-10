@@ -188,11 +188,7 @@ export const watchScoped = (
           > =>
             Effect.raceFirst(takeWindow({ pending, debounce }), Deferred.await(halted)).pipe(
               Effect.map((batch) => [batch, undefined] as const),
-              Effect.catch((error) =>
-                error._tag === 'WatchSourceEnded'
-                  ? Effect.void.pipe(Effect.as(undefined))
-                  : Effect.fail(error),
-              ),
+              Effect.catchTag('WatchSourceEnded', () => Effect.as(Effect.void, undefined)),
             ),
         )
       }),

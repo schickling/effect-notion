@@ -807,7 +807,7 @@ describe('store discovery is bounded to the layout', () => {
           .remove(EffectPath.ops.join(wt, EffectPath.unsafe.relativeFile('.git')), {
             recursive: true,
           })
-          .pipe(Effect.catch(() => Effect.void))
+          .pipe(Effect.ignore)
         for (const sub of ['node_modules/a/b/c', 'src/x/y', 'dist/p/q']) {
           yield* fs.makeDirectory(
             EffectPath.ops.join(wt, EffectPath.unsafe.relativeDir(`${sub}/`)),

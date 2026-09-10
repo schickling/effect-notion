@@ -314,7 +314,7 @@ export const pinCommand = Cli.Command.make(
               yield* Git.cloneBare({ url: cloneUrl, targetPath: bareRepoPath })
             } else {
               // Fetch to ensure we have the latest refs
-              yield* Git.fetchBare({ repoPath: bareRepoPath }).pipe(Effect.catch(() => Effect.void))
+              yield* Git.fetchBare({ repoPath: bareRepoPath }).pipe(Effect.ignore)
             }
 
             // Resolve commit

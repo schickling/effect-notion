@@ -90,10 +90,9 @@ export const discoverStories = (options: {
        @overeng/tui-react/storybook dependency this caused ~100% TDZ failure rate.
        Performance is unaffected — shared modules are cached after first evaluation.
        See: https://github.com/oven-sh/bun/issues/20489 */
-    const results = yield* Effect.all(
-      filePaths.map((fp) => importStoryFile(fp)),
-      { concurrency: 1 },
-    )
+    const results = yield* Effect.forEach(filePaths, (fp) => importStoryFile(fp), {
+      concurrency: 1,
+    })
 
     const modules = results.filter((m): m is ParsedStoryModule => m !== undefined)
     const skippedCount = results.length - modules.length

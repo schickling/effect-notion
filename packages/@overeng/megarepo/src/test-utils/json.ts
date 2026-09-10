@@ -15,4 +15,4 @@ const JsonValue = Schema.fromJsonString(Schema.Unknown)
 export const encodeJson = (value: unknown): string => Schema.encodeSync(JsonValue)(value)
 
 /** Decode a JSON string to an unknown value (throws on invalid JSON, like `JSON.parse`). */
-export const decodeJson = (content: string): unknown => Schema.decodeUnknownSync(JsonValue)(content)
+export const decodeJson = (content: string): unknown => Schema.decodeSync(JsonValue)(content)

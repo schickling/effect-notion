@@ -33,7 +33,17 @@ import { join } from 'node:path'
 
 import type * as restate from '@restatedev/restate-sdk'
 import * as clients from '@restatedev/restate-sdk-clients'
-import { Clock, Context, Effect, Exit, Layer, Option, type Schema, Scope } from 'effect'
+import {
+  Clock,
+  type Config,
+  Context,
+  Effect,
+  Exit,
+  Layer,
+  Option,
+  type Schema,
+  Scope,
+} from 'effect'
 
 import { freePorts } from '@overeng/utils/node'
 
@@ -845,8 +855,9 @@ export class RestateTestHarness extends Context.Service<
                * the port is literal `0`, so it is structurally impossible.
                * Re-fail a real `RestateError` (a bind/listen failure) and die on the
                * unreachable `ConfigError`, keeping the harness channel clean. */
-              Effect.catch((cause) =>
-                cause instanceof RestateError ? Effect.fail(cause) : Effect.die(cause),
+              Effect.catchIf(
+                (cause): cause is Config.ConfigError => !(cause instanceof RestateError),
+                (cause) => Effect.die(cause),
               ),
             )
             const uri = Context.get(endpointContext, BoundEndpoint).url

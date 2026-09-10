@@ -424,8 +424,9 @@ export const buildDependencyGraph = ({
 
     const memberNames = Object.keys(config.members).filter((name) => !exclude.has(name))
 
-    const results = yield* Effect.all(
-      memberNames.map((memberName) =>
+    const results = yield* Effect.forEach(
+      memberNames,
+      (memberName) =>
         Effect.gen(function* () {
           const memberPath = getMemberPath({ megarepoRoot, name: memberName })
           const exists = yield* fs.exists(memberPath)
@@ -434,7 +435,6 @@ export const buildDependencyGraph = ({
           const inputs = yield* discoverMemberInputs({ memberPath, members })
           return { memberName, inputs: [...inputs] }
         }),
-      ),
       { concurrency: 8 },
     )
 

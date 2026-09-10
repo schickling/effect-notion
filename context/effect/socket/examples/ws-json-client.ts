@@ -57,7 +57,7 @@ const encodeClientMessage = Effect.fn('ws-json.encode')(function* (message: Clie
 
 /** Decode a JSON string into a typed server response. */
 const decodeServerMessage = Effect.fn('ws-json.decode')(function* (raw: string) {
-  const message: ServerMessage = yield* Schema.decodeUnknownEffect(
+  const message: ServerMessage = yield* Schema.decodeEffect(
     Schema.fromJsonString(ServerMessageSchema),
   )(raw)
   return message

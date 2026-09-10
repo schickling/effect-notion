@@ -453,13 +453,11 @@ export const fixStoreIssues = ({
           }
 
           // Remove existing broken worktree
-          yield* fs.remove(worktreePath, { recursive: true }).pipe(Effect.catch(() => Effect.void))
+          yield* fs.remove(worktreePath, { recursive: true }).pipe(Effect.ignore)
 
           // Recreate the worktree
           yield* Effect.gen(function* () {
-            yield* fs
-              .makeDirectory(worktreePath, { recursive: true })
-              .pipe(Effect.catch(() => Effect.void))
+            yield* fs.makeDirectory(worktreePath, { recursive: true }).pipe(Effect.ignore)
 
             const parsed = parseWorktreeRef(worktreePath)
 

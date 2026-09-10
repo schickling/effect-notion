@@ -623,7 +623,7 @@ const readTransaction = (
     recoveryPaths: [path],
     try: async () => {
       const content = await readFile(path, 'utf8')
-      return Schema.decodeUnknownSync(TransactionJson, strictParseOptions)(content)
+      return Schema.decodeSync(TransactionJson, strictParseOptions)(content)
     },
   })
 

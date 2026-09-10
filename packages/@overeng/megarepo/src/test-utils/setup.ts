@@ -335,7 +335,7 @@ export const readConfig = (workspacePath: AbsoluteDirPath) =>
       EffectPath.unsafe.relativeFile('megarepo.json'),
     )
     const content = yield* fs.readFileString(configPath)
-    return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(MegarepoConfig))(content)
+    return yield* Schema.decodeEffect(Schema.fromJsonString(MegarepoConfig))(content)
   })
 
 /** Generate a megarepo.json config object */

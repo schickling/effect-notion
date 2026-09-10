@@ -432,7 +432,7 @@ const readTransaction = (
     reason: 'AmbiguousRecovery',
     recoveryPaths: [path],
     try: async () =>
-      Schema.decodeUnknownSync(TransactionJson, strictParseOptions)(await readFile(path, 'utf8')),
+      Schema.decodeSync(TransactionJson, strictParseOptions)(await readFile(path, 'utf8')),
   })
 
 const persistPhase = ({
@@ -929,7 +929,7 @@ const publishDistOverlay = ({
   runtime: DistOverlayRuntime
 }): Effect.Effect<DistOverlayResult, DistOverlayError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
-    const request = yield* Schema.decodeUnknownEffect(
+    const request = yield* Schema.decodeEffect(
       DistOverlayPublishRequest,
       strictParseOptions,
     )(untrustedRequest).pipe(
@@ -1518,7 +1518,7 @@ const recoverDistOverlay = ({
   runtime: DistOverlayRuntime
 }): Effect.Effect<DistOverlayResult, DistOverlayError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
-    const request = yield* Schema.decodeUnknownEffect(
+    const request = yield* Schema.decodeEffect(
       DistOverlayRecoveryRequest,
       strictParseOptions,
     )(untrustedRequest).pipe(

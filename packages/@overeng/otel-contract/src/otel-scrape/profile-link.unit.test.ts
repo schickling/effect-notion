@@ -138,7 +138,7 @@ describe('otel-scrape profile links', () => {
         uri,
       })
 
-      expect(Schema.decodeUnknownSync(OtelScrapeProfileLink)(link)).toEqual(link)
+      expect(Schema.decodeSync(OtelScrapeProfileLink)(link)).toEqual(link)
       expect(link).toMatchObject({
         type: 'cpuprofile',
         digest: descriptor.digest,

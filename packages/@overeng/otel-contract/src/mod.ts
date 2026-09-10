@@ -119,7 +119,7 @@ export type ServiceNameParts = typeof ServiceNameParts.Type
 export const ServiceNameFromParts = ServiceNameParts.pipe(
   Schema.decodeTo(OtelServiceName, {
     decode: SchemaGetter.transformOrFail((parts: ServiceNameParts) =>
-      SchemaParser.decodeUnknownEffect(OtelServiceName)(`${parts.project}-${parts.role}`).pipe(
+      SchemaParser.decodeEffect(OtelServiceName)(`${parts.project}-${parts.role}`).pipe(
         Effect.mapError((issue) => new SchemaIssue.InvalidValue({ message: formatIssue(issue) })),
       ),
     ),
@@ -242,7 +242,7 @@ const decodeNameEither = <A>(options: {
   readonly path: ReadonlyArray<PropertyKey>
   readonly kind: string
 }): Result.Result<A, OtelAttrPlanError> =>
-  Schema.decodeUnknownResult(options.schema)(options.value).pipe(
+  Schema.decodeResult(options.schema)(options.value).pipe(
     Result.mapError(() =>
       unsupported({
         path: options.path,
@@ -871,19 +871,18 @@ const compilePolicyEncoder = ({
     case 'number':
       return (value) =>
         encodeUnknown({ key: attrKey, schema, value }).pipe(
-          Effect.flatMap((encoded) =>
-            typeof encoded === 'number' && isFiniteOtelNumber(encoded) === true
-              ? Effect.succeed(encoded)
-              : Effect.fail(primitiveEncodeError({ key: attrKey, value: encoded })),
+          Effect.filterOrFail(
+            (encoded): encoded is number =>
+              typeof encoded === 'number' && isFiniteOtelNumber(encoded) === true,
+            (encoded) => primitiveEncodeError({ key: attrKey, value: encoded }),
           ),
         )
     case 'boolean':
       return (value) =>
         encodeUnknown({ key: attrKey, schema, value }).pipe(
-          Effect.flatMap((encoded) =>
-            typeof encoded === 'boolean'
-              ? Effect.succeed(encoded)
-              : Effect.fail(primitiveEncodeError({ key: attrKey, value: encoded })),
+          Effect.filterOrFail(
+            (encoded): encoded is boolean => typeof encoded === 'boolean',
+            (encoded) => primitiveEncodeError({ key: attrKey, value: encoded }),
           ),
         )
   }
@@ -960,7 +959,7 @@ const compilePlan = (
         message: 'Record/index-signature attributes require an explicit encoder',
       })
     }
-    const plans = yield* Effect.all(root.propertySignatures.map(compileField))
+    const plans = yield* Effect.forEach(root.propertySignatures, compileField)
     const seen = new Set<string>()
     for (const plan of plans) {
       if (seen.has(plan.attrKey) === true) {

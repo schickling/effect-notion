@@ -51,7 +51,7 @@ type ServerMessage = typeof ServerMessageSchema.Type
 
 /** Decode a JSON string into a typed client message. */
 const decodeClientMessage = Effect.fn('ws-json.decode')(function* (raw: string) {
-  return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(ClientMessageSchema))(raw).pipe(
+  return yield* Schema.decodeEffect(Schema.fromJsonString(ClientMessageSchema))(raw).pipe(
     Effect.map((message) => {
       const decoded: ClientMessage = message
       return decoded

@@ -587,12 +587,12 @@ export const syncMember = <R = never>({
         }
         yield* Observability.annotateSyncMemberAction('skip-dry-run')
       } else if (isFetchMode === true && dryRun === false) {
-        yield* Git.fetchBare({ repoPath: bareRepoPath }).pipe(Effect.catch(() => Effect.void))
+        yield* Git.fetchBare({ repoPath: bareRepoPath }).pipe(Effect.ignore)
         yield* Observability.annotateSyncMemberAction('fetch')
       } else if (isApplyMode === true && targetCommit !== undefined && dryRun === false) {
         const commitExists = yield* Git.refExists({ repoPath: bareRepoPath, ref: targetCommit })
         if (commitExists === false) {
-          yield* Git.fetchBare({ repoPath: bareRepoPath }).pipe(Effect.catch(() => Effect.void))
+          yield* Git.fetchBare({ repoPath: bareRepoPath }).pipe(Effect.ignore)
           yield* Observability.annotateSyncMemberAction('fetch-missing-commit')
         } else {
           yield* Observability.annotateSyncMemberAction('noop')
@@ -618,9 +618,7 @@ export const syncMember = <R = never>({
        * it only costs a fetch when the commit is genuinely missing.
        */
       if (commitExists === false) {
-        yield* Git.fetchPullRequestHeads({ repoPath: bareRepoPath }).pipe(
-          Effect.catch(() => Effect.void),
-        )
+        yield* Git.fetchPullRequestHeads({ repoPath: bareRepoPath }).pipe(Effect.ignore)
         yield* Observability.annotateSyncMemberAction('fetch-pull-request-heads')
         commitExists = yield* Git.refExists({ repoPath: bareRepoPath, ref: targetCommit })
       }

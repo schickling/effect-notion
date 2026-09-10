@@ -224,8 +224,9 @@ export const generateAll = ({
     })
 
     // Generate all files concurrently
-    const results = yield* Effect.all(
-      genieFiles.map((genieFilePath) =>
+    const results = yield* Effect.forEach(
+      genieFiles,
+      (genieFilePath) =>
         Effect.gen(function* () {
           yield* emit({ _tag: 'FileStarted', path: genieFilePath })
 
@@ -258,7 +259,6 @@ export const generateAll = ({
 
           return result
         }),
-      ),
       { concurrency: 'unbounded' },
     )
 

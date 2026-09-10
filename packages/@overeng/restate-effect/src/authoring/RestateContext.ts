@@ -541,7 +541,7 @@ const readState = <S extends StateSchemas, K extends keyof S & string>({
         new RestateError({ reason: 'RunFailed', method: `State.get(${key})`, cause }),
     }).pipe(Effect.orDie)
     if (raw === null || raw === undefined) return undefined
-    return yield* Schema.decodeUnknownEffect(normalizeStateSchema(schemas[key]!))(raw).pipe(
+    return yield* Schema.decodeEffect(normalizeStateSchema(schemas[key]!))(raw).pipe(
       Effect.mapError(
         (cause) => new RestateError({ reason: 'SerdeFailed', method: `State.get(${key})`, cause }),
       ),

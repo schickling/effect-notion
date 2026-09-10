@@ -54,7 +54,7 @@ const runStatusCommand = ({
     // Parse JSON output
     let status: StatusState | undefined
     if (stdout.trim() !== '') {
-      status = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(StatusState))(stdout)
+      status = yield* Schema.decodeEffect(Schema.fromJsonString(StatusState))(stdout)
     }
 
     return {

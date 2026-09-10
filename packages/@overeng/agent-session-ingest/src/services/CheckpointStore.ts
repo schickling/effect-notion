@@ -49,7 +49,7 @@ export const makeFileCheckpointStore = (options: { path: string }) =>
 
       const checkpoints: Array<IngestionCheckpoint> = []
       for (const line of lines) {
-        const decoded = yield* Schema.decodeUnknownEffect(IngestionCheckpointJsonLine)(line).pipe(
+        const decoded = yield* Schema.decodeEffect(IngestionCheckpointJsonLine)(line).pipe(
           Effect.mapError(
             (cause) =>
               new SessionCheckpointDecodeError({
@@ -80,9 +80,7 @@ export const makeFileCheckpointStore = (options: { path: string }) =>
       saveAll: (checkpoints: ReadonlyArray<IngestionCheckpoint>) =>
         Effect.gen(function* () {
           const directory = nodePath.dirname(options.path)
-          yield* fs
-            .makeDirectory(directory, { recursive: true })
-            .pipe(Effect.catch(() => Effect.void))
+          yield* fs.makeDirectory(directory, { recursive: true }).pipe(Effect.ignore)
 
           const deduped = new Map<string, IngestionCheckpoint>()
           for (const checkpoint of checkpoints) {

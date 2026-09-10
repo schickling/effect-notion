@@ -31,7 +31,7 @@ const frontmatter: NmdFrontmatterV2 = {
 }
 
 /** Decoded via the shared strict decoder so keys carry the PropertyName brand. */
-const descriptors = Schema.decodeUnknownSync(PropertyDescriptors, { onExcessProperty: 'error' })({
+const descriptors = Schema.decodeSync(PropertyDescriptors, { onExcessProperty: 'error' })({
   Status: {
     property_id: 'prop_status_abc',
     property_name: 'Status',

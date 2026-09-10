@@ -73,9 +73,7 @@ const getGeneratorVersion = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem
   const pkgJsonPath = fileURLToPath(new URL('../../../package.json', import.meta.url))
   const content = yield* fs.readFileString(pkgJsonPath)
-  const pkg = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(GeneratorPackageJsonSchema))(
-    content,
-  )
+  const pkg = yield* Schema.decodeEffect(Schema.fromJsonString(GeneratorPackageJsonSchema))(content)
   return pkg.version
 }).pipe(Effect.orElseSucceed(() => 'unknown'))
 

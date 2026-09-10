@@ -246,7 +246,7 @@ const resolveNetlifySite = Effect.fn('ci-tools.deploy.netlify.resolve-site')(fun
     })
   }
 
-  const decoded = Schema.decodeUnknownResult(Schema.fromJsonString(NetlifySiteJson))(response.text)
+  const decoded = Schema.decodeResult(Schema.fromJsonString(NetlifySiteJson))(response.text)
   if (Result.isFailure(decoded) === true) {
     return yield* new ProviderProjectLookupFailed({
       provider: 'netlify',
@@ -323,7 +323,7 @@ const parseDeployJson = Effect.fn('ci-tools.deploy.netlify.parse-json')(function
   readonly stdout: string
   readonly authToken: string
 }) {
-  const decoded = Schema.decodeUnknownResult(Schema.fromJsonString(NetlifyDeployJson))(opts.stdout)
+  const decoded = Schema.decodeResult(Schema.fromJsonString(NetlifyDeployJson))(opts.stdout)
   if (Result.isSuccess(decoded) === true) {
     return decoded.success
   }

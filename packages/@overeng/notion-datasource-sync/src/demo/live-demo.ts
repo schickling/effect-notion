@@ -88,9 +88,7 @@ const decodeNotionApiFailureBody = (
   body: string | undefined,
 ): typeof NotionApiFailureBodySchema.Type | undefined => {
   if (body === undefined) return undefined
-  const decoded = Schema.decodeUnknownResult(Schema.fromJsonString(NotionApiFailureBodySchema))(
-    body,
-  )
+  const decoded = Schema.decodeResult(Schema.fromJsonString(NotionApiFailureBodySchema))(body)
   return Result.isSuccess(decoded) === true ? decoded.success : undefined
 }
 

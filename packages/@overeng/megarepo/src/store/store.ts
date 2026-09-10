@@ -321,8 +321,9 @@ const make = ({
           }
 
           const entries = yield* fs.readDirectory(dir)
-          yield* Effect.all(
-            entries.map((entry) =>
+          yield* Effect.forEach(
+            entries,
+            (entry) =>
               Effect.gen(function* () {
                 if (entry.startsWith('.') === true) {
                   return
@@ -337,14 +338,14 @@ const make = ({
 
                 yield* walk({ dir: entryPath, depth: depth + 1 })
               }),
-            ),
             { concurrency: 32 },
           )
         })
 
       const namespaces = yield* fs.readDirectory(basePath)
-      yield* Effect.all(
-        namespaces.map((entry) =>
+      yield* Effect.forEach(
+        namespaces,
+        (entry) =>
           Effect.gen(function* () {
             if (shouldSkipStoreRootEntry(entry) === true) {
               return
@@ -359,7 +360,6 @@ const make = ({
 
             yield* walk({ dir: entryPath, depth: 1 })
           }),
-        ),
         { concurrency: 32 },
       ).pipe(
         Observability.withLabelSpan({ name: 'megarepo/store/list-repos', labelValue: 'repos' }),

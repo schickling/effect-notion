@@ -80,7 +80,7 @@ const pathsOverlap = ({ left, right }: { left: string; right: string }): boolean
 export const canonicalizeDistOverlayDeclarations = (
   declarations: ReadonlyArray<DistOverlayDeclaration>,
 ): ReadonlyArray<DistOverlayDeclaration> => {
-  const decoded = Schema.decodeUnknownSync(Schema.Array(DistOverlayDeclaration), {
+  const decoded = Schema.decodeSync(Schema.Array(DistOverlayDeclaration), {
     errors: 'all',
     onExcessProperty: 'error',
   })(declarations)

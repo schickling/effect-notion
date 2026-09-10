@@ -335,7 +335,7 @@ describe('store-liveness', () => {
           store,
         }).pipe(Effect.result)
         // Restore perms regardless of assertion outcome so scoped cleanup works.
-        yield* fs.chmod(reposDir, 0o755).pipe(Effect.catch(() => Effect.void))
+        yield* fs.chmod(reposDir, 0o755).pipe(Effect.ignore)
         // Re-break for the reconcile-all assertion below.
         yield* fs.chmod(reposDir, 0o000)
         expect(strictResult._tag).toBe('Failure')
@@ -347,7 +347,7 @@ describe('store-liveness', () => {
           reconcileAllWorkspaces: true,
           now: 1_700_000_002_000,
         })
-        yield* fs.chmod(reposDir, 0o755).pipe(Effect.catch(() => Effect.void))
+        yield* fs.chmod(reposDir, 0o755).pipe(Effect.ignore)
 
         expect(reconciled.paths).toContain(normalizePath(mainWorktreePath))
         expect([...reconciled.uncleanReconcilePaths]).toContain(normalizePath(mainWorktreePath))

@@ -102,7 +102,7 @@ const npmViewJson = Effect.fn('npmViewJson')(function* <A>(
     }),
   ).pipe(Effect.orElseSucceed(() => ''))
 
-  return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(schema))(raw.trim()).pipe(
+  return yield* Schema.decodeEffect(Schema.fromJsonString(schema))(raw.trim()).pipe(
     Effect.orElseSucceed(() => undefined),
   )
 })
@@ -263,7 +263,7 @@ export const readPlan = Effect.fn('readPlan')(function* (path: string) {
       ),
     )
 
-  return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(VerifyPlan))(content).pipe(
+  return yield* Schema.decodeEffect(Schema.fromJsonString(VerifyPlan))(content).pipe(
     Effect.mapError((cause) => new PlanError({ path, message: `Invalid plan: ${cause}` })),
   )
 })

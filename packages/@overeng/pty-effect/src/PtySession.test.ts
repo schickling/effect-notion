@@ -41,12 +41,12 @@ const SKIP_SERVER_RECONNECT_ON_LINUX_CI =
 
 describe('PtyName schema', () => {
   it('accepts valid names', () => {
-    expect(Schema.decodeUnknownSync(PtyName)('alpha-1.test_2')).toBe('alpha-1.test_2')
+    expect(Schema.decodeSync(PtyName)('alpha-1.test_2')).toBe('alpha-1.test_2')
   })
   it('rejects invalid names', () => {
-    expect(() => Schema.decodeUnknownSync(PtyName)('has space')).toThrow()
-    expect(() => Schema.decodeUnknownSync(PtyName)('')).toThrow()
-    expect(() => Schema.decodeUnknownSync(PtyName)('a/b')).toThrow()
+    expect(() => Schema.decodeSync(PtyName)('has space')).toThrow()
+    expect(() => Schema.decodeSync(PtyName)('')).toThrow()
+    expect(() => Schema.decodeSync(PtyName)('a/b')).toThrow()
   })
 })
 

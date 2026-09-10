@@ -191,7 +191,7 @@ describe('integration', () => {
     }
 
     // Decode the properties (this verifies the schema actually works)
-    const decoded = Schema.decodeUnknownSync(TestPageProperties)(mockProperties)
+    const decoded = Schema.decodeSync(TestPageProperties)(mockProperties)
 
     // Verify the decoded result
     expect(decoded.Name).toBe('Test Task')
@@ -240,7 +240,7 @@ describe('integration', () => {
     }
 
     // Decode the simple types into Notion API format
-    const decoded = Schema.decodeUnknownSync(TestPageWrite)(inputData)
+    const decoded = Schema.decodeSync(TestPageWrite)(inputData)
 
     // Verify the decoded result has the correct Notion API format
     expect(decoded.Name).toHaveProperty('title')

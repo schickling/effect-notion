@@ -45,7 +45,7 @@ const removeTempDir = Effect.fnUntraced(
     const fs = yield* FileSystem.FileSystem
     yield* fs.remove(tempDir, { recursive: true })
   },
-  Effect.catch(() => Effect.void),
+  (effect) => Effect.ignore(effect),
 )
 
 /** Write a file with content */

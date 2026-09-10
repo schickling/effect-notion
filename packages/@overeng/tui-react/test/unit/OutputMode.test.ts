@@ -3,7 +3,7 @@
  */
 
 import { it } from '@effect/vitest'
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import { describe, test, expect } from 'vitest'
 
 import { resolveOutputMode } from '../../src/effect/cli.tsx'
@@ -472,6 +472,6 @@ describe('OutputModeTag service', () => {
     Effect.gen(function* () {
       const mode = yield* OutputModeTag
       expect(mode._tag).toBe('json')
-    }).pipe(Effect.provide(Layer.succeed(OutputModeTag, ndjson))),
+    }).pipe(Effect.provideService(OutputModeTag, ndjson)),
   )
 })

@@ -138,10 +138,9 @@ export const execCommand = Cli.Command.make(
 
             if (mode === 'parallel') {
               // Run all commands in parallel
-              yield* Effect.all(
-                membersToRun.map((name) => runInMember(name)),
-                { concurrency: 'unbounded' },
-              )
+              yield* Effect.forEach(membersToRun, (name) => runInMember(name), {
+                concurrency: 'unbounded',
+              })
             } else {
               // Run commands sequentially
               for (const name of membersToRun) {

@@ -337,10 +337,9 @@ const archiveDatabaseBestEffort = (
   runLive(
     env,
     NotionDatabases.archive({ databaseId }).pipe(
-      Effect.catch((cause) =>
-        String(cause).toLowerCase().includes('archived') === true
-          ? Effect.void
-          : Effect.fail(cause),
+      Effect.catchIf(
+        (cause) => String(cause).toLowerCase().includes('archived') === true,
+        () => Effect.void,
       ),
     ),
   )

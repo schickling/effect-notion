@@ -148,7 +148,7 @@ const decodeOptional = <TValue>({
   readonly value: string | undefined
 }): TValue | undefined => {
   if (value === undefined) return undefined
-  const decoded = Schema.decodeUnknownResult(schema)(value)
+  const decoded = Schema.decodeResult(schema)(value)
   return Result.isSuccess(decoded) === true ? decoded.success : undefined
 }
 

@@ -1333,7 +1333,7 @@ const coldReclaimRepo = ({
         }
 
         const head = yield* Git.getCurrentCommit(gitWorktreePath).pipe(
-          Effect.map(Option.some),
+          Effect.asSome,
           Effect.orElseSucceed(() => Option.none<string>()),
         )
         if (Option.isNone(head) === true) {
@@ -1347,7 +1347,7 @@ const coldReclaimRepo = ({
           worktreePath: gitWorktreePath,
           worktreeHead,
         }).pipe(
-          Effect.map(Option.some),
+          Effect.asSome,
           Effect.orElseSucceed(() => Option.none<never>()),
         )
         if (Option.isNone(lossless) === true) {
@@ -1469,7 +1469,7 @@ const coldReclaimRepo = ({
         .pipe(Observability.withStoreGcPhaseSpan({ phase: 'resolve-pr' }))
 
       const head = yield* Git.getCurrentCommit(gitWorktreePath).pipe(
-        Effect.map(Option.some),
+        Effect.asSome,
         Effect.orElseSucceed(() => Option.none<string>()),
       )
       if (Option.isNone(head) === true) {
@@ -1483,7 +1483,7 @@ const coldReclaimRepo = ({
         worktreePath: gitWorktreePath,
         worktreeHead,
       }).pipe(
-        Effect.map(Option.some),
+        Effect.asSome,
         // A failed lossless probe (e.g. unresolvable head) degrades to keep.
         Effect.orElseSucceed(() => Option.none<never>()),
       )
@@ -1712,8 +1712,9 @@ const storeStatusCommand = Cli.Command.make('status', { output: outputOption }, 
     // List all repos and analyze worktrees in parallel
     const repos = yield* store.listRepos
 
-    const repoResults = yield* Effect.all(
-      repos.map((repo) =>
+    const repoResults = yield* Effect.forEach(
+      repos,
+      (repo) =>
         Effect.gen(function* () {
           const bareRepoPath = EffectPath.ops.join(
             repo.fullPath,
@@ -1735,104 +1736,102 @@ const storeStatusCommand = Cli.Command.make('status', { output: outputOption }, 
           })
 
           // Analyze all worktrees for this repo in parallel
-          return yield* Effect.all(
-            allWorktrees.map(
-              ({
-                path: worktreeRootPath,
-                ownedWorktree,
-                ref: expectedRef,
-                refType: refTypeDir,
-                broken,
-              }) =>
-                Effect.gen(function* () {
-                  // A composed root delegates every Git observation to its owned checkout.
-                  const worktreePath = ownedWorktree ?? worktreeRootPath
-                  const issues: StoreWorktreeIssue[] = []
+          return yield* Effect.forEach(
+            allWorktrees,
+            ({
+              path: worktreeRootPath,
+              ownedWorktree,
+              ref: expectedRef,
+              refType: refTypeDir,
+              broken,
+            }) =>
+              Effect.gen(function* () {
+                // A composed root delegates every Git observation to its owned checkout.
+                const worktreePath = ownedWorktree ?? worktreeRootPath
+                const issues: StoreWorktreeIssue[] = []
 
-                  if (bareExists === false) {
-                    issues.push({
-                      type: 'missing_bare',
-                      severity: 'error',
-                      message: '.bare/ directory not found',
-                    })
-                  }
+                if (bareExists === false) {
+                  issues.push({
+                    type: 'missing_bare',
+                    severity: 'error',
+                    message: '.bare/ directory not found',
+                  })
+                }
 
-                  if (broken === true) {
-                    issues.push({
-                      type: 'broken_worktree',
-                      severity: 'error',
-                      message: '.git not found in worktree',
-                    })
-                  } else {
-                    if (refTypeDir === 'heads') {
-                      const actualBranch = yield* Git.getCurrentBranch(worktreePath).pipe(
-                        Effect.orElseSucceed(() => Option.none<string>()),
-                      )
-                      if (
-                        Option.isSome(actualBranch) === true &&
-                        actualBranch.value !== expectedRef
-                      ) {
-                        issues.push({
-                          type: 'ref_mismatch',
-                          severity: 'error',
-                          message: `path says '${expectedRef}' but HEAD is '${actualBranch.value}'`,
-                        })
-                      }
-                    }
-
-                    const worktreeStatus = yield* Git.getWorktreeStatus(worktreePath).pipe(
-                      Effect.orElseSucceed(() => ({
-                        isDirty: false,
-                        hasUnpushed: false,
-                        changesCount: 0,
-                      })),
+                if (broken === true) {
+                  issues.push({
+                    type: 'broken_worktree',
+                    severity: 'error',
+                    message: '.git not found in worktree',
+                  })
+                } else {
+                  if (refTypeDir === 'heads') {
+                    const actualBranch = yield* Git.getCurrentBranch(worktreePath).pipe(
+                      Effect.orElseSucceed(() => Option.none<string>()),
                     )
-                    if (worktreeStatus.isDirty === true) {
+                    if (
+                      Option.isSome(actualBranch) === true &&
+                      actualBranch.value !== expectedRef
+                    ) {
                       issues.push({
-                        type: 'dirty',
-                        severity: 'warning',
-                        message: `${worktreeStatus.changesCount} uncommitted change${worktreeStatus.changesCount !== 1 ? 's' : ''}`,
-                      })
-                    }
-                    if (worktreeStatus.hasUnpushed === true) {
-                      issues.push({
-                        type: 'unpushed',
-                        severity: 'warning',
-                        message: 'has unpushed commits',
+                        type: 'ref_mismatch',
+                        severity: 'error',
+                        message: `path says '${expectedRef}' but HEAD is '${actualBranch.value}'`,
                       })
                     }
                   }
 
-                  if (
-                    classifyStoreWorktreePolicy({
-                      liveSet,
-                      mode: 'default',
-                      worktree: {
-                        refType: refTypeDir,
-                        path: worktreeRootPath,
-                      },
-                    }).isProtected === false
-                  ) {
+                  const worktreeStatus = yield* Git.getWorktreeStatus(worktreePath).pipe(
+                    Effect.orElseSucceed(() => ({
+                      isDirty: false,
+                      hasUnpushed: false,
+                      changesCount: 0,
+                    })),
+                  )
+                  if (worktreeStatus.isDirty === true) {
                     issues.push({
-                      type: 'orphaned',
-                      severity: 'info',
-                      message: 'unrooted commit worktree; eligible for store gc when clean',
+                      type: 'dirty',
+                      severity: 'warning',
+                      message: `${worktreeStatus.changesCount} uncommitted change${worktreeStatus.changesCount !== 1 ? 's' : ''}`,
                     })
                   }
+                  if (worktreeStatus.hasUnpushed === true) {
+                    issues.push({
+                      type: 'unpushed',
+                      severity: 'warning',
+                      message: 'has unpushed commits',
+                    })
+                  }
+                }
 
-                  return {
-                    repo: repo.relativePath,
-                    ref: expectedRef,
-                    refType: refTypeDir,
-                    path: worktreeRootPath,
-                    issues,
-                  } satisfies StoreWorktreeStatus
-                }),
-            ),
+                if (
+                  classifyStoreWorktreePolicy({
+                    liveSet,
+                    mode: 'default',
+                    worktree: {
+                      refType: refTypeDir,
+                      path: worktreeRootPath,
+                    },
+                  }).isProtected === false
+                ) {
+                  issues.push({
+                    type: 'orphaned',
+                    severity: 'info',
+                    message: 'unrooted commit worktree; eligible for store gc when clean',
+                  })
+                }
+
+                return {
+                  repo: repo.relativePath,
+                  ref: expectedRef,
+                  refType: refTypeDir,
+                  path: worktreeRootPath,
+                  issues,
+                } satisfies StoreWorktreeStatus
+              }),
             { concurrency: 8 },
           )
         }),
-      ),
       { concurrency: 8 },
     )
 
@@ -1869,8 +1868,9 @@ const storeFetchCommand = Cli.Command.make('fetch', { output: outputOption }, ({
     const startTime = Date.now()
 
     // Fetch repos with limited concurrency
-    const results = yield* Effect.all(
-      repos.map((repo) =>
+    const results = yield* Effect.forEach(
+      repos,
+      (repo) =>
         Effect.gen(function* () {
           const bareRepoPath = EffectPath.ops.join(
             repo.fullPath,
@@ -1891,7 +1891,6 @@ const storeFetchCommand = Cli.Command.make('fetch', { output: outputOption }, ({
             }),
           )
         }),
-      ),
       { concurrency: 4 },
     )
 
@@ -2244,8 +2243,9 @@ const storeGcCommand = Cli.Command.make(
           // Per-repo collected worktrees, computed once so the default cold path
           // can record observations globally (ledger replaces, not merges) before
           // any per-repo classification.
-          const repoWorktrees = yield* Effect.all(
-            repos.map((repo) =>
+          const repoWorktrees = yield* Effect.forEach(
+            repos,
+            (repo) =>
               Effect.gen(function* () {
                 const bareRepoPath = EffectPath.ops.join(
                   repo.fullPath,
@@ -2258,7 +2258,6 @@ const storeGcCommand = Cli.Command.make(
                 })
                 return { repo, bareRepoPath, worktrees }
               }),
-            ),
             { concurrency: repoConcurrency },
           ).pipe(
             Observability.withStoreGcPhaseSpan({
@@ -2333,8 +2332,9 @@ const storeGcCommand = Cli.Command.make(
                   storeBasePath: store.basePath,
                 })
                 const freshRepos = yield* store.listRepos
-                const freshRepoWorktrees = yield* Effect.all(
-                  freshRepos.map((repo) =>
+                const freshRepoWorktrees = yield* Effect.forEach(
+                  freshRepos,
+                  (repo) =>
                     Effect.gen(function* () {
                       const bareRepoPath = EffectPath.ops.join(
                         repo.fullPath,
@@ -2347,7 +2347,6 @@ const storeGcCommand = Cli.Command.make(
                       })
                       return { repo, worktrees }
                     }),
-                  ),
                   { concurrency: repoConcurrency },
                 )
                 const freshPlan = yield* planGeneratedArtifacts({
@@ -3007,13 +3006,14 @@ const storeAddCommand = Cli.Command.make(
             commit: targetRef,
           })
         } else {
-          yield* Git.createWorktree({
-            repoPath: bareRepoPath,
-            worktreePath,
-            branch: targetRef,
-            createBranch: false,
-          }).pipe(
-            Effect.catch(() =>
+          yield* Effect.firstSuccessOf([
+            Git.createWorktree({
+              repoPath: bareRepoPath,
+              worktreePath,
+              branch: targetRef,
+              createBranch: false,
+            }),
+            Effect.suspend(() =>
               Git.createWorktree({
                 repoPath: bareRepoPath,
                 worktreePath,
@@ -3021,14 +3021,14 @@ const storeAddCommand = Cli.Command.make(
                 createBranch: false,
               }),
             ),
-            Effect.catch(() =>
+            Effect.suspend(() =>
               Git.createWorktreeDetached({
                 repoPath: bareRepoPath,
                 worktreePath,
                 commit: targetRef,
               }),
             ),
-          )
+          ])
         }
       }
       // Get the current commit
@@ -3506,13 +3506,14 @@ const storeWorktreeNewCommand = Cli.Command.make(
             commit: targetRef,
           })
         } else {
-          yield* Git.createWorktree({
-            repoPath: bareRepoPath,
-            worktreePath,
-            branch: targetRef,
-            createBranch: false,
-          }).pipe(
-            Effect.catch(() =>
+          yield* Effect.firstSuccessOf([
+            Git.createWorktree({
+              repoPath: bareRepoPath,
+              worktreePath,
+              branch: targetRef,
+              createBranch: false,
+            }),
+            Effect.suspend(() =>
               Git.createWorktree({
                 repoPath: bareRepoPath,
                 worktreePath,
@@ -3520,14 +3521,14 @@ const storeWorktreeNewCommand = Cli.Command.make(
                 createBranch: false,
               }),
             ),
-            Effect.catch(() =>
+            Effect.suspend(() =>
               Git.createWorktreeDetached({
                 repoPath: bareRepoPath,
                 worktreePath,
                 commit: targetRef,
               }),
             ),
-          )
+          ])
         }
       }
       // Get the current commit in the new worktree

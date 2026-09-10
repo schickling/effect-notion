@@ -1036,7 +1036,7 @@ export const readOwnedCpAMountMetadata = ({
     const fs = yield* FileSystem.FileSystem
     const path = ownedCpAMountMetadataPath({ workspaceRoot, member })
     const content = yield* fs.readFileString(path)
-    const metadata = yield* Schema.decodeUnknownEffect(MetadataJson, strictParseOptions)(content)
+    const metadata = yield* Schema.decodeEffect(MetadataJson, strictParseOptions)(content)
     const expectedPublishedPath = canonicalAbsolutePath(publishedPath)
     if (metadata.member !== member || metadata.publishedPath !== expectedPublishedPath) {
       return yield* new OwnedCpAMountMetadataError({

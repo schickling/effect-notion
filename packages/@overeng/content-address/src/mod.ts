@@ -385,7 +385,7 @@ export const verifyDescriptor = Effect.fn('ContentAddress.verifyDescriptor')(fun
 
 /** Derive a fan-out object-store path (`sha256/<first 2 hex>/<rest>`) from a digest, splitting on the first hex byte to avoid huge flat dirs. */
 export const objectPathForDigest = (digest: ContentDigest | string): string => {
-  const hex = Schema.decodeUnknownSync(ContentDigest)(digest).slice('sha256:'.length)
+  const hex = Schema.decodeSync(ContentDigest)(digest).slice('sha256:'.length)
   return `sha256/${hex.slice(0, 2)}/${hex.slice(2)}`
 }
 

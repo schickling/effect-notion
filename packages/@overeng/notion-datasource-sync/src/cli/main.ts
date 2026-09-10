@@ -852,9 +852,7 @@ const decodeJson = <TSchema extends Schema.Codec<any, any, never>>({
   readonly schema: TSchema
   readonly value: string
 }): typeof schema.Type =>
-  Schema.decodeUnknownSync(schema)(
-    Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown))(value),
-  )
+  Schema.decodeUnknownSync(schema)(Schema.decodeSync(Schema.fromJsonString(Schema.Unknown))(value))
 
 const withOptionalRuntimeOptions = (context: CliContext) => ({
   ...(context.maxExecutorSteps === undefined ? {} : { maxExecutorSteps: context.maxExecutorSteps }),

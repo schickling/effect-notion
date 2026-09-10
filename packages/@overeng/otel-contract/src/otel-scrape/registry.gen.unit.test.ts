@@ -48,13 +48,13 @@ describe('otel-scrape generated telemetry registry', () => {
 
     for (const attributeKey of Object.values(otelScrapeAttributeKeys)) {
       await expect(
-        Effect.runPromise(Schema.decodeUnknownEffect(OtelAttributeKey)(attributeKey)),
+        Effect.runPromise(Schema.decodeEffect(OtelAttributeKey)(attributeKey)),
       ).resolves.toBe(attributeKey)
     }
 
     for (const metricName of Object.values(otelScrapeMetricNames)) {
       await expect(
-        Effect.runPromise(Schema.decodeUnknownEffect(OtelMetricName)(metricName)),
+        Effect.runPromise(Schema.decodeEffect(OtelMetricName)(metricName)),
       ).resolves.toBe(metricName)
     }
   })

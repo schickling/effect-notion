@@ -306,7 +306,7 @@ Vitest.describe('schema', () => {
   Vitest.describe('AbsoluteFilePath', () => {
     Vitest.it.effect('decodes valid absolute file path', () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknownEffect(EffectPath.schema.AbsoluteFilePath)(
+        const result = yield* Schema.decodeEffect(EffectPath.schema.AbsoluteFilePath)(
           '/home/user/file.txt',
         )
         expect(result).toBe('/home/user/file.txt')
@@ -315,7 +315,7 @@ Vitest.describe('schema', () => {
 
     Vitest.it.effect('rejects relative path', () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknownEffect(EffectPath.schema.AbsoluteFilePath)(
+        const result = yield* Schema.decodeEffect(EffectPath.schema.AbsoluteFilePath)(
           'relative/file.txt',
         ).pipe(Effect.result)
         expect(Result.isFailure(result)).toBe(true)
@@ -324,7 +324,7 @@ Vitest.describe('schema', () => {
 
     Vitest.it.effect('rejects directory path', () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknownEffect(EffectPath.schema.AbsoluteFilePath)(
+        const result = yield* Schema.decodeEffect(EffectPath.schema.AbsoluteFilePath)(
           '/path/to/dir/',
         ).pipe(Effect.result)
         expect(Result.isFailure(result)).toBe(true)
@@ -335,16 +335,14 @@ Vitest.describe('schema', () => {
   Vitest.describe('AbsoluteDirPath', () => {
     Vitest.it.effect('decodes valid absolute directory path', () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknownEffect(EffectPath.schema.AbsoluteDirPath)(
-          '/home/user/',
-        )
+        const result = yield* Schema.decodeEffect(EffectPath.schema.AbsoluteDirPath)('/home/user/')
         expect(result).toBe('/home/user/')
       }),
     )
 
     Vitest.it.effect('rejects file path (no trailing slash)', () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknownEffect(EffectPath.schema.AbsoluteDirPath)(
+        const result = yield* Schema.decodeEffect(EffectPath.schema.AbsoluteDirPath)(
           '/home/user/file.txt',
         ).pipe(Effect.result)
         expect(Result.isFailure(result)).toBe(true)
@@ -355,9 +353,7 @@ Vitest.describe('schema', () => {
   Vitest.describe('RelativeFilePath', () => {
     Vitest.it.effect('decodes valid relative file path', () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknownEffect(EffectPath.schema.RelativeFilePath)(
-          'src/mod.ts',
-        )
+        const result = yield* Schema.decodeEffect(EffectPath.schema.RelativeFilePath)('src/mod.ts')
         expect(result).toBe('src/mod.ts')
       }),
     )
@@ -366,7 +362,7 @@ Vitest.describe('schema', () => {
   Vitest.describe('RelativeDirPath', () => {
     Vitest.it.effect('decodes valid relative directory path', () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknownEffect(EffectPath.schema.RelativeDirPath)(
+        const result = yield* Schema.decodeEffect(EffectPath.schema.RelativeDirPath)(
           'src/components/',
         )
         expect(result).toBe('src/components/')
@@ -377,7 +373,7 @@ Vitest.describe('schema', () => {
   Vitest.describe('AbsoluteFileInfo', () => {
     Vitest.it.effect('decodes to PathInfo structure', () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknownEffect(EffectPath.schema.AbsoluteFileInfo())(
+        const result = yield* Schema.decodeEffect(EffectPath.schema.AbsoluteFileInfo())(
           '/path/to/file.txt',
         )
         expect(result.original).toBe('/path/to/file.txt')
@@ -388,7 +384,7 @@ Vitest.describe('schema', () => {
 
     Vitest.it.effect('encodes back to normalized string by default', () =>
       Effect.gen(function* () {
-        const decoded = yield* Schema.decodeUnknownEffect(EffectPath.schema.AbsoluteFileInfo())(
+        const decoded = yield* Schema.decodeEffect(EffectPath.schema.AbsoluteFileInfo())(
           '/path/to/file.txt',
         )
         const encoded = yield* Schema.encodeEffect(EffectPath.schema.AbsoluteFileInfo())(decoded)
@@ -400,9 +396,7 @@ Vitest.describe('schema', () => {
   Vitest.describe('RelativeFileInfo', () => {
     Vitest.it.effect('uses ./ as parent for root-level relative files', () =>
       Effect.gen(function* () {
-        const decoded = yield* Schema.decodeUnknownEffect(EffectPath.schema.RelativeFileInfo())(
-          'file.txt',
-        )
+        const decoded = yield* Schema.decodeEffect(EffectPath.schema.RelativeFileInfo())('file.txt')
         expect(decoded.parent.normalized).toBe('./')
       }),
     )

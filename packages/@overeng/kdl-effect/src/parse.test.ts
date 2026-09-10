@@ -11,7 +11,7 @@ describe('parseKdl', () => {
         age: Schema.Finite,
       })
 
-      const result = Schema.decodeUnknownSync(parseKdl(MySchema))('name "Alice"\nage 30')
+      const result = Schema.decodeSync(parseKdl(MySchema))('name "Alice"\nage 30')
       expect(result).toEqual({ name: 'Alice', age: 30 })
     })
 
@@ -20,9 +20,7 @@ describe('parseKdl', () => {
         members: Schema.Record(Schema.String, Schema.String),
       })
 
-      const result = Schema.decodeUnknownSync(parseKdl(MySchema))(
-        'members {\n  foo "bar"\n  baz "qux"\n}',
-      )
+      const result = Schema.decodeSync(parseKdl(MySchema))('members {\n  foo "bar"\n  baz "qux"\n}')
       expect(result).toEqual({ members: { foo: 'bar', baz: 'qux' } })
     })
 
@@ -31,7 +29,7 @@ describe('parseKdl', () => {
         items: Schema.Array(Schema.String),
       })
 
-      const result = Schema.decodeUnknownSync(parseKdl(MySchema))('items "hello"')
+      const result = Schema.decodeSync(parseKdl(MySchema))('items "hello"')
       expect(result).toEqual({ items: ['hello'] })
     })
 
@@ -40,7 +38,7 @@ describe('parseKdl', () => {
         items: Schema.optional(Schema.Array(Schema.String)),
       }) {}
       const Outer = Schema.Struct({ nested: Nested })
-      expect(Schema.decodeUnknownSync(parseKdl(Outer))('nested { items "a" }')).toEqual({
+      expect(Schema.decodeSync(parseKdl(Outer))('nested { items "a" }')).toEqual({
         nested: { items: ['a'] },
       })
     })
@@ -50,18 +48,18 @@ describe('parseKdl', () => {
         items: Schema.Array(Schema.String),
       })
 
-      const result = Schema.decodeUnknownSync(parseKdl(MySchema))('items "a"\nitems "b"\nitems "c"')
+      const result = Schema.decodeSync(parseKdl(MySchema))('items "a"\nitems "b"\nitems "c"')
       expect(result).toEqual({ items: ['a', 'b', 'c'] })
     })
 
     it('converts KDL parse errors to ParseError (not thrown)', () => {
       const MySchema = Schema.Struct({ name: Schema.String })
 
-      expect(() => Schema.decodeUnknownSync(parseKdl(MySchema))('{')).toThrow()
+      expect(() => Schema.decodeSync(parseKdl(MySchema))('{')).toThrow()
 
       /* Verify it's a SchemaError (v4 renamed ParseError), not an InvalidKdlError */
       try {
-        Schema.decodeUnknownSync(parseKdl(MySchema))('{')
+        Schema.decodeSync(parseKdl(MySchema))('{')
       } catch (e) {
         expect(e).toBeInstanceOf(Error)
         expect((e as Error).name).toBe('SchemaError')
@@ -74,7 +72,7 @@ describe('parseKdl', () => {
         value: Schema.NullOr(Schema.String),
       })
 
-      const result = Schema.decodeUnknownSync(parseKdl(MySchema))('enabled #true\nvalue #null')
+      const result = Schema.decodeSync(parseKdl(MySchema))('enabled #true\nvalue #null')
       expect(result).toEqual({ enabled: true, value: null })
     })
 
@@ -84,7 +82,7 @@ describe('parseKdl', () => {
         age: Schema.optional(Schema.Finite),
       })
 
-      const result = Schema.decodeUnknownSync(parseKdl(MySchema))('name "Alice"')
+      const result = Schema.decodeSync(parseKdl(MySchema))('name "Alice"')
       expect(result).toEqual({ name: 'Alice' })
     })
   })
@@ -100,7 +98,7 @@ describe('parseKdl', () => {
       expect(typeof kdl).toBe('string')
 
       /* Round-trip: decode the encoded KDL back */
-      const decoded = Schema.decodeUnknownSync(parseKdl(MySchema))(kdl)
+      const decoded = Schema.decodeSync(parseKdl(MySchema))(kdl)
       expect(decoded).toEqual({ name: 'Alice', age: 30 })
     })
 
@@ -111,7 +109,7 @@ describe('parseKdl', () => {
 
       const original = { members: { foo: 'bar', baz: 'qux' } }
       const kdl = Schema.encodeUnknownSync(parseKdl(MySchema))(original)
-      const decoded = Schema.decodeUnknownSync(parseKdl(MySchema))(kdl)
+      const decoded = Schema.decodeSync(parseKdl(MySchema))(kdl)
       expect(decoded).toEqual(original)
     })
 
@@ -122,7 +120,7 @@ describe('parseKdl', () => {
 
       const original = { value: null }
       const kdl = Schema.encodeUnknownSync(parseKdl(MySchema))(original)
-      const decoded = Schema.decodeUnknownSync(parseKdl(MySchema))(kdl)
+      const decoded = Schema.decodeSync(parseKdl(MySchema))(kdl)
       expect(decoded).toEqual(original)
     })
 
@@ -133,7 +131,7 @@ describe('parseKdl', () => {
 
       const original = { items: ['a', 'b', 'c'] }
       const kdl = Schema.encodeUnknownSync(parseKdl(MySchema))(original)
-      const decoded = Schema.decodeUnknownSync(parseKdl(MySchema))(kdl)
+      const decoded = Schema.decodeSync(parseKdl(MySchema))(kdl)
       expect(decoded).toEqual(original)
     })
   })
@@ -144,7 +142,7 @@ describe('parseKdl', () => {
         settings: Schema.Record(Schema.String, Schema.Unknown),
       })
 
-      const result = Schema.decodeUnknownSync(parseKdl(MySchema))('settings {}')
+      const result = Schema.decodeSync(parseKdl(MySchema))('settings {}')
       expect(result).toEqual({ settings: {} })
     })
 
@@ -155,7 +153,7 @@ describe('parseKdl', () => {
         }),
       })
 
-      const result = Schema.decodeUnknownSync(parseKdl(MySchema))('vscode enabled=#true {}')
+      const result = Schema.decodeSync(parseKdl(MySchema))('vscode enabled=#true {}')
       expect(result).toEqual({ vscode: { enabled: true } })
     })
 
@@ -164,7 +162,7 @@ describe('parseKdl', () => {
         items: Schema.Array(Schema.Struct({ tags: Schema.Array(Schema.String) })),
       })
 
-      const result = Schema.decodeUnknownSync(parseKdl(MySchema))('items {\n  tags "a"\n}')
+      const result = Schema.decodeSync(parseKdl(MySchema))('items {\n  tags "a"\n}')
       expect(result).toEqual({ items: [{ tags: ['a'] }] })
     })
 
@@ -173,7 +171,7 @@ describe('parseKdl', () => {
         groups: Schema.Record(Schema.String, Schema.Array(Schema.String)),
       })
 
-      const result = Schema.decodeUnknownSync(parseKdl(MySchema))('groups {\n  admin "alice"\n}')
+      const result = Schema.decodeSync(parseKdl(MySchema))('groups {\n  admin "alice"\n}')
       expect(result).toEqual({ groups: { admin: ['alice'] } })
     })
   })

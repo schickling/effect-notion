@@ -463,7 +463,7 @@ export const repinWorkspace = ({
     yield* fs.makeDirectory(reposDir, { recursive: true })
     const symlinkPath = EffectPath.ops.join(reposDir, EffectPath.unsafe.relativeFile(memberName))
     // Replace any existing symlink so the new target is the on-disk truth.
-    yield* fs.remove(symlinkPath, { force: true }).pipe(Effect.catch(() => Effect.void))
+    yield* fs.remove(symlinkPath, { force: true }).pipe(Effect.ignore)
     yield* fs.symlink(newTarget.replace(/\/+$/, ''), symlinkPath)
 
     // Optionally rewrite the lock entry for this member (ref/commit repin),
@@ -514,9 +514,7 @@ export const materializeNonDetachedBranchWorktree = ({
     const fs = yield* FileSystem.FileSystem
     // Drop the detached worktree the fixture created at this path.
     yield* runGitCommand(bareRepoPath, 'worktree', 'remove', '--force', worktreePath)
-    yield* fs
-      .remove(worktreePath, { recursive: true, force: true })
-      .pipe(Effect.catch(() => Effect.void))
+    yield* fs.remove(worktreePath, { recursive: true, force: true }).pipe(Effect.ignore)
     // Ensure the branch ref points at this fixture commit, then check it out in
     // a fresh worktree (non-detached).
     yield* runGitCommand(bareRepoPath, 'branch', '-f', branch, commit)

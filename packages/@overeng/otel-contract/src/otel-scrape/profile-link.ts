@@ -45,7 +45,7 @@ export const otelScrapeProfileLinkFromDescriptor = ({
   readonly uri: CasUri
   readonly ui?: string
 }): OtelScrapeProfileLink =>
-  Schema.decodeUnknownSync(OtelScrapeProfileLink)({
+  Schema.decodeSync(OtelScrapeProfileLink)({
     type,
     digest: descriptor.digest,
     uri,

@@ -32,7 +32,7 @@ const runWithExit = <A,>(
   fake: FakeNotion,
   eff: Effect.Effect<A, NotionSyncError, HttpClient | NotionConfig>,
 ): Promise<Exit.Exit<A, NotionSyncError>> =>
-  Effect.runPromise(eff.pipe(Effect.provide(fake.layer), Effect.exit))
+  Effect.runPromiseExit(eff.pipe(Effect.provide(fake.layer)))
 
 describe('pagination + batch boundaries', () => {
   it('rich_text >2000 chars is chunked into ≤2000-char segments (#100)', () => {

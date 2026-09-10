@@ -1034,9 +1034,9 @@ describe('--all sync mode', () => {
 
           // Read parent config and verify it points to child
           const parentConfigContent = yield* fs.readFileString(parentConfigPath)
-          const parentConfig = yield* Schema.decodeUnknownEffect(
-            Schema.fromJsonString(MegarepoConfig),
-          )(parentConfigContent)
+          const parentConfig = yield* Schema.decodeEffect(Schema.fromJsonString(MegarepoConfig))(
+            parentConfigContent,
+          )
           expect(parentConfig.members['child-megarepo']).toBe(childPath)
         },
         Effect.provide(NodeServices.layer),
@@ -1057,9 +1057,9 @@ describe('--all sync mode', () => {
             EffectPath.unsafe.relativeFile(CONFIG_FILE_NAME_JSON),
           )
           const childConfigContent = yield* fs.readFileString(childConfigPath)
-          const childConfig = yield* Schema.decodeUnknownEffect(
-            Schema.fromJsonString(MegarepoConfig),
-          )(childConfigContent)
+          const childConfig = yield* Schema.decodeEffect(Schema.fromJsonString(MegarepoConfig))(
+            childConfigContent,
+          )
           expect(childConfig.members['grandchild-lib']).toBe(grandchildPath)
 
           // Verify grandchild is a regular repo (no megarepo.json)
@@ -1142,7 +1142,7 @@ describe('--all nested error reporting', () => {
           syncErrors: Schema.Array(SyncErrorItem),
           syncTree: MegarepoSyncTree,
         })
-        const out = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(SyncOutput))(
+        const out = yield* Schema.decodeEffect(Schema.fromJsonString(SyncOutput))(
           result.stdout.trim(),
         )
 
@@ -1290,7 +1290,7 @@ describe('--all sync deduplication', () => {
           EffectPath.unsafe.relativeFile(CONFIG_FILE_NAME_JSON),
         )
         const rootConfigContent = yield* fs.readFileString(rootConfigPath)
-        const rootConfig = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(MegarepoConfig))(
+        const rootConfig = yield* Schema.decodeEffect(Schema.fromJsonString(MegarepoConfig))(
           rootConfigContent,
         )
         expect(rootConfig.members['child-a']).toBe(childAPath)
@@ -1302,9 +1302,9 @@ describe('--all sync deduplication', () => {
           EffectPath.unsafe.relativeFile(CONFIG_FILE_NAME_JSON),
         )
         const childAConfigContent = yield* fs.readFileString(childAConfigPath)
-        const childAConfig = yield* Schema.decodeUnknownEffect(
-          Schema.fromJsonString(MegarepoConfig),
-        )(childAConfigContent)
+        const childAConfig = yield* Schema.decodeEffect(Schema.fromJsonString(MegarepoConfig))(
+          childAConfigContent,
+        )
         expect(childAConfig.members['shared-lib']).toBe(sharedLibPath)
 
         const childBConfigPath = EffectPath.ops.join(
@@ -1312,9 +1312,9 @@ describe('--all sync deduplication', () => {
           EffectPath.unsafe.relativeFile(CONFIG_FILE_NAME_JSON),
         )
         const childBConfigContent = yield* fs.readFileString(childBConfigPath)
-        const childBConfig = yield* Schema.decodeUnknownEffect(
-          Schema.fromJsonString(MegarepoConfig),
-        )(childBConfigContent)
+        const childBConfig = yield* Schema.decodeEffect(Schema.fromJsonString(MegarepoConfig))(
+          childBConfigContent,
+        )
         expect(childBConfig.members['shared-lib']).toBe(sharedLibPath)
 
         // Both children reference the SAME path
@@ -1544,7 +1544,7 @@ const createAliasWorkspaceFixture = () =>
       EffectPath.unsafe.relativeFile(CONFIG_FILE_NAME_JSON),
     )
     const parentConfigContent = yield* fs.readFileString(parentConfigPath)
-    const parentConfig = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(MegarepoConfig))(
+    const parentConfig = yield* Schema.decodeEffect(Schema.fromJsonString(MegarepoConfig))(
       parentConfigContent,
     )
     const updatedConfig = new MegarepoConfig({

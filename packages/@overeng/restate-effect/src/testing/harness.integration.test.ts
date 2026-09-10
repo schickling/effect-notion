@@ -53,7 +53,7 @@ const CounterLive = RestateObject.implement<typeof CounterObj, Step>({
       Effect.gen(function* () {
         const by = (yield* Step).by
         /* A journaled durable step (replay-stable across `alwaysReplay`). */
-        const delta = yield* Restate.run({ name: 'delta', effect: Effect.sync(() => by) }).pipe(
+        const delta = yield* Restate.run({ name: 'delta', effect: Effect.succeed(by) }).pipe(
           Effect.orDie,
         )
         const current = (yield* Counter.get('count')) ?? 0

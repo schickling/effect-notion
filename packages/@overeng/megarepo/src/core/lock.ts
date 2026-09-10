@@ -79,7 +79,7 @@ export const readLockFile = (
     }
 
     const content = yield* fs.readFileString(lockPath)
-    const parsed = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(LockFile))(content)
+    const parsed = yield* Schema.decodeEffect(Schema.fromJsonString(LockFile))(content)
     return Option.some(parsed)
   })
 

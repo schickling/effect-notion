@@ -35,7 +35,7 @@ describe('lock', () => {
           },
         },
       }
-      const result = Schema.decodeUnknownSync(LockFile)(input)
+      const result = Schema.decodeSync(LockFile)(input)
       expect(result.version).toBe(1)
       expect(result.members['effect']?.url).toBe('https://github.com/effect-ts/effect')
       expect(result.members['effect']?.pinned).toBe(false)
@@ -54,7 +54,7 @@ describe('lock', () => {
           },
         },
       }
-      const result = Schema.decodeUnknownSync(LockFile)(input)
+      const result = Schema.decodeSync(LockFile)(input)
       expect(result.members['effect']?.pinned).toBe(true)
     })
 
@@ -82,7 +82,7 @@ describe('lock', () => {
         pinned: false,
         lockedAt: '2024-01-15T10:30:00Z',
       }
-      const result = Schema.decodeUnknownSync(LockedMember)(input)
+      const result = Schema.decodeSync(LockedMember)(input)
       expect(result.url).toBe('https://github.com/owner/repo')
       expect(result.commit).toBe('abc123def456789012345678901234567890abcd')
     })

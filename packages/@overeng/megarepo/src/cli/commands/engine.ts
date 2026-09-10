@@ -270,8 +270,9 @@ export const syncMegarepo = <R = never>({
     // Use unbounded for non-TTY (faster) or limited (4) for TTY (visible progress)
     const concurrency = progressHandle !== undefined ? 4 : 'unbounded'
 
-    const results = yield* Effect.all(
-      members.map(([name, sourceString]) =>
+    const results = yield* Effect.forEach(
+      members,
+      ([name, sourceString]) =>
         Effect.gen(function* () {
           // Mark as syncing in progress UI
           if (progressHandle !== undefined) {
@@ -300,7 +301,6 @@ export const syncMegarepo = <R = never>({
 
           return result
         }),
-      ),
       { concurrency },
     )
 
@@ -323,8 +323,9 @@ export const syncMegarepo = <R = never>({
         (entry) => !configuredMemberNames.has(entry) && !skippedMemberNames.has(entry),
       )
 
-      const orphanResults = yield* Effect.all(
-        candidates.map((entry) =>
+      const orphanResults = yield* Effect.forEach(
+        candidates,
+        (entry) =>
           Effect.gen(function* () {
             const entryPath = EffectPath.ops.join(
               membersRoot,
@@ -345,7 +346,7 @@ export const syncMegarepo = <R = never>({
             }
             if (memberMount._tag === 'Symlink') {
               if (dryRun === false) {
-                yield* fs.remove(entryPath).pipe(Effect.catch(() => Effect.void))
+                yield* fs.remove(entryPath).pipe(Effect.ignore)
               }
               return {
                 name: entry,
@@ -355,7 +356,6 @@ export const syncMegarepo = <R = never>({
             }
             return undefined
           }),
-        ),
         { concurrency: 'unbounded' },
       )
 
@@ -370,8 +370,9 @@ export const syncMegarepo = <R = never>({
     const allResults = [...results, ...removedResults]
 
     // Check which members are themselves megarepos (for --all)
-    const nestedMegarepoChecks = yield* Effect.all(
-      results.map((result) =>
+    const nestedMegarepoChecks = yield* Effect.forEach(
+      results,
+      (result) =>
         Effect.gen(function* () {
           if (result.status === 'error' || result.status === 'skipped') {
             return null
@@ -382,7 +383,6 @@ export const syncMegarepo = <R = never>({
           )
           return nestedConfig !== undefined ? result.name : null
         }),
-      ),
       { concurrency: 'unbounded' },
     )
     const nestedMegarepos = nestedMegarepoChecks.filter((name): name is string => name !== null)
@@ -503,8 +503,9 @@ export const syncMegarepo = <R = never>({
     // Handle --all flag: recursively sync nested megarepos in parallel
     const nestedResults =
       all === true && nestedMegarepos.length > 0
-        ? yield* Effect.all(
-            nestedMegarepos.map((nestedName) => {
+        ? yield* Effect.forEach(
+            nestedMegarepos,
+            (nestedName) => {
               const nestedPath = getMemberPath({ megarepoRoot, name: nestedName })
               const nestedRoot = EffectPath.unsafe.absoluteDir(
                 nestedPath.endsWith('/') === true ? nestedPath : `${nestedPath}/`,
@@ -547,7 +548,7 @@ export const syncMegarepo = <R = never>({
                   } satisfies MegarepoSyncResult),
                 ),
               )
-            }),
+            },
             { concurrency: 4 },
           )
         : []

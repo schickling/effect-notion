@@ -124,9 +124,9 @@ const readHolderLock = Effect.fn('FileSystemBacking.readHolderLock')(function* (
     return undefined
   }
 
-  const parsed = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(HolderLockSchema))(
-    content,
-  ).pipe(Effect.mapError((cause) => new SemaphoreBackingError({ operation: 'parseJson', cause })))
+  const parsed = yield* Schema.decodeEffect(Schema.fromJsonString(HolderLockSchema))(content).pipe(
+    Effect.mapError((cause) => new SemaphoreBackingError({ operation: 'parseJson', cause })),
+  )
 
   // Check if expired
   if (parsed.expiresAt <= now) {

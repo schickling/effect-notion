@@ -340,7 +340,7 @@ const parseOpenCodeRowData = Effect.fn('AgentSessionIngest.OpenCode.parseOpenCod
     readonly rawData: unknown
     readonly message: string
   }) =>
-    Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(String(options.rawData)).pipe(
+    Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(String(options.rawData)).pipe(
       Effect.mapError(
         (cause) =>
           new SessionArtifactDecodeError({
@@ -383,7 +383,7 @@ export const makeOpenCodeAdapter = (options: {
   readonly databasePath: string
   readonly sourceId?: string
 }): SessionSourceAdapter<OpenCodeRecord> => ({
-  sourceId: Schema.decodeUnknownSync(SourceId)(options.sourceId ?? 'opencode'),
+  sourceId: Schema.decodeSync(SourceId)(options.sourceId ?? 'opencode'),
   discoverArtifacts: withReadonlyDb({
     path: options.databasePath,
     f: (database) =>
@@ -397,7 +397,7 @@ export const makeOpenCodeAdapter = (options: {
         })
         .map((rawRow) => {
           const row = Schema.decodeUnknownSync(OpenCodeSessionDiscoveryRow)(rawRow)
-          return Schema.decodeUnknownSync(ArtifactDescriptor)({
+          return Schema.decodeSync(ArtifactDescriptor)({
             sourceId: options.sourceId ?? 'opencode',
             artifactId: String(row.id),
             path: options.databasePath,
@@ -437,7 +437,7 @@ export const makeOpenCodeAdapter = (options: {
         return {
           artifact,
           records: [] as Array<OpenCodeRecord>,
-          checkpoint: yield* Schema.decodeUnknownEffect(IngestionCheckpoint)({
+          checkpoint: yield* Schema.decodeEffect(IngestionCheckpoint)({
             sourceId: artifact.sourceId,
             artifactId: artifact.artifactId,
             path: artifact.path,
@@ -509,7 +509,7 @@ export const makeOpenCodeAdapter = (options: {
           }),
       })
 
-      const sessionRecord = yield* Schema.decodeUnknownEffect(OpenCodeSessionRecord)({
+      const sessionRecord = yield* Schema.decodeEffect(OpenCodeSessionRecord)({
         _tag: 'OpenCodeSession',
         session,
       }).pipe(
@@ -674,7 +674,7 @@ export const makeOpenCodeAdapter = (options: {
       return {
         artifact,
         records,
-        checkpoint: yield* Schema.decodeUnknownEffect(IngestionCheckpoint)({
+        checkpoint: yield* Schema.decodeEffect(IngestionCheckpoint)({
           sourceId: artifact.sourceId,
           artifactId: artifact.artifactId,
           path: artifact.path,

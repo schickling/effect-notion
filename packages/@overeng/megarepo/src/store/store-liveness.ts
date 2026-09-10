@@ -343,7 +343,7 @@ const readRegistryRecords = ({
         .readFileString(recordPath)
         .pipe(
           Effect.flatMap((content) =>
-            Schema.decodeUnknownEffect(Schema.fromJsonString(StoreWorkspaceRecord))(content),
+            Schema.decodeEffect(Schema.fromJsonString(StoreWorkspaceRecord))(content),
           ),
         )
 

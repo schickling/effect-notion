@@ -324,9 +324,7 @@ const resolveVercelProject = Effect.fn('ci-tools.deploy.vercel.resolve-project')
     })
   }
 
-  const decoded = Schema.decodeUnknownResult(Schema.fromJsonString(VercelProjectJson))(
-    response.text,
-  )
+  const decoded = Schema.decodeResult(Schema.fromJsonString(VercelProjectJson))(response.text)
   if (Result.isFailure(decoded) === true) {
     return yield* new ProviderProjectLookupFailed({
       provider: 'vercel',
@@ -395,9 +393,7 @@ const patchProjectRootDirectory = Effect.fn('ci-tools.deploy.vercel.patch-root-d
     if (opts.rootDirectory === undefined || opts.rootDirectory === '.') return
     const projectJsonPath = join('.vercel', 'project.json')
     if (existsSync(projectJsonPath) === false) return
-    const decodedJson = Schema.decodeUnknownResult(JsonUnknown)(
-      readFileSync(projectJsonPath, 'utf8'),
-    )
+    const decodedJson = Schema.decodeResult(JsonUnknown)(readFileSync(projectJsonPath, 'utf8'))
     if (Result.isFailure(decodedJson) === true) {
       return yield* new ProviderOperationFailed({
         provider: 'vercel',
@@ -459,7 +455,7 @@ const withTemporaryInstallCommand = Effect.fn('ci-tools.deploy.vercel.install-co
     original === undefined
       ? Result.succeed({})
       : (() => {
-          const decodedJson = Schema.decodeUnknownResult(JsonUnknown)(original)
+          const decodedJson = Schema.decodeResult(JsonUnknown)(original)
           if (Result.isFailure(decodedJson) === true) return decodedJson
           const decoded = decodedJson.success
           return Result.succeed(
@@ -678,9 +674,7 @@ const fetchVercelDeploymentCommitSha = Effect.fn('ci-tools.deploy.vercel.deploym
     if (response === undefined || response.status < 200 || response.status >= 300) {
       return undefined
     }
-    const decoded = Schema.decodeUnknownResult(Schema.fromJsonString(VercelDeploymentJson))(
-      response.text,
-    )
+    const decoded = Schema.decodeResult(Schema.fromJsonString(VercelDeploymentJson))(response.text)
     if (Result.isFailure(decoded) === true) {
       return undefined
     }
@@ -730,7 +724,7 @@ const fetchVercelAliasRecord = Effect.fn('ci-tools.deploy.vercel.alias-record')(
       diagnostics: { apiStatus: String(response.status) },
     })
   }
-  const decoded = Schema.decodeUnknownResult(Schema.fromJsonString(VercelAliasJson))(response.text)
+  const decoded = Schema.decodeResult(Schema.fromJsonString(VercelAliasJson))(response.text)
   if (Result.isFailure(decoded) === true) {
     return yield* new InvalidProviderOutput({
       provider: 'vercel',

@@ -154,11 +154,23 @@ const unwrapAst = (ast: SchemaAST.AST): SchemaAST.AST => {
   }
 }
 
-/** v4 annotation records are string-keyed at the type level but hold symbol keys at runtime */
+/**
+ * v4 annotation records are string-keyed at the type level but hold symbol keys
+ * at runtime. `annotate` on a refined schema (`Schema.Finite`, any `Schema.check`)
+ * lands on the last check rather than the node, so both layers are read here.
+ */
 const readSymbolAnnotation = ({ ast, id }: { ast: SchemaAST.AST; id: symbol }): unknown => {
   const annotations = ast.annotations as Record<symbol, unknown> | undefined
-  if (annotations === undefined) return undefined
-  return annotations[id]
+  if (annotations !== undefined && annotations[id] !== undefined) return annotations[id]
+  const checks = ast.checks
+  if (checks === undefined) return undefined
+  for (let index = checks.length - 1; index >= 0; index--) {
+    const checkAnnotations = checks[index]?.annotations as Record<symbol, unknown> | undefined
+    if (checkAnnotations !== undefined && checkAnnotations[id] !== undefined) {
+      return checkAnnotations[id]
+    }
+  }
+  return undefined
 }
 
 /*
