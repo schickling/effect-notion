@@ -96,3 +96,10 @@ export_file(
     src = "packages/@overeng/buck2-tools/src/owned-files.ts",
     visibility = ["PUBLIC"],
 )
+
+# Workspace patches are declared inputs to the generated pnpm extraction actions.
+export_file(
+    name = "patches/@myobie__pty@0.10.0.patch",
+    src = "patches/@myobie__pty@0.10.0.patch",
+    visibility = ["PUBLIC"],
+)

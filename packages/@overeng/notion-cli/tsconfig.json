@@ -53,9 +53,5 @@
     "src/**/*",
     "bin/**/*.ts"
   ],
-  "references": [
-    {
-      "path": "../effect-path"
-    }
-  ]
+  "references": []
 }

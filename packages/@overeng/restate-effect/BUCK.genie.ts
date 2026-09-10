@@ -6,7 +6,7 @@ export const buck2TypeScriptAdmission = {
   packageName: '@overeng/restate-effect',
   packagePath: 'packages/@overeng/restate-effect',
   projectionSource: 'packages/@overeng/restate-effect/BUCK.genie.ts',
-  sourceRoots: ['src'],
+  sourceRoots: ['src', 'examples'],
   workspaceSiblings: [
     {
       packageName: '@overeng/otel-contract',

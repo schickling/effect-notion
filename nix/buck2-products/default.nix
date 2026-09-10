@@ -151,6 +151,7 @@ let
           inherit (release) url hash;
         };
         descriptor = descriptorFile;
+        descriptorContent = canonicalDescriptor;
         expectedDescriptorSha256 = entry.descriptorSha256;
         expectedModuleSha256 = moduleSha256;
         inherit release;

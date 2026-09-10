@@ -142,12 +142,14 @@
             buck2-rust-shell = buck2-rust-toolchain-capability.packages.rust-shell;
             cli-build-stamp = cliBuildStamp.package;
             effect-tsgo = tsgo.packages.${system}.effect-tsgo;
-            # The oxlint plugin bundle keeps its pnpm FOD as a first-class
-            # output: `nix/oxlint-npm.nix` needs the pnpm-built plugin bundle,
-            # which the `oxc-config` JavaScript product does not replace. The
-            # `oxc-config` package attribute itself is the wrapped Buck product
-            # merged in from `cliPackages`.
-            "oxc-config-plugin-pnpm-deps" = oxlintNpm.pluginBundle.passthru.depsBuildsByInstallRoot.root;
+            # The oxlint plugin bundle keeps its pnpm FOD as first-class outputs:
+            # `nix/oxlint-npm.nix` needs the pnpm-built plugin bundle, which the
+            # `oxc-config` JavaScript product does not replace. The bundle exposes
+            # Evergreen producer metadata; its raw FOD remains directly addressable.
+            # The `oxc-config` package itself is merged in from `cliPackages`.
+            "oxc-config-plugin" = oxlintNpm.pluginBundle;
+            "oxc-config-plugin-pnpm-deps" =
+              oxlintNpm.pluginBundle.passthru.depsBuildsByInstallRoot.root;
             # npm oxlint with NAPI bindings + pre-bundled @overeng/oxc-config plugin
             oxlint-npm = oxlintNpm;
             # oxlint-npm wrapped with automatic @overeng/oxc-config plugin injection

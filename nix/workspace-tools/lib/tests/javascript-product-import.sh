@@ -89,6 +89,7 @@ let
   candidate = importProduct {
     artifact = "$module";
     descriptor = "$descriptor";
+    descriptorContent = builtins.readFile "$descriptor";
     expectedDescriptorSha256 = "$descriptor_digest";
     expectedModuleSha256 = "$module_digest";
     expectedProductKind = "cli";
