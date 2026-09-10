@@ -103,11 +103,12 @@ export const portableStoryTests = async ({
     }),
     transform: {
       order: 'post',
+      // oxlint-disable-next-line overeng/named-args -- Vite's transform hook has a fixed positional signature.
       handler: (_code, rawId) => {
         const [id, query = ''] = rawId.split('?', 2)
         if (
           id === undefined ||
-          query.split('&').includes(sourceQuery) ||
+          query.split('&').includes(sourceQuery) === true ||
           storyFileSet.has(resolve(id)) === false
         ) {
           return undefined
