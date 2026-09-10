@@ -278,8 +278,8 @@ run_downstream_pure_eval_regression() {
   )"
   local install_phase
   install_phase="$(nix derivation show "$drv" | jq -r '.derivations | to_entries[0].value.env.installPhase')"
-  if [[ "$install_phase" != *'del(.importers["repos/effect-utils"])'* ]]; then
-    echo "error: aggregate prepared deps lockfile still validates nested install-root importers: $drv" >&2
+  if [[ "$install_phase" == *' --filter '* ]]; then
+    echo "error: aggregate prepared deps install still applies a filter that breaks pnpm 12 lockfile validation: $drv" >&2
     exit 1
   fi
   if [[ "$install_phase" != *'install --frozen-lockfile --no-optional --ignore-scripts'* ]]; then

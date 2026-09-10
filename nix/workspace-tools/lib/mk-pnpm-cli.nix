@@ -1247,10 +1247,6 @@ let
       src = rootDepsSrc;
       sourceRoot = ".";
       lockfilePaths = [ "pnpm-lock.yaml" ];
-      # The staged root workspace is already narrowed to `$genie.workspaceClosureDirs`.
-      # Ask pnpm to materialize the target package's dependency closure, not every
-      # importer visible in that staged workspace.
-      pnpmFilters = [ "${packageJson.name}..." ];
       includeOptionalDependencies = includeOptionalDependenciesForInstallRoot ".";
       # Fixed-output dependency preparation must be a pure materialization of
       # the staged manifests and lockfile. Unfrozen installs can rewrite the
@@ -1258,11 +1254,6 @@ let
       frozenLockfile = true;
       preInstall = ''
         chmod -R +w .
-        ${builtins.concatStringsSep "\n" (
-          map (
-            dir: "${pkgs.yq-go}/bin/yq -i ${lib.escapeShellArg "del(.importers[\"${dir}\"])"} pnpm-lock.yaml"
-          ) allExternallyOwnedDirs
-        )}
       '';
     };
   };
