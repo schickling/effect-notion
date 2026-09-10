@@ -349,7 +349,7 @@ let
       );
       process.exit(1);
     }
-    const sourceInputPrefix = "file:.devenv/pnpm-source-inputs/current/";
+    const sourceInputSegment = ".devenv/pnpm-source-inputs/current/";
     const dependencySections = ["dependencies", "devDependencies", "optionalDependencies"];
 
     for (const [importerPath, importer] of Object.entries(importers)) {
@@ -368,7 +368,7 @@ let
           const manifestSpecifier = manifestDependencies[dependencyName];
           if (
             typeof specifier === "string" &&
-            specifier.includes(sourceInputPrefix) &&
+            specifier.includes(sourceInputSegment) &&
             typeof manifestSpecifier === "string" &&
             (manifestSpecifier.startsWith("file:") || manifestSpecifier.startsWith("link:"))
           ) {
