@@ -1,6 +1,6 @@
 {
   "schema": "effect-utils/buck2-pnpm-sha256/v1",
-  "lockfileFingerprint": "sha256:722b21eca34799dcc001442fe5d089e5544e9287a19848139a02f771891f04ac",
+  "lockfileFingerprint": "sha256:c71824df031c59e9542b4deed4670544c27792aa0c9c4043719aa000ea62445d",
   "source": "pnpm-lock.yaml",
   "generator": "buck2/dependencies/pnpm-lock.sha256.json.genie.ts",
   "regenerate": "devenv tasks run genie:run",
@@ -1036,25 +1036,20 @@
       "integrity": "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==",
       "sha256": "a7cb7268be280ab518d450f8c3b07c86f23417225c0ab53691ed59b3067cceaf"
     },
-    "@storybook/addon-a11y@10.5.10": {
+    "@storybook/addon-a11y@10.6.0": {
       "bins": {},
-      "integrity": "sha512-RpRQV5xUbrl6hCiNrd5FSMIo6pnRZ0VZxWvEW/ASLcreGkKUW5jl2AeLCe5YROE2i80s/dU+6VPzOYKrwWNFbQ==",
-      "sha256": "21055f5304b6df158f13f259825c0eedcc4dec886b31660cf995986eddd4a4a1"
+      "integrity": "sha512-Z/CZor/F8H74/+IoeLroEQXQoVxvmjVtUgATJ95KPBolHxMaHLXLsYU0wosIiiORxmfRCnpen5pQl1n4+pBWQw==",
+      "sha256": "5aef9231ed30ff52e3e50f5d7ee3c9b813ffe1a0ba00b30dc62515d225ae3e3b"
     },
-    "@storybook/addon-vitest@10.5.10": {
+    "@storybook/addon-vitest@10.6.0": {
       "bins": {},
-      "integrity": "sha512-JNQ9DSkLfxC8qqytBCej91zBExIZ7z97B410U2zgfQPki4HkI9Ffz97a15f5yhVZ79ppIrZ/ssI+WcyWn0ykXQ==",
-      "sha256": "959e779f304df00a97527b05b97248c6f7844ef0b5ef96cd9aeb5bb73ea479c2"
+      "integrity": "sha512-GY2SwSXLNgyMqjQ59J7YTkEQTHdEbBMggOvbbuhuPUBhWo97OGSDCmn1UW3nXDZvkoWyWhF9T9628m1uei7FbA==",
+      "sha256": "13538f11eb91e93af102c1caa9fe1616d6f566e4a02319503561f69b1901ef36"
     },
-    "@storybook/builder-vite@10.5.10": {
+    "@storybook/builder-vite@10.6.0": {
       "bins": {},
-      "integrity": "sha512-O4GgIP0tKLRueom3EmU3OaBUHKjNYj+jkOvmTIkn3PYTiWVkCuHqSKEs4ADvRyaQuLH+peHhFe4JtkNC9KbtrQ==",
-      "sha256": "6bc28de9c80e508db87614021af622518e48b3a8da9b8c3fcb5119382f9df0a3"
-    },
-    "@storybook/csf-plugin@10.5.10": {
-      "bins": {},
-      "integrity": "sha512-TaCLBrqVEr767+w58QDotDUiCTuE5cyRJuRcDlsKQyUIyGBv+lYD3lu8wBiVCYxgIjB/gu9HmqiC+0yx1rHzaw==",
-      "sha256": "91e5ab39e7180edf6c7d0aa3828509ad3aa3fc94d6dd1b0edb5f9a08ffebf04f"
+      "integrity": "sha512-7zt8tYB6dnSO8fbjUz91MHexGDpf9HrLlA3FAmlVb+2ZL3eWUs499L3I6BDUymcWu7oW5WCBJlB8ERj8ZLLzig==",
+      "sha256": "86cb8356fd9430c213230aee7dc119dc2ab843d9420d52d415c2afbece486783"
     },
     "@storybook/global@5.0.0": {
       "bins": {},
@@ -1066,20 +1061,20 @@
       "integrity": "sha512-Fxh9vYpX9bQqFeHRiY8h2ApeRGDzRSMLwJwNZ/AIRqnyOKHxRKL+yFe+ctEkVJmuptRE9u1Hrn8ZZNHyfDKKNg==",
       "sha256": "8d9db35b0d27c3c067f0d2318eff24fbcc7102505e01403dc84f73c685975489"
     },
-    "@storybook/react-dom-shim@10.5.10": {
+    "@storybook/react-dom-shim@10.6.0": {
       "bins": {},
-      "integrity": "sha512-rbu62ILo/VE3iXKmu+kWXFpD1H1Lwi0f19q/x7JnDsD2dxKS9w5znLEqPIq2qxpzi/wjjIb2iUP1cRG1d/9W5A==",
-      "sha256": "6416b71d350e6777d73a7c2b19a4734a915bf4aeaddd78e28bde529a99a9f851"
+      "integrity": "sha512-ZE0l4xL6d00rKFeJhRDuh0t3r+/2ffhx47lIyaSWrTD5kuM3nDjKDxCIWwX4E3gLV+oNX8E1prXRMuEWJUJwJg==",
+      "sha256": "49359e89359fed783f9ef733ec2d739006954f25c63e579a519b44c7801d8710"
     },
-    "@storybook/react-vite@10.5.10": {
+    "@storybook/react-vite@10.6.0": {
       "bins": {},
-      "integrity": "sha512-xOztxefUnqKeuyvcnjspqmlDnER4cExL+liltrpdXLPJVqfFNr9lgM49FyEPajzsUVG9W/vHJWjbaQGGu1UsYQ==",
-      "sha256": "5924bb5993005f099672430bc6d338cd1e585fa0b46837f55993a03e3cc67de4"
+      "integrity": "sha512-nc1dqnmjGOcDJvPCkAn4Hmu1gi7dNHHoibNmlBp0d1adosejELZxuNjHBkPl/KxZjbzP3jljQHnHB/guxd8e2g==",
+      "sha256": "25b9a185b8b0a4bbad19583530293ec3e567660f2b0f81dd3abe35ed63a1862f"
     },
-    "@storybook/react@10.5.10": {
+    "@storybook/react@10.6.0": {
       "bins": {},
-      "integrity": "sha512-4MBV5e1SXIMfPynLHzr+Mp0dwGv/FW1bklWAsS4ynBOAbC98W9p/I9vqBnUctsvE3BJkhzHQQyPwMHL5tTcHVA==",
-      "sha256": "91d9c2871f7db2c8effd09c06b8277804b454f64c6e35fadb7fc4669e2a75e41"
+      "integrity": "sha512-0xfYYPRHcr5ta1hmXJCSezH4JGuUHJ+xVF9f1j+Y/MWEMOQE4wnaKWKsk/HLrDjZkT5hKfvmogt9b0yduP6zEQ==",
+      "sha256": "e1ce24f097def41ce5d36ad9fe8af9eb1a7f64f70eab8d888204dda9930bd478"
     },
     "@stylexjs/babel-plugin@0.19.0": {
       "bins": {},
@@ -2449,6 +2444,11 @@
       "integrity": "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==",
       "sha256": "fa49762567dca44e8ccf327f365d250e04c482bf7a4ed0ae7d03659b09ac656f"
     },
+    "magic-string@1.2.3": {
+      "bins": {},
+      "integrity": "sha512-Bpb0W2TbLKOZ7vJnOUnVRGq3WL2p+ISV29M6hYPL1AFCpyKZpdr5ytiXoTSSxRVhg8YW7f65+6gbG8WG6PCa/g==",
+      "sha256": "21884e82df1e3fc7e9e0b3750e3c80bf3dc38dc7f218b487ee50a5762c6a3717"
+    },
     "markdown-table@3.0.4": {
       "bins": {},
       "integrity": "sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==",
@@ -3094,12 +3094,12 @@
       "integrity": "sha512-oCUKSupKTHX53EyjDtuZQ64pjLJ6yYCtpmEw0goYxtjG9KpbRe8KAsl2tBUGU9DyMcJ0RwJ8GqJAFzMXcXW1Rw==",
       "sha256": "d3e2bc287e997da66639920c5f7b86c0ff3ecb69e332c7b14912150488e3a40a"
     },
-    "storybook@10.5.10": {
+    "storybook@10.6.0": {
       "bins": {
         "storybook": "dist/bin/dispatcher.js"
       },
-      "integrity": "sha512-Rz8k9ejFHsi7lbtJTaxZlhCUz4GkbJIKEoKDjXeLfr/ZhXip73E6keKxW0KH8iGeKiCqHAbJCV4YIQrxTOLiig==",
-      "sha256": "78800c2dbda7e77471657927a5ebd4fdbcac2132abd958abde7754080bdb9d33"
+      "integrity": "sha512-H48X6AURAFTpfN2zEux6vNesee5Oq8Gxj1IanYmblPZ218sfKSeyyerF1NC7GD7BrruoC8L4/cU0zII4y+d6zw==",
+      "sha256": "aa0a3f57b001d06d6e8ecb403bf1736b99db83e4fc81765b0c99d22e229dc16a"
     },
     "string-width@7.2.0": {
       "bins": {},
@@ -3231,13 +3231,13 @@
       "integrity": "sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==",
       "sha256": "8035d10cc48e2692358ac06cbadfa795279aaf6b3c04f29bd322f6df09513f8e"
     },
-    "typescript@6.0.3": {
+    "typescript@5.9.3": {
       "bins": {
         "tsc": "bin/tsc",
         "tsserver": "bin/tsserver"
       },
-      "integrity": "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==",
-      "sha256": "33cd0ee1beaa8c9e9d15a9da836c62ddea4c34a42d7c2d349dbc80d94165d22a"
+      "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
+      "sha256": "10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3"
     },
     "typescript@7.0.2": {
       "bins": {
@@ -3290,11 +3290,6 @@
       "bins": {},
       "integrity": "sha512-m+vIdyeCOpdr/QeQCu2EzxX/ohgS8KbnPDgFni4dQsfSCtpz8UqDyY5GjRru8PDKuYn7Fq19j1CQ+nJSsGKOzg==",
       "sha256": "8d5724e443d279deda20fe03ce18de53a944f8154e94297de0f49c5fb51f72ef"
-    },
-    "unplugin@2.3.11": {
-      "bins": {},
-      "integrity": "sha512-5uKD0nqiYVzlmCRs01Fhs2BdkEgBS3SAVP6ndrBsuK42iC2+JHyxM05Rm9G8+5mkmRtzMZGY8Ct5+mliZxU/Ww==",
-      "sha256": "f5fca8fdb4d4e8f40827ac5f702440d99fe1f1037bf60c1ef49799a609f38af7"
     },
     "unplugin@3.3.0": {
       "bins": {},
@@ -3427,5 +3422,5 @@
       "sha256": "2c162e000f5fb5a816987d6f8ad7aad295203f777a5992d514ae4660778a51a4"
     }
   },
-  "fingerprint": "sha256:9e59a54f46ff6bd6b0f9c4771d4145558a3116323a883c9411d92e3e785fdc10"
+  "fingerprint": "sha256:cb955e554f2ed04da530d2413c9a3fea13b883dd1852d170eea1399d9de5059f"
 }
