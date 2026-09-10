@@ -545,6 +545,12 @@ tsconfig.check.json`, but oxlint 1.39 cannot speak the tsgolint 7 protocol, so
   `*.ts`/`*.tsx` only; the gate is now proven over every lintable extension in
   `packages`, `scripts`, `context` (1640 files) with `--type-aware` and
   `--deny-warnings`.
+- **Nix Buck products**: `packages.<system>.oxc-config` now denotes the
+  manifest-pinned Buck JavaScript module; the retained pnpm-built oxlint plugin
+  bundle is available as `packages.<system>.oxc-config-plugin`.
+  `lib.mkCliPackages` and `lib.mkBuck2ProductCandidates` default to the same
+  revision's tracked product manifest, so downstream callers no longer need an
+  internal `nix/buck2-products` import.
 
 - **deps**: update the compatible patch and minor dependency cohort, including
   React 19.2.8, OpenTelemetry SDK 2.11, Vite 8.2.2, current TanStack router

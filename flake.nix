@@ -148,8 +148,7 @@
             # Evergreen producer metadata; its raw FOD remains directly addressable.
             # The `oxc-config` package itself is merged in from `cliPackages`.
             "oxc-config-plugin" = oxlintNpm.pluginBundle;
-            "oxc-config-plugin-pnpm-deps" =
-              oxlintNpm.pluginBundle.passthru.depsBuildsByInstallRoot.root;
+            "oxc-config-plugin-pnpm-deps" = oxlintNpm.pluginBundle.passthru.depsBuildsByInstallRoot.root;
             # npm oxlint with NAPI bindings + pre-bundled @overeng/oxc-config plugin
             oxlint-npm = oxlintNpm;
             # oxlint-npm wrapped with automatic @overeng/oxc-config plugin injection
@@ -239,12 +238,15 @@
       lib.mkBuck2JavaScriptProductImport =
         { pkgs }: import ./nix/workspace-tools/lib/javascript-product-import.nix { inherit pkgs; };
 
-      # Wrap the tracked Buck JavaScript products into the public CLI packages.
-      # Usage: effectUtils.lib.mkBuck2ProductCandidates { inherit pkgs; products = ...; }
+      # Wrap this effect-utils revision's tracked Buck JavaScript products into
+      # candidate packages. Callers can replace `products` for an explicit
+      # manifest experiment; normal consumers inherit this revision's manifest.
+      # Usage: effectUtils.lib.mkBuck2ProductCandidates { inherit pkgs; }
       lib.mkBuck2ProductCandidates =
         args:
         import ./nix/workspace-tools/lib/buck2-product-candidates.nix (
           {
+            products = (import ./nix/buck2-products { pkgs = args.pkgs; }).products;
             typeProofCompilerBin = "${tsgo.packages.${args.pkgs.stdenv.hostPlatform.system}.tsgo}/bin/tsgo";
           }
           // args
@@ -268,13 +270,14 @@
       # Can be added to devenv packages without importing the full OTEL module.
       lib.mkOtelSpan = { pkgs }: import ./nix/devenv-modules/otel/otel-span.nix { inherit pkgs; };
 
-      # Convenience helper for bundling the common genie/megarepo CLIs.
-      # The CLIs are wrapped Buck products, so `products` (the `products`
-      # attribute of effect-utils' `nix/buck2-products` loader) is required.
+      # Convenience helper for bundling the common genie/megarepo CLIs from
+      # this effect-utils revision's tracked Buck products. An explicit
+      # `products` argument remains available for manifest experiments.
       lib.mkCliPackages =
         args:
         import ./nix/workspace-tools/lib/mk-cli-packages.nix (
           {
+            products = (import ./nix/buck2-products { pkgs = args.pkgs; }).products;
             typeProofCompilerBin = "${tsgo.packages.${args.pkgs.stdenv.hostPlatform.system}.tsgo}/bin/tsgo";
           }
           // args

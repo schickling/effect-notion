@@ -159,6 +159,8 @@ in
   # consumer cannot compose a deploy job with missing report tasks.
   imports = [ ./workflow-report-module.nix ];
 
+  effectUtils.workflowReport.ciToolsBin = ciToolsBin;
+
   tasks = lib.mkMerge (
     (if hasDeployments then map mkDeployTask deployments else [ ])
     ++ [

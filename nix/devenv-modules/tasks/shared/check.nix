@@ -86,17 +86,16 @@ in
     "check:quick" = {
       description = "Fast checks for development (${
         lib.concatStringsSep ", " ([ checkQuickTypecheckTask ] ++ extraQuickChecks)
-      }${lib.optionalString hasLint ", lint"}${
-        lib.optionalString hasNixCheck ", nix-fingerprint"
-      }) without tests";
+      }${lib.optionalString hasLint ", lint"}${lib.optionalString hasNixCheck ", nix-fingerprint"}) without tests";
       exec = trace.exec "check:quick" "true";
-      after =
-        [ checkQuickTypecheckTask ]
-        ++ extraQuickChecks
-        ++ megarepoTasks
-        ++ lintTask
-        ++ nixQuickTask
-        ++ extraChecks;
+      after = [
+        checkQuickTypecheckTask
+      ]
+      ++ extraQuickChecks
+      ++ megarepoTasks
+      ++ lintTask
+      ++ nixQuickTask
+      ++ extraChecks;
     };
 
     "check:all" = {
