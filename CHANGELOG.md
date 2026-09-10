@@ -562,12 +562,17 @@ tsconfig.check.json`, but oxlint 1.39 cannot speak the tsgolint 7 protocol, so
   ESLint surface left in the repo, since runtime linting is oxlint and stays
   that way. `eslint` 10.5.0 -> 10.10.0 and `@typescript-eslint/parser`,
   `/rule-tester` and `/utils` 8.61.1 -> 8.69.0, all four inside 8.69.0's
-  `eslint ^8.57 || ^9 || ^10` and `typescript >=4.8.4 <6.1.0` peer windows, so
-  the repo's TypeScript 6.0.3 needs no exception and `strictPeerDependencies`
-  resolves clean. 8.70.0 exists but was published the same day; taking it made
-  pnpm's release-age gate write nine `minimumReleaseAgeExclude` entries into
-  generated `pnpm-workspace.yaml`, and a routine bump does not get to weaken a
-  supply-chain policy, so the cohort lands one weekly release back.
+  `eslint ^8.57 || ^9 || ^10` and `typescript >=4.8.4 <6.1.0` peer windows. The
+  repo compiler is TypeScript 7.0.2, which that window excludes, so
+  `@overeng/oxc-config` keeps its own `typescript` pin at 5.9.3 — the isolation
+  the oxlint cohort introduced, because @typescript-eslint does not yet support
+  the TypeScript 7 package API. That per-package pin is what satisfies the peer
+  range, so no exception is needed and `strictPeerDependencies` resolves clean
+  with the rest of the workspace still on 7.0.2. 8.70.0 exists but was published
+  the same day; taking it made pnpm's release-age gate write nine
+  `minimumReleaseAgeExclude` entries into generated `pnpm-workspace.yaml`, and a
+  routine bump does not get to weaken a supply-chain policy, so the cohort lands
+  one weekly release back.
   Neither upstream changed a rule-tester API across this window, and the 187
   rule-tester cases for `explicit-boolean-compare`, `exports-first`,
   `jsdoc-require-exports` and `named-args` pass unchanged against the new
