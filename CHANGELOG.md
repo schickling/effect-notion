@@ -221,6 +221,19 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **devenv**: bump the pinned devenv input from `v2.2.1` to `v2.3`
+  (`e0781f7bee573eefcab4a7d2788fd9b455560ca2`) and raise `require_version` to
+  `>=2.3`. Only the `devenv` subtree of `devenv.lock` is relocked; the root
+  `nixpkgs`, `git-hooks`, `tsgo`, and `playwright` pins are untouched (the
+  root `nixpkgs` node is renamed `nixpkgs_3` -> `nixpkgs_2` because 2.3 makes
+  `cachix` follow devenv's own nixpkgs, removing one duplicate node). CI needs
+  no regeneration: it reads `DEVENV_REV` out of `devenv.lock`. 2.3 fixes
+  [cachix/devenv#3038](https://github.com/cachix/devenv/issues/3038) (explicit
+  `showOutput` was swallowed by AI-agent auto-quiet), so the caveat in
+  `nix/devenv-modules/tasks/README.md` now records it as fixed, and it ships
+  orphan-process fixes for `devenv tasks run` / `devenv up`, a smaller closure
+  (528 MB -> 376 MB), and bundled Nix 2.35.2.
+
 - **deps**: update the compatible patch and minor dependency cohort, including
   React 19.2.8, OpenTelemetry SDK 2.11, Vite 8.2.2, current TanStack router
   packages, Tailwind CSS 4.3.3, and supporting type, test, formatting, crypto,

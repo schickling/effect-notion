@@ -1,7 +1,7 @@
-require_version: '>=2.2.1'
+require_version: '>=2.3'
 inputs:
   devenv:
-    url: github:cachix/devenv/v2.2.1
+    url: github:cachix/devenv/v2.3
   nixpkgs:
     url: github:NixOS/nixpkgs/nixos-unstable
   git-hooks:
