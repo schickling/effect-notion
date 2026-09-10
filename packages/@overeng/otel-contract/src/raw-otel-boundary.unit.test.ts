@@ -42,21 +42,36 @@ const sourceFiles = (dir: string): ReadonlyArray<string> =>
     return isProductionSource(path) === true ? [path] : []
   })
 
+/**
+ * Blank out comments while preserving every other byte offset.
+ *
+ * TypeScript 7's scanner parks on a zero-width `PrivateIdentifier` when it meets a `#` that starts
+ * no private name — `/#/` in a regex literal, or `#` in template text the context-free scanner does
+ * not treat as a template. It never advances past it, so the scan must step over that character by
+ * hand and resume; the pre-7 scanner consumed it as an error token instead.
+ */
 const removeComments = (source: string): string => {
   const scanner = createScanner(false, undefined, source)
   const chunks: string[] = []
   let position = 0
-  while (position < source.length) {
-    const token = scanner.scan()
+  for (let token = scanner.scan(); token !== SyntaxKind.EndOfFile; token = scanner.scan()) {
     const start = scanner.getTokenStart()
+    const end = scanner.getTokenEnd()
     chunks.push(source.slice(position, start))
-    const tokenText = source.slice(start, scanner.getTokenEnd())
+    if (end === start) {
+      if (start >= source.length) break
+      chunks.push(source.slice(start, start + 1))
+      position = start + 1
+      scanner.resetTokenState(position)
+      continue
+    }
+    const tokenText = source.slice(start, end)
     chunks.push(
       token === SyntaxKind.SingleLineCommentTrivia || token === SyntaxKind.MultiLineCommentTrivia
         ? tokenText.replace(/[^\r\n]/g, ' ')
         : tokenText,
     )
-    position = scanner.getTokenEnd()
+    position = end
   }
   chunks.push(source.slice(position))
   return chunks.join('')
