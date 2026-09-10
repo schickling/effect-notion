@@ -385,20 +385,6 @@ file`). Effect-TS `tsgo` remains the export type-proof compiler
   projects, interaction execution, fail-closed accessibility checks, render
   settling, and screenshot comparison remain gate responsibilities without a
   peer override.
-- **deps/opentui**: update `@opentui/core` and `@opentui/react` from 0.4.1 to
-  0.5.11, together with the eight `@opentui/core-<platform>` prebuilt tarballs
-  pinned in `nix/opentui-core-native.nix`. The APIs we consume are unchanged:
-  `createCliRenderer`, `createRoot`, `Root`, `useKeyboard(handler, { release })`,
-  `useOnResize`, `useTerminalDimensions`, `KeyEvent` and `CliRendererConfig` all
-  keep their 0.4.1 signatures, and 0.5.11 only adds surface (`image` component,
-  Kitty image transport options, `render:error`/`handler:error` renderer events,
-  clipboard helpers, a `./node-assets` export). `@opentui/core` now also
-  publishes a Node entry point, but it declares `engines.node >= 26.4.0` while
-  this workspace runs Node 24, so the Bun-only runtime gate in
-  `OpenTuiRenderer.ts` stands and is now documented as a deliberate choice
-  rather than an upstream limitation. The transitive `bun-ffi-structs` pin moves
-  0.2.3 -> 0.3.1; `@opentui/core` still exact-pins `string-width@7.2.0`, so the
-  `#821` catalog-duplicate exception stays and was re-checked against 0.5.11.
 
   Two things the addon used to do for the gate had to be done explicitly.
   A themed project pins its toolbar globals through the `initialGlobals`
@@ -412,6 +398,28 @@ file`). Effect-TS `tsgo` remains the export type-proof compiler
   untitled files in `@overeng/notion-react` today — so one story's screenshot
   baseline and settle record overwrite another's. A file that no specifier can
   title now fails the run instead of taking a shared placeholder.
+
+- **deps/opentui**: update `@opentui/core` and `@opentui/react` from 0.4.1 to
+  0.5.11, together with the six `@opentui/core-<platform>` prebuilt tarballs
+  pinned in `nix/opentui-core-native.nix`. The APIs we consume are unchanged:
+  `createCliRenderer`, `createRoot`, `Root`, `useKeyboard(handler, { release })`,
+  `useOnResize`, `useTerminalDimensions`, `KeyEvent` and `CliRendererConfig` all
+  keep their 0.4.1 signatures, and 0.5.11 only adds surface (`image` component,
+  Kitty image transport options, `render:error`/`handler:error` renderer events,
+  clipboard helpers, a `./node-assets` export). `@opentui/core` now also
+  publishes a Node entry point, but it declares `engines.node >= 26.4.0` while
+  this workspace runs Node 24, so the Bun-only runtime gate in
+  `OpenTuiRenderer.ts` stands and is now documented as a deliberate choice
+  rather than an upstream limitation. The transitive `bun-ffi-structs` pin moves
+  0.2.3 -> 0.3.1; `@opentui/core` still exact-pins `string-width@7.2.0`, so the
+  `#821` catalog-duplicate exception stays and was re-checked against 0.5.11.
+  `context/opentui` now declares `typescript` like every other OpenTUI
+  importer. It was the only one that did not, and `@opentui/core` peers
+  TypeScript, so pnpm satisfied that peer from `bun-ffi-structs@0.3.1`'s `^5`
+  range and installed 5.9.3 beside the catalog compiler — a third TypeScript
+  in a repo whose duplicate exception admits exactly two, and a second
+  `@opentui/core` store entry built against it. Declaring the dependency
+  collapses both back onto the catalog's 7.0.2.
 
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for

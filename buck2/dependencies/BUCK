@@ -3,7 +3,7 @@
 
 # Generated file - DO NOT EDIT
 # Source: pnpm-lock.yaml
-# Store fingerprint: sha256:1bc5091253eec5a19e34343610f91cb1cce06a40b24c585912ae576f280c22f8
+# Store fingerprint: sha256:f1ca353c7e79d115a39530b8624eabcc0979800dd358ba13dcec850fc5b1061c
 
 load("//buck2:materialization.bzl", "export_materialization_inputs")
 
@@ -5745,17 +5745,6 @@ pnpm_package(
 )
 
 pnpm_package(
-    name = "package_typescript_5_9_3_44bd9e04e2c2",
-    package_name = "typescript",
-    url = "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
-    sha256 = "10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3",
-    bins = {
-        "tsc": "bin/tsc",
-        "tsserver": "bin/tsserver",
-    },
-)
-
-pnpm_package(
     name = "package_typescript_6_0_3_e500ed061b70",
     package_name = "typescript",
     url = "https://registry.npmjs.org/typescript/-/typescript-6.0.3.tgz",
@@ -7636,51 +7625,6 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_opentui_core_0_5_11_typescript_5_9_3_web_tree_sitter_0_25_10_a10e00595b07",
-    package = ":package_opentui_core_0_5_11_520f91ec2257",
-    store_key = "@opentui+core@0.5.11_typescript@5.9.3_web-tree-sitter@0.25.10",
-    runtime = ":assemble-store.ts",
-    dependencies_by_platform = {
-        "javascript_portable": {
-            "bun-ffi-structs": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
-            "diff": ":entry_diff_9_0_0_5a9cf482041d",
-            "marked": ":entry_marked_17_0_1_ff2a6dda0662",
-            "string-width": ":entry_string_width_7_2_0_dd9742ed9e8e",
-            "strip-ansi": ":entry_strip_ansi_7_1_2_9d924b927a03",
-            "web-tree-sitter": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
-        },
-        "linux_aarch64": {
-            "@opentui/core-linux-arm64": ":entry_opentui_core_linux_arm64_0_5_11_c1c63b0c0df3",
-            "bun-ffi-structs": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
-            "diff": ":entry_diff_9_0_0_5a9cf482041d",
-            "marked": ":entry_marked_17_0_1_ff2a6dda0662",
-            "string-width": ":entry_string_width_7_2_0_dd9742ed9e8e",
-            "strip-ansi": ":entry_strip_ansi_7_1_2_9d924b927a03",
-            "web-tree-sitter": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
-        },
-        "linux_x86_64": {
-            "@opentui/core-linux-x64": ":entry_opentui_core_linux_x64_0_5_11_7bd266afe6f5",
-            "bun-ffi-structs": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
-            "diff": ":entry_diff_9_0_0_5a9cf482041d",
-            "marked": ":entry_marked_17_0_1_ff2a6dda0662",
-            "string-width": ":entry_string_width_7_2_0_dd9742ed9e8e",
-            "strip-ansi": ":entry_strip_ansi_7_1_2_9d924b927a03",
-            "web-tree-sitter": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
-        },
-        "macos_aarch64": {
-            "@opentui/core-darwin-arm64": ":entry_opentui_core_darwin_arm64_0_5_11_b33ab39400ed",
-            "bun-ffi-structs": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
-            "diff": ":entry_diff_9_0_0_5a9cf482041d",
-            "marked": ":entry_marked_17_0_1_ff2a6dda0662",
-            "string-width": ":entry_string_width_7_2_0_dd9742ed9e8e",
-            "strip-ansi": ":entry_strip_ansi_7_1_2_9d924b927a03",
-            "web-tree-sitter": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
-        },
-    },
-    visibility = ["PUBLIC"],
-)
-
-pnpm_store_entry(
     name = "entry_opentui_core_0_5_11_typescript_7_0_2_web_tree_sitter_0_25_10_8aedbdcd6736",
     package = ":package_opentui_core_0_5_11_520f91ec2257",
     store_key = "@opentui+core@0.5.11_typescript@7.0.2_web-tree-sitter@0.25.10",
@@ -7721,23 +7665,6 @@ pnpm_store_entry(
             "strip-ansi": ":entry_strip_ansi_7_1_2_9d924b927a03",
             "web-tree-sitter": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
         },
-    },
-    visibility = ["PUBLIC"],
-)
-
-pnpm_store_entry(
-    name = "entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_5_aca50de0a7c2",
-    package = ":package_opentui_react_0_5_11_f97ba836b99a",
-    store_key = "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@5.9.3_web-tree-sitter@0.25.10_ws@8.21.3",
-    runtime = ":assemble-store.ts",
-    dependencies = {
-        "@opentui/core": ":entry_opentui_core_0_5_11_typescript_5_9_3_web_tree_sitter_0_25_10_a10e00595b07",
-        "@types/react": ":entry_types_react_19_2_18_231c43c28c72",
-        "@types/ws": ":entry_types_ws_8_18_1_ee1128304b54",
-        "react": ":entry_react_19_2_8_f0ed5178d6d7",
-        "react-devtools-core": ":entry_react_devtools_core_7_0_1_ac60f63532b4",
-        "react-reconciler": ":entry_react_reconciler_0_33_0_react_19_2_8_00837bbcd720",
-        "ws": ":entry_ws_8_21_3_d250ffc75a80",
     },
     visibility = ["PUBLIC"],
 )
@@ -10285,17 +10212,6 @@ pnpm_store_entry(
     runtime = ":assemble-store.ts",
     dependencies = {
         "@types/node": ":entry_types_node_26_5_0_a0142d056efc",
-    },
-    visibility = ["PUBLIC"],
-)
-
-pnpm_store_entry(
-    name = "entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
-    package = ":package_bun_ffi_structs_0_3_1_b795c25b36d8",
-    store_key = "bun-ffi-structs@0.3.1_typescript@5.9.3",
-    runtime = ":assemble-store.ts",
-    dependencies = {
-        "typescript": ":entry_typescript_5_9_3_44bd9e04e2c2",
     },
     visibility = ["PUBLIC"],
 )
@@ -13644,16 +13560,6 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_typescript_5_9_3_44bd9e04e2c2",
-    package = ":package_typescript_5_9_3_44bd9e04e2c2",
-    store_key = "typescript@5.9.3",
-    runtime = ":assemble-store.ts",
-    dependencies = {
-    },
-    visibility = ["PUBLIC"],
-)
-
-pnpm_store_entry(
     name = "entry_typescript_6_0_3_e500ed061b70",
     package = ":package_typescript_6_0_3_e500ed061b70",
     store_key = "typescript@6.0.3",
@@ -14237,24 +14143,25 @@ pnpm_store_view(
     runtime = ":assemble-store.ts",
     direct = {
         "@effect/atom-react": "@effect+atom-react@4.0.0-rc.111_effect@4.0.0-rc.111_react@19.2.8_scheduler@0.27.0",
-        "@opentui/core": "@opentui+core@0.5.11_typescript@5.9.3_web-tree-sitter@0.25.10",
-        "@opentui/react": "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@5.9.3_web-tree-sitter@0.25.10_ws@8.21.3",
+        "@opentui/core": "@opentui+core@0.5.11_typescript@7.0.2_web-tree-sitter@0.25.10",
+        "@opentui/react": "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@7.0.2_web-tree-sitter@0.25.10_ws@8.21.3",
         "@types/node": "@types+node@26.5.0",
         "@types/react": "@types+react@19.2.18",
         "effect": "effect@4.0.0-rc.111",
         "react": "react@19.2.8",
+        "typescript": "typescript@7.0.2",
     },
     closure_by_platform = {
         "javascript_portable": {
             "@effect+atom-react@4.0.0-rc.111_effect@4.0.0-rc.111_react@19.2.8_scheduler@0.27.0": ":entry_effect_atom_react_4_0_0_rc_111_effect_4_0_0_rc_111_react_19_2_8_schedule_879f75095f22",
-            "@opentui+core@0.5.11_typescript@5.9.3_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_5_9_3_web_tree_sitter_0_25_10_a10e00595b07",
-            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@5.9.3_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_5_aca50de0a7c2",
+            "@opentui+core@0.5.11_typescript@7.0.2_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_7_0_2_web_tree_sitter_0_25_10_8aedbdcd6736",
+            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@7.0.2_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_7_cb7918c1f170",
             "@standard-schema+spec@1.1.0": ":entry_standard_schema_spec_1_1_0_9bfb5ac2eb33",
             "@types+node@26.5.0": ":entry_types_node_26_5_0_a0142d056efc",
             "@types+react@19.2.18": ":entry_types_react_19_2_18_231c43c28c72",
             "@types+ws@8.18.1": ":entry_types_ws_8_18_1_ee1128304b54",
             "ansi-regex@6.3.0": ":entry_ansi_regex_6_3_0_87b6edc6ebb4",
-            "bun-ffi-structs@0.3.1_typescript@5.9.3": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
+            "bun-ffi-structs@0.3.1_typescript@7.0.2": ":entry_bun_ffi_structs_0_3_1_typescript_7_0_2_051e106cc9bb",
             "csstype@3.2.3": ":entry_csstype_3_2_3_d75166202534",
             "detect-libc@2.1.2": ":entry_detect_libc_2_1_2_a7155eec83d1",
             "diff@9.0.0": ":entry_diff_9_0_0_5a9cf482041d",
@@ -14275,7 +14182,7 @@ pnpm_store_view(
             "string-width@7.2.0": ":entry_string_width_7_2_0_dd9742ed9e8e",
             "strip-ansi@7.1.2": ":entry_strip_ansi_7_1_2_9d924b927a03",
             "strip-ansi@7.2.0": ":entry_strip_ansi_7_2_0_c04be5885def",
-            "typescript@5.9.3": ":entry_typescript_5_9_3_44bd9e04e2c2",
+            "typescript@7.0.2": ":entry_typescript_7_0_2_a7cefd323dc7",
             "undici-types@8.9.0": ":entry_undici_types_8_9_0_53cb0487b88b",
             "web-tree-sitter@0.25.10": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
             "ws@7.5.13": ":entry_ws_7_5_13_ccf43b94a1cd",
@@ -14285,14 +14192,15 @@ pnpm_store_view(
             "@effect+atom-react@4.0.0-rc.111_effect@4.0.0-rc.111_react@19.2.8_scheduler@0.27.0": ":entry_effect_atom_react_4_0_0_rc_111_effect_4_0_0_rc_111_react_19_2_8_schedule_879f75095f22",
             "@msgpackr-extract+msgpackr-extract-linux-arm64@3.0.4": ":entry_msgpackr_extract_msgpackr_extract_linux_arm64_3_0_4_cf31bccf54bd",
             "@opentui+core-linux-arm64@0.5.11": ":entry_opentui_core_linux_arm64_0_5_11_c1c63b0c0df3",
-            "@opentui+core@0.5.11_typescript@5.9.3_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_5_9_3_web_tree_sitter_0_25_10_a10e00595b07",
-            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@5.9.3_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_5_aca50de0a7c2",
+            "@opentui+core@0.5.11_typescript@7.0.2_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_7_0_2_web_tree_sitter_0_25_10_8aedbdcd6736",
+            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@7.0.2_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_7_cb7918c1f170",
             "@standard-schema+spec@1.1.0": ":entry_standard_schema_spec_1_1_0_9bfb5ac2eb33",
             "@types+node@26.5.0": ":entry_types_node_26_5_0_a0142d056efc",
             "@types+react@19.2.18": ":entry_types_react_19_2_18_231c43c28c72",
             "@types+ws@8.18.1": ":entry_types_ws_8_18_1_ee1128304b54",
+            "@typescript+typescript-linux-arm64@7.0.2": ":entry_typescript_typescript_linux_arm64_7_0_2_dbe899afde8f",
             "ansi-regex@6.3.0": ":entry_ansi_regex_6_3_0_87b6edc6ebb4",
-            "bun-ffi-structs@0.3.1_typescript@5.9.3": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
+            "bun-ffi-structs@0.3.1_typescript@7.0.2": ":entry_bun_ffi_structs_0_3_1_typescript_7_0_2_051e106cc9bb",
             "csstype@3.2.3": ":entry_csstype_3_2_3_d75166202534",
             "detect-libc@2.1.2": ":entry_detect_libc_2_1_2_a7155eec83d1",
             "diff@9.0.0": ":entry_diff_9_0_0_5a9cf482041d",
@@ -14313,7 +14221,7 @@ pnpm_store_view(
             "string-width@7.2.0": ":entry_string_width_7_2_0_dd9742ed9e8e",
             "strip-ansi@7.1.2": ":entry_strip_ansi_7_1_2_9d924b927a03",
             "strip-ansi@7.2.0": ":entry_strip_ansi_7_2_0_c04be5885def",
-            "typescript@5.9.3": ":entry_typescript_5_9_3_44bd9e04e2c2",
+            "typescript@7.0.2": ":entry_typescript_7_0_2_a7cefd323dc7",
             "undici-types@8.9.0": ":entry_undici_types_8_9_0_53cb0487b88b",
             "web-tree-sitter@0.25.10": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
             "ws@7.5.13": ":entry_ws_7_5_13_ccf43b94a1cd",
@@ -14323,14 +14231,15 @@ pnpm_store_view(
             "@effect+atom-react@4.0.0-rc.111_effect@4.0.0-rc.111_react@19.2.8_scheduler@0.27.0": ":entry_effect_atom_react_4_0_0_rc_111_effect_4_0_0_rc_111_react_19_2_8_schedule_879f75095f22",
             "@msgpackr-extract+msgpackr-extract-linux-x64@3.0.4": ":entry_msgpackr_extract_msgpackr_extract_linux_x64_3_0_4_d261ffc94c45",
             "@opentui+core-linux-x64@0.5.11": ":entry_opentui_core_linux_x64_0_5_11_7bd266afe6f5",
-            "@opentui+core@0.5.11_typescript@5.9.3_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_5_9_3_web_tree_sitter_0_25_10_a10e00595b07",
-            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@5.9.3_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_5_aca50de0a7c2",
+            "@opentui+core@0.5.11_typescript@7.0.2_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_7_0_2_web_tree_sitter_0_25_10_8aedbdcd6736",
+            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@7.0.2_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_7_cb7918c1f170",
             "@standard-schema+spec@1.1.0": ":entry_standard_schema_spec_1_1_0_9bfb5ac2eb33",
             "@types+node@26.5.0": ":entry_types_node_26_5_0_a0142d056efc",
             "@types+react@19.2.18": ":entry_types_react_19_2_18_231c43c28c72",
             "@types+ws@8.18.1": ":entry_types_ws_8_18_1_ee1128304b54",
+            "@typescript+typescript-linux-x64@7.0.2": ":entry_typescript_typescript_linux_x64_7_0_2_f03df44f666b",
             "ansi-regex@6.3.0": ":entry_ansi_regex_6_3_0_87b6edc6ebb4",
-            "bun-ffi-structs@0.3.1_typescript@5.9.3": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
+            "bun-ffi-structs@0.3.1_typescript@7.0.2": ":entry_bun_ffi_structs_0_3_1_typescript_7_0_2_051e106cc9bb",
             "csstype@3.2.3": ":entry_csstype_3_2_3_d75166202534",
             "detect-libc@2.1.2": ":entry_detect_libc_2_1_2_a7155eec83d1",
             "diff@9.0.0": ":entry_diff_9_0_0_5a9cf482041d",
@@ -14351,7 +14260,7 @@ pnpm_store_view(
             "string-width@7.2.0": ":entry_string_width_7_2_0_dd9742ed9e8e",
             "strip-ansi@7.1.2": ":entry_strip_ansi_7_1_2_9d924b927a03",
             "strip-ansi@7.2.0": ":entry_strip_ansi_7_2_0_c04be5885def",
-            "typescript@5.9.3": ":entry_typescript_5_9_3_44bd9e04e2c2",
+            "typescript@7.0.2": ":entry_typescript_7_0_2_a7cefd323dc7",
             "undici-types@8.9.0": ":entry_undici_types_8_9_0_53cb0487b88b",
             "web-tree-sitter@0.25.10": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
             "ws@7.5.13": ":entry_ws_7_5_13_ccf43b94a1cd",
@@ -14361,14 +14270,15 @@ pnpm_store_view(
             "@effect+atom-react@4.0.0-rc.111_effect@4.0.0-rc.111_react@19.2.8_scheduler@0.27.0": ":entry_effect_atom_react_4_0_0_rc_111_effect_4_0_0_rc_111_react_19_2_8_schedule_879f75095f22",
             "@msgpackr-extract+msgpackr-extract-darwin-arm64@3.0.4": ":entry_msgpackr_extract_msgpackr_extract_darwin_arm64_3_0_4_fa8bce50cc94",
             "@opentui+core-darwin-arm64@0.5.11": ":entry_opentui_core_darwin_arm64_0_5_11_b33ab39400ed",
-            "@opentui+core@0.5.11_typescript@5.9.3_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_5_9_3_web_tree_sitter_0_25_10_a10e00595b07",
-            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@5.9.3_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_5_aca50de0a7c2",
+            "@opentui+core@0.5.11_typescript@7.0.2_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_7_0_2_web_tree_sitter_0_25_10_8aedbdcd6736",
+            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@7.0.2_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_7_cb7918c1f170",
             "@standard-schema+spec@1.1.0": ":entry_standard_schema_spec_1_1_0_9bfb5ac2eb33",
             "@types+node@26.5.0": ":entry_types_node_26_5_0_a0142d056efc",
             "@types+react@19.2.18": ":entry_types_react_19_2_18_231c43c28c72",
             "@types+ws@8.18.1": ":entry_types_ws_8_18_1_ee1128304b54",
+            "@typescript+typescript-darwin-arm64@7.0.2": ":entry_typescript_typescript_darwin_arm64_7_0_2_38ca3d6d9939",
             "ansi-regex@6.3.0": ":entry_ansi_regex_6_3_0_87b6edc6ebb4",
-            "bun-ffi-structs@0.3.1_typescript@5.9.3": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
+            "bun-ffi-structs@0.3.1_typescript@7.0.2": ":entry_bun_ffi_structs_0_3_1_typescript_7_0_2_051e106cc9bb",
             "csstype@3.2.3": ":entry_csstype_3_2_3_d75166202534",
             "detect-libc@2.1.2": ":entry_detect_libc_2_1_2_a7155eec83d1",
             "diff@9.0.0": ":entry_diff_9_0_0_5a9cf482041d",
@@ -14389,7 +14299,7 @@ pnpm_store_view(
             "string-width@7.2.0": ":entry_string_width_7_2_0_dd9742ed9e8e",
             "strip-ansi@7.1.2": ":entry_strip_ansi_7_1_2_9d924b927a03",
             "strip-ansi@7.2.0": ":entry_strip_ansi_7_2_0_c04be5885def",
-            "typescript@5.9.3": ":entry_typescript_5_9_3_44bd9e04e2c2",
+            "typescript@7.0.2": ":entry_typescript_7_0_2_a7cefd323dc7",
             "undici-types@8.9.0": ":entry_undici_types_8_9_0_53cb0487b88b",
             "web-tree-sitter@0.25.10": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
             "ws@7.5.13": ":entry_ws_7_5_13_ccf43b94a1cd",
@@ -14397,6 +14307,7 @@ pnpm_store_view(
         },
     },
     bins = {
+        "tsc": "typescript@7.0.2\tbin/tsc",
     },
     workspace_trees = {
     },

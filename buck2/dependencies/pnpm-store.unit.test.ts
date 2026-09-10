@@ -464,15 +464,14 @@ describe('normalized store projection of the real lockfile', () => {
     const varying = platformVaryingEntries(projection).map((entry) => entry.storeKey)
 
     // Decision 0030 recorded nine such packages; `oxlint-tsgolint` became the
-    // tenth, and pnpm 12 resolves `@opentui/core` against two TypeScript
-    // versions, so the same package contributes two platform-varying entries.
-    // TypeScript 7 is platform-selected because the compiler ships as
-    // per-platform `@typescript/typescript-<platform>` optional packages.
-    // Playwright 1.63 no longer depends on Darwin-only `fsevents`, so it drops
-    // out of this list. The count is derived here so a new platform-selected
-    // dependency needs no edit to admit it.
+    // tenth. TypeScript 7 itself is the eleventh: the compiler now ships as
+    // per-platform `@typescript/typescript-<platform>` optional packages, so
+    // `typescript` is platform-selected too. Playwright 1.63 no longer depends
+    // on Darwin-only `fsevents`, so it drops back out, and `@opentui/core`
+    // contributes exactly one entry because every OpenTUI importer now
+    // declares the catalog compiler. The count is derived here so a new
+    // platform-selected dependency needs no edit to admit it.
     expect(varying).toEqual([
-      '@opentui+core@0.5.11_typescript@5.9.3_web-tree-sitter@0.25.10',
       '@opentui+core@0.5.11_typescript@7.0.2_web-tree-sitter@0.25.10',
       'esbuild@0.28.2',
       'lightningcss@1.33.0',
@@ -487,8 +486,8 @@ describe('normalized store projection of the real lockfile', () => {
   })
 
   it('declares one entry per snapshot and one view per importer', () => {
-    expect(projection.entries).toHaveLength(670)
-    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(670)
+    expect(projection.entries).toHaveLength(666)
+    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(666)
     expect(projection.views).toHaveLength(Object.keys(metadata.importers).length)
     expect(computeStoreSccs({ metadata })).toEqual(projection.sccs.map((scc) => scc.members))
   })

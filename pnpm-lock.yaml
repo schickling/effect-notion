@@ -37,10 +37,10 @@ importers:
         version: 4.0.0-rc.111(effect@4.0.0-rc.111)(react@19.2.8)(scheduler@0.27.0)
       '@opentui/core':
         specifier: 0.5.11
-        version: 0.5.11(typescript@5.9.3)(web-tree-sitter@0.25.10)
+        version: 0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10)
       '@opentui/react':
         specifier: 0.5.11
-        version: 0.5.11(react-devtools-core@7.0.1)(react@19.2.8)(typescript@5.9.3)(web-tree-sitter@0.25.10)(ws@8.21.3)
+        version: 0.5.11(react-devtools-core@7.0.1)(react@19.2.8)(typescript@7.0.2)(web-tree-sitter@0.25.10)(ws@8.21.3)
       effect:
         specifier: 4.0.0-rc.111
         version: 4.0.0-rc.111
@@ -54,6 +54,9 @@ importers:
       '@types/react':
         specifier: 19.2.18
         version: 19.2.18
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
 
   packages/@overeng/agent-session-ingest:
     dependencies:
@@ -4647,11 +4650,6 @@ packages:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
 
-  typescript@5.9.3:
-    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
-    engines: {node: '>=14.17'}
-    hasBin: true
-
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
@@ -5435,26 +5433,6 @@ snapshots:
   '@opentui/core-win32-x64@0.5.11':
     optional: true
 
-  '@opentui/core@0.5.11(typescript@5.9.3)(web-tree-sitter@0.25.10)':
-    dependencies:
-      bun-ffi-structs: 0.3.1(typescript@5.9.3)
-      diff: 9.0.0
-      marked: 17.0.1
-      string-width: 7.2.0
-      strip-ansi: 7.1.2
-      web-tree-sitter: 0.25.10
-    optionalDependencies:
-      '@opentui/core-darwin-arm64': 0.5.11
-      '@opentui/core-darwin-x64': 0.5.11
-      '@opentui/core-linux-arm64': 0.5.11
-      '@opentui/core-linux-arm64-musl': 0.5.11
-      '@opentui/core-linux-x64': 0.5.11
-      '@opentui/core-linux-x64-musl': 0.5.11
-      '@opentui/core-win32-arm64': 0.5.11
-      '@opentui/core-win32-x64': 0.5.11
-    transitivePeerDependencies:
-      - typescript
-
   '@opentui/core@0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10)':
     dependencies:
       bun-ffi-structs: 0.3.1(typescript@7.0.2)
@@ -5474,17 +5452,6 @@ snapshots:
       '@opentui/core-win32-x64': 0.5.11
     transitivePeerDependencies:
       - typescript
-
-  '@opentui/react@0.5.11(react-devtools-core@7.0.1)(react@19.2.8)(typescript@5.9.3)(web-tree-sitter@0.25.10)(ws@8.21.3)':
-    dependencies:
-      '@opentui/core': 0.5.11(typescript@5.9.3)(web-tree-sitter@0.25.10)
-      react: 19.2.8
-      react-devtools-core: 7.0.1
-      react-reconciler: 0.33.0(react@19.2.8)
-      ws: 8.21.3
-    transitivePeerDependencies:
-      - typescript
-      - web-tree-sitter
 
   '@opentui/react@0.5.11(react-devtools-core@7.0.1)(react@19.2.8)(typescript@7.0.2)(web-tree-sitter@0.25.10)(ws@8.21.3)':
     dependencies:
@@ -6572,10 +6539,6 @@ snapshots:
   buffer-image-size@0.6.4:
     dependencies:
       '@types/node': 26.5.0
-
-  bun-ffi-structs@0.3.1(typescript@5.9.3):
-    dependencies:
-      typescript: 5.9.3
 
   bun-ffi-structs@0.3.1(typescript@7.0.2):
     dependencies:
@@ -7848,8 +7811,6 @@ snapshots:
   type-check@0.4.0:
     dependencies:
       prelude-ls: 1.2.1
-
-  typescript@5.9.3: {}
 
   typescript@6.0.3: {}
 

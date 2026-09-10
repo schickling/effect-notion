@@ -1,6 +1,6 @@
 {
   "schema": "effect-utils/buck2-pnpm-sha256/v1",
-  "lockfileFingerprint": "sha256:e91a053bbb499f7f786c66bf284c2a30548a9b25fd63af1e556bd70635232bae",
+  "lockfileFingerprint": "sha256:464f55dcf6b2ac35e40fb176bb362448cc35dcb8def0fcf8a02570b83c2dd1bd",
   "source": "pnpm-lock.yaml",
   "generator": "buck2/dependencies/pnpm-lock.sha256.json.genie.ts",
   "regenerate": "devenv tasks run genie:run",
@@ -3226,14 +3226,6 @@
       "integrity": "sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==",
       "sha256": "8035d10cc48e2692358ac06cbadfa795279aaf6b3c04f29bd322f6df09513f8e"
     },
-    "typescript@5.9.3": {
-      "bins": {
-        "tsc": "bin/tsc",
-        "tsserver": "bin/tsserver"
-      },
-      "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
-      "sha256": "10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3"
-    },
     "typescript@6.0.3": {
       "bins": {
         "tsc": "bin/tsc",
@@ -3425,5 +3417,5 @@
       "sha256": "2c162e000f5fb5a816987d6f8ad7aad295203f777a5992d514ae4660778a51a4"
     }
   },
-  "fingerprint": "sha256:af6f965d19c035e0dc4ccafc43c7ef929b12d17baf6d1cab9bad618e40480f00"
+  "fingerprint": "sha256:1edd2e3a9c076abb3caf2f60d1c54878fd6359cc854a545cdd403bd83e03ad51"
 }
