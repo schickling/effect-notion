@@ -33,25 +33,28 @@ case "$store_root" in
   *) echo "::error::refusing cleanup outside job-local runner store: $store_root" >&2; exit 1 ;;
 esac
 
-owned_worktree="$member_root"
+owned_worktree=
 
 current_worktree=
 current_branch=
-registered_worktree=
 registered_branch=
-matching_path_registrations=0
+matching_allowed_path_registrations=0
 matching_branch_registrations=0
 while IFS= read -r -d '' field; do
   case "$field" in
     worktree\ *) current_worktree="${field#worktree }" ;;
     branch\ *) current_branch="${field#branch }" ;;
     '')
-      if [ "$current_worktree" = "$owned_worktree" ]; then
+      if [ "$current_worktree" = "$workspace_root" ] || [ "$current_worktree" = "$member_root" ]; then
         registered_branch="$current_branch"
-        matching_path_registrations=$((matching_path_registrations + 1))
+        owned_worktree="$current_worktree"
+        matching_allowed_path_registrations=$((matching_allowed_path_registrations + 1))
       fi
       if [ "$current_branch" = "$branch_ref" ]; then
-        registered_worktree="$current_worktree"
+        case "$current_worktree" in
+          "$workspace_root"|"$member_root") ;;
+          *) echo "::error::job-owned branch is registered at a foreign path: $current_worktree" >&2; exit 1 ;;
+        esac
         matching_branch_registrations=$((matching_branch_registrations + 1))
       fi
       current_worktree=
@@ -60,9 +63,8 @@ while IFS= read -r -d '' field; do
   esac
 done < <(git --git-dir="$bare_repo" worktree list --porcelain -z)
 
-[ "$matching_path_registrations" -eq 1 ]
+[ "$matching_allowed_path_registrations" -eq 1 ]
 [ "$matching_branch_registrations" -eq 1 ]
-[ "$registered_worktree" = "$owned_worktree" ]
 [ "$registered_branch" = "$branch_ref" ]
 [ "$(git -C "$owned_worktree" rev-parse --path-format=absolute --show-toplevel)" = "$owned_worktree" ]
 [ "$(git -C "$owned_worktree" rev-parse --path-format=absolute --git-common-dir)" = "$bare_repo" ]
