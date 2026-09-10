@@ -189,8 +189,7 @@ export const parsePackageCommand = (argv: readonly string[]): PackageCommand => 
     else if (flag === '--kind' && (value === 'cli' || value === 'module')) kind = value
     else if (flag === '--tree-shaking' && (value === 'true' || value === 'false')) {
       treeShaking = value === 'true'
-    }
-    else fail(`unknown argument: ${flag ?? '<missing>'}`)
+    } else fail(`unknown argument: ${flag ?? '<missing>'}`)
   }
   if (rawMode === 'build-dir' && args.filter((arg) => arg === '{OUT}').length !== 1) {
     fail('build-dir requires exactly one {OUT} argument')

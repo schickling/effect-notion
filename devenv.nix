@@ -617,6 +617,12 @@ in
   # Genie product, which is also what downstream consumers set here.
   effectUtils.genie.package = genieCli;
 
+  # Design-time generators import the workspace dependency graph. The packaged
+  # CLI is self-contained, but the generator sources it loads still require
+  # pnpm's package links.
+  tasks."genie:run".after = [ "pnpm:install" ];
+  tasks."genie:check".after = [ "pnpm:install" ];
+
   # Non-`.genie.ts` sources share one list with the lint freshness scheduler.
   effectUtils.genie.extraInputGlobs = genieExtraInputGlobs;
 
