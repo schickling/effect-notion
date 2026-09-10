@@ -487,8 +487,8 @@ describe('normalized store projection of the real lockfile', () => {
   })
 
   it('declares one entry per snapshot and one view per importer', () => {
-    expect(projection.entries).toHaveLength(669)
-    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(669)
+    expect(projection.entries).toHaveLength(670)
+    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(670)
     expect(projection.views).toHaveLength(Object.keys(metadata.importers).length)
     expect(computeStoreSccs({ metadata })).toEqual(projection.sccs.map((scc) => scc.members))
   })
