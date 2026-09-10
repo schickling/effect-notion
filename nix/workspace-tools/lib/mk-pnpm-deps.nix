@@ -279,9 +279,9 @@ let
           }
 
           for (const [packageDir, sourceProjectDir] of relinkedTargets) {
-            if (!fs.existsSync(packageDir)) {
-              throw new Error(`selected local dependency target is missing: ''${packageDir}`);
-            }
+            // Filtered installs can retain injectedDeps entries for packages outside
+            // the selected closure. Only relink targets that pnpm materialized.
+            if (!fs.existsSync(packageDir)) continue;
             if (fs.realpathSync(packageDir) === sourceProjectDir) {
               continue;
             }
