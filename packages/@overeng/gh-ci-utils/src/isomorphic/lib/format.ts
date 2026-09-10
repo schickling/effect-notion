@@ -34,6 +34,7 @@ export const splitOwnerRepo = (repo: string): { owner: string; repo: string } =>
   return { owner: repo.slice(0, idx), repo: repo.slice(idx + 1) }
 }
 
+type Identity<K extends RunnerKind, I> = { readonly _tag: K; readonly instance: I }
 /**
  * Structured identity parsed out of a GitHub Actions runner name.
  *
@@ -41,7 +42,6 @@ export const splitOwnerRepo = (repo: string): { owner: string; repo: string } =>
  * host prefix of a runner-scaler worker, or the whole name when nothing is known
  * about its shape. `unknown` covers jobs GitHub never assigned a runner to.
  */
-type Identity<K extends RunnerKind, I> = { readonly _tag: K; readonly instance: I }
 export type RunnerIdentity =
   | Identity<'namespace', string>
   | Identity<'self-hosted', string>

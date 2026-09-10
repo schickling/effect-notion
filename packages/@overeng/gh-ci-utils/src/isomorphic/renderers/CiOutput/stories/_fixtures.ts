@@ -58,7 +58,7 @@ export const makeRun = (overrides: Partial<RunInfo> = {}): RunInfo => {
 /** Stories only care about a step's name/status/conclusion; ordering and timestamps are filled in. */
 export type StepOverrides = Pick<StepInfo, 'name' | 'status' | 'conclusion'> & Partial<StepInfo>
 
-const makeStep = (step: StepOverrides, ord: number): StepInfo => ({
+const makeStep = ({ step, ord }: { step: StepOverrides; ord: number }): StepInfo => ({
   number: ord + 1,
   startedAt: null,
   completedAt: null,
@@ -72,7 +72,7 @@ type JobOverrides = Omit<Partial<WorkflowJobVM>, 'steps'> & {
 export const makeJob = (overrides: JobOverrides = {}): WorkflowJobVM => {
   const { steps: stepOverrides, ...rest } = overrides
   const id = rest.id ?? nextId()
-  const steps = stepOverrides?.map(makeStep)
+  const steps = stepOverrides?.map((step, ord) => makeStep({ step, ord }))
   /** Stories set the abbreviated `runner`; derive a plausible raw name from it. */
   const runnerName =
     rest.runnerName !== undefined
