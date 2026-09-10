@@ -24,8 +24,7 @@ let
 
   platform = pkgs.stdenv.hostPlatform;
 
-  unsupportedPlatform =
-    throw "nix/pnpm.nix: pnpm ${version} ships no native binary for ${platform.system}";
+  unsupportedPlatform = throw "nix/pnpm.nix: pnpm ${version} ships no native binary for ${platform.system}";
   target =
     if platform.system == "aarch64-darwin" then
       "darwin-arm64"
