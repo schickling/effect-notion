@@ -109,7 +109,7 @@ const collectRelativeImportPaths = async ({
   )
 }
 
-const hasFileSystemErrorCode = (error: unknown, code: string): boolean =>
+const hasFileSystemErrorCode = ({ error, code }: { error: unknown; code: string }): boolean =>
   typeof error === 'object' && error !== null && 'code' in error && error.code === code
 
 const mirrorNodeModulesSearchPaths = async ({
@@ -120,14 +120,27 @@ const mirrorNodeModulesSearchPaths = async ({
   tempRoot: string
 }): Promise<void> => {
   const sourceRoot = path.parse(sourcePath).root
+  const sourceDirs: string[] = []
   let sourceDir = path.dirname(sourcePath)
 
   while (true) {
-    const sourceNodeModules = path.join(sourceDir, 'node_modules')
-    try {
-      const stat = await nodeFs.lstat(sourceNodeModules)
-      if (stat.isDirectory() === true || stat.isSymbolicLink() === true) {
-        const stagedDir = path.join(tempRoot, path.relative(sourceRoot, sourceDir))
+    sourceDirs.push(sourceDir)
+    if (sourceDir === sourceRoot) {
+      break
+    }
+    sourceDir = path.dirname(sourceDir)
+  }
+
+  await Promise.all(
+    sourceDirs.map(async (currentSourceDir) => {
+      const sourceNodeModules = path.join(currentSourceDir, 'node_modules')
+      try {
+        const stat = await nodeFs.lstat(sourceNodeModules)
+        if (stat.isDirectory() === false && stat.isSymbolicLink() === false) {
+          return
+        }
+
+        const stagedDir = path.join(tempRoot, path.relative(sourceRoot, currentSourceDir))
         const stagedNodeModules = path.join(stagedDir, 'node_modules')
         await nodeFs.mkdir(stagedDir, { recursive: true })
         try {
@@ -137,22 +150,17 @@ const mirrorNodeModulesSearchPaths = async ({
             process.platform === 'win32' ? 'junction' : 'dir',
           )
         } catch (error) {
-          if (hasFileSystemErrorCode(error, 'EEXIST') === false) {
+          if (hasFileSystemErrorCode({ error, code: 'EEXIST' }) === false) {
             throw error
           }
         }
+      } catch (error) {
+        if (hasFileSystemErrorCode({ error, code: 'ENOENT' }) === false) {
+          throw error
+        }
       }
-    } catch (error) {
-      if (hasFileSystemErrorCode(error, 'ENOENT') === false) {
-        throw error
-      }
-    }
-
-    if (sourceDir === sourceRoot) {
-      break
-    }
-    sourceDir = path.dirname(sourceDir)
-  }
+    }),
+  )
 }
 
 const stageCompiledBinaryImportGraph = ({
