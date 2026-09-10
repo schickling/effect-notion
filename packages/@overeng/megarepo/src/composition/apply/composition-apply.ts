@@ -310,7 +310,7 @@ const failure = ({
   message,
   path,
   memberKey,
-  recoveryPaths = [],
+  recoveryPaths,
   primaryFailure,
   cleanupFailures,
   updateLockRecovery,

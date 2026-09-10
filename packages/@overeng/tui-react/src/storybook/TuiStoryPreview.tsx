@@ -465,7 +465,7 @@ const TabButton: React.FC<{
 /** Format action tag for display */
 const formatActionTag = (action: unknown): string => {
   if (action !== null && typeof action === 'object' && '_tag' in action) {
-    return String((action as { _tag: string })._tag)
+    return String(action._tag)
   }
   return 'Action'
 }

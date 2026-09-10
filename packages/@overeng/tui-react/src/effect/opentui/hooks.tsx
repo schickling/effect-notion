@@ -74,12 +74,6 @@ export const useOState = <S,>(ref: SubscriptionRef.SubscriptionRef<S>): S => {
 // useOKeyboard - Bridge OpenTUI keyboard events to PubSub
 // =============================================================================
 
-/**
- * Latest key handler installed by {@link useOKeyboard}, keyed by the hook function itself.
- * Kept off the function object so the marker is not an untyped dangling property.
- */
-const latestKeyHandlers = new WeakMap<object, (key: KeyEvent) => void>()
-
 /** Options for keyboard handler */
 export interface UseOKeyboardOptions {
   /** Handle key release events (default: false) */
@@ -111,7 +105,7 @@ export const useOKeyboard = ({
 }: {
   eventPubSub: PubSub.PubSub<InputEvent>
   options?: UseOKeyboardOptions
-}): void => {
+}): ((key: KeyEvent) => void) => {
   const { release: _release = false, onKey } = options ?? {}
   const pubSubRef = useRef(eventPubSub)
   pubSubRef.current = eventPubSub
@@ -133,7 +127,6 @@ export const useOKeyboard = ({
       })
   }, [])
 
-  // Provide a callback that users can use with OpenTUI's useKeyboard
   const handleKey = useCallback(
     (key: KeyEvent) => {
       // Convert to our KeyEvent format and publish
@@ -153,8 +146,10 @@ export const useOKeyboard = ({
     [onKey],
   )
 
-  // Store handler for manual use
-  latestKeyHandlers.set(useOKeyboard, handleKey)
+  // Hand the handler back to the caller. It used to be parked on the hook
+  // function itself as an untyped `_handler` property, which nothing in the
+  // tree ever read; returning it is the same capability, typed and reachable.
+  return handleKey
 }
 
 /**

@@ -264,6 +264,26 @@ All notable changes to this project will be documented in this file.
   lines are accepted. `packageImportMethod: auto` now prefers hardlinks over
   reflinks on Linux, a behavior change with no source change.
 
+  One pnpm 12 resolution change needed a source decision: with the repo's
+  load-bearing `injectWorkspacePackages: true`, pnpm 12 resolved
+  `packages/@overeng/restate-effect`'s `@overeng/utils` edge as an injected
+  `file:` copy instead of a workspace link, because that importer's peer graph
+  binds a `@overeng/utils` peer utils itself satisfies only through its own
+  `devDependencies`, which blocks `dedupeInjectedDeps` from collapsing the
+  injected instance. An injected copy is materialized once at install time, so
+  tsc and vitest in that package would have read a frozen snapshot of utils.
+  pnpm 12 ignores `dependenciesMeta.<dep>.injected: false` while the
+  workspace-wide setting is on (its resolver computes
+  `inject_workspace_packages || injected`), so the opt-out is expressed where
+  pnpm honors it: `catalog.compose` gained `liveWorkspaceLinks`, which emits a
+  path-based `workspace:../utils` specifier for a named same-repo dependency.
+  That keeps the workspace protocol (and its publish rewriting) while routing
+  the edge through pnpm's local link resolution. The lockfile now has no
+  injected importer edge at all — four synthetic `file:` package/snapshot
+  entries disappeared — and
+  `buck2/dependencies/pnpm-lock.unit.test.ts` guards both properties against
+  the real lock.
+
 - **TypeScript 7**: move the npm compiler/API package from 6.0.3 to 7.0.2 and
   refresh the Effect-TS `tsgo` flake input. The existing nixpkgs
   `tsgolint` 7.0.2001 pin is already the latest release built against
@@ -274,54 +294,6 @@ All notable changes to this project will be documented in this file.
   explicitly closed native compiler session; the OTEL boundary uses the new
   scanner API; and JSONC validation uses `jsonc-parser` because the classic
   config-text parser was removed.
-
-  Moving the binary that actually runs from 1.39 to 1.82 also changed what the
-  gate reports: 1.82 implements rules 1.39 did not and places some of them in
-  categories this repo enables, so `lint:check` — fatal on any warning — went
-  from zero diagnostics to 1955 across 21 rules with the config unchanged.
-  Verified by running both binaries over the same file set with the same config
-  (1.39: zero; 1.82: 1955). That fallout is resolved as a policy decision per
-  rule, not by relaxing the gate:
-  - `no-underscore-dangle` (new, `suspicious`) accounted for 1833 of them, 1774
-    on Effect's `_tag` discriminant. The rule stays enabled with an explicit
-    `allow` list — `_tag`, the Notion/NDS wire names `_page_id`/`_nds_outbox`,
-    the Node internals the active-handle debugger reads, and the trailing-underscore
-    keyword/type-collision names (`try_`, `expect_`, `PtySpec_`) — so a newly
-    invented pseudo-private name in `src` is still reported. The repo's other
-    underscore idiom, `_x` for a binding kept for its shape but intentionally
-    unused (which `no-unused-vars` requires), is relaxed per file class: tests,
-    story fixtures, `examples/`, and the type-level assertion `*.types.ts` files.
-  - the React Compiler rule family is now off in full. Five members were already
-    disabled as "idioms this codebase has not adopted"; `hooks`,
-    `exhaustive-effect-dependencies`, `memo-dependencies` and `capitalized-calls`
-    join them. The first two are strict supersets of the classic
-    `rules-of-hooks`/`exhaustive-deps` pair the repo keeps enabled, so leaving
-    them on reported every hooks defect twice under two rule ids.
-  - `no-shadow` (new) is kept for `src` and relaxed only in test files, where the
-    reported shadows are the harness idiom of handing a scoped `it`/`resolve`
-    back into a callback.
-  - the remaining ~120 diagnostics were fixed in code, not configured away:
-    21 `consistent-function-scoping` helpers hoisted out of their closures, the
-    `ci-tools` barrel import cycle broken by deep imports, stable module-level
-    defaults for six `no-object-type-as-default-prop` props, a hoisted default
-    renderer for `no-unstable-nested-components`, `import * as themes` replaced
-    with an explicit exported record, `sort` → `toSorted` where nothing observes
-    the mutation, `func-style` conversions, and a `WeakMap` in place of an
-    `as any` private-property attachment. Two were real defects: three
-    `Pw.Locator.waitFor(...)` calls in the rpc example named a function the
-    module never exported (`waitForVisible`), so they resolved to `undefined` at
-    runtime, and a write-only `_dataSourceId` binding hid that its `decode` was
-    validation-only.
-    A dozen suppression comments in the tree were also dead: they used 1.39-era
-    rule ids (`eslint-plugin-import(no-dynamic-require)`,
-    `typescript-eslint(triple-slash-reference)`, `react-hooks(rules-of-hooks)`)
-    which 1.82 does not match, so the rules they named were never actually
-    suppressed. They now use `plugin/rule` form, each with its reason. The policy
-    itself is covered by `nix/devenv-modules/tasks/shared/tests/oxlint-rule-policy.test.sh`,
-    which asserts against the real generated config and the real binary that
-    `_tag` is allowed while an unlisted dangling name is still reported, that the
-    test-file relaxations do not leak into `src`, that the classic hooks rules
-    still fail the build, and that no Compiler-family rule reports beside them.
 
   The `@overeng/oxc-config` rule-test harness is pinned to TypeScript 5.9.3
   because `@typescript-eslint/typescript-estree` still imports the removed
@@ -419,6 +391,93 @@ file`). Effect-TS `tsgo` remains the export type-proof compiler
   in `nix/oxlint-with-plugins.nix` is corrected, since 1.82 applies JS-plugin
   rules to targets outside the config directory and the repo-root copy is now a
   cache decision rather than a correctness requirement.
+
+  Moving the binary that actually runs from 1.39 to 1.82 also changed what the
+  gate reports: 1.82 implements rules 1.39 did not and places some of them in
+  categories this repo enables, so `lint:check` — fatal on any warning — went
+  from zero diagnostics to 1955 across 21 rules with the config unchanged.
+  Verified by running both binaries over the same file set with the same config
+  (1.39: zero; 1.82: 1955). That fallout is resolved as a policy decision per
+  rule, not by relaxing the gate:
+  - `no-underscore-dangle` (new, `suspicious`) accounted for 1833 of them, 1774
+    on Effect's `_tag` discriminant. The rule stays enabled with an explicit
+    `allow` list — `_tag`, the Notion/NDS wire names `_page_id`/`_nds_outbox`,
+    the Node internals the active-handle debugger reads, StyleX's
+    `__stylexCollectCss` global, and the trailing-underscore
+    keyword/type-collision names (`try_`, `expect_`, `PtySpec_`) — so a newly
+    invented pseudo-private name in `src` is still reported. The repo's other
+    underscore idiom, `_x` for a binding kept for its shape but intentionally
+    unused (which `no-unused-vars` requires), is relaxed per file class: tests,
+    story fixtures, `examples/`, and the type-level assertion `*.types.ts` files.
+  - all nine React Compiler rules that report here are disabled, and none of
+    them was disabled before this change: at the base ref the config named only
+    `react-in-jsx-scope`, `rules-of-hooks` and `exhaustive-deps`. Two of the
+    nine — `immutability` and `set-state-in-effect` — sit in `correctness`,
+    which this config raises to `error`, so this is a real loss of error-level
+    signal, taken deliberately: the codebase has not adopted compiler-compatible
+    component idioms, and these rules read ordinary Effect/TUI code as compiler
+    input. Only `hooks` and `exhaustive-effect-dependencies` are redundant
+    rather than merely unadopted — they are strict supersets of the classic
+    `rules-of-hooks`/`exhaustive-deps` pair the repo keeps enabled, so leaving
+    them on reported every hooks defect twice under two rule ids. The other
+    five (`globals`, `immutability`, `purity`, `refs`, `set-state-in-effect`)
+    have no retained equivalent.
+  - `no-shadow` (new) is kept for `src` and relaxed only in test files, where the
+    reported shadows are the harness idiom of handing a scoped `it`/`resolve`
+    back into a callback.
+  - the remaining ~120 diagnostics were fixed in code, not configured away:
+    21 `consistent-function-scoping` helpers hoisted out of their closures, the
+    `ci-tools` barrel import cycle broken by deep imports, stable module-level
+    defaults for six `no-object-type-as-default-prop` props, a hoisted default
+    renderer for `no-unstable-nested-components`, `import * as themes` replaced
+    with an explicit exported record, `sort` → `toSorted` where nothing observes
+    the mutation, `func-style` conversions, and `useOKeyboard` now returning its
+    key handler instead of parking it on the hook function as an untyped
+    `_handler` property that nothing read. Two were real defects: three
+    `Pw.Locator.waitFor(...)` calls in the rpc example named a function the
+    module never exported (`waitForVisible`), so they resolved to `undefined` at
+    runtime, and a write-only `_dataSourceId` binding hid that its `decode` was
+    validation-only.
+    Sixteen suppression comments in the tree were also dead: they used 1.39-era
+    rule ids (`eslint-plugin-import(no-dynamic-require)`,
+    `typescript-eslint(triple-slash-reference)`, `eslint(no-await-in-loop)`)
+    which 1.82 does not match, so the rules they named were never actually
+    suppressed. The six that still had something to suppress now use
+    `plugin/rule` form with their reason; the ten `eslint(no-await-in-loop)`
+    ones in `tui-react` tests are deleted outright, because the test-file
+    override already disables that rule and a comment that suppresses nothing
+    is exactly the trap being removed. The policy
+    itself is covered by `nix/devenv-modules/tasks/shared/tests/oxlint-rule-policy.test.sh`,
+    which asserts against the real generated config and the real binary that
+    `_tag` is allowed while an unlisted dangling name is still reported, that the
+    test-file relaxations do not leak into `src`, that the classic hooks rules
+    still fail the build, that no Compiler-family rule reports beside them, and
+    — because an absence assertion is worthless against a silent fixture — that
+    the same fixture really does report all eight of those rules when they are
+    force-enabled on the command line.
+
+  A second, independent surface only became visible once the binary could drive
+  it: type-aware linting. `lint:check:oxlint` runs `--type-aware --tsconfig
+tsconfig.check.json`, but oxlint 1.39 cannot speak the tsgolint 7 protocol, so
+  with the nixpkgs `tsgolint` 7.0.2001 on `PATH` it reported nothing at all;
+  1.82 reports 317 diagnostics over the same file set (verified both ways).
+  `typescript/consistent-return` (252) and `typescript/no-unnecessary-type-parameters`
+  (50) are disabled with reasons specific to this codebase: the former's reports
+  are exhaustive `switch`es over Effect tagged unions, which `noImplicitReturns`
+  plus a green `tsgo` already prove always return — the rule only wants an
+  unreachable trailing `return`; the latter starts with the `TypeEq<A, B>`
+  identity trick, where the single-use type parameter IS the mechanism, and its
+  remaining reports are generic signatures whose parameter counts are public
+  API. The 15 actionable ones are fixed: 14 no-op conversions removed after
+  checking each expression's declared type (two kept — one guarding parsed
+  Restate state at an untrusted boundary, whose `as number` cast was widened to
+  `as unknown` so the conversion is honest, and one `Boolean(...)` on an
+  optional Node `isRaw` replaced by `=== true`), and one dead
+  `no-useless-default-assignment` default removed. This also means the earlier
+  "zero diagnostics" claim for the non-type-aware run was measured over
+  `*.ts`/`*.tsx` only; the gate is now proven over every lintable extension in
+  `packages`, `scripts`, `context` (1640 files) with `--type-aware` and
+  `--deny-warnings`.
 
 - **deps**: update the compatible patch and minor dependency cohort, including
   React 19.2.8, OpenTelemetry SDK 2.11, Vite 8.2.2, current TanStack router

@@ -65,6 +65,7 @@
           "_idleTimeout",
           "_getActiveHandles",
           "_getActiveRequests",
+          "__stylexCollectCss",
           "try_",
           "expect_",
           "PtySpec_"
@@ -82,6 +83,8 @@
     "overeng/exports-first": "error",
     "overeng/jsdoc-require-exports": "error",
     "typescript/consistent-type-imports": "warn",
+    "typescript/consistent-return": "off",
+    "typescript/no-unnecessary-type-parameters": "off",
     "overeng/no-raw-otel-primitives": "off",
     "overeng/otel-contract-in-seam-file": "off",
     "typescript/consistent-type-definitions": "off",

@@ -160,7 +160,7 @@ const runNetlifyCommand = Effect.fn('ci-tools.deploy.netlify.command')(
       return {
         status: typeof result.status === 'number' ? result.status : 1,
         stdout: result.stdout ?? '',
-        stderr: result.stderr ?? String(result.error?.message ?? ''),
+        stderr: result.stderr ?? result.error?.message ?? '',
       }
     }),
 )

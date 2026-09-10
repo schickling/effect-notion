@@ -21,9 +21,11 @@
 #      intentionally-unused-binding and harness-scoped-`it` idioms, and must NOT
 #      leak into `src`.
 #
-# Every fixture below is a NEGATIVE CONTROL: it genuinely violates the rules
-# under test, and was verified to report them with the rules enabled. So an
-# assertion that a diagnostic is absent proves the policy, not the fixture.
+# Every fixture below is a NEGATIVE CONTROL, and that is asserted rather than
+# claimed: for the React family the same fixture is linted a second time with
+# every rule force-enabled on the command line, and each rule must report there.
+# An `assert_not_contains` can therefore never pass because the fixture is
+# simply silent — the mute-switch failure mode this whole file exists to catch.
 #
 # Fixtures live in a temp dir OUTSIDE the repo on purpose: the config's
 # `ignorePatterns` are repo-relative, so a fixture inside the tree can be
@@ -150,7 +152,7 @@ assert_not_contains "no-underscore-dangle" "$out" "no-underscore-dangle is relax
 # 3. React: classic hooks rules on, React Compiler family off
 # ---------------------------------------------------------------------------
 cat > "$workspace/Component.tsx" <<'EOF'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 const mutableGlobal: { count: number } = { count: 0 }
 
@@ -173,8 +175,14 @@ export const Fixture = (props: { flag: boolean; label: string }): unknown => {
   // react/memo-dependencies (Compiler family): `props.flag` is not read here
   const memoized = useMemo(() => value + 1, [value, props.flag])
 
-  // react/purity + react/immutability + react/globals (Compiler family)
+  // react/immutability (Compiler family): mutating module state during render
   mutableGlobal.count += 1
+
+  // react/purity (Compiler family): impure call during render
+  const seed = Math.random()
+
+  // react/refs (Compiler family): reading `current` during render
+  const refValue = useRef(0).current
 
   // react/capitalized-calls (Compiler family)
   const rendered = Text({ value: props.label })
@@ -185,7 +193,7 @@ export const Fixture = (props: { flag: boolean; label: string }): unknown => {
     return extra + memoized
   }
 
-  return `${rendered}${value + mutableGlobal.count}`
+  return `${rendered}${value + mutableGlobal.count + seed + refValue}`
 }
 EOF
 
@@ -196,9 +204,40 @@ assert_contains "error react-hooks(rules-of-hooks)" "$out" \
 assert_contains "warning react-hooks(exhaustive-deps)" "$out" \
   "classic exhaustive-deps still reports"
 
-for rule in set-state-in-effect purity immutability globals refs hooks \
-  exhaustive-effect-dependencies memo-dependencies capitalized-calls; do
+compiler_family_rules=(
+  set-state-in-effect
+  purity
+  immutability
+  refs
+  hooks
+  exhaustive-effect-dependencies
+  memo-dependencies
+  capitalized-calls
+)
+
+for rule in "${compiler_family_rules[@]}"; do
   assert_not_contains "react($rule)" "$out" "React Compiler rule react/$rule is off"
+done
+
+# `react/globals` is configured off with the rest of the family but is NOT
+# asserted here: no fixture construct reproduces it under 1.82 (module-state
+# mutation, global array pushes, and `window`/`globalThis` writes during render
+# all land on `react/immutability` instead), so an absence assertion for it
+# would be exactly the vacuous check this file rejects.
+
+# The controls: same fixture, same config, every family rule force-enabled on
+# the command line. Each must report, or the absences asserted above prove
+# nothing about the policy.
+enabled_args=()
+for rule in "${compiler_family_rules[@]}"; do
+  enabled_args+=(-W "react/$rule")
+done
+
+control="$(lint "${enabled_args[@]}" "$workspace/Component.tsx")"
+
+for rule in "${compiler_family_rules[@]}"; do
+  assert_contains "react($rule)" "$control" \
+    "fixture really violates react/$rule when the rule is enabled"
 done
 
 echo ""

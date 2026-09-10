@@ -88,17 +88,14 @@ test.describe('TuiStoryPreview Tabs', () => {
 
     for (const tabName of tabs) {
       const tab = page.getByTestId(`tab-${tabName}`)
-      // oxlint-disable-next-line eslint(no-await-in-loop) -- intentionally sequential test steps
       await tab.click()
 
       // Verify tab is now active
-      // oxlint-disable-next-line eslint(no-await-in-loop) -- intentionally sequential test steps
       await expect(tab).toHaveCSS('border-bottom-color', 'rgb(0, 122, 204)')
 
       // Verify other tabs are inactive
       for (const otherTab of tabs) {
         if (otherTab !== tabName) {
-          // oxlint-disable-next-line eslint(no-await-in-loop) -- intentionally sequential test steps
           await expect(page.getByTestId(`tab-${otherTab}`)).toHaveCSS(
             'border-bottom-color',
             'rgba(0, 0, 0, 0)',

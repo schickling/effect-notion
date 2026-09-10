@@ -15,7 +15,9 @@ type PromptTrace =
       readonly rawAfter: boolean
     }
 
-const isRaw = () => Boolean((process.stdin as NodeJS.ReadStream & { isRaw?: boolean }).isRaw)
+// `isRaw` is declared non-optional on the TTY stream type but is absent when stdin is a pipe,
+// so compare explicitly instead of coercing.
+const isRaw = () => (process.stdin as NodeJS.ReadStream & { isRaw?: boolean }).isRaw === true
 
 const prompt = (message: string) =>
   Prompt.select<'create' | 'skip' | 'abort'>({

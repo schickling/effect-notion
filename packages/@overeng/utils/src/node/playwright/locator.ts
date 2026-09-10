@@ -222,7 +222,7 @@ export const getByRole: (opts: {
 }) => Effect.Effect<Locator, never, PwPage> = Effect.fn('pw.getByRole')((opts) =>
   Effect.gen(function* () {
     const page = yield* PwPage
-    yield* annotateLocator({ role: String(opts.role), name: textLabel(opts.options?.name ?? '') })
+    yield* annotateLocator({ role: opts.role, name: textLabel(opts.options?.name ?? '') })
     return page.getByRole(opts.role, opts.options)
   }),
 )

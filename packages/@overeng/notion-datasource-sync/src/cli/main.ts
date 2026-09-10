@@ -2874,7 +2874,7 @@ const resolveDatabaseDataSourceId = ({
         const [dataSource] = dataSources
         return Effect.succeed({
           dataSourceId: decode({ schema: DataSourceId, value: dataSource?.id }),
-          databaseId: String(database.id),
+          databaseId: database.id,
         })
       }
       return Effect.fail(

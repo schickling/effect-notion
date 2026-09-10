@@ -399,7 +399,7 @@ export const makeOpenCodeAdapter = (options: {
           const row = Schema.decodeUnknownSync(OpenCodeSessionDiscoveryRow)(rawRow)
           return Schema.decodeSync(ArtifactDescriptor)({
             sourceId: options.sourceId ?? 'opencode',
-            artifactId: String(row.id),
+            artifactId: row.id,
             path: options.databasePath,
             status: row.time_archived === null ? 'stable' : 'finalized',
           })

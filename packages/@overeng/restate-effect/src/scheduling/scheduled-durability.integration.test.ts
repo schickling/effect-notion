@@ -121,7 +121,7 @@ const readCursor = async (adminUrl: string, serviceName: string, key: string): P
   if (row === undefined) return 0
   const value = row['value']
   if (typeof value !== 'string') return -1
-  return Number(JSON.parse(Buffer.from(value, 'hex').toString('utf8')) as number)
+  return Number(JSON.parse(Buffer.from(value, 'hex').toString('utf8')) as unknown)
 }
 
 const unknownText = (value: unknown): string => {

@@ -209,6 +209,8 @@ export const baseOxlintRules = {
   //   - `_page_id`, `_nds_outbox`: Notion API and NDS outbox wire names.
   //   - `_idleTimeout`, `_getActiveHandles`, `_getActiveRequests`: undocumented
   //     Node internals the active-handle debugger reads.
+  //   - `__stylexCollectCss`: the global `@stylexjs/unplugin` installs for CSS
+  //     collection, read by the node StyleX bridge.
   //   - `try_`, `expect_`, `PtySpec_`: trailing underscore because `try`/`expect`
   //     are reserved/shadowing and `PtySpec` is the type of the same name.
   // The repo's OTHER underscore idiom — `_x` for an intentionally unused binding,
@@ -224,6 +226,7 @@ export const baseOxlintRules = {
         '_idleTimeout',
         '_getActiveHandles',
         '_getActiveRequests',
+        '__stylexCollectCss',
         'try_',
         'expect_',
         'PtySpec_',
@@ -248,6 +251,25 @@ export const baseOxlintRules = {
 
   // Enforce proper type imports
   'typescript/consistent-type-imports': 'warn',
+
+  // Two type-aware rules that arrive with oxlint 1.82: 1.39 could not speak the
+  // tsgolint 7 protocol, so `--type-aware` reported nothing at all and neither
+  // rule was ever enforced here. Both are off for reasons specific to this
+  // codebase's idioms, not to reduce noise:
+  //
+  // `consistent-return` reports 252 sites, and the shape is almost always an
+  // exhaustive `switch` over an Effect tagged union where every case returns.
+  // `noImplicitReturns` is on (genie/external.ts) and `tsgo` is green, so the
+  // compiler already proves those functions always return; the rule only wants
+  // an unreachable trailing `return` after the switch.
+  //
+  // `no-unnecessary-type-parameters` reports 50 sites, starting with the
+  // `TypeEq<A, B>` identity trick in `@overeng/utils`, where the single-use
+  // `<T>` IS the mechanism being tested. Its remaining reports are generic
+  // signatures whose parameter counts are public API, so "fixing" them would
+  // be an API change rather than a cleanup.
+  'typescript/consistent-return': 'off',
+  'typescript/no-unnecessary-type-parameters': 'off',
 
   // OTEL raw primitive enforcement is enabled through generated repo overrides.
   'overeng/no-raw-otel-primitives': 'off',
