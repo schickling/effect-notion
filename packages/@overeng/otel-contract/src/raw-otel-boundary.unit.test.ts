@@ -46,7 +46,8 @@ const removeComments = (source: string): string => {
   const scanner = createScanner(false, undefined, source)
   const chunks: string[] = []
   let position = 0
-  for (let token = scanner.scan(); token !== SyntaxKind.EndOfFile; token = scanner.scan()) {
+  while (position < source.length) {
+    const token = scanner.scan()
     const start = scanner.getTokenStart()
     chunks.push(source.slice(position, start))
     const tokenText = source.slice(start, scanner.getTokenEnd())

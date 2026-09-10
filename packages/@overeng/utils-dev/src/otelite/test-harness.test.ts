@@ -98,7 +98,7 @@ describe('OteliteTestHarness', () => {
           service: 'otelite-diagnostics',
         })
 
-        const traceJson = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(TraceJson))(
+        const traceJson = yield* Schema.decodeEffect(Schema.fromJsonString(TraceJson))(
           yield* fs.readFileString(files.traceJson),
         )
         expect(traceJson.schema).toBe('otelite.trace-json/v1')

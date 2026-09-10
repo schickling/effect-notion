@@ -109,7 +109,7 @@ export const telemetryAttr = {
   ): TelemetryAttrMatcher<Row> => ({
     _tag: 'Schema',
     description,
-    matches: (actual) => Exit.isSuccess(Schema.decodeUnknownExit(schema)(actual)),
+    matches: (actual) => Exit.isSuccess(Schema.decodeExit(schema)(actual)),
   }),
   json: <Row, S extends Schema.ConstraintDecoder<unknown>>(
     schema: S,
@@ -118,7 +118,7 @@ export const telemetryAttr = {
     _tag: 'Schema',
     description,
     matches: (actual) =>
-      Exit.isSuccess(Schema.decodeUnknownExit(Schema.fromJsonString(schema))(actual)),
+      Exit.isSuccess(Schema.decodeExit(Schema.fromJsonString(schema))(actual)),
   }),
 } as const
 
