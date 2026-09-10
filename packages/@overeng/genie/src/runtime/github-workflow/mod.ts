@@ -245,7 +245,7 @@ type Concurrency = {
   'cancel-in-progress'?: boolean | Expression
 }
 
-type Job = {
+type JobWithSteps = {
   name?: string
   'runs-on': string | string[]
   needs?: string | string[]
@@ -263,6 +263,31 @@ type Job = {
   container?: string | Container
   services?: Record<string, Service>
 }
+
+/**
+ * Reusable workflow call job — a job that delegates to another workflow via
+ * `uses:`. No `runs-on`/`steps`; instead it consumes the called workflow's
+ * `on.workflow_call.inputs` (via `with:`) and exposes its declared outputs
+ * to dependent jobs via `needs.<job-id>.outputs.<output-name>`.
+ *
+ * GitHub workflow_call reference:
+ * https://docs.github.com/en/actions/sharing-automations/reusing-workflows
+ */
+type JobWithUses = {
+  name?: string
+  uses: string
+  needs?: string | string[]
+  if?: string
+  permissions?: Permissions
+  with?: Record<string, string | number | boolean>
+  secrets?: 'inherit' | Record<string, string>
+  strategy?: Strategy
+  concurrency?: string | Concurrency
+}
+
+type Job = JobWithSteps | JobWithUses
+
+const isJobWithUses = (job: Job): job is JobWithUses => 'uses' in job
 
 /** Arguments for generating a GitHub Actions workflow file */
 export type GitHubWorkflowArgs = {
@@ -415,6 +440,7 @@ const validateDeterminateNixExtraConf = ({
   const issues: GenieValidationIssue[] = []
 
   for (const [jobName, job] of Object.entries(args.jobs)) {
+    if (isJobWithUses(job) === true) continue
     for (const [stepIndex, step] of job.steps.entries()) {
       if ('uses' in step === false) continue
       if (step.uses.startsWith('DeterminateSystems/determinate-nix-action') === false) continue
@@ -704,6 +730,9 @@ const validateWorkflow = ({
   const issues: GenieValidationIssue[] = []
 
   for (const [jobName, job] of Object.entries(args.jobs)) {
+    // Reusable workflow call jobs (`uses:`) don't have their own `runs-on`;
+    // the runner is determined by the called workflow.
+    if (isJobWithUses(job) === true) continue
     issues.push(...validateRunsOn({ jobName, runsOn: job['runs-on'], location }))
   }
 

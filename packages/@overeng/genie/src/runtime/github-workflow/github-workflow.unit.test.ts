@@ -736,3 +736,68 @@ describe.runIf(hasActionlint)('actionlint integration', () => {
     expect(yaml).not.toContain('selfHostedRunnerLabels')
   })
 })
+
+describe('reusable workflow call jobs', () => {
+  it('accepts a job that delegates via `uses:` without `runs-on`/`steps`', () => {
+    const workflow = githubWorkflow({
+      actionlint: false,
+      name: 'caller',
+      on: { workflow_dispatch: null },
+      jobs: {
+        validate: {
+          uses: './.github/workflows/reusable.yml',
+          with: { 'target-scope': 'stable' },
+        },
+        downstream: {
+          'runs-on': 'ubuntu-latest',
+          needs: 'validate',
+          steps: [{ run: 'echo "${{ needs.validate.outputs.release-version }}"' }],
+        },
+      },
+    })
+
+    const issues = workflow.validate?.(mockGenieContext) ?? []
+    expect(issues.filter((i) => i.rule.startsWith('github-workflow-runs-on'))).toEqual([])
+
+    const yaml = workflow.stringify(mockGenieContext)
+    expect(yaml).toContain('uses: ./.github/workflows/reusable.yml')
+    expect(yaml).toContain('target-scope: stable')
+  })
+
+  it('accepts a reusable workflow definition with workflow_call inputs/outputs', () => {
+    const workflow = githubWorkflow({
+      actionlint: false,
+      name: 'reusable',
+      on: {
+        workflow_call: {
+          inputs: {
+            'target-scope': { type: 'string', required: true },
+          },
+          outputs: {
+            'release-version': {
+              value: '${{ jobs.derive.outputs.release-version }}',
+            },
+          },
+        },
+      },
+      jobs: {
+        derive: {
+          'runs-on': 'ubuntu-latest',
+          outputs: {
+            'release-version': '${{ steps.read.outputs.version }}',
+          },
+          steps: [
+            {
+              id: 'read',
+              run: 'echo "version=1.2.3" >> "$GITHUB_OUTPUT"',
+            },
+          ],
+        },
+      },
+    })
+
+    const yaml = workflow.stringify(mockGenieContext)
+    expect(yaml).toContain('workflow_call:')
+    expect(yaml).toContain('release-version:')
+  })
+})
