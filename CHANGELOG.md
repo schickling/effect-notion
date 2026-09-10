@@ -221,6 +221,17 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **nix**: realign every committed nixpkgs pin onto one `nixos-unstable`
+  revision, `dc5d91f840324650bac8c379428c7037a416959a` (2026-09-07). The root
+  `flake.lock` is the shared authority downstream repos follow; the independent
+  nested flakes carry their own locks and had drifted off it —
+  `nix/weaver-flake` by two days, `nix/playwright-flake` by nearly three months
+  (`567a49d1`, 2026-06-16), which meant the Playwright driver and the Weaver
+  build toolchain resolved against a different nixpkgs than the rest of the
+  repo. `packages/@overeng/genie` was already on this revision and is unchanged;
+  `devenv.lock`'s root nixpkgs node now mirrors the same pin while preserving
+  its existing devenv v2.2.1 subtree.
+
 - **deps**: update the compatible patch and minor dependency cohort, including
   React 19.2.8, OpenTelemetry SDK 2.11, Vite 8.2.2, current TanStack router
   packages, Tailwind CSS 4.3.3, and supporting type, test, formatting, crypto,
