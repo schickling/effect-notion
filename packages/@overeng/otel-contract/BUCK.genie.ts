@@ -24,6 +24,21 @@ export const buck2TypeScriptAdmission = {
     declarationEntrypoint: 'src/mod.d.ts',
     projectFile: 'tsconfig.json',
   },
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+      // The weaver live check and the profile-link suite spawn the `otelite` and `otel-scrape`
+      // binaries, and the boundary and seam suites scan the whole repository, so all four stay
+      // unbounded (decision 0026) under the devenv `test:otel-contract` task.
+      excludes: [
+        'src/otel-scrape/profile-link.unit.test.ts',
+        'src/raw-otel-boundary.unit.test.ts',
+        'src/registry-live-check.integration.test.ts',
+        'src/registry-seam.unit.test.ts',
+      ],
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)

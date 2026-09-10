@@ -21,6 +21,14 @@ export const buck2TypeScriptAdmission = {
     declarationEntrypoint: 'src/mod.d.ts',
     projectFile: 'tsconfig.json',
   },
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+      // The CLI contract suite runs the CLI as a child process under the pinned Bun.
+      tools: { BUN_BIN: '//buck2/toolchains:tool_bun' },
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default withJavaScriptCandidates({

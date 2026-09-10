@@ -13,6 +13,28 @@
 #   - genie:run: config files must be generated before tsc can resolve paths
 #   - pnpm:install: node_modules must exist for tsc to resolve types
 #
+# Project graph scope:
+#   This module is the authority ONLY for the projects actually referenced by
+#   `tsconfigFile` / `emitTsconfigFile`. Packages whose typecheck and `dist` are
+#   owned by another build system (in this repo: the Buck-authoritative
+#   packages) are NOT members of `tsconfig.check.json` /
+#   `tsconfig.emit.json` — they are gated by that system's own check task
+#   (`buck2:check`), and listing them here as well would duplicate the
+#   authority and diverge on flags.
+#
+#   The residual root projects still CONSUME those packages' declarations, and
+#   they read them from published `dist` directories in the source tree rather
+#   than from `node_modules`. Those directories are produced by the owning
+#   build system, not by `pnpm:install`, so type-checking or emitting before the
+#   publisher has run reads a STALE or ABSENT `dist` and reports errors that
+#   describe the previous build instead of the current sources. Ordering is
+#   therefore the CALLER's job: a repo whose graph consumes such declarations
+#   adds the publishing task to these tasks' `after` lists from its own
+#   devenv module (devenv merges `after` across modules), e.g.
+#   `tasks."ts:check".after = [ "buck2:typescript:materialize-dist" ];`. This
+#   module takes no argument for it, so there is exactly one mechanism for
+#   that edge.
+#
 # Caching notes:
 #   TypeScript's incremental build (--build) uses .tsbuildinfo files to cache
 #   results. Use `ts:check` for fast local feedback and `ts:check:strict`
@@ -21,8 +43,8 @@
 #   `ts:check:strict` inherits the merged `ts:check.after` graph so repo-local
 #   generators also run in strict mode.
 #   `ts:clean` remains available as a heavier escape hatch when you suspect
-#   corrupted build metadata. Ensure all packages are listed in
-#   tsconfig.check.json references.
+#   corrupted build metadata. Ensure all packages that this solution owns are
+#   listed in tsconfig.check.json references.
 #
 # Effect-LSP gate (issue #811):
 #   The `@effect/language-service` gate is ENABLED (see `effectDiagnosticsGate`

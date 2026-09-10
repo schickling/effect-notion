@@ -21,6 +21,10 @@
 #       genieCoverageFiles = [ "package.json" "tsconfig.json" ];  # optional
 #       # Path to tsconfig for type-aware linting (enables typescript/no-deprecated etc)
 #       tsconfig = "tsconfig.check.json";  # optional
+#       # Extra prerequisites for the type-aware lint lane (in addition to the
+#       # install task) - e.g. the task that publishes generated declarations
+#       # that the tsconfig project graph resolves against.
+#       tsconfigAfterTasks = [ "buck2:typescript:materialize-dist" ];  # optional
 #       # Whether to fail on warnings (default: true for CI strictness)
 #       # denyWarnings = false;  # optional
 #     })
@@ -43,6 +47,15 @@
   # Type-aware linting: provide tsconfig to enable --type-aware flag.
   # Requires pkgs.tsgolint in devenv packages (auto-discovered on PATH by oxlint).
   tsconfig ? null,
+  # Extra prerequisite task names for the type-aware `lint:check:oxlint` lane,
+  # appended after the install task. Only used when `tsconfig != null`.
+  #
+  # WHY: type-aware linting resolves declarations through the tsconfig project
+  # graph. When some of those declarations are produced by another build system
+  # (rather than by the install step), the lane must run after whatever
+  # publishes them, or oxlint type-aware reads stale/absent declarations. This
+  # module stays build-system agnostic: the caller names the tasks.
+  tsconfigAfterTasks ? [ ],
   # Whether to treat warnings as errors. Set to false for repos with many
   # existing warnings that can't be fixed immediately.
   denyWarnings ? true,
@@ -271,7 +284,7 @@ let
       execIfModified = [ ];
     }
     // lib.optionalAttrs (tsconfig != null) {
-      after = [ "pnpm:install" ];
+      after = [ "pnpm:install" ] ++ tsconfigAfterTasks;
     };
     "lint:fix:format" = {
       guard = "oxfmt";

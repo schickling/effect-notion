@@ -20,6 +20,12 @@ export const buck2TypeScriptAdmission = {
     },
   ],
   editorViewConsumer: false,
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)

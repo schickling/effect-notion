@@ -2,6 +2,13 @@
 #
 # CI should only pass GitHub event context and paths through environment
 # variables; record collection, comment rendering, and publication live here.
+#
+# `effectUtils.workflowReport.ciToolsBin` is required: the tasks run the
+# wrapped `ci-tools` Buck product the consumer supplies, never a source build
+# and never an ambient PATH lookup.
+#
+#   effectUtils.workflowReport.ciToolsBin =
+#     "${inputs.effect-utils.packages.${pkgs.system}.ci-tools}/bin/ci-tools";
 {
   config,
   lib,
@@ -11,23 +18,14 @@
 let
   cfg = config.effectUtils.workflowReport;
   trace = import ../lib/trace.nix { inherit lib; };
-  root = ../../../..;
-  ciToolsPkg = import (root + "/packages/@overeng/ci-tools/nix/build.nix") {
-    inherit pkgs;
-    src = root;
-    dirty = true;
-  };
-  resolvedCiToolsBin =
-    if cfg.ciToolsBin == null then "${ciToolsPkg}/bin/ci-tools" else cfg.ciToolsBin;
+  resolvedCiToolsBin = cfg.ciToolsBin;
   ciTools = lib.escapeShellArg resolvedCiToolsBin;
   gh = if cfg.ghBin == null then "${pkgs.gh}/bin/gh" else cfg.ghBin;
 in
 {
   options.effectUtils.workflowReport = {
     ciToolsBin = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      internal = true;
+      type = lib.types.str;
       description = "Absolute ci-tools binary used by the shared workflow-report tasks.";
     };
 

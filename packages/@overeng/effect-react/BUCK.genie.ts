@@ -6,7 +6,7 @@ export const buck2TypeScriptAdmission = {
   packageName: '@overeng/effect-react',
   packagePath: 'packages/@overeng/effect-react',
   projectionSource: 'packages/@overeng/effect-react/BUCK.genie.ts',
-  sourceRoots: ['src'],
+  sourceRoots: ['src', 'test'],
   workspaceSiblings: [
     {
       packageName: '@overeng/otel-contract',
@@ -24,6 +24,12 @@ export const buck2TypeScriptAdmission = {
     declarationEntrypoint: 'src/mod.d.ts',
     projectFile: 'tsconfig.json',
   },
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)

@@ -12,6 +12,22 @@ export const buck2TypeScriptAdmission = {
     declarationEntrypoint: 'src/node-vitest/mod.d.ts',
     projectFile: 'tsconfig.json',
   },
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+      // Only the CLI contract suite is bounded: every otelite helper suite spawns the real
+      // `otelite` capture binary and stays unbounded (decision 0026).
+      excludes: [
+        'src/node-vitest/otel-vitest-flush.test.ts',
+        'src/otelite/Otelite.test.ts',
+        'src/otelite/signal-expect.test.ts',
+        'src/otelite/test-harness.test.ts',
+        'src/otelite/trace-expect.test.ts',
+        'src/otelite/vitest-bridge.test.ts',
+      ],
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)

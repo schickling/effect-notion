@@ -2,11 +2,22 @@
 #
 # The stable devenv task names remain here, but deploy semantics live in
 # `ci-tools deploy netlify`.
+#
+# `ciToolsBin` is required and must be an absolute path to the wrapped
+# `ci-tools` Buck product; there is no source build and no ambient PATH
+# fallback, so a consumer supplies it explicitly:
+#
+#   imports = [
+#     (inputs.effect-utils.devenvModules.tasks.netlify {
+#       siteName = "example";
+#       ciToolsBin = "${inputs.effect-utils.packages.${pkgs.system}.ci-tools}/bin/ci-tools";
+#     })
+#   ];
 {
   deployments ? [ ],
   siteName,
   siteId ? null,
-  ciToolsBin ? null,
+  ciToolsBin,
   netlifyCliPkg ? null,
   netlifyBin ? null,
 }:
@@ -14,12 +25,7 @@
 let
   trace = import ../lib/trace.nix { inherit lib; };
   root = ../../../..;
-  ciToolsPkg = import (root + "/packages/@overeng/ci-tools/nix/build.nix") {
-    inherit pkgs;
-    src = root;
-    dirty = true;
-  };
-  resolvedCiToolsBin = if ciToolsBin == null then "${ciToolsPkg}/bin/ci-tools" else ciToolsBin;
+  resolvedCiToolsBin = ciToolsBin;
   defaultNetlifyCliPkg =
     if netlifyCliPkg == null then
       import (root + "/nix/provider-clis/netlify-cli") { inherit pkgs; }

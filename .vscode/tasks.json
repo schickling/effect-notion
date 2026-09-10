@@ -108,26 +108,42 @@
     },
 
     // ============================================================
-    // test
+    // buck2 — Buck owns typecheck + dist for the authoritative packages
+    // ============================================================
+    {
+      "label": "buck2:check",
+      "type": "shell",
+      "command": "devenv tasks run buck2:check",
+      "problemMatcher": ["$tsc"],
+      "presentation": {
+        "focus": false,
+        "panel": "shared",
+        "group": "buck2",
+        "showReuseMessage": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "buck2:typescript:materialize-dist",
+      "type": "shell",
+      "command": "devenv tasks run buck2:typescript:materialize-dist",
+      "problemMatcher": [],
+      "presentation": {
+        "focus": false,
+        "panel": "shared",
+        "group": "buck2",
+        "showReuseMessage": false,
+        "clear": false
+      }
+    },
+
+    // ============================================================
+    // test — source-owned Vitest; Buck owns the declared test inputs, not execution
     // ============================================================
     {
       "label": "test",
       "type": "shell",
       "command": "devenv tasks run test:run",
-      "problemMatcher": [],
-      "presentation": {
-        "focus": true,
-        "panel": "shared",
-        "group": "test",
-        "showReuseMessage": false,
-        "clear": true
-      }
-    },
-    {
-      "label": "test:watch",
-      "type": "shell",
-      "command": "devenv tasks run test:watch",
-      "isBackground": true,
       "problemMatcher": [],
       "presentation": {
         "focus": true,

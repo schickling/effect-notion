@@ -22,16 +22,27 @@
 #   # With strict type checking in aggregate gates:
 #   imports = [ (inputs.effect-utils.devenvModules.tasks.check { checkAllTypecheckTask = "ts:check:strict"; }) ];
 #
-#   # With additional custom checks:
+#   # With a Buck-owned typecheck gate instead of the root tsc solution:
+#   imports = [
+#     (inputs.effect-utils.devenvModules.tasks.check {
+#       checkQuickTypecheckTask = "buck2:check";
+#       # Residual root-tsc projects still need a gate, but only in check:quick;
+#       # extraChecks would drag them into check:all as well.
+#       extraQuickChecks = [ "ts:check" ];
+#     })
+#   ];
+#
+#   # With additional custom checks (both gates):
 #   imports = [ (inputs.effect-utils.devenvModules.tasks.check { extraChecks = [ "workspace:check" ]; }) ];
 #
 # Provides: check:quick, check:all
 #
-# check:quick - Fast local development (ts:check, mr:check*, lint, nix-fingerprint)
-# check:all   - Comprehensive validation (defaults to ts:check, can opt into ts:check:strict)
+# check:quick - Fast local development (typecheck gate, mr:check*, lint, nix-fingerprint)
+# check:all   - Comprehensive validation (defaults to the check:quick typecheck
+#               task, can opt into ts:check:strict)
 #               * mr:check included unless hasMegarepoCheck = false
 #
-# Note: Requires ts:check task to exist.
+# Note: Requires the configured typecheck task to exist (default ts:check).
 # Requires lint:check task (unless hasLint = false).
 # Requires nix-cli module tasks (unless hasNixCheck = false):
 #   - check:quick uses nix:check:quick
@@ -46,7 +57,8 @@
   hasMegarepoCheck ? true,
   checkQuickTypecheckTask ? "ts:check",
   checkAllTypecheckTask ? checkQuickTypecheckTask,
-  extraChecks ? [ ], # Additional check tasks to include (e.g., [ "workspace:check" ])
+  extraChecks ? [ ], # Additional check tasks for BOTH gates (e.g., [ "workspace:check" ])
+  extraQuickChecks ? [ ], # Additional check tasks for check:quick ONLY (e.g., [ "ts:check" ])
 }:
 { lib, ... }:
 let
@@ -72,9 +84,19 @@ in
 {
   tasks = {
     "check:quick" = {
-      description = "Fast checks for development (${checkQuickTypecheckTask}${lib.optionalString hasLint ", lint"}${lib.optionalString hasNixCheck ", nix-fingerprint"}) without tests";
+      description = "Fast checks for development (${
+        lib.concatStringsSep ", " ([ checkQuickTypecheckTask ] ++ extraQuickChecks)
+      }${lib.optionalString hasLint ", lint"}${
+        lib.optionalString hasNixCheck ", nix-fingerprint"
+      }) without tests";
       exec = trace.exec "check:quick" "true";
-      after = [ checkQuickTypecheckTask ] ++ megarepoTasks ++ lintTask ++ nixQuickTask ++ extraChecks;
+      after =
+        [ checkQuickTypecheckTask ]
+        ++ extraQuickChecks
+        ++ megarepoTasks
+        ++ lintTask
+        ++ nixQuickTask
+        ++ extraChecks;
     };
 
     "check:all" = {
