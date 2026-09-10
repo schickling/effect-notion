@@ -76,6 +76,27 @@ describe('checkBootstrapClosure', () => {
     expect(violations).toHaveLength(0)
   })
 
+  it('drains a wide duplicate graph without recursing once per duplicate edge', async () => {
+    const dir = makeDir()
+    write(
+      dir,
+      'safe.ts',
+      `import { readFileSync } from 'node:fs'\nexport const helper = readFileSync`,
+    )
+    const source = write(
+      dir,
+      'wide.genie.ts',
+      Array.from(
+        { length: 20_000 },
+        (_, index) => `export { helper as helper${index} } from './safe.ts'`,
+      ).join('\n'),
+    )
+
+    const { violations } = await checkBootstrapClosure({ genieFiles: [source] })
+
+    expect(violations).toHaveLength(0)
+  })
+
   it('follows a lock-pinned `#mr` member edge: FAILs when the member reaches a bare package, PASSes a safe member import', async () => {
     const dir = makeDir()
     const memberDir = path.join(dir, 'member-x')

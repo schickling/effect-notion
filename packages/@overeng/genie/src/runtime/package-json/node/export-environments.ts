@@ -401,12 +401,13 @@ const scanGraph = async ({
   const pending = [entry]
   const issues: ValidationIssue[] = []
 
-  const visitNext = async (): Promise<void> => {
-    const file = pending.pop()
-    if (file === undefined) return
-    if (seen.has(file) === true) return visitNext()
+  while (pending.length > 0) {
+    const file = pending.pop()!
+    if (seen.has(file) === true) continue
     seen.add(file)
 
+    // Graph discovery is intentionally serial because the analysis session advances one mutable snapshot.
+    // eslint-disable-next-line no-await-in-loop
     const analysis = await session.analyze(file)
     if (analysis !== undefined) {
       for (const specifier of importedSpecifiersOf(analysis.sourceFile)) {
@@ -439,10 +440,7 @@ const scanGraph = async ({
         }),
       )
     }
-    return visitNext()
   }
-
-  await visitNext()
 
   return { files: [...seen].toSorted(), issues }
 }
@@ -825,9 +823,9 @@ export const createNodePackageJsonValidationRuntime = ({
               continue
             }
 
-            const visitEntry = async (index: number): Promise<void> => {
-              const entry = entries[index]
-              if (entry === undefined) return
+            for (const entry of entries) {
+              // One mutable compiler snapshot serves the package, so contracts and entries remain serial.
+              // eslint-disable-next-line no-await-in-loop
               const graph = await scanGraph({
                 entry,
                 profile,
@@ -854,11 +852,7 @@ export const createNodePackageJsonValidationRuntime = ({
               issues.push(...graph.issues, ...typecheckResult.issues)
               hits += typecheckResult.cache.hits
               misses += typecheckResult.cache.misses
-              return visitEntry(index + 1)
             }
-            // One mutable compiler snapshot serves the package, so contracts and entries must remain serial.
-            // eslint-disable-next-line no-await-in-loop
-            await visitEntry(0)
           }
         }
 

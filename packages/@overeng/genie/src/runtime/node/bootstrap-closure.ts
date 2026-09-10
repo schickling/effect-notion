@@ -229,13 +229,16 @@ export const checkBootstrapClosure = async ({
   }): Promise<BootstrapClosureViolation | undefined> => {
     const seen = new Set<string>()
     const queue: (readonly string[])[] = [[root]]
-    const visitNext = async (): Promise<BootstrapClosureViolation | undefined> => {
-      const chain = queue.shift()
-      if (chain === undefined) return undefined
+    let nextIndex = 0
+    while (nextIndex < queue.length) {
+      const chain = queue[nextIndex]!
+      nextIndex += 1
       const current = chain[chain.length - 1]!
-      if (seen.has(current) === true) return visitNext()
+      if (seen.has(current) === true) continue
       seen.add(current)
 
+      // Graph discovery is intentionally serial because the analysis session advances one mutable snapshot.
+      // eslint-disable-next-line no-await-in-loop
       const { violationSpecifiers, followTargets } = await edgesOf({ file: current, session })
       if (violationSpecifiers.length > 0) {
         return { source: root, specifier: violationSpecifiers[0]!, chain }
@@ -243,10 +246,8 @@ export const checkBootstrapClosure = async ({
       for (const target of followTargets) {
         if (seen.has(target) === false) queue.push([...chain, target])
       }
-      return visitNext()
     }
-
-    return visitNext()
+    return undefined
   }
 
   const sortedGenieFiles = [...genieFiles].toSorted()
@@ -254,14 +255,12 @@ export const checkBootstrapClosure = async ({
     cwd: process.cwd(),
     use: async (session) => {
       const found: BootstrapClosureViolation[] = []
-      const visitRoot = async (index: number): Promise<void> => {
-        const root = sortedGenieFiles[index]
-        if (root === undefined) return
+      for (const root of sortedGenieFiles) {
+        // Roots share the same mutable analysis snapshot and graph cache, so preserve source order.
+        // eslint-disable-next-line no-await-in-loop
         const violation = await findViolation({ root, session })
         if (violation !== undefined) found.push(violation)
-        return visitRoot(index + 1)
       }
-      await visitRoot(0)
       return found
     },
   })
