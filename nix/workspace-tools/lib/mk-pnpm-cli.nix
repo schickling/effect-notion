@@ -342,9 +342,11 @@ let
     const path = require("node:path");
 
     const importers = JSON.parse(fs.readFileSync(0, "utf8"));
-    const workspaceYamlPath = process.argv[2];
-    if (!workspaceYamlPath) {
-      console.error("usage: align-aggregate-manifest-specifiers.cjs <pnpm-workspace.yaml>");
+    const [workspaceYamlPath, lockfilePath] = process.argv.slice(2);
+    if (!workspaceYamlPath || !lockfilePath) {
+      console.error(
+        "usage: align-aggregate-manifest-specifiers.cjs <pnpm-workspace.yaml> <pnpm-lock.yaml>"
+      );
       process.exit(1);
     }
     const sourceInputPrefix = "file:.devenv/pnpm-source-inputs/current/";
@@ -379,20 +381,25 @@ let
       if (changed) fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
     }
 
-    const workspaceLines = fs.readFileSync(workspaceYamlPath, "utf8").split("\n");
-    let inOverrides = false;
-    const filteredWorkspaceLines = workspaceLines.filter((line) => {
-      if (line === "overrides:") {
-        inOverrides = true;
-        return true;
-      }
-      if (inOverrides && line.trim() !== "" && /^\S/.test(line)) inOverrides = false;
-      return !(
-        inOverrides &&
-        /^\s{2}.+:\s*['"]?file:\.devenv\/pnpm-source-inputs\/current\//.test(line)
-      );
-    });
-    fs.writeFileSync(workspaceYamlPath, filteredWorkspaceLines.join("\n"));
+    const stripSourceInputOverrides = (yamlPath) => {
+      const lines = fs.readFileSync(yamlPath, "utf8").split("\n");
+      let inOverrides = false;
+      const filteredLines = lines.filter((line) => {
+        if (line === "overrides:") {
+          inOverrides = true;
+          return true;
+        }
+        if (inOverrides && line.trim() !== "" && /^\S/.test(line)) inOverrides = false;
+        return !(
+          inOverrides &&
+          /^\s{2}.+:\s*['"]?file:\.devenv\/pnpm-source-inputs\/current\//.test(line)
+        );
+      });
+      fs.writeFileSync(yamlPath, filteredLines.join("\n"));
+    };
+
+    stripSourceInputOverrides(workspaceYamlPath);
+    stripSourceInputOverrides(lockfilePath);
   '';
 
   isDerivationOutput =
@@ -1316,7 +1323,7 @@ let
       preInstall = ''
         chmod -R +w .
         ${pkgs.yq-go}/bin/yq -o=json '.importers' pnpm-lock.yaml \
-          | ${pkgs.nodejs}/bin/node ${alignAggregateManifestSpecifiersScript} pnpm-workspace.yaml
+          | ${pkgs.nodejs}/bin/node ${alignAggregateManifestSpecifiersScript} pnpm-workspace.yaml pnpm-lock.yaml
       '';
     };
   };
