@@ -240,6 +240,20 @@ All notable changes to this project will be documented in this file.
   asset list is unchanged — upstream's `binaries` set still ends at
   `starlark_fmt` — and toolchain identity is in the action key, so this
   invalidates cached Buck actions once.
+- **nix/provider-clis/vercel-cli**: the pinned Vercel CLI moves 54.18.5 →
+  59.11.7, the current stable `latest` release. The pin is a first-party
+  `buildNpmPackage` fixed-output derivation, so the bump is the authority
+  `package.json` dependency, the regenerated `package-lock.json`, the
+  derivation `version`, and a recomputed `npmDepsHash`
+  (`sha256-oaD0HMwJnlFoEoHal47qqsmagE7OnAt/rCqE61FC67M=`, from
+  `prefetch-npm-deps` against the new lock). The wrapper entrypoint is
+  unchanged because 59.11.7 still publishes both `vercel` and `vc` as
+  `dist/vc.js`, and its `engines.node >= 18` stays satisfied by the pinned
+  `nodejs_24`. Five CLI majors are crossed; the deploy path that consumes it
+  (`ci-tools deploy vercel` via `nix/devenv-modules/tasks/shared/vercel.nix`)
+  uses only `pull`, `build`, `deploy --prebuilt` and `alias`, none of which
+  changed shape, but the derivation itself is not yet built or smoke-tested
+  here.
 
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for
