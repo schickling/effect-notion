@@ -202,6 +202,14 @@ def _vitest_collect_impl(ctx):
     _require_relative_path(ctx.attrs.config, "config")
     if ctx.attrs.vitest_runtime == "node" and "NODE_BIN" not in ctx.attrs.tools:
         fail("vitest_runtime = \"node\" requires a declared NODE_BIN tool")
+
+    # `_configured_args` puts only the NAMES of inherited variables in the
+    # action command while the runner reads their live values, so those values
+    # are outside the action identity: a collection produced under one
+    # environment would be served again after they change, yielding a stale
+    # test inventory. Same invariant as `_test_info`.
+    if ctx.attrs.inherited_env and ctx.attrs.cacheable:
+        fail("collections inheriting the environment must set cacheable = False")
     collection = ctx.actions.declare_output("{}.json".format(ctx.attrs.name))
     args, _, _ = _configured_args(ctx, "vitest-collect", [ctx.attrs.config])
     args.add("--collect-output", collection.as_output())

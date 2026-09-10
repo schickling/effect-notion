@@ -447,14 +447,30 @@ describe('the verified external surface', () => {
     packages: ['@opentui/core-linux-x64', 'fsevents'],
   }
 
-  it('ignores prefixed, relative, and Node builtin specifiers on both targets', () => {
+  it('ignores loadable prefixed, relative, and Node builtin specifiers on both targets', () => {
     for (const target of ['bun', 'node'] as const) {
       expect(bareSpecifierPackage({ specifier: 'node:fs', target })).toBeUndefined()
-      expect(bareSpecifierPackage({ specifier: 'bun:sqlite', target })).toBeUndefined()
       expect(bareSpecifierPackage({ specifier: 'fs', target })).toBeUndefined()
       expect(bareSpecifierPackage({ specifier: './local.js', target })).toBeUndefined()
       expect(bareSpecifierPackage({ specifier: '@opentui/core-linux-x64/index.js', target })).toBe(
         '@opentui/core-linux-x64',
+      )
+    }
+  })
+
+  it('admits a `bun:` import only when the target runtime is bun', () => {
+    expect(bareSpecifierPackage({ specifier: 'bun:sqlite', target: 'bun' })).toBeUndefined()
+    // Ignoring it on node would publish a bundle whose import fails only once
+    // a user reaches that code path.
+    expect(() => bareSpecifierPackage({ specifier: 'bun:sqlite', target: 'node' })).toThrow(
+      'bundle keeps the import bun:sqlite, which the node runtime cannot load',
+    )
+  })
+
+  it('rejects a scheme neither runtime resolves from a bundle', () => {
+    for (const target of ['bun', 'node'] as const) {
+      expect(() => bareSpecifierPackage({ specifier: 'https://esm.sh/left-pad', target })).toThrow(
+        `which the ${target} runtime cannot load`,
       )
     }
   })
@@ -464,6 +480,18 @@ describe('the verified external surface', () => {
     // On node it is an ordinary unresolvable package, and treating it as a
     // builtin would let the product ship an import that fails at run time.
     expect(bareSpecifierPackage({ specifier: 'bun', target: 'node' })).toBe('bun')
+  })
+
+  it('fails a node bundle that keeps a `bun:` import external', () => {
+    expect(() =>
+      verifyExternalSurface({
+        allowed: [],
+        declaredCapabilities: [],
+        gatedManifest,
+        specifiers: ['bun:sqlite'],
+        target: 'node',
+      }),
+    ).toThrow('bundle keeps the import bun:sqlite')
   })
 
   it('fails a node bundle that leaves a bare `bun` import external', () => {

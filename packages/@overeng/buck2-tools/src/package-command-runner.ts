@@ -467,14 +467,32 @@ const BARE_SPECIFIER_PACKAGE = /^(@[^/]+\/[^/]+|[^@/][^/]*)/
 /** Bun exposes its own bare builtin through `node:module`. */
 const NODE_BUILTINS: ReadonlySet<string> = new Set(builtinModules.filter((name) => name !== 'bun'))
 
+const SPECIFIER_SCHEME = /^([a-zA-Z][a-zA-Z0-9+.-]*):/
+
+/**
+ * The URL schemes an emitted bundle may still import, per runtime target.
+ *
+ * `node:`, `data:`, and `file:` load on both runtimes. `bun:` names Bun's own
+ * builtin namespace, which node has no implementation for, so a node product
+ * that keeps such an import fails only once a user reaches that code path.
+ * Every other scheme — `http:`, `npm:`, `jsr:` — names something neither
+ * runtime resolves from a bundle.
+ */
+const LOADABLE_SCHEMES: Readonly<Record<'bun' | 'node', Readonly<Record<string, true>>>> = {
+  bun: { bun: true, data: true, file: true, node: true },
+  node: { data: true, file: true, node: true },
+}
+
 /**
  * The npm package a bare import specifier names, for one runtime target.
  *
  * Returns `undefined` for anything the host is not asked to install: a
- * relative or absolute path, a prefixed specifier such as `node:fs`, and a
- * builtin OF THAT TARGET. The target matters: `bun` is a builtin to Bun and an
- * unresolvable npm package to node, so recognizing it unconditionally would
- * let a node product ship an import that fails only when a user runs it.
+ * relative or absolute path, a specifier the target's runtime loads by scheme
+ * such as `node:fs`, and a builtin OF THAT TARGET. The target matters: `bun`
+ * and `bun:sqlite` are builtin to Bun and unloadable on node, so accepting
+ * either unconditionally would let a node product ship an import that fails
+ * only when a user runs it. A scheme the target cannot load is therefore a
+ * build failure rather than an ignored specifier.
  */
 export const bareSpecifierPackage = ({
   specifier,
@@ -486,11 +504,20 @@ export const bareSpecifierPackage = ({
   if (
     specifier.length === 0 ||
     specifier.startsWith('.') === true ||
-    specifier.startsWith('/') === true ||
-    specifier.includes(':') === true ||
-    NODE_BUILTINS.has(specifier) === true ||
-    (target === 'bun' && specifier === 'bun')
+    specifier.startsWith('/') === true
   ) {
+    return undefined
+  }
+  const scheme = SPECIFIER_SCHEME.exec(specifier)?.[1]
+  if (scheme !== undefined) {
+    if (LOADABLE_SCHEMES[target][scheme.toLowerCase()] === undefined) {
+      fail(
+        `bundle keeps the import ${specifier}, which the ${target} runtime cannot load; drop it or build the product for a runtime that provides ${scheme}:`,
+      )
+    }
+    return undefined
+  }
+  if (NODE_BUILTINS.has(specifier) === true || (target === 'bun' && specifier === 'bun')) {
     return undefined
   }
   return BARE_SPECIFIER_PACKAGE.exec(specifier)?.[1]
