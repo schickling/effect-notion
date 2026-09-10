@@ -1,11 +1,15 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { discoverGenieFiles } from './bootstrap-closure-check-cli.ts'
-import { checkBootstrapClosure, formatViolationChain } from './bootstrap-closure.ts'
+import {
+  canonicalResolvedPath,
+  checkBootstrapClosure,
+  formatViolationChain,
+} from './bootstrap-closure.ts'
 
 const GENIE_MEMBER_OVERRIDE_MAP_ENV = 'GENIE_MEMBER_OVERRIDE_MAP'
 const GENIE_TYPESCRIPT_API_SERVER_ENV = 'GENIE_TYPESCRIPT_API_SERVER'
@@ -217,6 +221,33 @@ describe('checkBootstrapClosure', () => {
     expect(violations[0]!.chain).toEqual([source])
   })
 
+  // Regression: chain links used to be whatever the compiler resolved, which is NOT the file's on-disk
+  // identity — TypeScript canonicalizes resolutions for the filesystem it thinks it is on (lower-casing
+  // them on macOS, where it produced `...-gfbwy6/barrel.ts` for a chain rooted at `...-gfbwY6/`). A
+  // symlinked entry is the case-sensitive expression of the same defect: every returned path, root
+  // included, must be the real file.
+  it('reports the filesystem-canonical path for every chain link reached through a symlink', async () => {
+    const dir = makeDir()
+    write(dir, 'real/runtime.ts', `import { Effect } from 'effect'\nexport const value = Effect`)
+    write(dir, 'real/barrel.ts', `export * from './runtime.ts'`)
+    write(dir, 'real/source.genie.ts', `import { value } from './barrel.ts'\nexport default value`)
+    symlinkSync(path.join(dir, 'real'), path.join(dir, 'link'), 'dir')
+
+    const { violations, checkedSources } = await checkBootstrapClosure({
+      genieFiles: [path.join(dir, 'link', 'source.genie.ts')],
+    })
+
+    expect(violations).toHaveLength(1)
+    expect(violations[0]!.chain).toEqual([
+      path.join(dir, 'real', 'source.genie.ts'),
+      path.join(dir, 'real', 'barrel.ts'),
+      path.join(dir, 'real', 'runtime.ts'),
+    ])
+    expect(violations[0]!.source).toBe(path.join(dir, 'real', 'source.genie.ts'))
+    expect(checkedSources).toEqual([path.join(dir, 'real', 'source.genie.ts')])
+    for (const file of violations[0]!.chain) expect(file).toBe(realpathSync.native(file))
+  })
+
   // Regression: the API client's protocol is versioned with its compiler binary, so the session must
   // use the `typescript` package's OWN matching platform executable. A `tsgo` on `PATH` (the dev shell
   // exposes the Effect-TS fork, a different revision) must never be picked up: older forks answer
@@ -244,6 +275,45 @@ describe('checkBootstrapClosure', () => {
       if (previousServer !== undefined)
         process.env[GENIE_TYPESCRIPT_API_SERVER_ENV] = previousServer
     }
+  })
+})
+
+// The macOS half of the same defect, driven directly so it runs on a case-sensitive filesystem: the
+// compiler hands back a case-folded resolution for a file whose real spelling is mixed-case.
+describe('canonicalResolvedPath', () => {
+  it('restores the importer spelling for the folded components it shares', () => {
+    const dir = makeDir()
+    const importer = write(dir, 'Fixture-AbC/source.genie.ts', `export default {}`)
+    write(dir, 'Fixture-AbC/barrel.ts', `export default {}`)
+
+    const folded = path.join(dir, 'fixture-abc', 'barrel.ts')
+
+    expect(canonicalResolvedPath({ file: folded, importer, listings: new Map() })).toBe(
+      path.join(dir, 'Fixture-AbC', 'barrel.ts'),
+    )
+  })
+
+  it('reads the real spelling back from disk for components below the importer', () => {
+    const dir = makeDir()
+    const importer = write(dir, 'Fixture-AbC/source.genie.ts', `export default {}`)
+    write(dir, 'Fixture-AbC/Nested-Dir/Leaf.ts', `export default {}`)
+
+    const folded = path.join(dir, 'fixture-abc', 'nested-dir', 'leaf.ts')
+
+    expect(canonicalResolvedPath({ file: folded, importer, listings: new Map() })).toBe(
+      path.join(dir, 'Fixture-AbC', 'Nested-Dir', 'Leaf.ts'),
+    )
+  })
+
+  it('keeps an exact on-disk spelling when a case-sensitive filesystem holds both', () => {
+    const dir = makeDir()
+    const importer = write(dir, 'pkg/source.genie.ts', `export default {}`)
+    write(dir, 'pkg/Leaf.ts', `export default {}`)
+    write(dir, 'pkg/leaf.ts', `export default {}`)
+
+    const exact = path.join(dir, 'pkg', 'leaf.ts')
+
+    expect(canonicalResolvedPath({ file: exact, importer, listings: new Map() })).toBe(exact)
   })
 })
 

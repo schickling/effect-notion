@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 
 import { parseGeneratorPhase } from '../../core/phase.ts'
@@ -50,7 +50,12 @@ const parseArgs = ({
     throw new Error(`unknown argument: ${arg}`)
   }
 
-  return { repoRoot, help }
+  // The walk reports every path as its on-disk identity, so the root the diagnostics are made relative
+  // to has to be that same identity — otherwise a symlinked checkout renders every chain as `../..`.
+  return {
+    repoRoot: existsSync(repoRoot) === true ? realpathSync.native(repoRoot) : repoRoot,
+    help,
+  }
 }
 
 /** Discover source-tree `.genie.ts` files without requiring Git or package-manager install state. */

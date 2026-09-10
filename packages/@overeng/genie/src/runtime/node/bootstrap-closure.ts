@@ -18,7 +18,7 @@
  * are excluded from the closure.
  */
 
-import { existsSync, realpathSync } from 'node:fs'
+import { existsSync, readdirSync, realpathSync } from 'node:fs'
 import { isBuiltin } from 'node:module'
 import path from 'node:path'
 
@@ -143,6 +143,101 @@ const runtimeSpecifiersOf = (sourceFile: SourceFile): readonly StringLiteral[] =
   return specifiers
 }
 
+/** One directory read back from disk: its entries, plus the case-folded index used to restore spelling. */
+type DirectoryEntries = {
+  readonly names: ReadonlySet<string>
+  readonly byLowerCase: ReadonlyMap<string, string>
+}
+
+/**
+ * Directory listings memoized for one walk. Scoped to the call so a long-lived `genie:watch` process
+ * can never answer from a stale listing.
+ */
+export type DirectoryListings = Map<string, DirectoryEntries>
+
+const directoryListing = ({
+  directory,
+  listings,
+}: {
+  directory: string
+  listings: DirectoryListings
+}): DirectoryEntries => {
+  const cached = listings.get(directory)
+  if (cached !== undefined) return cached
+  const names = new Set<string>()
+  const byLowerCase = new Map<string, string>()
+  for (const entry of readdirSync(directory)) {
+    names.add(entry)
+    byLowerCase.set(entry.toLowerCase(), entry)
+  }
+  const entries: DirectoryEntries = { names, byLowerCase }
+  listings.set(directory, entries)
+  return entries
+}
+
+/**
+ * The single on-disk identity of a file the compiler resolved FROM `importer`: symlinks resolved, and
+ * the real spelling restored.
+ *
+ * TypeScript canonicalizes resolved paths on a case-insensitive filesystem by lower-casing them, so the
+ * same file comes back as a DIFFERENT string than the importer chain that reached it (measured on macOS:
+ * `/private/tmp/genie-bootstrap-closure-gfbwY6/barrel.ts` resolved as `...-gfbwy6/barrel.ts`), and
+ * `realpath` does not restore case. Everything the resolution shares with `importer` — which is already
+ * canonical, by induction from the walk root — keeps the importer's spelling; only the components below
+ * the divergence are read back from their directory. That bound matters: canonicalizing from the
+ * filesystem root would `readdir` ancestors such as the Nix store root.
+ */
+export const canonicalResolvedPath = ({
+  file,
+  importer,
+  listings,
+}: {
+  file: string
+  importer: string
+  listings: DirectoryListings
+}): string => {
+  const { root } = path.parse(file)
+  const segments = file
+    .slice(root.length)
+    .split(path.sep)
+    .filter((segment) => segment.length > 0)
+  const importerSegments = path
+    .dirname(importer)
+    .slice(root.length)
+    .split(path.sep)
+    .filter((segment) => segment.length > 0)
+
+  let canonical = root
+  let index = 0
+  while (
+    index < segments.length &&
+    index < importerSegments.length &&
+    segments[index]!.toLowerCase() === importerSegments[index]!.toLowerCase()
+  ) {
+    canonical = path.join(canonical, importerSegments[index]!)
+    index += 1
+  }
+  for (; index < segments.length; index += 1) {
+    const segment = segments[index]!
+    const { names, byLowerCase } = directoryListing({ directory: canonical, listings })
+    // An exact hit is authoritative — a case-sensitive filesystem may hold both spellings — and the
+    // case-folded hit is what restores the spelling a case-insensitive one folded away.
+    canonical = path.join(
+      canonical,
+      names.has(segment) === true ? segment : (byLowerCase.get(segment.toLowerCase()) ?? segment),
+    )
+  }
+  return canonical
+}
+
+/**
+ * Symlink-resolved identity of a walk root. The caller's spelling is authoritative for case (nothing
+ * upstream folded it), so only the symlink hop is resolved; a root that does not exist is kept as given
+ * and fails later in the walk, exactly as before.
+ */
+const canonicalRootPath = (file: string): string =>
+  existsSync(file) === true ? realpathSync.native(file) : file
+
 /**
  * Resolve a bootstrap-safe specifier (relative or `#`/`#mr`) to an absolute file path, using genie's own
  * resolver for `#`/`#mr` and the compiler's resolution for relative paths. Bare specifiers are never resolved
@@ -152,10 +247,12 @@ const resolveFollowableSpecifier = async ({
   specifier,
   importerFile,
   analysis,
+  listings,
 }: {
   specifier: StringLiteral
   importerFile: string
   analysis: TsFileAnalysis
+  listings: DirectoryListings
 }): Promise<string | undefined> => {
   const resolved =
     isImportMapSpecifier(specifier.text) === true
@@ -165,9 +262,14 @@ const resolveFollowableSpecifier = async ({
         })
       : await analysis.resolveModuleSpecifier(specifier)
 
-  // TypeScript canonicalizes paths for case-insensitive filesystems. Restore the on-disk spelling so
-  // importer chains stay comparable to their source roots and diagnostics preserve the real path.
-  return resolved !== undefined && existsSync(resolved) === true ? realpathSync(resolved) : resolved
+  // A resolution with no file behind it is reported as the compiler spelled it: the walk finds no
+  // analysis for it and contributes no edges, which is the pre-existing missing-file behaviour.
+  if (resolved === undefined || existsSync(resolved) === false) return resolved
+  return canonicalResolvedPath({
+    file: realpathSync.native(resolved),
+    importer: importerFile,
+    listings,
+  })
 }
 
 /**
@@ -188,6 +290,7 @@ export const checkBootstrapClosure = async ({
     readonly followTargets: readonly string[]
   }
   const edgesCache = new Map<string, FileEdges>()
+  const listings: DirectoryListings = new Map()
   const edgesOf = async ({
     file,
     session,
@@ -215,6 +318,7 @@ export const checkBootstrapClosure = async ({
                   specifier,
                   importerFile: file,
                   analysis,
+                  listings,
                 })
               : undefined,
         })),
@@ -260,7 +364,9 @@ export const checkBootstrapClosure = async ({
     return undefined
   }
 
-  const sortedGenieFiles = [...genieFiles].toSorted()
+  // Every path this walk reports — roots included — is the file's on-disk identity, so a chain link is
+  // comparable to its own root and to anything else derived from the filesystem.
+  const sortedGenieFiles = genieFiles.map(canonicalRootPath).toSorted()
   const violations = await runTsFileAnalysis({
     cwd: process.cwd(),
     use: async (session) => {
