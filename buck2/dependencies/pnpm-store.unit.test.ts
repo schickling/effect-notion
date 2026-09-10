@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import { nixGraftedStoreOverridePackages } from '../../genie/native-dependency-policy.ts'
+
 import {
   decodePnpmSha256Sidecar,
   generatePnpmSha256Sidecar,
@@ -53,6 +54,7 @@ ${packages}
 snapshots:
 ${snapshots}
 `
+
 
 const platformVaryingLock = lock({
   importers: `  packages/app:
@@ -354,9 +356,7 @@ describe('normalized store projection', () => {
 
   it("links a peer's type companion into the entry that declares the peer", async () => {
     const projection = await projectionOf(peerTypesLock)
-    const widget = projection.entries.find(
-      (entry) => entry.storeKey === 'widget@1.0.0_react@19.0.0',
-    )!
+    const widget = projection.entries.find((entry) => entry.storeKey === 'widget@1.0.0_react@19.0.0')!
 
     // `widget` never declares `@types/react`; it declares `react` as a peer,
     // and its own declaration files resolve `react` types through the
@@ -416,7 +416,7 @@ describe('normalized store projection of the real lockfile', () => {
         'storybook@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_prettier@3.9.6_reac_7702f1bfbfb8544e',
       ],
       [
-        '@vitest+browser-playwright@4.1.9_playwright@1.61.0_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9',
+        '@vitest+browser-playwright@4.1.9_playwright@1.63.0_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9',
         '@vitest+browser@4.1.9_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9',
         'vitest@4.1.9_@opentelemetry+api@1.9.1_@types+node@26.5.0_@vitest+browser-playwright@4.1.9_happy-dom@20._f830263be88a0e28',
       ],
@@ -428,7 +428,9 @@ describe('normalized store projection of the real lockfile', () => {
   })
 
   it('resolves the React type companions every peer-typed entry needs', () => {
-    const typesReact = projection.entries.find((entry) => entry.packageName === '@types/react')!
+    const typesReact = projection.entries.find(
+      (entry) => entry.packageName === '@types/react',
+    )!
     const ariaComponents = projection.entries.find(
       (entry) => entry.packageName === 'react-aria-components',
     )!
@@ -466,11 +468,15 @@ describe('normalized store projection of the real lockfile', () => {
     const varying = platformVaryingEntries(projection).map((entry) => entry.storeKey)
 
     // Decision 0030 recorded nine such packages; `oxlint-tsgolint` became the
-    // tenth. TypeScript 7 itself is the eleventh: the compiler now ships as
-    // per-platform `@typescript/typescript-<platform>` optional packages, so
-    // `typescript` is platform-selected too. The count is derived here so a new
-    // platform-selected dependency needs no edit to admit it.
+    // tenth, and pnpm 12 resolves `@opentui/core` against two TypeScript
+    // versions, so the same package contributes two platform-varying entries.
+    // TypeScript 7 is platform-selected because the compiler ships as
+    // per-platform `@typescript/typescript-<platform>` optional packages.
+    // Playwright 1.63 no longer depends on Darwin-only `fsevents`, so it drops
+    // out of this list. The count is derived here so a new platform-selected
+    // dependency needs no edit to admit it.
     expect(varying).toEqual([
+      '@opentui+core@0.4.1_typescript@5.9.3_web-tree-sitter@0.25.10',
       '@opentui+core@0.4.1_typescript@7.0.2_web-tree-sitter@0.25.10',
       'esbuild@0.28.2',
       'lightningcss@1.33.0',
@@ -478,7 +484,6 @@ describe('normalized store projection of the real lockfile', () => {
       'oxc-parser@0.127.0',
       'oxc-resolver@11.21.2',
       'oxlint-tsgolint@0.23.0',
-      'playwright@1.61.0',
       'rolldown@1.2.7',
       'typescript@7.0.2',
       'vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0',
@@ -486,8 +491,8 @@ describe('normalized store projection of the real lockfile', () => {
   })
 
   it('declares one entry per snapshot and one view per importer', () => {
-    expect(projection.entries).toHaveLength(669)
-    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(669)
+    expect(projection.entries).toHaveLength(671)
+    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(671)
     expect(projection.views).toHaveLength(Object.keys(metadata.importers).length)
     expect(computeStoreSccs({ metadata })).toEqual(projection.sccs.map((scc) => scc.members))
   })
@@ -527,7 +532,9 @@ describe('normalized store projection of the real lockfile', () => {
     const [entry] = grafted
     expect(entry!.sccIndex).toBeUndefined()
     expect(rendered.match(new RegExp(`^ {4}name = "${entry!.target}",$`, 'gm'))).toHaveLength(1)
-    expect(rendered.match(new RegExp(`": ":${entry!.target}",$`, 'gm'))!.length).toBeGreaterThan(1)
+    expect(
+      rendered.match(new RegExp(`": ":${entry!.target}",$`, 'gm'))!.length,
+    ).toBeGreaterThan(1)
   })
 })
 
