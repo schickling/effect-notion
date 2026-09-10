@@ -43703,6 +43703,7 @@ pnpm_importer(
     },
     root_workspace_dependencies = {
         "@overeng/otel-contract": "workspace_packages_overeng_otel_contract_9f5fb18bc9a6",
+        "@overeng/utils": "workspace_packages_overeng_utils_e8a24aadff3a",
         "@overeng/utils-dev": "workspace_packages_overeng_utils_dev_dcbd9b04b5cc",
     },
     visibility = ["PUBLIC"],

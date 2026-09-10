@@ -19,6 +19,7 @@ import {
   platformVaryingEntries,
   pnpmPlatforms,
   portablePnpmPlatform,
+  workspaceKey,
 } from './pnpm-store.ts'
 
 const archive = new TextEncoder().encode('archive bytes')
@@ -309,6 +310,48 @@ describe('normalized store projection', () => {
     for (const view of projection.views) {
       expect(view.variants[0]!.closure).toEqual(['shared@1.0.0'])
     }
+  })
+
+  it('keeps an injected workspace package as an importer workspace edge', async () => {
+    // pnpm 12 injects workspace packages by default, so a direct workspace
+    // dependency arrives as a `file:<dir>` snapshot instead of a `link:`
+    // reference. Both spellings denote the same edge, so the importer must
+    // still name the workspace tree instead of dropping the dependency or
+    // materialising a tree nothing points at.
+    const projection = await projectionOf(
+      lock({
+        importers: `  packages/app:
+    dependencies:
+      workspace-lib:
+        specifier: workspace:*
+        version: file:packages/lib
+    dependenciesMeta:
+      workspace-lib:
+        injected: true
+  packages/lib:
+    dependencies:
+      bar:
+        specifier: 2.0.0
+        version: 2.0.0`,
+        packages: `  bar@2.0.0:
+    resolution: {integrity: ${archiveIntegrity}}
+  workspace-lib@file:packages/lib:
+    resolution: {directory: packages/lib, type: directory}`,
+        snapshots: `  bar@2.0.0: {}
+  workspace-lib@file:packages/lib:
+    dependencies:
+      bar: 2.0.0`,
+      }),
+    )
+    const view = projection.views.find((candidate) => candidate.importer === 'packages/app')!
+    const expectedKey = workspaceKey('packages/lib')
+
+    expect(view.variants[0]!.direct['workspace-lib']).toEqual({
+      kind: 'workspace',
+      workspaceKey: expectedKey,
+      workspacePath: 'packages/lib',
+    })
+    expect(view.workspaceTrees[expectedKey]).toBe('//packages/lib:package_tree')
   })
 
   it("links a peer's type companion into the entry that declares the peer", async () => {
