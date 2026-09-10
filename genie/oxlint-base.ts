@@ -258,10 +258,18 @@ export const baseOxlintRules = {
   // codebase's idioms, not to reduce noise:
   //
   // `consistent-return` reports 252 sites, and the shape is almost always an
-  // exhaustive `switch` over an Effect tagged union where every case returns.
-  // `noImplicitReturns` is on (genie/external.ts) and `tsgo` is green, so the
-  // compiler already proves those functions always return; the rule only wants
-  // an unreachable trailing `return` after the switch.
+  // exhaustive `switch` over an Effect tagged union where every case returns a
+  // value. `noImplicitReturns` (genie/external.ts) is a narrower guarantee than
+  // this rule: it rejects a code path that falls off the end of a
+  // value-returning function, and TypeScript's exhaustiveness analysis already
+  // treats a fully covered discriminated-union switch as leaving no such path —
+  // which is why `tsgo` is green while the rule still fires. It does NOT police
+  // the rest of what `consistent-return` covers, mixing bare `return;` with
+  // `return value` in one function; that shape is constrained here by the
+  // declared return types (no implicit `| undefined`) and caught by the
+  // packages' own tests, not by the compiler flag. So the rule is off because
+  // its remaining signal on this codebase is a request for an unreachable
+  // trailing `return` after an exhaustive switch.
   //
   // `no-unnecessary-type-parameters` reports 50 sites, starting with the
   // `TypeEq<A, B>` identity trick in `@overeng/utils`, where the single-use

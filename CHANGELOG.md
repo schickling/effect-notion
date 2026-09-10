@@ -463,9 +463,13 @@ tsconfig.check.json`, but oxlint 1.39 cannot speak the tsgolint 7 protocol, so
   1.82 reports 317 diagnostics over the same file set (verified both ways).
   `typescript/consistent-return` (252) and `typescript/no-unnecessary-type-parameters`
   (50) are disabled with reasons specific to this codebase: the former's reports
-  are exhaustive `switch`es over Effect tagged unions, which `noImplicitReturns`
-  plus a green `tsgo` already prove always return — the rule only wants an
-  unreachable trailing `return`; the latter starts with the `TypeEq<A, B>`
+  are exhaustive `switch`es over Effect tagged unions, where TypeScript's
+  exhaustiveness analysis plus `noImplicitReturns` already rule out a path that
+  falls off the end — which is the narrower guarantee, and why `tsgo` is green
+  while the rule still asks for an unreachable trailing `return`. The other half
+  of what the rule covers, mixing bare `return;` with `return value`, is not
+  policed by that flag; here it is constrained by the declared return types and
+  the packages' own tests. The latter starts with the `TypeEq<A, B>`
   identity trick, where the single-use type parameter IS the mechanism, and its
   remaining reports are generic signatures whose parameter counts are public
   API. The 15 actionable ones are fixed: 14 no-op conversions removed after
