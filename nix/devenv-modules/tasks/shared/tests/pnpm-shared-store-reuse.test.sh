@@ -173,10 +173,6 @@ test "$(cat "$root_a_file")" = 'module.exports = "immutable"'
 
 native_a_file="$tmpdir/root-a/node_modules/native-mutator/index.js"
 native_b_file="$tmpdir/root-b/node_modules/native-mutator/index.js"
-native_inode_distinct=true
-if [ "$(inode_id "$native_a_file")" = "$(inode_id "$native_b_file")" ]; then
-  native_inode_distinct=false
-fi
 test "$(cat "$native_a_file")" = 'module.exports = "native-original"'
 test "$(cat "$native_b_file")" = 'module.exports = "native-original"'
 test ! -e "$tmpdir/root-a/node_modules/native-mutator/install-ran"
@@ -289,7 +285,6 @@ if [ "$ordinary_inode_shared" != "$mutation_aliased" ]; then
 fi
 test "$(cat "$native_b_file")" = 'module.exports = "native-original"'
 
-printf '{"phase":"shared-store-reuse","status":"ok","secondRootDownloads":0,"ordinaryInodeShared":%s,"mutationAliased":%s,"nativeInodeDistinct":%s,"virtualStoresDistinct":true,"concurrentColdRoots":2,"concurrentOfflineRoots":2,"sharedIndexHealthy":true,"lifecycleHooksRan":0}\n' \
+printf '{"phase":"shared-store-reuse","status":"ok","secondRootDownloads":0,"ordinaryInodeShared":%s,"mutationAliased":%s,"virtualStoresDistinct":true,"concurrentColdRoots":2,"concurrentOfflineRoots":2,"sharedIndexHealthy":true,"lifecycleHooksRan":0}\n' \
   "$ordinary_inode_shared" \
-  "$mutation_aliased" \
-  "$native_inode_distinct"
+  "$mutation_aliased"
