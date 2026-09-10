@@ -229,13 +229,15 @@ describe('translatePnpmLock', () => {
     // installs a second compiler and splits `@opentui/core` into two store
     // entries built against different TypeScript versions — the shape
     // `context/opentui` had before it declared the dependency.
+    // The other compiler in the lock is `@overeng/oxc-config`'s deliberate
+    // 5.9.3 rule-tester pin, which no OpenTUI importer may resolve against.
     const metadata = translatePnpmLock({
       lockfileText: readFileSync('pnpm-lock.yaml', 'utf8'),
       workspaceText: readFileSync('pnpm-workspace.yaml', 'utf8'),
     })
 
     const compilers = Object.keys(metadata.packages).filter((key) => key.startsWith('typescript@'))
-    expect(compilers).toEqual(['typescript@6.0.3', 'typescript@7.0.2'])
+    expect(compilers).toEqual(['typescript@5.9.3', 'typescript@7.0.2'])
 
     const openTuiCores = Object.keys(metadata.snapshots).filter((key) =>
       key.startsWith('@opentui/core@'),
