@@ -17,7 +17,13 @@ compiled_genie="$tmpdir/genie-compiled"
 mkdir -p "$workspace/lib" "$tmp_root"
 
 cat > "$workspace/lib/payload.ts" <<'EOF'
-export const payload = { hello: 'compiled' }
+import { Schema } from 'effect'
+
+const NonEmptyString = Schema.String.check(
+  Schema.makeFilter((value: string) => value.length > 0, { message: 'Expected a non-empty string' }),
+)
+
+export const payload = { hello: Schema.decodeUnknownSync(NonEmptyString)('compiled') }
 EOF
 
 cat > "$workspace/demo.json.genie.ts" <<'EOF'
@@ -32,7 +38,7 @@ EOF
 echo "Test 1: compiled Genie generates output and exits"
 (
   cd "$ROOT"
-  bun build packages/@overeng/genie/bin/genie.tsx --compile --outfile "$compiled_genie" >/dev/null
+  bun build packages/@overeng/genie/bin/genie.tsx --compile --no-tree-shaking --outfile "$compiled_genie" >/dev/null
 )
 
 for _ in 1 2 3; do

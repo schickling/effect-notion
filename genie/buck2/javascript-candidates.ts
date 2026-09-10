@@ -16,6 +16,7 @@ export type JavaScriptProduct = {
   readonly smokeArgs?: readonly string[]
   readonly smokeRuntime?: 'bun' | 'node'
   readonly targetName: string
+  readonly treeShaking?: boolean
 }
 
 export type JavaScriptCandidates = {
@@ -33,6 +34,7 @@ const renderProduct = (product: JavaScriptProduct): string => {
     output = ${quote(product.output)},
     package_tree = ${quote(product.packageTree ?? ':package_tree')},
     target = ${quote(product.runtime ?? 'node')},
+    tree_shaking = ${product.treeShaking === false ? 'False' : 'True'},
     visibility = ["PUBLIC"],
 )
 

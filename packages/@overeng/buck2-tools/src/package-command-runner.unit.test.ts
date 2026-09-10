@@ -743,9 +743,11 @@ describe('package command runner', () => {
     'cell//p:cli-module',
   ]
 
-  it('defaults a bundle to a library module and accepts a declared CLI entry', () => {
-    expect(parsePackageCommand(bundle)).toMatchObject({ kind: 'module' })
-    expect(parsePackageCommand([...bundle, '--kind', 'cli'])).toMatchObject({ kind: 'cli' })
+  it('defaults bundles to tree shaking and accepts a full-closure product', () => {
+    expect(parsePackageCommand(bundle)).toMatchObject({ kind: 'module', treeShaking: true })
+    expect(
+      parsePackageCommand([...bundle, '--kind', 'cli', '--tree-shaking', 'false']),
+    ).toMatchObject({ kind: 'cli', treeShaking: false })
   })
 
   it('requires a bundle to name the target it is produced by', () => {

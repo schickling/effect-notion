@@ -155,4 +155,16 @@ describe('JavaScript candidate projection wrapper', () => {
     expect(output).toContain('    product_kind = "cli",')
     expect(output).toContain('    target = "node",')
   })
+
+  it('keeps the dynamic Genie generator import closure intact', () => {
+    const admission = buck2TypeScriptAdmissions.genie
+    const projection = buck2TypeScriptPackageProjection(admission)
+    const output = withJavaScriptCandidates({
+      projection,
+      products: javaScriptProductsFor(admission.packagePath),
+    }).stringify(genieContext)
+
+    expect(output).toContain('    name = "genie-candidate-module",')
+    expect(output).toContain('    tree_shaking = False,')
+  })
 })
