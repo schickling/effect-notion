@@ -1,7 +1,7 @@
 // Generated file - DO NOT EDIT
 // Source: constants.ts.genie.ts
 // registry-source: genie/weaver-registry/registry.ts
-// fingerprint: sha256:c9c5d586d6712e7fcf1417af0b24745494b07f5e4c23e89a5de619bc83b83f8c
+// fingerprint: sha256:be52ef8dea5f20b50bc7f08a69fa2d42fcc9e3367d429203a52ab5261976561d
 // regen: devenv tasks run genie:run
 
 export const AcmeAttempt = 'acme.attempt' as const

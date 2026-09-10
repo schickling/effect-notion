@@ -43,8 +43,8 @@ import pwContract from '../../packages/@overeng/utils/src/node/playwright/pw.con
 import semaphoreContract from '../../packages/@overeng/utils/src/node/semaphore.contract.ts'
 
 // --- pinned semantic inputs (all change the emitted output → part of the fingerprint) ---
-export const PINNED_WEAVER_VERSION = '0.24.2'
-export const PINNED_UPSTREAM_SEMCONV_VERSION = 'v1.37.0'
+export const PINNED_WEAVER_VERSION = '0.26.1'
+export const PINNED_UPSTREAM_SEMCONV_VERSION = 'v1.44.0'
 /** Bump when the emitter's output shape changes (independent of the authored registry). */
 export const GENERATOR_VERSION = '1'
 
@@ -111,6 +111,7 @@ const composition = registryFromMembers({
       dependency: {
         name: 'otel',
         registry_path: `https://github.com/open-telemetry/semantic-conventions.git@${PINNED_UPSTREAM_SEMCONV_VERSION}[model]`,
+        schema_url: `https://opentelemetry.io/schemas/${PINNED_UPSTREAM_SEMCONV_VERSION.slice(1)}`,
       },
       providesNamespaces: ['http'],
     },

@@ -2,7 +2,7 @@
 # Source: attributes.yaml.genie.ts
 
 # registry-source: genie/weaver-registry/registry.ts
-# fingerprint: sha256:fec96ac4bcb2db312b9c5e5e216a38aad2de6db3cf2c79048daad2df9642ef6e
+# fingerprint: sha256:c89d180db66f915f730f675d1f9a7b5ad796f3beadfcb7bc000c711f95f95a81
 # regen: devenv tasks run genie:run
 groups:
   - id: registry.acme

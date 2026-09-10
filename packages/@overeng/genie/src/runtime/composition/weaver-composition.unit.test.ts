@@ -162,7 +162,10 @@ describe('registryFromMembers (SC-R08/R09)', () => {
       description: 'd',
       schemaUrl: 's',
       upstream: [
-        { dependency: { name: 'otel', registry_path: 'x' }, providesNamespaces: ['http'] },
+        {
+          dependency: { name: 'otel', registry_path: 'x', schema_url: 's' },
+          providesNamespaces: ['http'],
+        },
       ],
     })
     expect(issues).toEqual([])

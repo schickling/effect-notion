@@ -124,6 +124,26 @@ All notable changes to this project will be documented in this file.
   `$script_dir/...` siblings sourced by an emitted script — and each failure
   names the unavailable script together with the file that asks for it.
 
+### Changed
+
+- **weaver / semconv pins**: OpenTelemetry Weaver 0.24.2 → 0.26.1 and the pinned
+  upstream semantic-convention registry v1.37.0 → v1.44.0, moved in lockstep
+  across both sources of truth the `weaver:version-smoke` gate compares —
+  `nix/weaver-flake/flake.nix` (`version`, `semconvVersion`, plus the refreshed
+  `src`, `semconvSrc` and `weaver-ui` pnpm-deps hashes) and
+  `genie/weaver-registry/registry.ts` (`PINNED_WEAVER_VERSION`,
+  `PINNED_UPSTREAM_SEMCONV_VERSION`, both provenance-fingerprint inputs). 0.26.1
+  rather than 0.25.x on purpose: Weaver 0.25 dropped the legacy v1 `name` +
+  `registry_path` dependency form the emitted manifest uses, and upstream
+  restored it in 0.26.0. Upstream `Cargo.lock` still carries no git dependencies,
+  so the derivation keeps `cargoLock.lockFile` with no `cargoHash`.
+  The generated registry projections under `genie/weaver-registry/`
+  (`manifest.yaml`'s dependency tag and the doc/identity fingerprint banners on
+  the YAML, TS and Rust outputs) still carry the old pins: regeneration is
+  `devenv tasks run genie:run`, which is unavailable while schickling/dotfiles#2602
+  makes the devenv task path destructive. Run `genie:run`, then
+  `weaver:version-smoke`, `weaver:check` and `genie:check` before merging.
+
 ### Removed
 
 - **@overeng/megarepo**: the deprecated `MegarepoStore` members `getRepoPath`

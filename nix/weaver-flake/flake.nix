@@ -3,8 +3,8 @@
   # (https://github.com/open-telemetry/weaver).
   #
   # Built from source (not re-exported from nixpkgs) so we can track the LATEST
-  # upstream release. nixpkgs currently pins 0.23.0; building ourselves lets us
-  # stay ahead of that. This flake targets v0.24.2.
+  # upstream release. nixpkgs currently pins 0.25.1; building ourselves lets us
+  # stay ahead of that. This flake targets v0.26.1.
   #
   # nixpkgs (nixos-unstable — same authority as the repo root) is used only for the
   # build toolchain (rustPlatform, pnpm, node, openssl, python) - the Weaver sources
@@ -53,16 +53,18 @@
       ];
       forAllSystems = f: lib.genAttrs systems (system: f system);
 
-      version = "0.24.2";
+      version = "0.26.1";
 
       # Pinned upstream OTel semantic-conventions registry — materialized as a Nix
       # fixed-output derivation so the weaver gate resolves `http.*` (and other upstream)
-      # refs against a LOCAL, deterministic, offline copy (SC-A03; confirmed: weaver 0.24.2
-      # accepts a local-filesystem `registry_path` pointing directly at the `model/` dir).
-      # v1.37.0 is verified clean under `--future` with weaver 0.24.2 (≤v1.36 fail on their
-      # own unstructured `deprecated:`). Refresh on bump with:
+      # refs against a LOCAL, deterministic, offline copy (SC-A03; weaver accepts a
+      # local-filesystem `registry_path` pointing directly at the `model/` dir, and 0.26.1
+      # keeps the legacy v1 `name` + `registry_path` dependency form the emitted manifest
+      # uses — upstream restored it in 0.26.0 after 0.25 regressed it).
+      # `--future` cleanliness needs semconv ≥ v1.37.0 (≤v1.36 fail on their own
+      # unstructured `deprecated:`). Refresh on bump with:
       #   nix run nixpkgs#nurl -- https://github.com/open-telemetry/semantic-conventions v<ver>
-      semconvVersion = "1.37.0";
+      semconvVersion = "1.44.0";
     in
     {
       packages = forAllSystems (
@@ -75,14 +77,14 @@
             owner = "open-telemetry";
             repo = "weaver";
             tag = "v${version}";
-            hash = "sha256-Yyw7YTwndmNdNu4/5J7v9RJFKAYaO0RS06B4BWwXteE=";
+            hash = "sha256-RR+DrsE/e4DwXC9KpEVkvRswh8YDWi6jNVs9IRa6Eeg=";
           };
 
           semconvSrc = pkgs.fetchFromGitHub {
             owner = "open-telemetry";
             repo = "semantic-conventions";
             tag = "v${semconvVersion}";
-            hash = "sha256-anSQASvg8SlLR3d3ArKZk5iCx+37F+NidK6jT3gFmpA=";
+            hash = "sha256-//peesRhGcjkJj8fett8TxLxa/Wc/qavUQvuLmGP+TM=";
           };
 
           # Just the `model/` subtree — the directory weaver's `registry_path` points at.
@@ -106,7 +108,7 @@
               inherit version src pnpm;
               sourceRoot = "${src.name}/ui";
               fetcherVersion = 3;
-              hash = "sha256-Wy3PsnQVfn7R80WmPFEinMDApzkyiXnca3sfUYYYH10=";
+              hash = "sha256-LwPhHRVEMolpdEoShenfFzFDLZqBp+5lkMKY0OPswWE=";
             };
             pnpmRoot = "ui";
 
