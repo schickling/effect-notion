@@ -607,7 +607,17 @@ tsconfig.check.json`, but oxlint 1.39 cannot speak the tsgolint 7 protocol, so
   devDependencies: KaTeX ships its own `types/katex.d.ts` through its exports
   map, so the DefinitelyTyped stub was a shadowing duplicate frozen at the
   0.16 API. KaTeX's `commander` dependency moves 8.3.0 → 15.0.0 in the lock
-  (CLI-only, and the only `commander` consumer in the graph).
+  (CLI-only, and the only `commander` consumer in the graph). `commander` 15
+  advertises `engines.node >= 22.12`, but that is an install-time advisory
+  rather than a runtime floor — the render path never loads it, so
+  `notion-react`'s documented Node 20+ / Bun 1.1+ baseline is unchanged.
+  `pnpm-lock.yaml` and `buck2/dependencies/` are regenerated, and all eight
+  root CLI dependency-closure hashes are remeasured locally against the
+  regenerated lockfile (`evergreen fod refresh`, x86_64-linux). All eight move
+  even though none of those closures contains KaTeX or `commander`: each
+  staged FOD source includes the root `pnpm-lock.yaml` and fingerprints it
+  into the derivation name, so any lockfile change rotates every
+  prepared-deps hash.
 
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for

@@ -20,7 +20,7 @@ let
     workspaceRoot = src;
     # Managed by the repo FOD refresh workflow — do not edit manually.
     depsBuilds = {
-      "." = mkSharedHash "sha256-ANCO5tBslpzsXN1k1KOI9WH48OAZcUs2yE5GFmVARIw=";
+      "." = mkSharedHash "sha256-F7QBz0X9FL8+6sHG4qEHEc2pDnTCjXZT3MiQp9iqd+4=";
     };
     smokeTestArgs = [ "--help" ];
     inherit gitRev commitTs dirty;
