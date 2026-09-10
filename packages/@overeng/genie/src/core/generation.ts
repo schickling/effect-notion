@@ -80,6 +80,33 @@ const resolveRelativeImportPath = async ({
   return resolvedCandidates.find((candidate) => candidate !== undefined)
 }
 
+/**
+ * Find the nearest `node_modules` directory by walking up from `fromPath`.
+ *
+ * Returns undefined when none exists — e.g. a cold bootstrap checkout before install. In that case
+ * the staged graph gets no `node_modules` symlink and bare imports stay unresolvable, which is
+ * correct: `bootstrap`-phase generators are statically guaranteed (see {@link checkBootstrapClosure})
+ * never to reach a bare package, so only design-time generators (run post-install, node_modules
+ * present) rely on the symlink below.
+ */
+const findNearestNodeModules = async (fromPath: string): Promise<string | undefined> => {
+  let dir = path.dirname(fromPath)
+  const { root } = path.parse(dir)
+  for (;;) {
+    const candidate = path.join(dir, 'node_modules')
+    try {
+      // Sequential walk-up: each level's check depends on the previous miss, so it cannot be parallelized.
+      // oxlint-disable-next-line eslint/no-await-in-loop -- inherent to walking up the directory tree
+      const stat = await nodeFs.stat(candidate)
+      if (stat.isDirectory() === true) return candidate
+    } catch {
+      // No node_modules at this level — keep walking up.
+    }
+    if (dir === root) return undefined
+    dir = path.dirname(dir)
+  }
+}
+
 const collectRelativeImportPaths = async ({
   sourceCode,
   sourcePath,
@@ -109,7 +136,13 @@ const collectRelativeImportPaths = async ({
   )
 }
 
-const stageCompiledBinaryImportGraph = ({
+/**
+ * Copy a genie file's relative/`#` import closure into a fresh `os.tmpdir()` staging directory and
+ * return the staged entry path (used by the compiled-binary import path, which cannot register the
+ * Bun import-map plugin). The importer's real `node_modules` is symlinked into the staged root so
+ * bare workspace-package / runtime imports still resolve. Exported for {@link stageCompiledBinaryImportGraph} tests.
+ */
+export const stageCompiledBinaryImportGraph = ({
   entryPath,
 }: {
   entryPath: string
@@ -124,6 +157,37 @@ const stageCompiledBinaryImportGraph = ({
           cause: error,
         }),
     })
+
+    // Bare specifiers (`effect`, `@overeng/otel-contract`, `@effect/platform`, …) survive staging
+    // unchanged — `resolveImportMapsInSource` only rewrites `#`/`#mr`/relative specifiers. Staged
+    // modules are read from `os.tmpdir()`, outside the repo, so those bare imports would have no
+    // reachable `node_modules` and fail (in a compiled binary the bundled copies are not visible to
+    // externally-loaded files). Symlinking the importer's real `node_modules` into the staged root
+    // lets Bun resolve every bare import against the real on-disk install — exactly as a non-compiled
+    // `bun` run does when it imports the genie file in place. The bare-imported package's own
+    // transitive closure (its `effect`, its relative files) resolves from that package's real
+    // location; only the entry and its relative/`#` closure are ever copied, so a bare-imported
+    // package is loaded exactly once (avoids duplicate-singleton hazards, see mk-pnpm-cli.nix).
+    const nearestNodeModules = yield* Effect.tryPromise({
+      try: () => findNearestNodeModules(entryPath),
+      catch: (error) =>
+        new GenieImportError({
+          genieFilePath: entryPath,
+          message: `Failed to locate node_modules while staging compiled-binary imports for ${entryPath}: ${safeErrorString(error)}`,
+          cause: error,
+        }),
+    })
+    if (nearestNodeModules !== undefined) {
+      yield* Effect.tryPromise({
+        try: () => nodeFs.symlink(nearestNodeModules, path.join(tempRoot, 'node_modules'), 'dir'),
+        catch: (error) =>
+          new GenieImportError({
+            genieFilePath: entryPath,
+            message: `Failed to link node_modules into compiled-binary staging directory for ${entryPath}: ${safeErrorString(error)}`,
+            cause: error,
+          }),
+      })
+    }
 
     const stagedPaths = new Map<string, string>()
     const relativeEntryPath = entryPath.replace(/^(?:[A-Za-z]:)?[\\/]+/, '')
@@ -202,7 +266,8 @@ const stageCompiledBinaryImportGraph = ({
     return { stagePath, tempRoot }
   })
 
-const removeStagedCompiledBinaryImportGraph = ({
+/** Recursively remove a staged import graph's temp root (unlinks the `node_modules` symlink without following it). */
+export const removeStagedCompiledBinaryImportGraph = ({
   tempRoot,
 }: StagedCompiledBinaryImportGraph): Effect.Effect<void> =>
   Effect.sync(() => nodeFsSync.rmSync(tempRoot, { recursive: true, force: true })).pipe(

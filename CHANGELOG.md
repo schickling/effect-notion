@@ -1185,6 +1185,15 @@ violations }` (the offending `DiffOp[]`); block ops and page content
 
 ### Fixed
 
+- **@overeng/genie**: stage bare workspace-package imports in compiled-binary
+  mode. When genie runs as a `bun --compile` binary it stages the `.genie.ts`
+  import graph into `os.tmpdir()`, which stripped `node_modules` reachability so
+  bare `@overeng/*` / `effect` imports failed (the bundled copies are not
+  visible to externally-loaded staged files). The staging step now symlinks the
+  importer's real `node_modules` into the staged root, letting design-time
+  generators reference real workspace-package types/data instead of hand-copied
+  relative mirrors. Cold bootstrap-phase generators (no `node_modules`) are
+  unaffected. (#1316)
 - **devenv / ts:emit**: resolve project references with filesystem directory
   checks so dotted directory names map to `tsconfig.json`, and treat an
   all-`noEmit` reference graph as successful no-work instead of invoking the
