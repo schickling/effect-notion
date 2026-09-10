@@ -127,6 +127,12 @@ clean/lossless floor (decision
 [0008](./.decisions/0008-ref-mismatch-clean-archive.md)). `--all` is the
 protection-bypassing mode and honors none of this.
 
+Composed workspace roots are conservatively retained by both default and
+`--all` GC. GC inspects the nested owned worktree for Git and dirty-state
+evidence, but the current archive primitive can only move a flat worktree.
+Archiving a composed root stays disabled until a root-aware journaled archive
+can preserve the complete workspace and its nested Git registration atomically.
+
 Absence of evidence never licenses deletion: an unavailable `gh`, a failed
 fetch, an unreadable workspace record, or an empty observation ledger all
 resolve to _keep_.
@@ -141,6 +147,38 @@ member is. The root shape and cell wiring are specified by
 [../buck2/05-composition/spec.md](../buck2/05-composition/spec.md) — this
 document specifies only what `mr` does to produce it.
 
+### Workspace identity and creation
+
+A composed root `P` is a rebuildable projection around one owned Git worktree
+`W`, exactly `P/repos/<owned>`. The bare repository's worktree registration is
+authoritative only when it names `W` and agrees with `W`'s `.git` pointer and
+branch identity. Root generation metadata remains descriptive; there is no
+root ownership manifest.
+
+`mr store worktree new` reads composition intent from the target commit before
+creating anything. For a composition-enabled branch it claims an absent `P`,
+creates `P/repos`, runs `git worktree add` directly at final `W`, links the
+owned config into `P`, and runs normal composition generation. It never stages
+or publishes another root and never relocates `W`.
+
+Creation may retry only recognizable partial births: an otherwise empty `P`
+with an empty `repos`, or the exact registered `W` with matching Git identity
+and a missing or correct root-config link. Before Git registration, any other
+root entry or non-empty `repos` is foreign. A branch registered anywhere but
+`W`, a mismatched `.git`/bare/branch identity, or an incorrect root-config
+symlink is ambiguous and fails closed with exact paths. Refusal never moves
+`W` or deletes bytes.
+
+Routine application validates this composed Git shape, then only plans or
+reconciles generated state. A legacy flat `P` is refused before mutation with a
+typed instruction to recreate it through `mr store worktree new`. There is no
+public cutover, recover, unlock, or composition-status lifecycle surface.
+
+Store path resolution, pinning, status, and GC derive the same `P`/`W` pair
+from the canonical registration shape. Both default cold GC and `gc --all`
+hard-keep composed roots until a root-aware archive/delete primitive exists.
+The flat recursive-delete path is never used for `P`.
+
 ### The composition state machine
 
 `mr apply` is a state machine over one workspace, taking the update lock once
@@ -149,10 +187,8 @@ that points at state not yet materialized.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Acquire
-  Acquire: acquire or recover the owned branch-attached worktree
-  Acquire --> Resolve
-  Resolve: resolve locked sources (immutable refs only)
+  [*] --> Resolve
+  Resolve: validate P/W Git identity and resolve locked sources
   Resolve --> Lock
   Lock: take the workspace update lock
   Lock --> Capabilities
@@ -164,7 +200,7 @@ stateDiagram-v2
   Overlays --> Publish
   Publish: write root Buck authority, release the lock
   Publish --> [*]
-  Acquire --> Refuse: dirty, drifted, or non-admissible source
+  Resolve --> Refuse: invalid Git identity or non-admissible source
   Mounts --> Refuse: R6 post-condition mismatch
   Refuse --> [*]
 ```
@@ -242,7 +278,6 @@ invalidate through an excluded path.
 | `mr status` / `mr ls`            | both           | report intent vs lock vs workspace drift; read-only                   |
 | `mr pin`                         | arrangement    | freeze a member against `mr fetch --apply`                            |
 | `mr store gc` / `status` / `fix` | arrangement    | reclaim, report, and repair store worktrees                           |
-| `mr composition`                 | ownership      | inspect and drive composition workspace state                         |
 | `mr exec`                        | both           | run a command across members                                          |
 | `mr check`                       | both           | validate config, lock, and workspace consistency                      |
 

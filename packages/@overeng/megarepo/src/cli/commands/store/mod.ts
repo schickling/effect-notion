@@ -18,12 +18,22 @@ import type { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSp
 import React from 'react'
 
 import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
+import {
+  BUCK_MEMBER_MANIFEST_FILENAME,
+  decodeBuckMemberManifestJson,
+} from '@overeng/megarepo/buck2-manifest'
 import { OutputModeTag, run } from '@overeng/tui-react'
 
+import {
+  assertComposedOwnedWorkspace,
+  composedWorkspacePathsFromRegistration,
+  createComposedOwnedWorkspace,
+} from '../../../composition/acquisition/owned-worktree-acquisition.ts'
 import {
   parseSourceString,
   isRemoteSource,
   getSourceRef,
+  decodeMegarepoConfigContent,
   readMegarepoConfig,
 } from '../../../core/config.ts'
 import * as Git from '../../../core/git.ts'
@@ -82,12 +92,22 @@ import type {
   StoreWorktreeIssue,
 } from '../../renderers/StoreOutput/mod.ts'
 
-/** Entry returned by collectStoreWorktrees — `broken` indicates a directory that looks like a worktree but is missing its .git file */
+/**
+ * Entry returned by collectStoreWorktrees — `broken` indicates a directory that looks like a
+ * worktree but is missing its .git file.
+ *
+ * A composed workspace is ONE entry: `path` is the workspace root (which is deliberately not a
+ * git worktree) and `ownedWorktree` is the nested branch checkout that carries all Git state.
+ * Every git observation of the entry — dirty bytes, unpushed commits, removal safety — must read
+ * `ownedWorktree` when it is set, because the root itself would report nothing.
+ */
 type CollectedWorktree = {
   ref: string
   refType: 'heads' | 'tags' | 'commits'
   path: AbsoluteDirPath
   broken: boolean
+  ownedWorktree?: AbsoluteDirPath
+  composedRoot?: true
 }
 
 type GcWorktreeDecision =
@@ -359,7 +379,9 @@ const planGeneratedArtifacts = ({
     for (const { repo, worktrees } of repoWorktrees) {
       for (const worktree of worktrees) {
         if (worktree.broken === true) continue
-        const removalStatus = yield* Git.getWorktreeRemovalStatus(worktree.path).pipe(
+        const removalStatus = yield* Git.getWorktreeRemovalStatus(
+          worktree.ownedWorktree ?? worktree.path,
+        ).pipe(
           Effect.map((status) => ({ _tag: 'known' as const, status })),
           Effect.orElseSucceed(() => ({ _tag: 'unknown' as const })),
         )
@@ -442,7 +464,7 @@ const planGeneratedArtifacts = ({
               : agentActivity
           const finalRemovalStatus =
             traversal?._tag === 'complete'
-              ? yield* Git.getWorktreeRemovalStatus(worktree.path).pipe(
+              ? yield* Git.getWorktreeRemovalStatus(worktree.ownedWorktree ?? worktree.path).pipe(
                   Effect.map((status) => ({ _tag: 'known' as const, status })),
                   Effect.orElseSucceed(() => ({ _tag: 'unknown' as const })),
                 )
@@ -826,7 +848,13 @@ const collectStoreWorktrees = ({
     return result
   })
 
-const collectRepoStoreWorktrees = ({
+/**
+ * The single classification point for everything reclaimable in one repo's store layout.
+ *
+ * Exported so the composed-workspace shape (one entry at the workspace root, Git state in the
+ * nested owned checkout, lifecycle residue excluded) can be asserted directly.
+ */
+export const collectRepoStoreWorktrees = ({
   fs,
   repoPath,
   bareRepoPath,
@@ -857,14 +885,40 @@ const collectRepoStoreWorktrees = ({
     // the store layout is the durable source of truth for refs/heads|tags|commits.
     const gitWorktrees = yield* Git.listWorktrees(bareRepoPath)
     for (const worktree of gitWorktrees) {
-      const normalizedPath = worktree.path.replace(/\/+$/, '')
-      const relativePath =
-        normalizedPath.startsWith(refsPrefix) === true
-          ? normalizedPath.slice(refsPrefix.length)
-          : normalizedPath.startsWith(realRefsPrefix) === true
-            ? normalizedPath.slice(realRefsPrefix.length)
+      const registeredPath = worktree.path.replace(/\/+$/, '')
+      const registeredRelativePath =
+        registeredPath.startsWith(refsPrefix) === true
+          ? registeredPath.slice(refsPrefix.length)
+          : registeredPath.startsWith(realRefsPrefix) === true
+            ? registeredPath.slice(realRefsPrefix.length)
             : undefined
-      if (relativePath === undefined) continue
+      if (registeredRelativePath === undefined) continue
+      const composedPaths = composedWorkspacePathsFromRegistration({
+        registeredWorktree: registeredPath,
+      })
+      const composedRelativePath =
+        composedPaths?.workspaceRoot.startsWith(refsPrefix) === true
+          ? composedPaths.workspaceRoot.slice(refsPrefix.length)
+          : composedPaths?.workspaceRoot.startsWith(realRefsPrefix) === true
+            ? composedPaths.workspaceRoot.slice(realRefsPrefix.length)
+            : undefined
+      const registeredBranch = Option.getOrUndefined(worktree.branch)
+      const isComposed =
+        composedPaths !== undefined &&
+        composedRelativePath?.startsWith('heads/') === true &&
+        composedRelativePath.slice('heads/'.length) === registeredBranch
+      if (isComposed === true) {
+        yield* assertComposedOwnedWorkspace({
+          bareRepo: bareRepoPath,
+          workspaceRoot: composedPaths.workspaceRoot,
+          ownedMember: composedPaths.ownedMember,
+          branch: registeredBranch!,
+        })
+      }
+      const normalizedPath = isComposed === true ? composedPaths.workspaceRoot : registeredPath
+      const relativePath = isComposed === true ? composedRelativePath : registeredRelativePath
+      if (relativePath.split('/').some((segment) => segment.startsWith('.') === true) === true)
+        continue
 
       const separatorIndex = relativePath.indexOf('/')
       if (separatorIndex === -1) continue
@@ -883,6 +937,12 @@ const collectRepoStoreWorktrees = ({
         refType,
         path: EffectPath.unsafe.absoluteDir(`${repoPrefix}/refs/${relativePath}/`),
         broken: false,
+        ...(isComposed === true
+          ? {
+              ownedWorktree: EffectPath.unsafe.absoluteDir(`${registeredPath}/`),
+              composedRoot: true as const,
+            }
+          : {}),
       })
     }
 
@@ -940,6 +1000,13 @@ const classifyGcWorktree = ({
   all: boolean
 }) =>
   Effect.gen(function* () {
+    if (worktree.composedRoot === true) {
+      return {
+        worktree,
+        action: 'skipped_in_use' as const,
+        message: `Composed workspace '${worktree.path}' is protected until GC has a root-aware archive/delete primitive`,
+      }
+    }
     const policy = classifyStoreWorktreePolicy({
       liveSet,
       mode: all === true ? 'all' : 'default',
@@ -962,7 +1029,10 @@ const classifyGcWorktree = ({
       }
     }
 
-    const statusResult = yield* Git.getWorktreeRemovalStatus(worktree.path).pipe(
+    // A composed root holds no Git state of its own; its nested owned checkout does.
+    const statusResult = yield* Git.getWorktreeRemovalStatus(
+      worktree.ownedWorktree ?? worktree.path,
+    ).pipe(
       Effect.map((status) => ({ _tag: 'status' as const, status })),
       Effect.catch((error) =>
         Effect.succeed({
@@ -1210,12 +1280,23 @@ const coldReclaimRepo = ({
         results.push(coldResult({ target, status: 'kept', reason: 'default-branch' }))
         continue
       }
+      const gitWorktreePath = worktree.ownedWorktree ?? worktree.path
+
+      // `archiveWorktree` only supports a flat worktree whose reclaim root and Git checkout are
+      // the same directory. A composed root contains additional generated/member bytes around its
+      // nested checkout, so moving only the checkout or passing the non-Git root would make the
+      // archive incomplete or unsafe. Keep the whole composed unit until archive has a
+      // root-aware primitive.
+      if (worktree.composedRoot === true) {
+        results.push(coldResult({ target, status: 'kept', reason: 'composed-workspace' }))
+        continue
+      }
 
       // Ref-mismatch fork: the store path claims `<ref>` but the worktree HEAD
       // is on a different branch. The normal cold path is unsafe because it frees
       // `refs/heads/<ref>`, which is NOT the branch actually checked out. Only a
       // clean, lossless, absent mismatch takes the separate archive-only path.
-      const headBranch = yield* Git.getCurrentBranch(worktree.path).pipe(
+      const headBranch = yield* Git.getCurrentBranch(gitWorktreePath).pipe(
         Effect.orElseSucceed(() => Option.none<string>()),
       )
       if (Option.isSome(headBranch) === true && headBranch.value !== worktree.ref) {
@@ -1251,7 +1332,7 @@ const coldReclaimRepo = ({
           continue
         }
 
-        const head = yield* Git.getCurrentCommit(worktree.path).pipe(
+        const head = yield* Git.getCurrentCommit(gitWorktreePath).pipe(
           Effect.map(Option.some),
           Effect.orElseSucceed(() => Option.none<string>()),
         )
@@ -1263,7 +1344,7 @@ const coldReclaimRepo = ({
 
         const lossless = yield* assessLossless({
           bareRepoPath,
-          worktreePath: worktree.path,
+          worktreePath: gitWorktreePath,
           worktreeHead,
         }).pipe(
           Effect.map(Option.some),
@@ -1387,7 +1468,7 @@ const coldReclaimRepo = ({
         })
         .pipe(Observability.withStoreGcPhaseSpan({ phase: 'resolve-pr' }))
 
-      const head = yield* Git.getCurrentCommit(worktree.path).pipe(
+      const head = yield* Git.getCurrentCommit(gitWorktreePath).pipe(
         Effect.map(Option.some),
         Effect.orElseSucceed(() => Option.none<string>()),
       )
@@ -1399,7 +1480,7 @@ const coldReclaimRepo = ({
 
       const lossless = yield* assessLossless({
         bareRepoPath,
-        worktreePath: worktree.path,
+        worktreePath: gitWorktreePath,
         worktreeHead,
       }).pipe(
         Effect.map(Option.some),
@@ -1656,8 +1737,16 @@ const storeStatusCommand = Cli.Command.make('status', { output: outputOption }, 
           // Analyze all worktrees for this repo in parallel
           return yield* Effect.all(
             allWorktrees.map(
-              ({ path: worktreePath, ref: expectedRef, refType: refTypeDir, broken }) =>
+              ({
+                path: worktreeRootPath,
+                ownedWorktree,
+                ref: expectedRef,
+                refType: refTypeDir,
+                broken,
+              }) =>
                 Effect.gen(function* () {
+                  // A composed root delegates every Git observation to its owned checkout.
+                  const worktreePath = ownedWorktree ?? worktreeRootPath
                   const issues: StoreWorktreeIssue[] = []
 
                   if (bareExists === false) {
@@ -1720,7 +1809,7 @@ const storeStatusCommand = Cli.Command.make('status', { output: outputOption }, 
                       mode: 'default',
                       worktree: {
                         refType: refTypeDir,
-                        path: worktreePath,
+                        path: worktreeRootPath,
                       },
                     }).isProtected === false
                   ) {
@@ -1735,7 +1824,7 @@ const storeStatusCommand = Cli.Command.make('status', { output: outputOption }, 
                     repo: repo.relativePath,
                     ref: expectedRef,
                     refType: refTypeDir,
-                    path: worktreePath,
+                    path: worktreeRootPath,
                     issues,
                   } satisfies StoreWorktreeStatus
                 }),
@@ -3094,6 +3183,74 @@ const storeFixCommand = Cli.Command.make(
 ).pipe(Cli.Command.withDescription('Fix store issues'))
 
 /**
+ * Read the composition intent recorded at one commit of a bare repository.
+ *
+ * The intent lives in the repository itself — a composition-enabled config plus the Buck member
+ * manifest naming its own mount — so no repository name is ever hardcoded and a repository that
+ * has not adopted composition keeps ordinary flat creation.
+ *
+ * Fail-closed: only a *confirmed absent* declaration returns `undefined`. Presence is decided by
+ * one `ls-tree`, and every read or decode failure after that propagates, because publishing a
+ * forbidden flat root is not an acceptable interpretation of "the declaration was unreadable".
+ */
+const readComposedCreationIntent = ({
+  bareRepoPath,
+  rev,
+}: {
+  readonly bareRepoPath: string
+  readonly rev: string
+}) =>
+  Effect.gen(function* () {
+    const listed = yield* Git.runCommand({
+      cwd: bareRepoPath,
+      args: [
+        'ls-tree',
+        '-z',
+        '--name-only',
+        rev,
+        '--',
+        'megarepo.kdl',
+        'megarepo.json',
+        BUCK_MEMBER_MANIFEST_FILENAME,
+      ],
+    })
+    const present = new Set(listed.split('\0').filter((entry) => entry.length > 0))
+    const configName =
+      present.has('megarepo.kdl') === true
+        ? 'megarepo.kdl'
+        : present.has('megarepo.json') === true
+          ? 'megarepo.json'
+          : undefined
+    if (configName === undefined) return undefined
+    const config = yield* decodeMegarepoConfigContent({
+      content: yield* Git.runCommand({
+        cwd: bareRepoPath,
+        args: ['show', `${rev}:${configName}`],
+      }),
+      format: configName === 'megarepo.kdl' ? 'kdl' : 'json',
+    })
+    if (config.generators?.composition?.enabled !== true) return undefined
+    if (present.has(BUCK_MEMBER_MANIFEST_FILENAME) === false) {
+      return yield* new StoreCommandError({
+        message: `Commit '${rev}' enables composition but has no ${BUCK_MEMBER_MANIFEST_FILENAME}; refusing to create a flat workspace`,
+      })
+    }
+    const mount = decodeBuckMemberManifestJson(
+      yield* Git.runCommand({
+        cwd: bareRepoPath,
+        args: ['show', `${rev}:${BUCK_MEMBER_MANIFEST_FILENAME}`],
+      }),
+    ).mount
+    const ownedMember = /^repos\/([A-Za-z0-9][A-Za-z0-9._-]*)$/u.exec(mount)?.[1]
+    if (ownedMember === undefined) {
+      return yield* new StoreCommandError({
+        message: `Commit '${rev}' declares an unusable owned mount '${mount}'`,
+      })
+    }
+    return ownedMember
+  })
+
+/**
  * Create a new worktree in the store.
  * Auto-bootstraps bare repo if not present, fetches, then creates the worktree.
  */
@@ -3283,8 +3440,48 @@ const storeWorktreeNewCommand = Cli.Command.make(
         yield* fs.makeDirectory(worktreeParent, { recursive: true })
       }
 
+      const compositionIntentRev =
+        commit !== undefined || refType !== 'branch'
+          ? undefined
+          : (base ??
+            ((yield* Git.refExists({
+              repoPath: bareRepoPath,
+              ref: `refs/heads/${targetRef}`,
+            })) === true
+              ? targetRef
+              : `origin/${targetRef}`))
+
+      // Composition intent is read from the target commit before any worktree is created.
+      const composedMember =
+        compositionIntentRev === undefined
+          ? undefined
+          : yield* readComposedCreationIntent({
+              bareRepoPath,
+              rev: compositionIntentRev,
+            })
+      const composedOwnedPath =
+        composedMember === undefined
+          ? undefined
+          : (yield* createComposedOwnedWorkspace({
+              bareRepo: bareRepoPath,
+              workspaceRoot: worktreePath,
+              ownedMember: composedMember,
+              branch: targetRef,
+              ...(base === undefined ? {} : { startPoint: base }),
+              generate: () => Effect.void,
+            }).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new StoreCommandError({
+                    message: `Cannot create composed workspace at '${worktreePath}': ${cause.message}`,
+                  }),
+              ),
+            )).defaultCwd
+
       // Create the worktree
-      if (commit !== undefined) {
+      if (composedOwnedPath !== undefined) {
+        // Already created at its final composed shape.
+      } else if (commit !== undefined) {
         // Detached HEAD at specific commit
         yield* Git.createWorktreeDetached({
           repoPath: bareRepoPath,
@@ -3334,12 +3531,15 @@ const storeWorktreeNewCommand = Cli.Command.make(
         }
       }
       // Get the current commit in the new worktree
-      const commitSha = yield* Git.getCurrentCommit(worktreePath).pipe(Effect.option)
+      const createdPath = composedOwnedPath ?? worktreePath
+      const commitSha = yield* Git.getCurrentCommit(
+        EffectPath.unsafe.absoluteDir(`${createdPath.replace(/\/$/u, '')}/`),
+      ).pipe(Effect.option)
       const resolvedCommit = Option.getOrUndefined(commitSha)
 
       // Porcelain: raw path output for scripting (e.g. cd $(mr store worktree new ... --porcelain))
       if (porcelain === true) {
-        yield* Effect.sync(() => process.stdout.write(worktreePath.replace(/\/$/, '') + '\n'))
+        yield* Effect.sync(() => process.stdout.write(createdPath.replace(/\/$/u, '') + '\n'))
         return
       }
 
@@ -3352,7 +3552,7 @@ const storeWorktreeNewCommand = Cli.Command.make(
               _tag: 'SetWorktreeNew',
               source: repoString,
               ref: targetRef,
-              path: worktreePath,
+              path: createdPath,
               commit: resolvedCommit,
               autoBootstrap,
               branchCreated: isNewBranch,

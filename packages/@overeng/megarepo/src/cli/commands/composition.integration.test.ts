@@ -2,206 +2,151 @@ import * as NodePath from 'node:path'
 
 import { NodeServices } from '@effect/platform-node'
 import { describe, it } from '@effect/vitest'
-import { Effect, Option } from 'effect'
+import { Effect, Schema } from 'effect'
 import * as FileSystem from 'effect/FileSystem'
 import { expect } from 'vitest'
 
-import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
+import { EffectPath } from '@overeng/effect-path'
 
+import { COMPOSITION_ROOT_SCHEMA_VERSION } from '../../composition/root/composition-root.ts'
 import * as Git from '../../core/git.ts'
-import { createLockedMember, LockFile } from '../../core/lock.ts'
 import type { MegarepoStore } from '../../store/store.ts'
-import { addCommit, initGitRepo } from '../../test-utils/setup.ts'
+import { Store } from '../../store/store.ts'
 import { makeCanonicalTempDirectoryScoped } from '../../test-utils/temp-root.ts'
-import {
-  CompositionCutoverError,
-  compositionCacheSections,
-  readCompositionLockFile,
-  resolveLockedCompositionMembers,
-} from './composition.ts'
+import { preflightCompositionCommand, runCompositionApply } from './composition.ts'
 
-interface Fixture {
-  readonly sourcePath: AbsoluteDirPath
-  readonly store: MegarepoStore
-  readonly lockFile: LockFile
-}
+const GIT_USER = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test User'] as const
 
-const makeFixture = Effect.gen(function* () {
+const makeLegacyWorkspace = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem
-  const root = EffectPath.unsafe.absoluteDir(`${yield* makeCanonicalTempDirectoryScoped()}/`)
-  const seed = EffectPath.ops.join(root, EffectPath.unsafe.relativeDir('seed/'))
-  const repoBase = EffectPath.ops.join(
-    root,
-    EffectPath.unsafe.relativeDir('github.com/public/member/'),
+  const tmp = yield* makeCanonicalTempDirectoryScoped()
+  const source = NodePath.join(tmp, 'source')
+  const repoRoot = NodePath.join(tmp, 'repo')
+  const bareRepo = NodePath.join(repoRoot, '.bare')
+  const workspaceRoot = NodePath.join(repoRoot, 'refs', 'heads', 'main')
+  const git = (cwd: string, ...args: ReadonlyArray<string>) =>
+    Git.runCommand({ cwd, args: [...GIT_USER, ...args] })
+  yield* fs.makeDirectory(EffectPath.unsafe.absoluteDir(`${source}/`), { recursive: true })
+  yield* git(source, 'init', '-b', 'main')
+  const configJson = yield* Schema.encodeEffect(
+    Schema.fromJsonString(Schema.Unknown, { space: 2 }),
+  )({ members: {}, generators: { composition: { enabled: true, platformHub: 'hub' } } })
+  yield* fs.writeFileString(
+    EffectPath.unsafe.absoluteFile(NodePath.join(source, 'megarepo.json')),
+    `${configJson}\n`,
   )
-  const bareRepo = EffectPath.ops.join(repoBase, EffectPath.unsafe.relativeDir('.bare/'))
-  yield* fs.makeDirectory(seed, { recursive: true })
-  yield* initGitRepo(seed)
-  yield* fs.makeDirectory(EffectPath.unsafe.absoluteDir(`${NodePath.join(seed, 'scripts')}/`), {
-    recursive: true,
+  const memberJson = yield* Schema.encodeEffect(
+    Schema.fromJsonString(Schema.Unknown, { space: 2 }),
+  )({
+    schemaVersion: COMPOSITION_ROOT_SCHEMA_VERSION,
+    cell: 'owner',
+    mount: 'repos/owner',
+    projectIgnore: [],
+    distOverlays: [],
+    capabilities: [],
   })
   yield* fs.writeFileString(
-    EffectPath.unsafe.absoluteFile(NodePath.join(seed, '.gitignore')),
-    'ignored.cache\n',
+    EffectPath.unsafe.absoluteFile(NodePath.join(source, 'buck2-member.json')),
+    `${memberJson}\n`,
   )
-  yield* fs.writeFileString(
-    EffectPath.unsafe.absoluteFile(NodePath.join(seed, 'flake.lock')),
-    '{"nodes":{},"root":"root","version":7}\n',
-  )
-  yield* addCommit({ repoPath: seed, message: 'Create locked source' })
-  const commit = yield* Git.getCurrentCommit(seed)
-  yield* fs.makeDirectory(repoBase, { recursive: true })
-  yield* Git.runCommand({ cwd: root, args: ['clone', '--bare', seed, bareRepo] })
-  const sourcePath = EffectPath.ops.join(
-    repoBase,
-    EffectPath.unsafe.relativeDir(`refs/commits/${commit}/`),
-  )
-  yield* fs.makeDirectory(
-    EffectPath.unsafe.absoluteDir(`${NodePath.dirname(sourcePath.replace(/\/$/u, ''))}/`),
-    { recursive: true },
-  )
-  yield* Git.createWorktreeDetached({ repoPath: bareRepo, worktreePath: sourcePath, commit })
-
+  yield* git(source, 'add', '-A')
+  yield* git(source, 'commit', '--no-gpg-sign', '--no-verify', '-m', 'base')
+  yield* fs.makeDirectory(EffectPath.unsafe.absoluteDir(`${repoRoot}/`), { recursive: true })
+  yield* git(tmp, 'clone', '--bare', source, bareRepo)
+  yield* git(bareRepo, 'worktree', 'add', workspaceRoot, 'main')
   const store: MegarepoStore = {
-    basePath: root,
-    getRepoBasePath: () => repoBase,
-    getBareRepoPath: () => bareRepo,
-    getWorktreePath: () => sourcePath,
+    basePath: EffectPath.unsafe.absoluteDir(`${tmp}/`),
+    getRepoBasePath: () => EffectPath.unsafe.absoluteDir(`${tmp}/`),
+    getBareRepoPath: () => EffectPath.unsafe.absoluteDir(`${bareRepo}/`),
+    getWorktreePath: () => EffectPath.unsafe.absoluteDir(`${workspaceRoot}/`),
     hasBareRepo: () => Effect.succeed(true),
     hasWorktree: () => Effect.succeed(true),
     listRepos: Effect.succeed([]),
     listWorktrees: () => Effect.succeed([]),
   }
-  const lockFile = new LockFile({
-    version: 1,
-    members: {
-      member: createLockedMember({
-        url: 'https://github.com/public/member',
-        ref: 'main',
-        commit,
-      }),
-    },
-  })
-  return { sourcePath, store, lockFile } satisfies Fixture
+  return { tmp, bareRepo, workspaceRoot, store, git }
 })
 
-describe('compositionCacheSections', () => {
-  it('disables remote cache execution before the first overlay when requested', () => {
-    expect(compositionCacheSections({ BUCK2_NO_REMOTE_CACHE: '1' })).toEqual([
-      {
-        section: 'buck2',
-        entries: [
-          { key: 'remote_cache_enabled', value: 'false' },
-          { key: 'allow_cache_uploads', value: 'false' },
-        ],
-      },
-    ])
+const fingerprint = (fixture: Effect.Success<typeof makeLegacyWorkspace>) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    return {
+      parent: (yield* fs.readDirectory(
+        EffectPath.unsafe.absoluteDir(`${fixture.tmp}/`),
+      )).toSorted(),
+      workspace: (yield* fs.readDirectory(
+        EffectPath.unsafe.absoluteDir(`${fixture.workspaceRoot}/`),
+      )).toSorted(),
+      registrations: yield* fixture.git(fixture.bareRepo, 'worktree', 'list', '--porcelain'),
+    }
   })
 
-  it('preserves the hard-fail shared-cache default', () => {
-    expect(compositionCacheSections({})).toEqual([])
-    expect(compositionCacheSections({ BUCK2_NO_REMOTE_CACHE: '0' })).toEqual([])
-  })
-})
-
-const admit = (fixture: Fixture) =>
-  resolveLockedCompositionMembers({
-    configMembers: { member: 'public/member' },
-    lockFile: fixture.lockFile,
-    store: fixture.store,
-  })
-
-describe('composition locked source admission', () => {
-  it.effect(
-    'admits only the canonical registered detached commit worktree',
-    Effect.fnUntraced(
-      function* () {
-        const fixture = yield* makeFixture
-        expect(yield* admit(fixture)).toEqual([
-          {
-            key: 'member',
-            sourcePath: fixture.sourcePath.replace(/\/+$/u, ''),
-            lockedCommit: fixture.lockFile.members.member!.commit,
-          },
-        ])
-        expect(yield* Git.getCurrentBranch(fixture.sourcePath)).toEqual(Option.none())
-      },
-      Effect.provide(NodeServices.layer),
-      Effect.scoped,
-    ),
+describe('routine composition apply is shape-preserving', () => {
+  it.effect('returns a typed recreate instruction for a legacy flat root without mutation', () =>
+    Effect.gen(function* () {
+      const fixture = yield* makeLegacyWorkspace
+      const before = yield* fingerprint(fixture)
+      const failure = yield* runCompositionApply({
+        workspaceRoot: EffectPath.unsafe.absoluteDir(`${fixture.workspaceRoot}/`),
+        dryRun: false,
+        env: {},
+      }).pipe(Effect.provideService(Store, fixture.store), Effect.flip)
+      expect(failure.reason).toBe('RecreateRequired')
+      expect(failure.message).toContain('mr store worktree new')
+      expect(failure.message).not.toContain('cutover')
+      expect(yield* fingerprint(fixture)).toEqual(before)
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
   )
 
-  for (const [kind, path] of [
-    ['tracked', 'flake.lock'],
-    ['untracked', 'untracked.txt'],
-    ['ignored', 'ignored.cache'],
-    ['branch-attached', 'branch'],
-  ] as const) {
-    it.effect(
-      `refuses ${kind} source state before composition effects`,
-      Effect.fnUntraced(
-        function* () {
-          const fixture = yield* makeFixture
-          if (kind === 'branch-attached') {
-            yield* Git.runCommand({ cwd: fixture.sourcePath, args: ['checkout', '-b', path] })
-          } else {
-            yield* (yield* FileSystem.FileSystem).writeFileString(
-              EffectPath.unsafe.absoluteFile(NodePath.join(fixture.sourcePath, path)),
-              `${kind}\n`,
-            )
-          }
-          const exit = yield* Effect.flip(admit(fixture))
-          expect(exit).toBeInstanceOf(CompositionCutoverError)
-          expect(exit.reason).toBe('LockedSourceRefused')
-          if (kind === 'ignored') expect(exit.message).toContain('ignored bytes cannot enter R6')
-        },
-        Effect.provide(NodeServices.layer),
-        Effect.scoped,
-      ),
-    )
-  }
-})
+  it.effect('detects registered W when P config was replaced with a non-composition config', () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const fixture = yield* makeLegacyWorkspace
+      yield* fixture.git(fixture.bareRepo, 'worktree', 'remove', '--force', fixture.workspaceRoot)
+      const ownedWorktree = NodePath.join(fixture.workspaceRoot, 'repos', 'owner')
+      yield* fs.makeDirectory(
+        EffectPath.unsafe.absoluteDir(`${NodePath.dirname(ownedWorktree)}/`),
+        { recursive: true },
+      )
+      yield* fixture.git(fixture.bareRepo, 'worktree', 'add', ownedWorktree, 'main')
+      const rootConfig = EffectPath.unsafe.absoluteFile(
+        NodePath.join(fixture.workspaceRoot, 'megarepo.json'),
+      )
+      const replacement = yield* Schema.encodeEffect(
+        Schema.fromJsonString(Schema.Unknown, { space: 2 }),
+      )({ members: {} })
+      yield* fs.writeFileString(rootConfig, `${replacement}\n`)
 
-describe('reference-only member lock lookup', () => {
-  const lockBytes = (name: string, commit: string): string =>
-    `${JSON.stringify({
-      version: 1,
-      members: {
-        [name]: {
-          url: `https://github.com/public/${name}`,
-          ref: 'main',
-          commit,
-          pinned: false,
-          lockedAt: '2026-01-01T00:00:00.000Z',
-        },
-      },
-    })}\n`
+      const failure = yield* preflightCompositionCommand({
+        workspaceRoot: EffectPath.unsafe.absoluteDir(`${fixture.workspaceRoot}/`),
+        compositionEnabled: false,
+      }).pipe(Effect.flip)
 
-  it.effect(
-    'prefers the acquired owned-member lock and falls back to the legacy root during dry-run',
-    Effect.fnUntraced(
-      function* () {
-        const fs = yield* FileSystem.FileSystem
-        const workspaceRoot = yield* makeCanonicalTempDirectoryScoped()
-        const ownedMemberPath = NodePath.join(workspaceRoot, 'repos', 'owned')
-        yield* fs.makeDirectory(ownedMemberPath, { recursive: true })
-        yield* fs.writeFileString(
-          EffectPath.unsafe.absoluteFile(NodePath.join(workspaceRoot, 'megarepo.lock')),
-          lockBytes('legacy', 'a'.repeat(40)),
-        )
-        const legacy = yield* readCompositionLockFile({ workspaceRoot, ownedMemberPath })
-        expect(Option.getOrThrow(legacy).members.legacy?.commit).toBe('a'.repeat(40))
+      expect(failure.reason).toBe('InvalidIdentity')
+      expect(failure.message).toContain(
+        `must resolve into '${fixture.workspaceRoot}/repos/<owned>'`,
+      )
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+  )
 
-        yield* fs.writeFileString(
-          EffectPath.unsafe.absoluteFile(NodePath.join(ownedMemberPath, 'megarepo.lock')),
-          lockBytes('owned', 'b'.repeat(40)),
-        )
-        const acquired = yield* readCompositionLockFile({ workspaceRoot, ownedMemberPath })
-        expect(Option.getOrThrow(acquired).members.owned?.commit).toBe('b'.repeat(40))
-        expect(Option.getOrThrow(acquired).members.legacy).toBeUndefined()
-      },
-      Effect.provide(NodeServices.layer),
-      Effect.scoped,
-    ),
+  it.effect('does not infer composition from an ordinary symlinked member checkout', () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const fixture = yield* makeLegacyWorkspace
+      const ordinaryRoot = NodePath.join(fixture.tmp, 'ordinary')
+      const repos = NodePath.join(ordinaryRoot, 'repos')
+      yield* fs.makeDirectory(EffectPath.unsafe.absoluteDir(`${repos}/`), { recursive: true })
+      yield* fs.symlink(
+        fixture.workspaceRoot,
+        EffectPath.unsafe.absoluteFile(NodePath.join(repos, 'owner')),
+      )
+
+      const identity = yield* preflightCompositionCommand({
+        workspaceRoot: EffectPath.unsafe.absoluteDir(`${ordinaryRoot}/`),
+        compositionEnabled: false,
+      })
+
+      expect(identity).toBeUndefined()
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
   )
 })

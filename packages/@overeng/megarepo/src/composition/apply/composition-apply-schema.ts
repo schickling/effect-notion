@@ -3,7 +3,6 @@ import * as NodePath from 'node:path'
 import { Schema } from 'effect'
 
 import { CompositionGeneratorConfig } from '../../core/config.ts'
-import type { OwnedWorktreeAcquisitionPlan } from '../acquisition/owned-worktree-acquisition-schema.ts'
 import {
   CompositionCapabilityPlanSchema,
   CompositionCapabilityResolutionSchema,
@@ -240,10 +239,9 @@ export const CompositionApplyOutputSchema = Schema.Union([
 ]).annotate({ identifier: 'Megarepo.CompositionApplyOutput' })
 export type CompositionApplyOutput = typeof CompositionApplyOutputSchema.Type
 
-/** CLI-level composition cutover result retaining both lifecycle plans and the owned cwd. */
+/** CLI-level routine composition result with the owned checkout as default cwd. */
 export interface CompositionCommandOutput {
   readonly _tag: 'CompositionDryRun' | 'CompositionApplied'
-  readonly acquisition: OwnedWorktreeAcquisitionPlan
   readonly composition: CompositionApplyOutput
   readonly workspaceRoot: string
   readonly defaultCwd: string

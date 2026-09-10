@@ -267,6 +267,20 @@ export const findConfigPath = (dir: AbsoluteDirPath) =>
   })
 
 /**
+ * Decode a config that is not on disk, such as a blob read out of a bare repository at one commit.
+ */
+export const decodeMegarepoConfigContent = ({
+  content,
+  format,
+}: {
+  readonly content: string
+  readonly format: ConfigFormat
+}) =>
+  Schema.decodeUnknownEffect(
+    format === 'kdl' ? MegarepoConfigFromKdl : Schema.fromJsonString(MegarepoConfig),
+  )(content)
+
+/**
  * Read megarepo config from a workspace root.
  * Checks for megarepo.kdl first, falls back to megarepo.json.
  */

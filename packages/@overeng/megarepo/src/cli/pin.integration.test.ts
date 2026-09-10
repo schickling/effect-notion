@@ -14,8 +14,10 @@ import { expect } from 'vitest'
 
 import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
 
+import { composedWorkspacePathsFromRegistration } from '../composition/acquisition/owned-worktree-acquisition.ts'
 import {
   buildSourceStringWithRef,
+  CompositionGeneratorConfig,
   CONFIG_FILE_NAME_JSON,
   MegarepoConfig,
   parseSourceString,
@@ -31,17 +33,18 @@ import {
 import { classifyRef } from '../core/ref.ts'
 import { makeConsoleCapture } from '../test-utils/consoleCapture.ts'
 import { addCommit, initGitRepo, readConfig } from '../test-utils/setup.ts'
+import { makeCanonicalTempDirectoryScoped } from '../test-utils/temp-root.ts'
 import { mrCommand } from './mod.ts'
 
 /**
  * Create a minimal test setup for pin command testing.
  */
-const createMinimalTestSetup = () =>
+const createMinimalTestSetup = ({ composition = false }: { composition?: boolean } = {}) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
 
     // Create temp directory structure
-    const tmpDir = EffectPath.unsafe.absoluteDir(`${yield* fs.makeTempDirectoryScoped()}/`)
+    const tmpDir = EffectPath.unsafe.absoluteDir(`${yield* makeCanonicalTempDirectoryScoped()}/`)
     const workspacePath = EffectPath.ops.join(tmpDir, EffectPath.unsafe.relativeDir('workspace/'))
 
     yield* fs.makeDirectory(workspacePath, { recursive: true })
@@ -54,6 +57,16 @@ const createMinimalTestSetup = () =>
       members: {
         'test-repo': 'test-owner/test-repo',
       },
+      ...(composition === true
+        ? {
+            generators: {
+              composition: new CompositionGeneratorConfig({
+                enabled: true,
+                platformHub: 'hub',
+              }),
+            },
+          }
+        : {}),
     })
     const configContent = yield* Schema.encodeEffect(
       Schema.fromJsonString(MegarepoConfig, { space: 2 }),
@@ -193,6 +206,56 @@ describe('mr config pin', () => {
       { timeout: 15_000 },
     )
   })
+
+  it.effect(
+    'refuses a legacy composed root before changing config or lock for pin -c',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem
+        const { workspacePath } = yield* createMinimalTestSetup({ composition: true })
+        const configPath = EffectPath.ops.join(
+          workspacePath,
+          EffectPath.unsafe.relativeFile(CONFIG_FILE_NAME_JSON),
+        )
+        const lockPath = EffectPath.ops.join(
+          workspacePath,
+          EffectPath.unsafe.relativeFile(LOCK_FILE_NAME),
+        )
+        yield* writeLockFile({
+          lockPath,
+          lockFile: new LockFile({
+            version: 1,
+            members: {
+              'test-repo': createLockedMember({
+                url: 'https://github.com/test-owner/test-repo',
+                ref: 'main',
+                commit: 'abc123def456789012345678901234567890abcd',
+                pinned: false,
+              }),
+            },
+          }),
+        })
+        const configBefore = yield* fs.readFile(configPath)
+        const lockBefore = yield* fs.readFile(lockPath)
+
+        const result = yield* runConfigCommand({
+          cwd: workspacePath,
+          args: ['pin', 'test-repo', '-c', 'feature', '--output', 'json'],
+        })
+        const failure = Exit.isFailure(result.exit) === true ? Cause.pretty(result.exit.cause) : ''
+
+        expect(Exit.isFailure(result.exit)).toBe(true)
+        expect(`${result.stdout}\n${result.stderr}\n${failure}`).toContain(
+          "Recreate it with 'mr store worktree new'",
+        )
+        expect(yield* fs.readFile(configPath)).toEqual(configBefore)
+        expect(yield* fs.readFile(lockPath)).toEqual(lockBefore)
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+    { timeout: 15_000 },
+  )
 
   describe('config update logic', () => {
     it.effect(
@@ -405,6 +468,20 @@ describe('mr config pin', () => {
 
     it('should classify commits correctly', () => {
       expect(classifyRef('abc123def456789012345678901234567890abcd')).toBe('commit')
+    })
+
+    it('resolves a composed branch registration to P and W', () => {
+      expect(
+        composedWorkspacePathsFromRegistration({
+          registeredWorktree: '/store/repo/refs/heads/feature/repos/repo',
+          expectedWorkspaceRoot: '/store/repo/refs/heads/feature',
+        }),
+      ).toEqual({
+        workspaceRoot: '/store/repo/refs/heads/feature',
+        reposPath: '/store/repo/refs/heads/feature/repos',
+        ownedWorktree: '/store/repo/refs/heads/feature/repos/repo',
+        ownedMember: 'repo',
+      })
     })
   })
 

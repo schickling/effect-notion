@@ -1,5 +1,5 @@
 import { execFile as execFileCallback } from 'node:child_process'
-import { readFile as readNodeFile } from 'node:fs/promises'
+import { lstat } from 'node:fs/promises'
 import * as NodePath from 'node:path'
 import { promisify } from 'node:util'
 
@@ -8,22 +8,10 @@ import * as FileSystem from 'effect/FileSystem'
 import type { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 
 import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
-import {
-  BUCK_MEMBER_MANIFEST_FILENAME,
-  decodeBuckMemberManifestJson,
-  type BuckMemberManifest,
-} from '@overeng/megarepo/buck2-manifest'
 
 import {
-  OWNED_WORKTREE_ROOT_MANIFEST,
-  OwnedWorktreeAcquisitionJournal,
-  OwnedWorktreeRootManifest,
-} from '../../composition/acquisition/owned-worktree-acquisition-schema.ts'
-import {
-  acquireOwnedWorktree,
-  ownedWorktreeAcquisitionJournalPath,
-  planOwnedWorktreeAcquisition,
-  recoverOwnedWorktreeAcquisition,
+  assertComposedOwnedWorkspace,
+  composedWorkspacePathsFromRegistration,
   type OwnedWorkspaceGenerationContext,
 } from '../../composition/acquisition/owned-worktree-acquisition.ts'
 import type {
@@ -31,47 +19,37 @@ import type {
   CompositionApplyRequest,
   CompositionCommandOutput,
 } from '../../composition/apply/composition-apply-schema.ts'
-import { compositionApply } from '../../composition/apply/composition-apply.ts'
-import { compositionApplyRuntimeFromEnv } from '../../composition/apply/composition-runtime.ts'
-import { resolveCompositionCapabilities } from '../../composition/capabilities/composition-capability-resolver.ts'
 import {
-  getMemberPath,
+  compositionApply,
+  type CompositionApplyRuntime,
+} from '../../composition/apply/composition-apply.ts'
+import { compositionApplyRuntimeFromEnv } from '../../composition/apply/composition-runtime.ts'
+import {
+  findConfigPath,
   isRemoteSource,
   parseSourceString,
   readMegarepoConfig,
   type CompositionGeneratorConfig,
+  type MegarepoConfig,
 } from '../../core/config.ts'
 import * as Git from '../../core/git.ts'
 import { LOCK_FILE_NAME, readLockFile, type LockFile } from '../../core/lock.ts'
 import { refreshWorkspaceRegistry } from '../../store/store-liveness.ts'
 import { Store, type MegarepoStore } from '../../store/store.ts'
 
-const strictParseOptions = { errors: 'all', onExcessProperty: 'error' } as const
-
-/** Read the authoritative lock before or after owned-worktree acquisition. */
+/** Read the lock owned by the nested Git checkout. */
 export const readCompositionLockFile = ({
-  workspaceRoot,
   ownedMemberPath,
 }: {
   readonly workspaceRoot: string
   readonly ownedMemberPath: string
-}) =>
-  Effect.gen(function* () {
-    const ownedLock = yield* readLockFile(
-      EffectPath.unsafe.absoluteFile(NodePath.join(ownedMemberPath, LOCK_FILE_NAME)),
-    )
-    if (Option.isSome(ownedLock) === true) return ownedLock
-    return yield* readLockFile(
-      EffectPath.unsafe.absoluteFile(NodePath.join(workspaceRoot, LOCK_FILE_NAME)),
-    )
-  })
-const execFile = promisify(execFileCallback)
-const OwnedManifestJson = Schema.fromJsonString(OwnedWorktreeRootManifest)
-const AcquisitionJournalJson = Schema.fromJsonString(OwnedWorktreeAcquisitionJournal)
+}) => readLockFile(EffectPath.unsafe.absoluteFile(NodePath.join(ownedMemberPath, LOCK_FILE_NAME)))
 
-/** Closed command-boundary failure for Phase-2 composition cutover. */
-export class CompositionCutoverError extends Schema.TaggedError<CompositionCutoverError>()(
-  'CompositionCutoverError',
+const execFile = promisify(execFileCallback)
+
+/** Closed command-boundary failure for routine composition application. */
+export class CompositionCommandError extends Schema.TaggedError<CompositionCommandError>()(
+  'CompositionCommandError',
   {
     reason: Schema.Literals([
       'InvalidIdentity',
@@ -79,6 +57,7 @@ export class CompositionCutoverError extends Schema.TaggedError<CompositionCutov
       'LockedSourceRefused',
       'AcquisitionRefused',
       'ApplyFailed',
+      'RecreateRequired',
     ]),
     message: Schema.String,
     path: Schema.optional(Schema.String),
@@ -86,30 +65,30 @@ export class CompositionCutoverError extends Schema.TaggedError<CompositionCutov
   },
 ) {}
 
-const cutoverFailure = ({
+const compositionFailure = ({
   reason,
   message,
   path,
   cause,
 }: {
-  readonly reason: CompositionCutoverError['reason']
+  readonly reason: CompositionCommandError['reason']
   readonly message: string
   readonly path?: string
   readonly cause?: unknown
 }) =>
-  new CompositionCutoverError({
+  new CompositionCommandError({
     reason,
     message,
     ...(path === undefined ? {} : { path }),
     ...(cause === undefined ? {} : { cause }),
   })
 
-const preserveCutoverError = (cause: unknown): CompositionCutoverError =>
-  cause instanceof CompositionCutoverError
+const preserveCompositionError = (cause: unknown): CompositionCommandError =>
+  cause instanceof CompositionCommandError
     ? cause
-    : cutoverFailure({ reason: 'ApplyFailed', message: 'Composition cutover failed', cause })
+    : compositionFailure({ reason: 'ApplyFailed', message: 'Composition apply failed', cause })
 
-/** Owned member identity established from durable acquisition authority. */
+/** Owned member identity derived from P's config symlink and W's Git registration. */
 export interface OwnedIdentity {
   readonly workspaceRoot: AbsoluteDirPath
   readonly ownedMemberKey: string
@@ -117,155 +96,208 @@ export interface OwnedIdentity {
   readonly ownedMemberPath: AbsoluteDirPath
   readonly bareRepo: string
   readonly branch: string
-  readonly synthesized: boolean
 }
 
-const ownedKeyFromManifest = (manifest: BuckMemberManifest): string => {
-  const match = /^repos\/([A-Za-z0-9][A-Za-z0-9._-]*)$/u.exec(manifest.mount)
-  if (match === null)
-    throw new TypeError(`Owned manifest mount must be repos/<member>: ${manifest.mount}`)
-  return match[1]!
-}
-
-const readManifest = ({
-  fs,
-  memberRoot,
-}: {
-  readonly fs: FileSystem.FileSystem
-  readonly memberRoot: string
-}) =>
-  fs
-    .readFileString(
-      EffectPath.unsafe.absoluteFile(NodePath.join(memberRoot, BUCK_MEMBER_MANIFEST_FILENAME)),
-    )
-    .pipe(Effect.map(decodeBuckMemberManifestJson))
-
-const readManifestPromise = async (memberRoot: string): Promise<BuckMemberManifest> =>
-  decodeBuckMemberManifestJson(
-    await readNodeFile(NodePath.join(memberRoot, BUCK_MEMBER_MANIFEST_FILENAME), 'utf8'),
-  )
-
-const deriveLegacyIdentity = ({
-  workspaceRoot,
-  manifest,
-}: {
-  readonly workspaceRoot: AbsoluteDirPath
-  readonly manifest: BuckMemberManifest
-}) =>
-  Effect.gen(function* () {
-    const branchOption = yield* Git.getCurrentBranch(workspaceRoot)
-    if (Option.isNone(branchOption) === true) {
-      return yield* cutoverFailure({
-        reason: 'InvalidIdentity',
-        message: 'Composition requires a branch-attached owned worktree',
-      })
-    }
-    const bareRepo = yield* Git.runCommand({
-      cwd: workspaceRoot,
-      args: ['rev-parse', '--path-format=absolute', '--git-common-dir'],
-    })
-    const ownedMemberKey = ownedKeyFromManifest(manifest)
-    return {
-      workspaceRoot,
-      ownedMemberKey,
-      ownedSourcePath: workspaceRoot,
-      ownedMemberPath: getMemberPath({ megarepoRoot: workspaceRoot, name: ownedMemberKey }),
-      bareRepo,
-      branch: branchOption.value,
-      synthesized: false,
-    } satisfies OwnedIdentity
-  })
-
-const readOwnedIdentity = ({
-  workspaceRoot,
-  fs,
-}: {
-  readonly workspaceRoot: AbsoluteDirPath
-  readonly fs: FileSystem.FileSystem
-}) =>
-  Effect.gen(function* () {
-    const manifestPath = EffectPath.unsafe.absoluteFile(
-      NodePath.join(workspaceRoot, OWNED_WORKTREE_ROOT_MANIFEST),
-    )
-    const rootManifest = yield* fs
-      .readFileString(manifestPath)
-      .pipe(
-        Effect.flatMap((bytes) =>
-          Schema.decodeUnknownEffect(OwnedManifestJson, strictParseOptions)(bytes),
-        ),
-      )
-    const ownedMemberPath = getMemberPath({
-      megarepoRoot: workspaceRoot,
-      name: rootManifest.ownedMember,
-    })
-    return {
-      workspaceRoot,
-      ownedMemberKey: rootManifest.ownedMember,
-      ownedSourcePath: ownedMemberPath,
-      ownedMemberPath,
-      bareRepo: rootManifest.bareRepo,
-      branch: rootManifest.branchRef.slice('refs/heads/'.length),
-      synthesized: true,
-    } satisfies OwnedIdentity
-  })
-
-/** Load the owned member independently from the configured platform hub. */
+/** Resolve P/W from the root config and validate the Git-authoritative composed shape. */
 export const loadOwnedIdentity = ({
   workspaceRoot,
 }: {
   readonly workspaceRoot: AbsoluteDirPath
 }): Effect.Effect<
   OwnedIdentity,
-  CompositionCutoverError,
+  CompositionCommandError,
   FileSystem.FileSystem | ChildProcessSpawner
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
-    const managedManifestPath = EffectPath.unsafe.absoluteFile(
-      NodePath.join(workspaceRoot, OWNED_WORKTREE_ROOT_MANIFEST),
-    )
-    if ((yield* fs.exists(managedManifestPath)) === true) {
-      return yield* readOwnedIdentity({ workspaceRoot, fs })
-    }
-    const journalPath = EffectPath.unsafe.absoluteFile(
-      ownedWorktreeAcquisitionJournalPath(workspaceRoot),
-    )
-    if ((yield* fs.exists(journalPath)) === true) {
-      const journal = yield* fs
-        .readFileString(journalPath)
-        .pipe(
-          Effect.flatMap((bytes) =>
-            Schema.decodeUnknownEffect(AcquisitionJournalJson, strictParseOptions)(bytes),
-          ),
-        )
-      const ownedMemberPath = getMemberPath({
-        megarepoRoot: workspaceRoot,
-        name: journal.ownedMember,
-      })
-      const installed = yield* fs.exists(ownedMemberPath)
-      const temporary = EffectPath.unsafe.absoluteDir(`${journal.tempPath}/`)
-      return {
-        workspaceRoot,
-        ownedMemberKey: journal.ownedMember,
-        ownedSourcePath: installed === true ? ownedMemberPath : temporary,
-        ownedMemberPath,
-        bareRepo: journal.bareRepo,
-        branch: journal.branchRef.slice('refs/heads/'.length),
-        synthesized: false,
-      } satisfies OwnedIdentity
-    }
-    const manifest = yield* readManifest({ fs, memberRoot: workspaceRoot })
-    return yield* deriveLegacyIdentity({ workspaceRoot, manifest })
-  }).pipe(
-    Effect.mapError((cause) =>
-      cutoverFailure({
+    const root = workspaceRoot.replace(/\/+$/u, '')
+    const configPath = yield* findConfigPath(workspaceRoot)
+    if (configPath === undefined) {
+      return yield* compositionFailure({
         reason: 'InvalidIdentity',
-        message: `Could not establish owned composition identity for '${workspaceRoot}'`,
-        path: workspaceRoot,
-        cause,
-      }),
-    ),
-  )
+        path: root,
+        message: `Composition root '${root}' has no megarepo config`,
+      })
+    }
+    const physicalConfig = yield* fs.realPath(configPath)
+    const registeredWorktree = NodePath.dirname(physicalConfig)
+    if (registeredWorktree === root) {
+      const rootGit = EffectPath.unsafe.absoluteFile(NodePath.join(root, '.git'))
+      if ((yield* fs.exists(rootGit)) === true) {
+        return yield* compositionFailure({
+          reason: 'RecreateRequired',
+          path: root,
+          message: `Legacy flat composition workspace '${root}' cannot be changed in place. Recreate it with 'mr store worktree new'.`,
+        })
+      }
+      return yield* compositionFailure({
+        reason: 'InvalidIdentity',
+        path: configPath,
+        message: `Composed root config '${configPath}' must resolve into '${root}/repos/<owned>'`,
+      })
+    }
+    const paths = composedWorkspacePathsFromRegistration({
+      registeredWorktree,
+      expectedWorkspaceRoot: root,
+    })
+    if (paths === undefined) {
+      return yield* compositionFailure({
+        reason: 'InvalidIdentity',
+        path: registeredWorktree,
+        message: `Owned checkout must be exactly '${root}/repos/<owned>'`,
+      })
+    }
+    const branchOption = yield* Git.getCurrentBranch(
+      EffectPath.unsafe.absoluteDir(`${registeredWorktree}/`),
+    )
+    if (Option.isNone(branchOption) === true) {
+      return yield* compositionFailure({
+        reason: 'InvalidIdentity',
+        path: registeredWorktree,
+        message: `Owned checkout '${registeredWorktree}' must be branch-attached`,
+      })
+    }
+    const bareRepo = yield* Git.runCommand({
+      cwd: registeredWorktree,
+      args: ['rev-parse', '--path-format=absolute', '--git-common-dir'],
+    })
+    yield* assertComposedOwnedWorkspace({
+      bareRepo,
+      workspaceRoot: root,
+      ownedMember: paths.ownedMember,
+      branch: branchOption.value,
+    }).pipe(
+      Effect.mapError((cause) =>
+        compositionFailure({
+          reason: 'InvalidIdentity',
+          path: cause.path,
+          message: cause.message,
+          cause,
+        }),
+      ),
+    )
+    return {
+      workspaceRoot,
+      ownedMemberKey: paths.ownedMember,
+      ownedSourcePath: EffectPath.unsafe.absoluteDir(`${paths.ownedWorktree}/`),
+      ownedMemberPath: EffectPath.unsafe.absoluteDir(`${paths.ownedWorktree}/`),
+      bareRepo,
+      branch: branchOption.value,
+    }
+  }).pipe(Effect.mapError(preserveCompositionError))
+
+/**
+ * Detect a direct registered W independently of P's root config, then validate that the config
+ * still names that exact composed identity. Ordinary Git roots are never inferred as composed.
+ */
+export const preflightCompositionCommand = ({
+  workspaceRoot,
+  compositionEnabled,
+}: {
+  readonly workspaceRoot: AbsoluteDirPath
+  readonly compositionEnabled: boolean
+}): Effect.Effect<
+  OwnedIdentity | undefined,
+  CompositionCommandError,
+  FileSystem.FileSystem | ChildProcessSpawner
+> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const root = workspaceRoot.replace(/\/+$/u, '')
+    const rootGit = EffectPath.unsafe.absoluteFile(NodePath.join(root, '.git'))
+    if ((yield* fs.exists(rootGit)) === true) {
+      return compositionEnabled === true ? yield* loadOwnedIdentity({ workspaceRoot }) : undefined
+    }
+
+    const repos = EffectPath.unsafe.absoluteDir(`${NodePath.join(root, 'repos')}/`)
+    const entries =
+      (yield* fs.exists(repos)) === true ? yield* fs.readDirectory(repos) : ([] as string[])
+    const registeredOwnedWorktrees: string[] = []
+    for (const entry of entries) {
+      const ownedWorktree = NodePath.join(root, 'repos', entry)
+      const entryStat = yield* Effect.promise(() =>
+        lstat(ownedWorktree).then(
+          (info) => info,
+          () => undefined,
+        ),
+      )
+      if (entryStat?.isDirectory() !== true || entryStat.isSymbolicLink() === true) continue
+      const dotGit = EffectPath.unsafe.absoluteFile(NodePath.join(ownedWorktree, '.git'))
+      const dotGitStat = yield* Effect.promise(() =>
+        lstat(dotGit).then(
+          (info) => info,
+          () => undefined,
+        ),
+      )
+      if (dotGitStat?.isFile() !== true || dotGitStat.isSymbolicLink() === true) continue
+
+      const pointer = (yield* fs.readFileString(dotGit)).trim()
+      const match = /^gitdir: (.+)$/u.exec(pointer)
+      const adminDir =
+        match === null ? undefined : NodePath.resolve(NodePath.dirname(dotGit), match[1]!)
+      if (adminDir === undefined || NodePath.basename(NodePath.dirname(adminDir)) !== 'worktrees') {
+        return yield* compositionFailure({
+          reason: 'InvalidIdentity',
+          path: dotGit,
+          message: `Git administration pointer '${dotGit}' is not a registered worktree identity`,
+        })
+      }
+
+      const branchResult = yield* Git.getCurrentBranch(
+        EffectPath.unsafe.absoluteDir(`${ownedWorktree}/`),
+      ).pipe(Effect.result)
+      if (branchResult._tag === 'Failure') {
+        return yield* compositionFailure({
+          reason: 'InvalidIdentity',
+          path: ownedWorktree,
+          message: `Cannot read the registered worktree branch at '${ownedWorktree}'`,
+          cause: branchResult.failure,
+        })
+      }
+      if (Option.isNone(branchResult.success) === true) continue
+      const bareRepo = NodePath.dirname(NodePath.dirname(adminDir))
+      const repoRoot = NodePath.dirname(bareRepo)
+      const expectedRoot = NodePath.join(repoRoot, 'refs', 'heads', branchResult.success.value)
+      if (NodePath.resolve(expectedRoot) !== NodePath.resolve(root)) continue
+      const backlink = EffectPath.unsafe.absoluteFile(NodePath.join(adminDir, 'gitdir'))
+      const backlinkResult = yield* fs.readFileString(backlink).pipe(Effect.result)
+      if (
+        backlinkResult._tag === 'Failure' ||
+        NodePath.resolve(adminDir, backlinkResult.success.trim()) !== NodePath.resolve(dotGit)
+      ) {
+        return yield* compositionFailure({
+          reason: 'InvalidIdentity',
+          path: backlink,
+          message: `Git administration backlink '${backlink}' does not point to '${dotGit}'`,
+          ...(backlinkResult._tag === 'Failure' ? { cause: backlinkResult.failure } : {}),
+        })
+      }
+      registeredOwnedWorktrees.push(ownedWorktree)
+    }
+
+    if (registeredOwnedWorktrees.length === 0) {
+      return compositionEnabled === true ? yield* loadOwnedIdentity({ workspaceRoot }) : undefined
+    }
+    if (registeredOwnedWorktrees.length !== 1) {
+      return yield* compositionFailure({
+        reason: 'InvalidIdentity',
+        path: repos,
+        message: `Composition root '${root}' has multiple registered owned worktrees`,
+      })
+    }
+
+    const identity = yield* loadOwnedIdentity({ workspaceRoot })
+    if (
+      NodePath.resolve(identity.ownedMemberPath) !== NodePath.resolve(registeredOwnedWorktrees[0]!)
+    ) {
+      return yield* compositionFailure({
+        reason: 'InvalidIdentity',
+        path: root,
+        message: `Root config does not identify registered owned worktree '${registeredOwnedWorktrees[0]}'`,
+      })
+    }
+    return identity
+  }).pipe(Effect.mapError(preserveCompositionError))
 
 /** Admit exact clean detached commit worktrees before any composition side effect. */
 export const resolveLockedCompositionMembers = ({
@@ -285,14 +317,14 @@ export const resolveLockedCompositionMembers = ({
     )) {
       const source = parseSourceString(sourceString)
       if (source === undefined || isRemoteSource(source) === false) {
-        return yield* cutoverFailure({
+        return yield* compositionFailure({
           reason: 'LockedSourceRefused',
           message: `Composition member '${key}' must have an immutable remote source`,
         })
       }
       const locked = lockFile.members[key]
       if (locked === undefined) {
-        return yield* cutoverFailure({
+        return yield* compositionFailure({
           reason: 'LockedSourceRefused',
           message: `Composition apply requires a lock entry for '${key}'; run mr fetch first`,
         })
@@ -301,7 +333,7 @@ export const resolveLockedCompositionMembers = ({
         .getWorktreePath({ source, ref: locked.commit, refType: 'commit' })
         .replace(/\/+$/u, '')
       if ((yield* store.hasWorktree({ source, ref: locked.commit, refType: 'commit' })) === false) {
-        return yield* cutoverFailure({
+        return yield* compositionFailure({
           reason: 'LockedSourceRefused',
           path: sourcePath,
           message: `Composition apply requires immutable commit source '${sourcePath}'; run mr fetch first`,
@@ -310,7 +342,7 @@ export const resolveLockedCompositionMembers = ({
 
       const canonicalSource = (yield* fs.realPath(sourcePath)).replace(/\/+$/u, '')
       if (canonicalSource !== sourcePath) {
-        return yield* cutoverFailure({
+        return yield* compositionFailure({
           reason: 'LockedSourceRefused',
           path: sourcePath,
           message: `Immutable source '${sourcePath}' must be its canonical store path`,
@@ -318,7 +350,7 @@ export const resolveLockedCompositionMembers = ({
       }
       const expectedNamespace = `${NodePath.sep}refs${NodePath.sep}commits${NodePath.sep}${locked.commit}`
       if (sourcePath.endsWith(expectedNamespace) === false) {
-        return yield* cutoverFailure({
+        return yield* compositionFailure({
           reason: 'LockedSourceRefused',
           path: sourcePath,
           message: `Immutable source '${sourcePath}' is outside the exact commit namespace`,
@@ -334,7 +366,7 @@ export const resolveLockedCompositionMembers = ({
         registration[0]!.head !== locked.commit ||
         Option.isSome(registration[0]!.branch) === true
       ) {
-        return yield* cutoverFailure({
+        return yield* compositionFailure({
           reason: 'LockedSourceRefused',
           path: sourcePath,
           message: `Immutable source '${sourcePath}' must be one detached canonical worktree registered at '${locked.commit}'`,
@@ -344,7 +376,7 @@ export const resolveLockedCompositionMembers = ({
       const actualCommit = yield* Git.getCurrentCommit(sourcePath)
       const actualBranch = yield* Git.getCurrentBranch(sourcePath)
       if (actualCommit !== locked.commit || Option.isSome(actualBranch) === true) {
-        return yield* cutoverFailure({
+        return yield* compositionFailure({
           reason: 'LockedSourceRefused',
           path: sourcePath,
           message: `Immutable source '${sourcePath}' must have detached HEAD exactly at '${locked.commit}'`,
@@ -355,7 +387,7 @@ export const resolveLockedCompositionMembers = ({
         args: ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
       })
       if (dirtyOrUntracked.length !== 0) {
-        return yield* cutoverFailure({
+        return yield* compositionFailure({
           reason: 'LockedSourceRefused',
           path: sourcePath,
           message: `Immutable source '${sourcePath}' has tracked or untracked changes`,
@@ -366,7 +398,7 @@ export const resolveLockedCompositionMembers = ({
         args: ['ls-files', '--others', '--ignored', '--exclude-standard', '-z'],
       })
       if (ignored.length !== 0) {
-        return yield* cutoverFailure({
+        return yield* compositionFailure({
           reason: 'LockedSourceRefused',
           path: sourcePath,
           message: `Immutable source '${sourcePath}' contains ignored files; ignored bytes cannot enter R6`,
@@ -375,7 +407,7 @@ export const resolveLockedCompositionMembers = ({
       values.push({ key, sourcePath, lockedCommit: locked.commit })
     }
     return values
-  }).pipe(Effect.mapError(preserveCutoverError))
+  }).pipe(Effect.mapError(preserveCompositionError))
 
 /** Derive root cache policy before the first composition overlay can execute. */
 export const compositionCacheSections = (
@@ -394,21 +426,25 @@ export const compositionCacheSections = (
     : []
 
 const compositionRequest = ({
-  identity,
+  workspaceRoot,
+  ownedMemberKey,
+  ownedMemberPath,
   compositionConfig,
   locked,
   dryRun,
   env,
 }: {
-  readonly identity: OwnedIdentity
+  readonly workspaceRoot: string
+  readonly ownedMemberKey: string
+  readonly ownedMemberPath: string
   readonly compositionConfig: CompositionGeneratorConfig
   readonly locked: CompositionApplyRequest['lockedMembers']
   readonly dryRun: boolean
   readonly env: Readonly<Record<string, string | undefined>>
 }): CompositionApplyRequest => ({
-  workspaceRoot: identity.workspaceRoot.replace(/\/+$/u, ''),
-  ownedMemberKey: identity.ownedMemberKey,
-  ownedMemberPath: identity.ownedMemberPath.replace(/\/+$/u, ''),
+  workspaceRoot: workspaceRoot.replace(/\/+$/u, ''),
+  ownedMemberKey,
+  ownedMemberPath: ownedMemberPath.replace(/\/+$/u, ''),
   compositionConfig,
   cacheSections: compositionCacheSections(env),
   lockedMembers: locked,
@@ -431,27 +467,27 @@ const assertLockedSourceCleanPromise = async ({
     execFile(gitPath, ['-C', sourcePath, ...args], { encoding: 'utf8', maxBuffer: 1024 * 1024 })
   const head = (await run(['rev-parse', 'HEAD'])).stdout.trim()
   if (head !== lockedCommit)
-    throw cutoverFailure({
+    throw compositionFailure({
       reason: 'LockedSourceRefused',
       message: 'Locked source HEAD changed',
       path: sourcePath,
     })
   try {
     await run(['symbolic-ref', '-q', 'HEAD'])
-    throw cutoverFailure({
+    throw compositionFailure({
       reason: 'LockedSourceRefused',
       message: 'Locked source became branch-attached',
       path: sourcePath,
     })
   } catch (cause) {
-    if (cause instanceof CompositionCutoverError) throw cause
+    if (cause instanceof CompositionCommandError) throw cause
     if ((cause as NodeJS.ErrnoException & { code?: number }).code !== 1) throw cause
   }
   const dirty = (await run(['status', '--porcelain=v1', '-z', '--untracked-files=all'])).stdout
   const ignored = (await run(['ls-files', '--others', '--ignored', '--exclude-standard', '-z']))
     .stdout
   if (dirty.length !== 0 || ignored.length !== 0) {
-    throw cutoverFailure({
+    throw compositionFailure({
       reason: 'LockedSourceRefused',
       message: 'Locked source changed after admission',
       path: sourcePath,
@@ -459,29 +495,20 @@ const assertLockedSourceCleanPromise = async ({
   }
 }
 
-/** Apply decision-0020 composition or produce its exact acquisition and application plans. */
-export const runCompositionApply = ({
-  workspaceRoot,
-  dryRun,
-  callerCwd,
-  env = process.env,
+/** Validate the owned composition configuration before any observation or mutation. */
+const assertCompositionConfig = ({
+  ownedMemberKey,
+  config,
+  env,
 }: {
-  readonly workspaceRoot: AbsoluteDirPath
-  readonly dryRun: boolean
-  readonly callerCwd: AbsoluteDirPath
-  readonly env?: Readonly<Record<string, string | undefined>>
-}): Effect.Effect<
-  CompositionCommandOutput,
-  CompositionCutoverError,
-  FileSystem.FileSystem | ChildProcessSpawner | Store
-> =>
+  readonly ownedMemberKey: string
+  readonly config: MegarepoConfig
+  readonly env: Readonly<Record<string, string | undefined>>
+}): Effect.Effect<CompositionGeneratorConfig, CompositionCommandError> =>
   Effect.gen(function* () {
-    const store = yield* Store
-    const identity = yield* loadOwnedIdentity({ workspaceRoot })
-    const { config } = yield* readMegarepoConfig(identity.ownedSourcePath)
     const compositionConfig = config.generators?.composition
     if (compositionConfig?.enabled !== true) {
-      return yield* cutoverFailure({
+      return yield* compositionFailure({
         reason: 'InvalidConfiguration',
         message: 'Composition runtime is not enabled',
       })
@@ -491,18 +518,18 @@ export const runCompositionApply = ({
       ignoredMembers.some((member, index) => index > 0 && ignoredMembers[index - 1]! >= member) ===
       true
     ) {
-      return yield* cutoverFailure({
+      return yield* compositionFailure({
         reason: 'InvalidConfiguration',
         message: 'ignoredMembers must be canonical sorted unique member keys',
       })
     }
     if (env['MR_COMPOSITION_PLATFORM'] === 'darwin') {
       const folded = new Map<string, string>()
-      for (const member of [identity.ownedMemberKey, ...Object.keys(config.members)]) {
+      for (const member of [ownedMemberKey, ...Object.keys(config.members)]) {
         const key = member.toLowerCase()
         const existing = folded.get(key)
         if (existing !== undefined) {
-          return yield* cutoverFailure({
+          return yield* compositionFailure({
             reason: 'InvalidConfiguration',
             message: `Member keys '${existing}' and '${member}' collide on Darwin`,
           })
@@ -512,76 +539,174 @@ export const runCompositionApply = ({
     }
     for (const member of ignoredMembers) {
       if (/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(member) === false) {
-        return yield* cutoverFailure({
+        return yield* compositionFailure({
           reason: 'InvalidConfiguration',
           message: `Ignored member '${member}' is invalid`,
         })
       }
       if (Object.hasOwn(config.members, member) === false) {
-        return yield* cutoverFailure({
+        return yield* compositionFailure({
           reason: 'InvalidConfiguration',
           message: `Ignored member '${member}' is not configured`,
         })
       }
-      if (member === compositionConfig.platformHub || member === identity.ownedMemberKey) {
-        return yield* cutoverFailure({
+      if (member === compositionConfig.platformHub || member === ownedMemberKey) {
+        return yield* compositionFailure({
           reason: 'InvalidConfiguration',
           message: `Ignored member '${member}' collides with Buck authority`,
         })
       }
     }
-    if (Object.hasOwn(config.members, identity.ownedMemberKey) === true) {
-      return yield* cutoverFailure({
+    if (Object.hasOwn(config.members, ownedMemberKey) === true) {
+      return yield* compositionFailure({
         reason: 'InvalidConfiguration',
-        message: `Owned member '${identity.ownedMemberKey}' must remain implicit`,
+        message: `Owned member '${ownedMemberKey}' must remain implicit`,
       })
     }
+    return compositionConfig
+  })
+
+/** Admit the locked, composition-managed members recorded beside the owned authority config. */
+const resolveComposedMembers = ({
+  ownedSourcePath,
+  config,
+  compositionConfig,
+  store,
+}: {
+  readonly ownedSourcePath: AbsoluteDirPath
+  readonly config: MegarepoConfig
+  readonly compositionConfig: CompositionGeneratorConfig
+  readonly store: MegarepoStore
+}) =>
+  Effect.gen(function* () {
     const lockPath = EffectPath.ops.join(
-      identity.ownedSourcePath,
+      ownedSourcePath,
       EffectPath.unsafe.relativeFile(LOCK_FILE_NAME),
     )
     const lockOption = yield* readLockFile(lockPath)
     if (Option.isNone(lockOption) === true) {
-      return yield* cutoverFailure({
+      return yield* compositionFailure({
         reason: 'InvalidConfiguration',
         message: `Composition apply requires '${lockPath}'; run mr fetch first`,
         path: lockPath,
       })
     }
+    const ignoredMembers = compositionConfig.ignoredMembers ?? []
     const composedMembers = Object.fromEntries(
       Object.entries(config.members).filter(
         ([member]) => ignoredMembers.includes(member) === false,
       ),
     )
-    const locked = yield* resolveLockedCompositionMembers({
+    return yield* resolveLockedCompositionMembers({
       configMembers: composedMembers,
       lockFile: lockOption.value,
       store,
     })
-    const acquisition = yield* planOwnedWorktreeAcquisition({
-      bareRepo: identity.bareRepo,
-      workspaceRoot: identity.workspaceRoot,
-      ownedMember: identity.ownedMemberKey,
-      branch: identity.branch,
-      callerCwd,
+  })
+
+/** Run one composition application against a validated composed root. */
+const applyCompositionAtRoot = ({
+  context,
+  env,
+}: {
+  readonly context: OwnedWorkspaceGenerationContext
+  readonly env: Readonly<Record<string, string | undefined>>
+}): Effect.Effect<
+  CompositionApplyOutput,
+  CompositionCommandError,
+  FileSystem.FileSystem | ChildProcessSpawner | Store
+> =>
+  Effect.gen(function* () {
+    const store = yield* Store
+    const ownedMemberKey = NodePath.basename(context.ownedWorktree.replace(/\/+$/u, ''))
+    const { config } = yield* readMegarepoConfig(context.ownedWorktree)
+    const compositionConfig = yield* assertCompositionConfig({ ownedMemberKey, config, env })
+    const locked = yield* resolveComposedMembers({
+      ownedSourcePath: context.ownedWorktree,
+      config,
+      compositionConfig,
+      store,
     })
-    if (acquisition._tag === 'Refused') {
-      return yield* cutoverFailure({
-        reason: 'AcquisitionRefused',
-        message: acquisition.error.message,
-        cause: acquisition.error,
+    const gitPath = env['MR_COMPOSITION_GIT_BIN']
+    if (gitPath === undefined) {
+      return yield* compositionFailure({
+        reason: 'InvalidConfiguration',
+        message: 'Missing MR_COMPOSITION_GIT_BIN',
       })
     }
+    const runtimeBase = compositionApplyRuntimeFromEnv({
+      workspaceRoot: context.workspaceRoot.replace(/\/+$/u, ''),
+      env,
+    })
+    const runtime = {
+      ...runtimeBase,
+      primitives: {
+        assertLockedSourceClean: ({ sourcePath, lockedCommit }) =>
+          assertLockedSourceCleanPromise({ sourcePath, lockedCommit, gitPath }),
+      },
+    } satisfies CompositionApplyRuntime
+    return yield* compositionApply({
+      request: compositionRequest({
+        workspaceRoot: context.workspaceRoot,
+        ownedMemberKey,
+        ownedMemberPath: context.ownedWorktree,
+        compositionConfig,
+        locked,
+        dryRun: false,
+        env,
+      }),
+      runtime,
+    })
+  }).pipe(Effect.mapError(preserveCompositionError))
+
+const generationContextFromIdentity = ({
+  identity,
+  configPath,
+}: {
+  readonly identity: OwnedIdentity
+  readonly configPath: string
+}): OwnedWorkspaceGenerationContext => ({
+  workspaceRoot: identity.workspaceRoot,
+  ownedWorktree: identity.ownedMemberPath,
+  configPath: EffectPath.unsafe.absoluteFile(configPath),
+  configName: NodePath.basename(configPath) === 'megarepo.kdl' ? 'megarepo.kdl' : 'megarepo.json',
+})
+
+/** Validate the composed Git shape, then plan or reconcile generated composition state. */
+export const runCompositionApply = ({
+  workspaceRoot,
+  dryRun,
+  env = process.env,
+}: {
+  readonly workspaceRoot: AbsoluteDirPath
+  readonly dryRun: boolean
+  readonly env?: Readonly<Record<string, string | undefined>>
+}): Effect.Effect<
+  CompositionCommandOutput,
+  CompositionCommandError,
+  FileSystem.FileSystem | ChildProcessSpawner | Store
+> =>
+  Effect.gen(function* () {
+    const store = yield* Store
+    const identity = yield* loadOwnedIdentity({ workspaceRoot })
+    const { config } = yield* readMegarepoConfig(identity.ownedSourcePath)
+    const compositionConfig = yield* assertCompositionConfig({
+      ownedMemberKey: identity.ownedMemberKey,
+      config,
+      env,
+    })
 
     if (dryRun === true) {
+      const locked = yield* resolveComposedMembers({
+        ownedSourcePath: identity.ownedSourcePath,
+        config,
+        compositionConfig,
+        store,
+      })
       const runtimeBase = compositionApplyRuntimeFromEnv({
         workspaceRoot: identity.workspaceRoot.replace(/\/+$/u, ''),
         env,
       })
-      const plannedIdentity = {
-        ...identity,
-        ownedMemberPath: EffectPath.unsafe.absoluteDir(`${acquisition.ownedWorktree}/`),
-      }
       const runtime = {
         ...runtimeBase,
         primitives: {
@@ -591,23 +716,13 @@ export const runCompositionApply = ({
               lockedCommit,
               gitPath: env['MR_COMPOSITION_GIT_BIN']!,
             }),
-          readManifest: (memberRoot: string) =>
-            memberRoot === acquisition.ownedWorktree
-              ? readManifestPromise(identity.ownedSourcePath)
-              : readManifestPromise(memberRoot),
-          resolveCapabilities: (input) =>
-            resolveCompositionCapabilities({
-              ...input,
-              memberRoot:
-                input.memberRoot === acquisition.ownedWorktree
-                  ? identity.ownedSourcePath.replace(/\/+$/u, '')
-                  : input.memberRoot,
-            }),
         },
-      } satisfies ReturnType<typeof compositionApplyRuntimeFromEnv>
+      } satisfies CompositionApplyRuntime
       const composition = yield* compositionApply({
         request: compositionRequest({
-          identity: plannedIdentity,
+          workspaceRoot: identity.workspaceRoot,
+          ownedMemberKey: identity.ownedMemberKey,
+          ownedMemberPath: identity.ownedMemberPath,
           compositionConfig,
           locked,
           dryRun: true,
@@ -617,92 +732,31 @@ export const runCompositionApply = ({
       })
       return {
         _tag: 'CompositionDryRun',
-        acquisition,
         composition,
         workspaceRoot: identity.workspaceRoot,
-        defaultCwd: acquisition.ownedWorktree,
+        defaultCwd: identity.ownedMemberPath,
       } satisfies CompositionCommandOutput
     }
 
-    let composition: CompositionApplyOutput | undefined
-    const generate = (context: OwnedWorkspaceGenerationContext) => {
-      const appliedIdentity: OwnedIdentity = {
-        ...identity,
-        ownedSourcePath: context.ownedWorktree,
-        ownedMemberPath: context.ownedWorktree,
-        synthesized: true,
-      }
-      const runtimeBase = compositionApplyRuntimeFromEnv({
-        workspaceRoot: context.workspaceRoot.replace(/\/+$/u, ''),
-        env,
-      })
-      const gitPath = env['MR_COMPOSITION_GIT_BIN']
-      if (gitPath === undefined)
-        throw cutoverFailure({
-          reason: 'InvalidConfiguration',
-          message: 'Missing MR_COMPOSITION_GIT_BIN',
-        })
-      const runtime = {
-        ...runtimeBase,
-        primitives: {
-          assertLockedSourceClean: ({ sourcePath, lockedCommit }) =>
-            assertLockedSourceCleanPromise({ sourcePath, lockedCommit, gitPath }),
-        },
-      } satisfies typeof runtimeBase
-      return compositionApply({
-        request: compositionRequest({
-          identity: appliedIdentity,
-          compositionConfig,
-          locked,
-          dryRun: false,
-          env,
+    const observed = yield* assertComposedOwnedWorkspace({
+      bareRepo: identity.bareRepo,
+      workspaceRoot: identity.workspaceRoot,
+      ownedMember: identity.ownedMemberKey,
+      branch: identity.branch,
+    }).pipe(
+      Effect.mapError((cause) =>
+        compositionFailure({
+          reason: 'AcquisitionRefused',
+          message: cause.message,
+          path: cause.path,
+          cause,
         }),
-        runtime,
-      }).pipe(
-        Effect.tap((output) => Effect.sync(() => (composition = output))),
-        Effect.asVoid,
-      )
-    }
-
-    if (acquisition._tag === 'Recover') {
-      const recovered = yield* recoverOwnedWorktreeAcquisition({
-        workspaceRoot: identity.workspaceRoot,
-        generate,
-      })
-      if (recovered._tag === 'RolledBack') {
-        yield* acquireOwnedWorktree({
-          bareRepo: identity.bareRepo,
-          workspaceRoot: identity.workspaceRoot,
-          ownedMember: identity.ownedMemberKey,
-          branch: identity.branch,
-          callerCwd,
-          generate,
-        })
-      }
-    } else {
-      const acquired = yield* acquireOwnedWorktree({
-        bareRepo: identity.bareRepo,
-        workspaceRoot: identity.workspaceRoot,
-        ownedMember: identity.ownedMemberKey,
-        branch: identity.branch,
-        callerCwd,
-        generate,
-      })
-      if (composition === undefined) {
-        yield* generate({
-          workspaceRoot: EffectPath.unsafe.absoluteDir(`${acquired.workspaceRoot}/`),
-          ownedWorktree: EffectPath.unsafe.absoluteDir(`${acquired.ownedWorktree}/`),
-          configPath: EffectPath.unsafe.absoluteFile(acquired.configPath),
-          configName: acquired.configName,
-        })
-      }
-    }
-    if (composition === undefined) {
-      return yield* cutoverFailure({
-        reason: 'ApplyFailed',
-        message: `Composition generation did not complete; recover '${ownedWorktreeAcquisitionJournalPath(identity.workspaceRoot)}'`,
-      })
-    }
+      ),
+    )
+    const composition = yield* applyCompositionAtRoot({
+      context: generationContextFromIdentity({ identity, configPath: observed.configPath }),
+      env,
+    })
     yield* refreshWorkspaceRegistry({
       workspaceRoot: identity.workspaceRoot,
       store,
@@ -710,9 +764,8 @@ export const runCompositionApply = ({
     })
     return {
       _tag: 'CompositionApplied',
-      acquisition,
       composition,
       workspaceRoot: identity.workspaceRoot,
       defaultCwd: identity.ownedMemberPath,
     } satisfies CompositionCommandOutput
-  }).pipe(Effect.mapError(preserveCutoverError))
+  }).pipe(Effect.mapError(preserveCompositionError))

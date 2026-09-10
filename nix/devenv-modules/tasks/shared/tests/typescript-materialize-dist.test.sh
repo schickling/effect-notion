@@ -10,8 +10,9 @@ DECLARATION_ENTRYPOINT="src/mod.d.ts"
 PROJECT="tsconfig.json"
 DIFF_BIN="$(command -v diff)"
 REAL_MV="$(command -v mv)"
-TEST_ROOT="$(mktemp -d)"
+TEST_ROOT="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$TEST_ROOT"' EXIT
+export AGENT_POLICY_BYPASS=1
 
 test_count=0
 run_test() {
@@ -214,11 +215,150 @@ test_standalone_staleness_fails() {
   assert_no_staging "$repo"
 }
 
+extract_devenv_scripts() {
+  local nix_expr
+  nix_expr='let
+    flake = builtins.getFlake "path:'"$ROOT"'";
+    pkgs = import flake.inputs.nixpkgs { system = builtins.currentSystem; };
+    module = import '"$ROOT"'/devenv.nix {
+      inherit pkgs;
+      lib = pkgs.lib;
+      config = { };
+      inputs.tsgo.packages.${pkgs.stdenv.hostPlatform.system}.effect-tsgo = "/tsgo";
+    };
+  in {
+    enterShell = pkgs.writeShellScript "test-enter-shell" module.enterShell;
+    materializeTask = pkgs.writeShellScript "test-materialize-task"
+      module.tasks."buck2:typescript:materialize-dist".exec;
+  }'
+  cp "$(nix build --no-link --print-out-paths --impure --expr "$nix_expr.enterShell")" \
+    "$TEST_ROOT/enter-shell.sh"
+  cp "$(nix build --no-link --print-out-paths --impure --expr "$nix_expr.materializeTask")" \
+    "$TEST_ROOT/materialize-task.sh"
+  chmod +x "$TEST_ROOT/enter-shell.sh" "$TEST_ROOT/materialize-task.sh"
+}
+
+make_git_commit() {
+  local checkout="$1"
+  git init -q "$checkout"
+  git -C "$checkout" config user.email test@example.invalid
+  git -C "$checkout" config user.name Test
+  printf 'fixture\n' > "$checkout/README"
+  git -C "$checkout" add README
+  git -C "$checkout" commit --no-verify -qm fixture
+}
+
+make_runtime_probe() {
+  local checkout="$1"
+  mkdir -p "$checkout/genie/buck2"
+  cat > "$checkout/genie/buck2/typescript-authority-runtime.ts" <<'PROBE'
+console.log([
+  process.env.TYPESCRIPT_DIST_MODE,
+  process.env.WORKSPACE_ROOT ?? '',
+  process.env.BUCK2_BIN ?? '',
+].join('|'))
+PROBE
+}
+
+test_composed_worktree_selection() {
+  local standalone seed repo_root workspace_root member_root mode admin_dir
+  standalone="$TEST_ROOT/lookalike/repos/effect-utils"
+  mkdir -p "$(dirname "$standalone")"
+  make_git_commit "$standalone"
+  make_runtime_probe "$standalone"
+  printf 'parent sentinel\n' > "$TEST_ROOT/lookalike/.buckconfig.local"
+  (
+    cd "$standalone"
+    env -u BUCK2_NO_REMOTE_CACHE DEVENV_ROOT="$standalone" bash "$TEST_ROOT/enter-shell.sh"
+  )
+  grep -qxF 'parent sentinel' "$TEST_ROOT/lookalike/.buckconfig.local"
+  test -f "$standalone/.buckconfig.local"
+  mode="$(DEVENV_ROOT="$standalone" bash "$TEST_ROOT/materialize-task.sh")"
+  case "$mode" in
+    check\|*) ;;
+    *) echo "FAIL: repos/<name> lookalike selected publish mode: $mode" >&2; return 1 ;;
+  esac
+
+  seed="$TEST_ROOT/composed-seed"
+  repo_root="$TEST_ROOT/store/github.com/overengineeringstudio/effect-utils"
+  workspace_root="$repo_root/refs/heads/composed"
+  member_root="$workspace_root/repos/effect-utils"
+  make_git_commit "$seed"
+  mkdir -p "$repo_root" "$(dirname "$member_root")"
+  git clone -q --bare "$seed" "$repo_root/.bare"
+  git --git-dir="$repo_root/.bare" worktree add -q -b composed "$member_root" HEAD
+  make_runtime_probe "$member_root"
+  mkdir -p "$workspace_root/.megarepo/bin"
+  (
+    cd "$member_root"
+    env -u BUCK2_NO_REMOTE_CACHE DEVENV_ROOT="$member_root" bash "$TEST_ROOT/enter-shell.sh"
+  )
+  test -f "$workspace_root/.buckconfig.local"
+  test ! -e "$member_root/.buckconfig.local"
+  mode="$(DEVENV_ROOT="$member_root" bash "$TEST_ROOT/materialize-task.sh")"
+  expected_mode="publish|$workspace_root|$workspace_root/.megarepo/bin/buck2"
+  if [ "$mode" != "$expected_mode" ]; then
+    echo "FAIL: composed materializer mode: expected '$expected_mode', got '$mode'" >&2
+    return 1
+  fi
+
+  admin_dir="$(git -C "$member_root" rev-parse --path-format=absolute --git-dir)"
+  mkdir -p "$TEST_ROOT/foreign"
+  printf 'gitdir: nowhere\n' > "$TEST_ROOT/foreign/.git"
+  printf '%s\n' "$TEST_ROOT/foreign/.git" > "$admin_dir/gitdir"
+  rm -f "$workspace_root/.buckconfig.local"
+  (
+    cd "$member_root"
+    env -u BUCK2_NO_REMOTE_CACHE DEVENV_ROOT="$member_root" bash "$TEST_ROOT/enter-shell.sh"
+  )
+  test ! -e "$workspace_root/.buckconfig.local"
+  test ! -e "$member_root/.buckconfig.local"
+  if DEVENV_ROOT="$member_root" bash "$TEST_ROOT/materialize-task.sh"; then
+    echo 'FAIL: materializer accepted non-reciprocal metadata' >&2
+    return 1
+  fi
+}
+
+test_cleanup_refuses_nonreciprocal_worktree() {
+  local runner store repo_root workspace_root member_root seed admin_dir
+  runner="$TEST_ROOT/cleanup-runner"
+  store="$runner/megarepo-store/cleanup"
+  repo_root="$store/github.com/overengineeringstudio/effect-utils"
+  workspace_root="$repo_root/refs/heads/ci-77-1-cleanup-test"
+  member_root="$workspace_root/repos/effect-utils"
+  seed="$TEST_ROOT/cleanup-seed"
+  make_git_commit "$seed"
+  mkdir -p "$repo_root" "$(dirname "$member_root")"
+  git clone -q --bare "$seed" "$repo_root/.bare"
+  git --git-dir="$repo_root/.bare" worktree add -q -b ci-77-1-cleanup-test \
+    "$member_root" HEAD
+  printf 'preserve until verified\n' > "$workspace_root/sentinel"
+  admin_dir="$(git -C "$member_root" rev-parse --path-format=absolute --git-dir)"
+  mkdir -p "$TEST_ROOT/cleanup-foreign"
+  printf 'gitdir: nowhere\n' > "$TEST_ROOT/cleanup-foreign/.git"
+  printf '%s\n' "$TEST_ROOT/cleanup-foreign/.git" > "$admin_dir/gitdir"
+
+  if RUNNER_TEMP="$runner" MEGAREPO_STORE="$store" \
+    GITHUB_RUN_ID=77 GITHUB_RUN_ATTEMPT=1 GITHUB_JOB=cleanup-test \
+    bash "$ROOT/genie/ci-scripts/cleanup-effect-utils-composition.sh" 2>/dev/null; then
+    echo 'FAIL: cleanup accepted non-reciprocal linked-worktree metadata' >&2
+    return 1
+  fi
+  test -f "$workspace_root/sentinel"
+  test -f "$member_root/README"
+  git --git-dir="$repo_root/.bare" show-ref --verify --quiet \
+    refs/heads/ci-77-1-cleanup-test
+}
+
+extract_devenv_scripts
+
 run_test 'missing Buck directory fails and preserves old dist' test_missing_directory
 run_test 'missing src/mod.d.ts fails and preserves old dist' test_missing_mod
 run_test 'stale dist is atomically replaced by fresh bytes' test_replaces_stale_dist
 run_test 'post-publish validation failure is nonzero and restores old dist' test_post_publish_validation_failure
 run_test 'standalone fresh declarations pass without publication' test_standalone_freshness_passes
 run_test 'standalone stale declarations fail without mutation' test_standalone_staleness_fails
+run_test 'only reciprocal composed worktrees select parent publication' test_composed_worktree_selection
+run_test 'cleanup refuses non-reciprocal worktree metadata without deletion' test_cleanup_refuses_nonreciprocal_worktree
 
 echo "1..$test_count"

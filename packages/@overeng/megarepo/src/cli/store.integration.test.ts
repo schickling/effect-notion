@@ -1006,6 +1006,53 @@ describe('mr store ls', () => {
   )
 })
 
+describe('mr store worktree new', () => {
+  it.effect(
+    'checks composition intent from a newly fetched remote branch',
+    Effect.fnUntraced(
+      function* () {
+        const fixture = yield* createStoreFixture([
+          {
+            host: 'github.com',
+            owner: 'test-owner',
+            repo: 'test-repo',
+            withRemote: true,
+          },
+        ])
+        const upstream = fixture.upstreamRepoPaths['github.com/test-owner/test-repo']!
+        yield* Git.runCommand({ args: ['branch', 'feature', 'main'], cwd: upstream })
+
+        const result = yield* runMrCommand({
+          cwd: fixture.storePath,
+          command: [
+            'store',
+            'worktree',
+            'new',
+            'test-owner/test-repo',
+            '--ref',
+            'feature',
+            '--output',
+            'json',
+          ],
+          env: { MEGAREPO_STORE: fixture.storePath },
+        })
+
+        expect(result.exitCode).toBe(0)
+        const source = parseSourceString('test-owner/test-repo')!
+        const store = yield* Effect.provide(Store, makeStoreLayer({ basePath: fixture.storePath }))
+        const worktreePath = store.getWorktreePath({
+          source,
+          ref: 'feature',
+          refType: 'branch',
+        })
+        expect(yield* Git.getCurrentBranch(worktreePath)).toEqual(Option.some('feature'))
+      },
+      Effect.provide(NodeServices.layer),
+      Effect.scoped,
+    ),
+  )
+})
+
 describe('store worktree paths', () => {
   it.effect(
     'should generate correct worktree paths for different ref types',

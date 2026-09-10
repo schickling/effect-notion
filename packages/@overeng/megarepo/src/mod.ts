@@ -21,9 +21,7 @@ export * from './composition/overlays/dist-overlay-schema.ts'
 export * from './composition/overlays/dist-overlay-lifecycle-schema.ts'
 export * from './composition/overlays/dist-overlay-lifecycle.ts'
 
-// Owned branch-worktree workspace lifecycle
-export * from './composition/acquisition/owned-worktree-acquisition-schema.ts'
-export * from './composition/acquisition/owned-worktree-acquisition.ts'
+// Composition generation and reconciliation
 
 // Serialized workspace update lock and capability resolution
 export * from './composition/apply/workspace-update-lock-schema.ts'

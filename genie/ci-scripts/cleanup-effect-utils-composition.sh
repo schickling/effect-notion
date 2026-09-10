@@ -9,11 +9,7 @@ bare_repo="$repo_root/.bare"
 workspace_root="$repo_root/$branch_ref"
 member_root="$workspace_root/repos/effect-utils"
 
-workspace_parent="${workspace_root%/*}"
-workspace_name="${workspace_root##*/}"
-acquisition_temp="$workspace_parent/.$workspace_name.owned-worktree-acquisition-temp"
-if [ ! -e "$workspace_root" ] && [ ! -L "$workspace_root" ] &&
-  [ ! -e "$acquisition_temp" ] && [ ! -L "$acquisition_temp" ]; then
+if [ ! -e "$workspace_root" ] && [ ! -L "$workspace_root" ]; then
   exit 0
 fi
 
@@ -29,9 +25,6 @@ repo_root="$store_root/github.com/overengineeringstudio/effect-utils"
 bare_repo="$repo_root/.bare"
 workspace_root="$repo_root/$branch_ref"
 member_root="$workspace_root/repos/effect-utils"
-workspace_parent="${workspace_root%/*}"
-workspace_name="${workspace_root##*/}"
-acquisition_temp="$workspace_parent/.$workspace_name.owned-worktree-acquisition-temp"
 
 test -d "$bare_repo"
 [ "$(git --git-dir="$bare_repo" rev-parse --is-bare-repository)" = true ]
@@ -40,34 +33,53 @@ case "$store_root" in
   *) echo "::error::refusing cleanup outside job-local runner store: $store_root" >&2; exit 1 ;;
 esac
 
-if [ -f "$workspace_root/.megarepo-owned-worktree.json" ]; then
-  owned_worktree="$member_root"
-elif [ -e "$workspace_root" ] || [ -L "$workspace_root" ]; then
-  owned_worktree="$workspace_root"
-else
-  owned_worktree="$acquisition_temp"
-fi
+owned_worktree="$member_root"
 
 current_worktree=
+current_branch=
 registered_worktree=
-matching_registrations=0
+registered_branch=
+matching_path_registrations=0
+matching_branch_registrations=0
 while IFS= read -r -d '' field; do
   case "$field" in
     worktree\ *) current_worktree="${field#worktree }" ;;
-    "branch $branch_ref")
-      test -n "$current_worktree"
-      registered_worktree="$current_worktree"
-      matching_registrations=$((matching_registrations + 1))
+    branch\ *) current_branch="${field#branch }" ;;
+    '')
+      if [ "$current_worktree" = "$owned_worktree" ]; then
+        registered_branch="$current_branch"
+        matching_path_registrations=$((matching_path_registrations + 1))
+      fi
+      if [ "$current_branch" = "$branch_ref" ]; then
+        registered_worktree="$current_worktree"
+        matching_branch_registrations=$((matching_branch_registrations + 1))
+      fi
+      current_worktree=
+      current_branch=
       ;;
-    '') current_worktree= ;;
   esac
 done < <(git --git-dir="$bare_repo" worktree list --porcelain -z)
 
-[ "$matching_registrations" -eq 1 ]
+[ "$matching_path_registrations" -eq 1 ]
+[ "$matching_branch_registrations" -eq 1 ]
 [ "$registered_worktree" = "$owned_worktree" ]
+[ "$registered_branch" = "$branch_ref" ]
 [ "$(git -C "$owned_worktree" rev-parse --path-format=absolute --show-toplevel)" = "$owned_worktree" ]
 [ "$(git -C "$owned_worktree" rev-parse --path-format=absolute --git-common-dir)" = "$bare_repo" ]
 [ "$(git -C "$owned_worktree" symbolic-ref --quiet HEAD)" = "$branch_ref" ]
+
+admin_dir="$(git -C "$owned_worktree" rev-parse --path-format=absolute --git-dir)"
+admin_dir="$(cd "$admin_dir" && pwd -P)"
+[ "$(dirname "$admin_dir")" = "$bare_repo/worktrees" ]
+[ -f "$admin_dir/gitdir" ]
+backlink="$(<"$admin_dir/gitdir")"
+case "$backlink" in
+  /*) ;;
+  *) backlink="$admin_dir/$backlink" ;;
+esac
+backlink_dir="$(cd "$(dirname "$backlink")" && pwd -P)"
+backlink="$backlink_dir/$(basename "$backlink")"
+[ "$backlink" = "$owned_worktree/.git" ]
 
 git --git-dir="$bare_repo" worktree remove --force "$owned_worktree"
 rm -rf -- "$workspace_root"

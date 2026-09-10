@@ -51,7 +51,7 @@ import type {
   StaleLock,
   SymlinkDrift,
 } from '../renderers/StatusOutput/mod.ts'
-import { loadOwnedIdentity, type CompositionCutoverError } from './composition.ts'
+import { preflightCompositionCommand, type CompositionCommandError } from './composition.ts'
 
 /**
  * Recursively scan members and build status tree.
@@ -75,7 +75,7 @@ const scanMembersRecursive = ({
   | Schema.SchemaError
   | Git.GitCommandError
   | OwnedCpAMountMetadataError
-  | CompositionCutoverError,
+  | CompositionCommandError,
   FileSystem.FileSystem | ChildProcessSpawner | Store
 > =>
   Effect.gen(function* () {
@@ -99,15 +99,17 @@ const scanMembersRecursive = ({
     const { config, path: configPath } = configResult
     const compositionEnabled = config.generators?.composition?.enabled === true
     const ignoredMembers = new Set(config.generators?.composition?.ignoredMembers ?? [])
-    const ownedMemberKey =
-      compositionEnabled === true
-        ? (yield* loadOwnedIdentity({ workspaceRoot: megarepoRoot })).ownedMemberKey
-        : undefined
+    const compositionIdentity = yield* preflightCompositionCommand({
+      workspaceRoot: megarepoRoot,
+      compositionEnabled,
+    })
+    const ownedMemberKey = compositionIdentity?.ownedMemberKey
 
     // Load lock file (optional)
-    const physicalConfigPath = yield* fs.realPath(configPath)
     const configOwner =
-      EffectPath.ops.parent(EffectPath.unsafe.absoluteFile(physicalConfigPath)) ?? megarepoRoot
+      compositionIdentity?.ownedSourcePath ??
+      EffectPath.ops.parent(EffectPath.unsafe.absoluteFile(yield* fs.realPath(configPath))) ??
+      megarepoRoot
     const lockPath = EffectPath.ops.join(
       configOwner,
       EffectPath.unsafe.relativeFile(LOCK_FILE_NAME),

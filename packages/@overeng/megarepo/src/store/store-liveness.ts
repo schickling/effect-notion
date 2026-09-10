@@ -16,8 +16,6 @@ import { type PlatformError } from 'effect/PlatformError'
 
 import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
 
-import { OWNED_WORKTREE_ROOT_MANIFEST } from '../composition/acquisition/owned-worktree-acquisition-schema.ts'
-import { ownedWorktreeAcquisitionJournalPath } from '../composition/acquisition/owned-worktree-acquisition.ts'
 import {
   type ConfigNotFoundError,
   getMembersRoot,
@@ -189,14 +187,10 @@ export const collectWorkspaceLivePaths = ({
     }
 
     if (config.generators?.composition?.enabled === true) {
-      // The branch-attached worktree moves below the synthesized root; keep both the namespace
-      // root and its writable member registration live. The platform hub is the implicit owned
-      // member in decision-0020 configurations.
+      // P and its Git-authoritative W are both live. Generated metadata remains descriptive.
       for (const path of [
         workspaceRoot,
-        NodePath.join(workspaceRoot, 'repos', config.generators.composition.platformHub),
-        NodePath.join(workspaceRoot, OWNED_WORKTREE_ROOT_MANIFEST),
-        ownedWorktreeAcquisitionJournalPath(workspaceRoot),
+        configOwner,
         NodePath.join(workspaceRoot, '.megarepo'),
         NodePath.join(workspaceRoot, 'repos', '.mr'),
       ]) {

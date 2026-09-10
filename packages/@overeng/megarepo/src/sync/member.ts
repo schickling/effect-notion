@@ -11,6 +11,7 @@ import * as FileSystem from 'effect/FileSystem'
 
 import { EffectPath, type AbsoluteDirPath } from '@overeng/effect-path'
 
+import { resolveStoreBranchWorktree } from '../composition/acquisition/owned-worktree-acquisition.ts'
 import {
   foreignMemberMountMessage,
   inspectMemberMount,
@@ -389,6 +390,27 @@ export const syncMember = <R = never>({
       }
     }
 
+    const resolveWorktreePath = ({
+      ref,
+      refType,
+    }: {
+      readonly ref: string
+      readonly refType: RefType
+    }) => {
+      const workspaceRoot = store.getWorktreePath({ source, ref, refType })
+      return refType === 'branch' && bareExists === true
+        ? resolveStoreBranchWorktree({
+            bareRepo: bareRepoPath,
+            workspaceRoot,
+            branch: ref,
+          })
+        : Effect.succeed(workspaceRoot)
+    }
+    const worktreePathExists = (worktreePath: string) =>
+      fs
+        .exists(`${worktreePath}.git`.replace(/\/\.git$/u, '/.git'))
+        .pipe(Effect.orElseSucceed(() => false))
+
     if (isFetchMode === true && lockedMember?.pinned === true && force === false) {
       return {
         name,
@@ -429,7 +451,10 @@ export const syncMember = <R = never>({
 
       if (isLockMode === true) {
         // Lock mode: check symlink against the expected branch worktree path
-        const expectedWorktreePath = store.getWorktreePath({ source, ref: targetRef })
+        const expectedWorktreePath = yield* resolveWorktreePath({
+          ref: targetRef,
+          refType: 'branch',
+        })
         const expectedPathNormalized = expectedWorktreePath.replace(/\/$/, '')
 
         // Lock sync only records current branch-attached workspace state.
@@ -831,25 +856,22 @@ export const syncMember = <R = never>({
           ? 'branch'
           : worktreeSelection.refType
 
-    const worktreePath = store.getWorktreePath({
-      source,
+    const worktreePath = yield* resolveWorktreePath({
       ref: worktreeRef,
       refType: worktreeRefType,
     })
-    const worktreeExists = yield* store.hasWorktree({
-      source,
-      ref: worktreeRef,
-      refType: worktreeRefType,
-    })
+    const worktreeExists = yield* worktreePathExists(worktreePath)
 
     if (worktreeExists === false && dryRun === false) {
       yield* storeLock
         .withWorktreeLock(worktreePath)(
           Effect.gen(function* () {
             // Double-check inside lock (another process/fiber may have created it)
-            const stillNotExists =
-              (yield* store.hasWorktree({ source, ref: worktreeRef, refType: worktreeRefType })) ===
-              false
+            const resolvedWorktreePath = yield* resolveWorktreePath({
+              ref: worktreeRef,
+              refType: worktreeRefType,
+            })
+            const stillNotExists = (yield* worktreePathExists(resolvedWorktreePath)) === false
             if (stillNotExists === false) return
 
             // Clean up broken worktree remnants (directory exists but .git is missing)
@@ -992,8 +1014,7 @@ export const syncMember = <R = never>({
     }
 
     // Recompute worktree path from the final ref/type (may have changed due to commit fallback)
-    const finalWorktreePath = store.getWorktreePath({
-      source,
+    const finalWorktreePath = yield* resolveWorktreePath({
       ref: worktreeRef,
       refType: worktreeRefType,
     })

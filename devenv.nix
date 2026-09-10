@@ -378,6 +378,80 @@ let
     "pnpm-lock.yaml"
     "pnpm-workspace.yaml"
   ];
+  composedWorkspaceRootPredicate = ''
+    composed_workspace_root() {
+      local member_root workspace_root branch_ref repo_root bare_repo common_dir admin_dir
+      local backlink backlink_dir current_worktree current_branch registered_worktree registered_branch
+      local matching_path_registrations matching_branch_registrations
+
+      member_root="$(${pkgs.coreutils}/bin/realpath "$1")" || return 1
+      workspace_root="$(${pkgs.coreutils}/bin/realpath "$member_root/../..")" || return 1
+      [ "$member_root" = "$workspace_root/repos/effect-utils" ] || return 1
+      [ -f "$member_root/.git" ] || return 1
+
+      branch_ref="$(${pkgs.git}/bin/git -C "$member_root" symbolic-ref --quiet HEAD)" || return 2
+      case "$branch_ref" in
+        refs/heads/*) ;;
+        *) return 1 ;;
+      esac
+      case "$workspace_root" in
+        */"$branch_ref") repo_root="''${workspace_root%/"$branch_ref"}" ;;
+        *) return 1 ;;
+      esac
+      bare_repo="$repo_root/.bare"
+      [ -d "$bare_repo" ] || return 2
+      common_dir="$(${pkgs.git}/bin/git -C "$member_root" rev-parse \
+        --path-format=absolute --git-common-dir)" || return 2
+      [ "$common_dir" = "$bare_repo" ] || return 2
+
+      admin_dir="$(${pkgs.git}/bin/git -C "$member_root" rev-parse \
+        --path-format=absolute --git-dir)" || return 2
+      admin_dir="$(${pkgs.coreutils}/bin/realpath "$admin_dir")" || return 2
+      [ "$(${pkgs.coreutils}/bin/dirname "$admin_dir")" = "$bare_repo/worktrees" ] ||
+        return 2
+      [ -f "$admin_dir/gitdir" ] || return 2
+      backlink="$(<"$admin_dir/gitdir")"
+      case "$backlink" in
+        /*) ;;
+        *) backlink="$admin_dir/$backlink" ;;
+      esac
+      backlink_dir="$(${pkgs.coreutils}/bin/realpath \
+        "$(${pkgs.coreutils}/bin/dirname "$backlink")")" || return 2
+      backlink="$backlink_dir/$(${pkgs.coreutils}/bin/basename "$backlink")"
+      [ "$backlink" = "$member_root/.git" ] || return 2
+
+      current_worktree=
+      current_branch=
+      registered_worktree=
+      registered_branch=
+      matching_path_registrations=0
+      matching_branch_registrations=0
+      while IFS= read -r -d "" field; do
+        case "$field" in
+          worktree\ *) current_worktree="''${field#worktree }" ;;
+          branch\ *) current_branch="''${field#branch }" ;;
+          "")
+            if [ "$current_worktree" = "$member_root" ]; then
+              registered_branch="$current_branch"
+              matching_path_registrations=$((matching_path_registrations + 1))
+            fi
+            if [ "$current_branch" = "$branch_ref" ]; then
+              registered_worktree="$current_worktree"
+              matching_branch_registrations=$((matching_branch_registrations + 1))
+            fi
+            current_worktree=
+            current_branch=
+            ;;
+        esac
+      done < <(${pkgs.git}/bin/git --git-dir="$bare_repo" worktree list --porcelain -z)
+      [ "$matching_path_registrations" -eq 1 ] || return 2
+      [ "$matching_branch_registrations" -eq 1 ] || return 2
+      [ "$registered_branch" = "$branch_ref" ] || return 2
+      [ "$registered_worktree" = "$member_root" ] || return 2
+
+      printf "%s\n" "$workspace_root"
+    }
+  '';
   # Shared-cache client contract (decision 0013, REUSE-R01..R05). The fleet
   # default endpoint lives HERE on purpose — it must match the dotfiles
   # build-cache trait (dotfiles#2048); changing the service means changing
@@ -405,10 +479,14 @@ let
     let
       script = pkgs.writeShellScript "buck2-local-config-hook" ''
         set -euo pipefail
+        ${composedWorkspaceRootPredicate}
         member_root="''${DEVENV_ROOT:-$PWD}"
         workspace_root="$member_root"
-        if [ -f "$member_root/../../.megarepo-owned-worktree.json" ]; then
-          workspace_root="$(cd "$member_root/../.." && pwd -P)"
+        if proven_workspace_root="$(composed_workspace_root "$member_root")"; then
+          workspace_root="$proven_workspace_root"
+        else
+          identity_status=$?
+          [ "$identity_status" -eq 1 ] || exit "$identity_status"
         fi
         target="$workspace_root/.buckconfig.local"
         if [ "''${BUCK2_NO_REMOTE_CACHE:-}" = "1" ]; then
@@ -676,10 +754,17 @@ in
   tasks."genie:check".after = [ "pnpm:install" ];
   tasks."lint:check:genie".after = [ "pnpm:install" ];
   tasks."mr:bootstrap".after = [ "pnpm:install" ];
-  tasks."mr:setup".after = [ "pnpm:install" ];
+  tasks."mr:setup".after = [
+    "pnpm:install"
+    "mr:bootstrap"
+  ];
   tasks."mr:fetch-apply".after = [ "pnpm:install" ];
   tasks."mr:lock".after = [ "pnpm:install" ];
-  tasks."mr:apply".after = [ "pnpm:install" ];
+  # Serialize every source-mode task that can mutate the same composed root.
+  tasks."mr:apply".after = [
+    "pnpm:install"
+    "mr:setup"
+  ];
   tasks."mr:check".after = [ "pnpm:install" ];
   tasks."mr:source-policy-check".after = [ "pnpm:install" ];
 
@@ -1041,6 +1126,7 @@ in
     ];
     exec = trace.exec "buck2:typescript:materialize-dist" ''
       set -euo pipefail
+      ${composedWorkspaceRootPredicate}
       root="''${DEVENV_ROOT:-$PWD}"
       export PATH=${
         lib.makeBinPath [
@@ -1048,11 +1134,13 @@ in
           pkgs.watchman
         ]
       }
-      if [ -f "$root/../../.megarepo-owned-worktree.json" ]; then
+      if workspace_root="$(composed_workspace_root "$root")"; then
         export TYPESCRIPT_DIST_MODE=publish
-        export WORKSPACE_ROOT="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
+        export WORKSPACE_ROOT="$workspace_root"
         export BUCK2_BIN="$WORKSPACE_ROOT/.megarepo/bin/buck2"
       else
+        identity_status=$?
+        [ "$identity_status" -eq 1 ] || exit "$identity_status"
         export TYPESCRIPT_DIST_MODE=check
         export TSGO_BIN=${effectTsgo}/bin/tsgo
         export DIFF_BIN=${pkgs.diffutils}/bin/diff
