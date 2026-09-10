@@ -126,6 +126,7 @@
       "packages/@overeng/effect-schema-form",
       "packages/@overeng/effect-schema-form-aria",
       "packages/@overeng/genie",
+      "packages/@overeng/gh-ci-utils",
       "packages/@overeng/kdl",
       "packages/@overeng/kdl-effect",
       "packages/@overeng/megarepo",

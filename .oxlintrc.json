@@ -423,6 +423,13 @@
       }
     },
     {
+      "files": ["**/gh-ci-utils/**"],
+      "rules": {
+        "overeng/explicit-boolean-compare": "off",
+        "overeng/no-raw-otel-primitives": "off"
+      }
+    },
+    {
       "files": ["**/notion-react/**"],
       "rules": {
         "overeng/jsdoc-require-exports": "off",

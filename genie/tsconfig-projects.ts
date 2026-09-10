@@ -16,6 +16,7 @@ import effectSchemaFormAriaTsconfig from '../packages/@overeng/effect-schema-for
 import effectSchemaFormTsconfig from '../packages/@overeng/effect-schema-form/tsconfig.json.genie.ts'
 import type { GenieOutput, TSConfigArgs } from '../packages/@overeng/genie/src/runtime/mod.ts'
 import genieTsconfig from '../packages/@overeng/genie/tsconfig.json.genie.ts'
+import ghCiUtilsTsconfig from '../packages/@overeng/gh-ci-utils/tsconfig.json.genie.ts'
 import kdlEffectTsconfig from '../packages/@overeng/kdl-effect/tsconfig.json.genie.ts'
 import kdlTsconfig from '../packages/@overeng/kdl/tsconfig.json.genie.ts'
 import megarepoTsconfig from '../packages/@overeng/megarepo/tsconfig.json.genie.ts'
@@ -81,6 +82,7 @@ export const rootWorkspaceTsconfigProjects = (() => {
     'packages/@overeng/effect-schema-form': { tsconfig: effectSchemaFormTsconfig },
     'packages/@overeng/effect-schema-form-aria': { tsconfig: effectSchemaFormAriaTsconfig },
     'packages/@overeng/genie': { tsconfig: genieTsconfig },
+    'packages/@overeng/gh-ci-utils': { tsconfig: ghCiUtilsTsconfig },
     'packages/@overeng/kdl': { tsconfig: kdlTsconfig },
     'packages/@overeng/kdl-effect': { tsconfig: kdlEffectTsconfig },
     'packages/@overeng/megarepo': { tsconfig: megarepoTsconfig },

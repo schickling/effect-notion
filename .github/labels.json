@@ -206,6 +206,11 @@
       "description": "@overeng/genie package · Set: manual"
     },
     {
+      "name": "system:gh-ci-utils",
+      "color": "a371f7",
+      "description": "@overeng/gh-ci-utils package · Set: manual"
+    },
+    {
       "name": "system:kdl",
       "color": "a371f7",
       "description": "@overeng/kdl package · Set: manual"

@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **@overeng/gh-ci-utils**: Move the CI inspection CLI from dotfiles into
+  effect-utils so its source, tests, and Nix package have one reusable owner.
 
 - **Buck2 (context)**: decision 0030 — git external cells are not a
   member-mount mechanism (the physical `buck-out/.../git/<sha>` path enters
