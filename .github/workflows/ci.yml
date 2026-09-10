@@ -2745,6 +2745,36 @@ jobs:
           summarize: true
       - name: Prepare effect-utils composition
         run: '$GITHUB_WORKSPACE/genie/ci-scripts/prepare-effect-utils-composition.sh'
+      - name: Prepare CI helper scripts
+        shell: bash
+        run: |
+          cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && set -euo pipefail
+          scripts_src='genie/ci-scripts'
+          scripts_dst='${{ runner.temp }}/composition-state/ci-runtime'
+          if [ ! -d "$scripts_src" ]; then
+            echo "::error::CI helper script directory is missing: $scripts_src"
+            exit 1
+          fi
+          rm -rf "$scripts_dst"
+          mkdir -p "$scripts_dst"
+          cp -R "$scripts_src/." "$scripts_dst/"
+          rm -f "$scripts_dst"/*.genie.ts
+          chmod +x "$scripts_dst"/*.sh
+      - name: Use pinned devenv from lock
+        run: |
+          cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && DEVENV_REV=$(jq -r .nodes.devenv.locked.rev 'devenv.lock')
+          if [ -z "$DEVENV_REV" ] || [ "$DEVENV_REV" = "null" ]; then
+            printf '::error::%s missing .nodes.devenv.locked.rev\n' 'devenv.lock'
+            exit 1
+          fi
+          echo "DEVENV_REV=$DEVENV_REV" >> "$GITHUB_ENV"
+          echo "Pinned devenv rev: $DEVENV_REV"
+        shell: bash
+      - name: Resolve devenv
+        run: |
+          __genie_ci_retry_script='${{ runner.temp }}/composition-state/ci-runtime/run-with-nix-gc-race-retry.sh'
+          bash "$__genie_ci_retry_script" 'resolve devenv (devenv.lock)' 'cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && '"'"'${{ runner.temp }}/composition-state/ci-runtime/resolve-devenv.sh'"'"' '"'"'devenv.lock'"'"''
+        shell: bash
       - name: Prove a fresh context gets a remote action-cache hit
         env:
           BUCK2_REMOTE_CACHE_BASIC_AUTH: ${{ secrets.BUCK2_REMOTE_CACHE_BASIC_AUTH }}
