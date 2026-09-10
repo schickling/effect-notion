@@ -809,6 +809,20 @@ const makeGitHubClient = Effect.gen(function* () {
       useETag: true,
     }).pipe(withGitHubSpan({ name: 'github-client.getWorkflowRun', attributes: { repo, runId } }))
 
+  /**
+   * Get a single workflow job by its numeric id.
+   *
+   * `inspect` is addressed by job id, not run id, so listing a run's jobs to
+   * find one would cost a paginated fetch to discard nearly all of it.
+   */
+  const getWorkflowJob = ({ repo, jobId }: { repo: string; jobId: number }) =>
+    apiGet({
+      repo,
+      path: `/repos/${repo}/actions/jobs/${jobId}`,
+      schema: GH.WorkflowJob,
+      useETag: true,
+    }).pipe(Effect.withSpan('github-client.getWorkflowJob', { attributes: { repo, jobId } }))
+
   /** List all jobs for a workflow run (handles pagination). */
   const listWorkflowJobs = ({ repo, runId }: { repo: string; runId: number }) =>
     Effect.gen(function* () {
@@ -1358,6 +1372,7 @@ const makeGitHubClient = Effect.gen(function* () {
     listActiveRuns,
     listWorkflowRunsByStatus,
     getWorkflowRun,
+    getWorkflowJob,
     listWorkflowJobs,
     getJobLogs,
     getCheckAnnotations,

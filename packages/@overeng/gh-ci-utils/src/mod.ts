@@ -30,6 +30,15 @@ export {
 } from './node/RunId.ts'
 export { resolveConfig, type CiUtilsConfig } from './node/Config.ts'
 export { fetchAllRunnerJobs, type ActiveJob } from './node/RunnerClient.ts'
+export { observeNamespaceJob, ALLOWED_ARGV as NSC_ALLOWED_ARGV } from './node/NamespaceClient.ts'
+export { classifyInspection } from './isomorphic/lib/inspectAssessment.ts'
+export {
+  toInspectGitHubFacts,
+  type InspectAssessment,
+  type InspectDisposition,
+  type InspectGitHubFacts,
+  type InspectNamespaceFacts,
+} from './isomorphic/lib/inspectFacts.ts'
 
 export type {
   WorkflowRun,

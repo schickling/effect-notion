@@ -6,6 +6,7 @@
 import * as Cli from 'effect/unstable/cli'
 
 import { authCommand } from './node/commands/auth.ts'
+import { inspectCommand } from './node/commands/inspect.ts'
 import { logsCommand } from './node/commands/logs.ts'
 import { cancelCommand, rerunCommand, runCommand } from './node/commands/rerun.ts'
 import { runnersCommand } from './node/commands/runners.ts'
@@ -20,6 +21,7 @@ export const ghCiUtilsCommand = Cli.Command.make('gh-ci-utils').pipe(
     rerunCommand,
     cancelCommand,
     authCommand,
+    inspectCommand,
     runnersCommand,
   ]),
   Cli.Command.withDescription(
