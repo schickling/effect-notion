@@ -314,10 +314,15 @@ const resolvePeerDependencies = <
   ) as CatalogInput
 
 /**
- * Repository-relative path from one workspace member directory to another.
+ * Relative path from one workspace member directory to another, in the shape
+ * pnpm's `workspace:` protocol accepts.
  *
- * Both inputs are repository-relative member paths, so the result is the
- * specifier body pnpm resolves against the consumer's own directory.
+ * Both inputs are repository-relative member paths. pnpm resolves the result
+ * against the consumer's own directory and rejects a bare relative body
+ * (`workspace:examples/basic` is an "Invalid workspace: spec"), so a descendant
+ * target is prefixed with `./` while an ancestor or sibling target keeps its
+ * leading `..` segments. A package cannot depend on itself, so an empty
+ * relative path is a generator bug rather than a specifier.
  */
 const relativeMemberPath = ({ from, to }: { from: string; to: string }): string => {
   const fromSegments = from.split('/')
@@ -330,10 +335,17 @@ const relativeMemberPath = ({ from, to }: { from: string; to: string }): string 
   ) {
     shared += 1
   }
-  return [
+  const segments = [
     ...fromSegments.slice(shared).map(() => '..'),
     ...toSegments.slice(shared),
-  ].join('/')
+  ]
+  if (segments.length === 0) {
+    throw new Error(
+      `liveWorkspaceLinks cannot point a workspace member at itself: ${from}`,
+    )
+  }
+  const path = segments.join('/')
+  return path.startsWith('..') ? path : `./${path}`
 }
 
 /** Creates a composition helper for a catalog object */
