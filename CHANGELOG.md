@@ -579,10 +579,11 @@ tsconfig.check.json`, but oxlint 1.39 cannot speak the tsgolint 7 protocol, so
   `@types/estree` and `@types/json-schema` it dragged along still arrive via
   `eslint` and `@typescript-eslint/rule-tester`; and `typescript-eslint` (the
   flat-config meta-package) had no consumer in this repo or in any megarepo
-  member. `pnpm-lock.yaml` and `buck2/dependencies/` are regenerated; the
-  `@overeng/oxc-config` pnpm FOD hash in
-  `packages/@overeng/oxc-config/nix/build.nix` is not, because computing it
-  requires a Nix build — Evergreen refresh is left to CI (see the PR body).
+  member. `pnpm-lock.yaml` and `buck2/dependencies/` are regenerated, and all
+  eight root CLI dependency-closure hashes are remeasured locally against the
+  regenerated lockfile (`evergreen fod refresh`, x86_64-linux): every one moved,
+  because eslint 10.10.0 replaces keyv 4 with the cacheable/keyv v5 chain in the
+  workspace-wide store.
 
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for

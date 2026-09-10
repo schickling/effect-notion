@@ -14,7 +14,7 @@ import ../../../../nix/oxc-config-plugin.nix {
     ;
   # Managed by Evergreen FOD refresh — do not edit manually.
   depsBuilds = {
-    "." = mkSharedHash "sha256-Ynf/1Q0dNquIBgyLXXEOv1itWA8DpJeOMc5wRt/W6rg=";
+    "." = mkSharedHash "sha256-MLNREQJK+9hGgjngqkAuvBq7JHluY7W7idQ3FhbQW48=";
   };
   hashSourcePath = "packages/@overeng/oxc-config/nix/build.nix";
 }
