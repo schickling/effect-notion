@@ -57,12 +57,14 @@ export default oxlintConfig({
       rules: { 'overeng/no-external-imports': 'off' },
     },
     {
-      // The bootstrap-closure checker is post-install node tooling (a CI/check
-      // capability), not bootstrap-generation code: it legitimately needs the
-      // TypeScript compiler API (`ts.createSourceFile` / `ts.resolveModuleName`)
-      // to walk each generator's runtime import closure, so it is exempt from
-      // the dependency-free rule the rest of `genie/src/runtime/**` carries.
-      files: ['**/genie/src/runtime/node/bootstrap-closure.ts'],
+      // These post-install node tools legitimately use the TypeScript compiler
+      // API: ts-api owns the process-backed session and bootstrap-closure uses
+      // it to walk each generator's runtime import closure. Neither belongs to
+      // the dependency-free bootstrap-generation runtime.
+      files: [
+        '**/genie/src/runtime/node/bootstrap-closure.ts',
+        '**/genie/src/runtime/node/ts-api.ts',
+      ],
       rules: { 'overeng/no-external-imports': 'off' },
     },
     // jsdoc-require-exports is ENFORCED as `error` (base rule, oxlint-base.ts):

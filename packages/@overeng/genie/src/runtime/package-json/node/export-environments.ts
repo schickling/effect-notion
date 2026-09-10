@@ -46,7 +46,7 @@ import {
   SyntaxKind,
 } from 'typescript/unstable/ast'
 
-import { withTsFileAnalysis } from '../../node/ts-api.ts'
+import { runTsFileAnalysis } from '../../node/ts-api.ts'
 import type { TsFileAnalysisSession } from '../../node/ts-api.ts'
 import type { ExportEnvironmentContract, PackageJsonValidationRuntime } from '../mod.ts'
 import type { ValidationIssue } from '../validation.ts'
@@ -401,44 +401,48 @@ const scanGraph = async ({
   const pending = [entry]
   const issues: ValidationIssue[] = []
 
-  while (pending.length > 0) {
+  const visitNext = async (): Promise<void> => {
     const file = pending.pop()
-    if (file === undefined || seen.has(file) === true) continue
+    if (file === undefined) return
+    if (seen.has(file) === true) return visitNext()
     seen.add(file)
 
     const analysis = await session.analyze(file)
-    if (analysis === undefined) continue
-
-    for (const specifier of importedSpecifiersOf(analysis.sourceFile)) {
-      const forbiddenPattern = profile.forbiddenImports.find((pattern) =>
-        matchesForbiddenImport({ specifier, pattern }),
-      )
-      if (forbiddenPattern !== undefined) {
-        issues.push(
-          issue({
-            packageName,
-            dependency: exportPath,
-            message: `${path.relative(process.cwd(), file)} imports "${specifier}", which is forbidden by this export environment.`,
-            rule: 'package-json-export-environment-import',
-          }),
+    if (analysis !== undefined) {
+      for (const specifier of importedSpecifiersOf(analysis.sourceFile)) {
+        const forbiddenPattern = profile.forbiddenImports.find((pattern) =>
+          matchesForbiddenImport({ specifier, pattern }),
         )
-        continue
+        if (forbiddenPattern !== undefined) {
+          issues.push(
+            issue({
+              packageName,
+              dependency: exportPath,
+              message: `${path.relative(process.cwd(), file)} imports "${specifier}", which is forbidden by this export environment.`,
+              rule: 'package-json-export-environment-import',
+            }),
+          )
+          continue
+        }
+
+        const resolved = resolveRelativeImport({ fromFile: file, specifier })
+        if (resolved !== undefined) pending.push(resolved)
       }
 
-      const resolved = resolveRelativeImport({ fromFile: file, specifier })
-      if (resolved !== undefined) pending.push(resolved)
+      issues.push(
+        ...findForbiddenGlobals({
+          file,
+          sourceFile: analysis.sourceFile,
+          profile,
+          packageName,
+          exportPath,
+        }),
+      )
     }
-
-    issues.push(
-      ...findForbiddenGlobals({
-        file,
-        sourceFile: analysis.sourceFile,
-        profile,
-        packageName,
-        exportPath,
-      }),
-    )
+    return visitNext()
   }
+
+  await visitNext()
 
   return { files: [...seen].toSorted(), issues }
 }
@@ -764,7 +768,7 @@ export const createNodePackageJsonValidationRuntime = ({
   // One compiler session serves every export of the package: it parses each graph file and answers the
   // module resolution the walk needs, and is torn down before the runtime returns.
   validateExportEnvironments: (args) =>
-    withTsFileAnalysis({
+    runTsFileAnalysis({
       cwd: args.cwd,
       use: async (session) => {
         const start = performance.now()
@@ -821,7 +825,9 @@ export const createNodePackageJsonValidationRuntime = ({
               continue
             }
 
-            for (const entry of entries) {
+            const visitEntry = async (index: number): Promise<void> => {
+              const entry = entries[index]
+              if (entry === undefined) return
               const graph = await scanGraph({
                 entry,
                 profile,
@@ -829,8 +835,6 @@ export const createNodePackageJsonValidationRuntime = ({
                 exportPath,
                 session,
               })
-              issues.push(...graph.issues)
-
               const typecheckResult = typecheck({
                 cwd: args.cwd,
                 entry,
@@ -847,10 +851,14 @@ export const createNodePackageJsonValidationRuntime = ({
                 packageName: args.packageName,
                 exportPath,
               })
+              issues.push(...graph.issues, ...typecheckResult.issues)
               hits += typecheckResult.cache.hits
               misses += typecheckResult.cache.misses
-              issues.push(...typecheckResult.issues)
+              return visitEntry(index + 1)
             }
+            // One mutable compiler snapshot serves the package, so contracts and entries must remain serial.
+            // eslint-disable-next-line no-await-in-loop
+            await visitEntry(0)
           }
         }
 

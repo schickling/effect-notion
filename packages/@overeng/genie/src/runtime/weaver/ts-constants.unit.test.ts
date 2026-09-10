@@ -2,7 +2,7 @@ import path from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { withTsVirtualProject } from '../node/ts-api.ts'
+import { runTsVirtualProject } from '../node/ts-api.ts'
 import type { Provenance, Registry } from './mod.ts'
 import { renderRustConstants, renderTsConstants } from './mod.ts'
 import { otelScrapeFixtureRegistry } from './otel-scrape.fixture.ts'
@@ -24,7 +24,7 @@ const typecheck = async (
   )
   const normalizedRootNames = rootNames.map((file) => path.resolve(root, file.replace(/^\/+/, '')))
 
-  await withTsVirtualProject({
+  await runTsVirtualProject({
     root,
     files: normalizedFiles,
     rootFiles: normalizedRootNames,

@@ -276,7 +276,10 @@
       }
     },
     {
-      "files": ["**/genie/src/runtime/node/bootstrap-closure.ts"],
+      "files": [
+        "**/genie/src/runtime/node/bootstrap-closure.ts",
+        "**/genie/src/runtime/node/ts-api.ts"
+      ],
       "rules": {
         "overeng/no-external-imports": "off"
       }

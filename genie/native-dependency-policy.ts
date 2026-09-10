@@ -61,6 +61,7 @@ export const nativeDependencyPolicy = {
   '@rollup/rollup': { _tag: 'pure-package-artifact' },
   '@rolldown/binding': { _tag: 'pure-package-artifact' },
   '@esbuild': { _tag: 'pure-package-artifact' },
+  '@typescript/typescript': { _tag: 'pure-package-artifact' },
   '@msgpackr-extract': { _tag: 'pure-package-artifact' },
   lightningcss: { _tag: 'pure-package-artifact' },
   '@oxc-parser/binding': { _tag: 'pure-package-artifact' },

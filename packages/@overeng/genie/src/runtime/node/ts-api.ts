@@ -10,19 +10,19 @@
  *
  * Two shapes cover every first-party consumer:
  *
- * - {@link withTsFileAnalysis} — analyze files that live on disk and belong to no project we control
+ * - {@link runTsFileAnalysis} — analyze files that live on disk and belong to no project we control
  *   (`.genie.ts` sources, published `dist` closures). Files are opened LSP-style, so the server picks
  *   the ancestor `tsconfig.json` when there is one and an inferred project otherwise, and module
  *   specifiers resolve exactly as the compiler resolves them for that file.
- * - {@link withTsVirtualProject} — type-check in-memory sources against a synthesized config, replacing
+ * - {@link runTsVirtualProject} — type-check in-memory sources against a synthesized config, replacing
  *   the old `createCompilerHost`/`createProgram` override dance.
  *
  * Both own the session lifetime: the `tsgo` child process is always closed, including on throw.
  */
 
+import { existsSync } from 'node:fs'
 import path from 'node:path'
-
-import type { Node, SourceFile, StringLiteral } from 'typescript/unstable/ast'
+import type { SourceFile, StringLiteral } from 'typescript/unstable/ast'
 import type { Diagnostic } from 'typescript/unstable/async'
 import { API } from 'typescript/unstable/async'
 
@@ -35,6 +35,25 @@ const analyzableSourceExtensions: Record<string, true> = {
   '.jsx': true,
   '.mjs': true,
   '.cjs': true,
+}
+
+const resolveTsserverPath = (): string | undefined => {
+  const configured = process.env.GENIE_TYPESCRIPT_API_SERVER
+  if (configured !== undefined && configured !== '') return configured
+
+  const pathEnv = process.env.PATH
+  if (pathEnv === undefined) return undefined
+  for (const directory of pathEnv.split(path.delimiter)) {
+    if (directory === '') continue
+    const candidate = path.join(directory, 'tsgo')
+    if (existsSync(candidate) === true) return candidate
+  }
+  return undefined
+}
+
+const apiSpawnOptions = (cwd: string) => {
+  const tsserverPath = resolveTsserverPath()
+  return tsserverPath === undefined ? { cwd } : { cwd, tsserverPath }
 }
 
 /** A file opened for analysis: its AST plus the module resolution of the project that owns it. */
@@ -55,7 +74,7 @@ export type TsFileAnalysisSession = {
 }
 
 /** Run `use` against a TypeScript 7 session that analyzes on-disk files, closing the compiler process afterwards. */
-export const withTsFileAnalysis = async <A>({
+export const runTsFileAnalysis = async <A>({
   cwd,
   use,
 }: {
@@ -63,7 +82,7 @@ export const withTsFileAnalysis = async <A>({
   cwd: string
   use: (session: TsFileAnalysisSession) => A | Promise<A>
 }): Promise<A> => {
-  const api = new API({ cwd })
+  const api = new API(apiSpawnOptions(cwd))
   try {
     const opened = new Set<string>()
     // The newest snapshot owns the projects and ASTs: opening a file supersedes the previous
@@ -95,7 +114,7 @@ export const withTsFileAnalysis = async <A>({
 }
 
 /** Run `use` against a project synthesized from in-memory sources, closing the compiler process afterwards. */
-export const withTsVirtualProject = async <A>({
+export const runTsVirtualProject = async <A>({
   root,
   files,
   compilerOptions,
@@ -121,7 +140,7 @@ export const withTsVirtualProject = async <A>({
   )
 
   const api = new API({
-    cwd: root,
+    ...apiSpawnOptions(root),
     // `undefined` means "fall through to the real filesystem", which is what the bundled `lib.*.d.ts`
     // files and any real dependency of an in-memory source need.
     fs: {
@@ -171,11 +190,3 @@ export const formatDiagnostic = (diagnostic: Diagnostic): string =>
     ...(diagnostic.messageChain ?? []).map((nested) => formatDiagnostic(nested)),
   ].join('\n')
 
-/** Depth-first walk of `node` and every descendant, in source order. */
-export const forEachDescendant = (node: Node, visit: (node: Node) => void): void => {
-  node.forEachChild((child) => {
-    visit(child)
-    forEachDescendant(child, visit)
-    return undefined
-  })
-}

@@ -7,7 +7,7 @@
  * that package into the generator's bootstrap import closure and breaks `genie:run` on a fresh clone.
  *
  * This walker reuses TypeScript's own parser and module resolution through the TypeScript 7 compiler API
- * ({@link withTsFileAnalysis}) — the bug-prone parts — and injects genie's OWN `#`/`#mr` resolution
+ * ({@link runTsFileAnalysis}) — the bug-prone parts — and injects genie's OWN `#`/`#mr` resolution
  * ({@link resolveImportMapSpecifierForImporterSync}) so lock-pinned megarepo-member imports resolve exactly as
  * genie resolves them at bootstrap. It owns only the transitive walk and the bootstrap policy. It never descends
  * into `node_modules`: a bare (non-relative, non-`#`, non-`node:`-builtin) specifier is a closure boundary — the
@@ -44,7 +44,7 @@ import {
   isImportMapSpecifier,
   resolveImportMapSpecifierForImporterSync,
 } from '../../core/import-map/sync-resolver.ts'
-import { withTsFileAnalysis } from './ts-api.ts'
+import { runTsFileAnalysis } from './ts-api.ts'
 import type { TsFileAnalysis, TsFileAnalysisSession } from './ts-api.ts'
 
 /** A transitive edge from a `.genie.ts` source to a runtime-only package, with the importer chain. */
@@ -195,20 +195,23 @@ export const checkBootstrapClosure = async ({
     const followTargets: string[] = []
     const analysis = existsSync(file) === true ? await session.analyze(file) : undefined
     if (analysis !== undefined) {
-      for (const specifier of runtimeSpecifiersOf(analysis.sourceFile)) {
-        if (isViolationSpecifier(specifier.text) === true) {
-          violationSpecifiers.push(specifier.text)
-        } else if (
-          isRelativeSpecifier(specifier.text) === true ||
-          isImportMapSpecifier(specifier.text) === true
-        ) {
-          const resolved = await resolveFollowableSpecifier({
-            specifier,
-            importerFile: file,
-            analysis,
-          })
-          if (resolved !== undefined) followTargets.push(resolved)
-        }
+      const resolutions = await Promise.all(
+        runtimeSpecifiersOf(analysis.sourceFile).map(async (specifier) => ({
+          specifier: specifier.text,
+          resolved:
+            isRelativeSpecifier(specifier.text) === true ||
+            isImportMapSpecifier(specifier.text) === true
+              ? await resolveFollowableSpecifier({
+                  specifier,
+                  importerFile: file,
+                  analysis,
+                })
+              : undefined,
+        })),
+      )
+      for (const { specifier, resolved } of resolutions) {
+        if (isViolationSpecifier(specifier) === true) violationSpecifiers.push(specifier)
+        else if (resolved !== undefined) followTargets.push(resolved)
       }
     }
     const edges: FileEdges = { violationSpecifiers, followTargets }
@@ -226,10 +229,11 @@ export const checkBootstrapClosure = async ({
   }): Promise<BootstrapClosureViolation | undefined> => {
     const seen = new Set<string>()
     const queue: (readonly string[])[] = [[root]]
-    while (queue.length > 0) {
-      const chain = queue.shift()!
+    const visitNext = async (): Promise<BootstrapClosureViolation | undefined> => {
+      const chain = queue.shift()
+      if (chain === undefined) return undefined
       const current = chain[chain.length - 1]!
-      if (seen.has(current) === true) continue
+      if (seen.has(current) === true) return visitNext()
       seen.add(current)
 
       const { violationSpecifiers, followTargets } = await edgesOf({ file: current, session })
@@ -239,19 +243,25 @@ export const checkBootstrapClosure = async ({
       for (const target of followTargets) {
         if (seen.has(target) === false) queue.push([...chain, target])
       }
+      return visitNext()
     }
-    return undefined
+
+    return visitNext()
   }
 
   const sortedGenieFiles = [...genieFiles].toSorted()
-  const violations = await withTsFileAnalysis({
+  const violations = await runTsFileAnalysis({
     cwd: process.cwd(),
     use: async (session) => {
       const found: BootstrapClosureViolation[] = []
-      for (const root of sortedGenieFiles) {
+      const visitRoot = async (index: number): Promise<void> => {
+        const root = sortedGenieFiles[index]
+        if (root === undefined) return
         const violation = await findViolation({ root, session })
         if (violation !== undefined) found.push(violation)
+        return visitRoot(index + 1)
       }
+      await visitRoot(0)
       return found
     },
   })

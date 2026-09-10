@@ -51,7 +51,8 @@ pkgs.runCommand "genie"
     makeWrapper ${unwrapped}/bin/genie $out/bin/genie \
       --suffix PATH : ${pkgs.oxfmt}/bin \
       --set GENIE_ACTIONLINT_BIN ${pkgs.actionlint}/bin/actionlint \
-      --set GENIE_EXPORT_TYPE_PROOF_COMPILER ${typeProofCompilerBin}
+      --set GENIE_EXPORT_TYPE_PROOF_COMPILER ${typeProofCompilerBin} \
+      --set GENIE_TYPESCRIPT_API_SERVER ${typeProofCompilerBin}
 
     # Propagate shell completions from the unwrapped derivation
     for dir in share/fish/vendor_completions.d share/bash-completion/completions share/zsh/site-functions; do
