@@ -3,7 +3,7 @@
 
 # Generated file - DO NOT EDIT
 # Source: pnpm-lock.yaml
-# Store fingerprint: sha256:907ba357867c91b76b3b812cf6a8c748af7621f37fd7ef38efe26d67eaf21a76
+# Store fingerprint: sha256:aae0a698cda6d17073a78306fead3ba91824d0a9e988f02172ea21dcc0f2ad43
 
 load("//buck2:materialization.bzl", "export_materialization_inputs")
 
@@ -22856,10 +22856,12 @@ pnpm_store_view(
         "vitest": "vitest@4.1.9_@opentelemetry+api@1.9.1_@types+node@26.5.0_@vitest+browser-playwright@4.1.9_happy-dom@20._f830263be88a0e28\tvitest.mjs",
     },
     workspace_trees = {
+        "workspace_packages_overeng_otel_contract_9f5fb18bc9a6": "//packages/@overeng/otel-contract:package_tree",
         "workspace_packages_overeng_tui_react_075c2d6779ed": "//packages/@overeng/tui-react:package_tree",
         "workspace_packages_overeng_utils_e8a24aadff3a": "//packages/@overeng/utils:package_tree",
     },
     workspace_dependencies = {
+        "@overeng/otel-contract": "workspace_packages_overeng_otel_contract_9f5fb18bc9a6",
         "@overeng/tui-react": "workspace_packages_overeng_tui_react_075c2d6779ed",
         "@overeng/utils": "workspace_packages_overeng_utils_e8a24aadff3a",
     },

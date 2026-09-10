@@ -571,6 +571,9 @@ importers:
       '@opentui/react':
         specifier: 0.5.11
         version: 0.5.11(react-devtools-core@7.0.1)(react@19.2.8)(typescript@7.0.2)(web-tree-sitter@0.25.10)(ws@8.21.3)
+      '@overeng/otel-contract':
+        specifier: workspace:^
+        version: link:../otel-contract
       '@overeng/tui-react':
         specifier: workspace:^
         version: link:../tui-react

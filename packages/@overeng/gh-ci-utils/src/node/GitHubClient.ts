@@ -20,6 +20,7 @@ import type { PrHealth } from '../isomorphic/lib/viewModels.ts'
 import { RateLimitWaitPolicy, budgetOutcome } from '../isomorphic/lib/watchPlan.ts'
 import { GitHubAuthConfigTag } from './Config.ts'
 import type { GitHubAppAuthConfig } from './Config.ts'
+import { withGitHubSpan } from './observability.ts'
 
 const GITHUB_API_BASE = 'https://api.github.com'
 const GITHUB_GRAPHQL_URL = 'https://api.github.com/graphql'
@@ -703,7 +704,7 @@ const makeGitHubClient = Effect.gen(function* () {
         total_count: queued.total_count + inProgress.total_count,
         workflow_runs: [...queued.workflow_runs, ...inProgress.workflow_runs],
       })),
-      Effect.withSpan('github-client.listActiveRuns', { attributes: { repo } }),
+      withGitHubSpan({ name: 'github-client.listActiveRuns', attributes: { repo } }),
     )
 
   /** List workflow runs for a repo filtered by status. */
@@ -714,7 +715,8 @@ const makeGitHubClient = Effect.gen(function* () {
       schema: GH.WorkflowRunsResponse,
       useETag: true,
     }).pipe(
-      Effect.withSpan('github-client.listWorkflowRunsByStatus', {
+      withGitHubSpan({
+        name: 'github-client.listWorkflowRunsByStatus',
         attributes: { repo, status },
       }),
     )
@@ -726,7 +728,7 @@ const makeGitHubClient = Effect.gen(function* () {
       path: `/repos/${repo}/actions/runs/${runId}`,
       schema: GH.WorkflowRun,
       useETag: true,
-    }).pipe(Effect.withSpan('github-client.getWorkflowRun', { attributes: { repo, runId } }))
+    }).pipe(withGitHubSpan({ name: 'github-client.getWorkflowRun', attributes: { repo, runId } }))
 
   /** List all jobs for a workflow run (handles pagination). */
   const listWorkflowJobs = ({ repo, runId }: { repo: string; runId: number }) =>
@@ -745,7 +747,7 @@ const makeGitHubClient = Effect.gen(function* () {
         page++
       }
       return { total_count: allJobs.length, jobs: allJobs } satisfies WorkflowJobsResponse
-    }).pipe(Effect.withSpan('github-client.listWorkflowJobs', { attributes: { repo, runId } }))
+    }).pipe(withGitHubSpan({ name: 'github-client.listWorkflowJobs', attributes: { repo, runId } }))
 
   /** Get logs for a specific job (works mid-run for completed jobs). */
   const getJobLogs = ({ repo, jobId }: { repo: string; jobId: number }) =>
@@ -776,7 +778,7 @@ const makeGitHubClient = Effect.gen(function* () {
             jobId,
           }),
       ),
-      Effect.withSpan('github-client.getJobLogs', { attributes: { repo, jobId } }),
+      withGitHubSpan({ name: 'github-client.getJobLogs', attributes: { repo, jobId } }),
     )
 
   /**
@@ -793,7 +795,8 @@ const makeGitHubClient = Effect.gen(function* () {
       schema: Schema.Array(GH.CheckAnnotation),
       useETag: true,
     }).pipe(
-      Effect.withSpan('github-client.getCheckAnnotations', {
+      withGitHubSpan({
+        name: 'github-client.getCheckAnnotations',
         attributes: { repo, checkRunId },
       }),
     )
@@ -806,7 +809,7 @@ const makeGitHubClient = Effect.gen(function* () {
       schema: GH.WorkflowRunsResponse,
     }).pipe(
       Effect.map((resp) => resp.workflow_runs[0] ?? null),
-      Effect.withSpan('github-client.getLatestRunForBranch', { attributes: { repo, branch } }),
+      withGitHubSpan({ name: 'github-client.getLatestRunForBranch', attributes: { repo, branch } }),
     )
 
   /** Get the latest active run for a branch, preferring the requested workflow (or ci.yml by default). */
@@ -832,7 +835,8 @@ const makeGitHubClient = Effect.gen(function* () {
             activeOnly: true,
           }).run,
       ),
-      Effect.withSpan('github-client.getLatestActiveRunForBranch', {
+      withGitHubSpan({
+        name: 'github-client.getLatestActiveRunForBranch',
         attributes: { repo, branch },
       }),
     )
@@ -845,7 +849,10 @@ const makeGitHubClient = Effect.gen(function* () {
       schema: GH.WorkflowRunsResponse,
     }).pipe(
       Effect.map((resp) => resp.workflow_runs),
-      Effect.withSpan('github-client.getRecentRunsForBranch', { attributes: { repo, branch } }),
+      withGitHubSpan({
+        name: 'github-client.getRecentRunsForBranch',
+        attributes: { repo, branch },
+      }),
     )
 
   /**
@@ -862,7 +869,7 @@ const makeGitHubClient = Effect.gen(function* () {
       schema: GH.WorkflowRunsResponse,
     }).pipe(
       Effect.map((resp) => resp.workflow_runs),
-      Effect.withSpan('github-client.listRunsForHeadSha', { attributes: { repo, headSha } }),
+      withGitHubSpan({ name: 'github-client.listRunsForHeadSha', attributes: { repo, headSha } }),
     )
 
   /**
@@ -891,7 +898,7 @@ const makeGitHubClient = Effect.gen(function* () {
             ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),
           }).run,
       ),
-      Effect.withSpan('github-client.getLatestPRRun', { attributes: { repo, branch } }),
+      withGitHubSpan({ name: 'github-client.getLatestPRRun', attributes: { repo, branch } }),
     )
 
   /** Get the latest active PR run for a branch, preferring the requested workflow (or ci.yml by default). */
@@ -917,7 +924,7 @@ const makeGitHubClient = Effect.gen(function* () {
             activeOnly: true,
           }).run,
       ),
-      Effect.withSpan('github-client.getLatestActivePRRun', { attributes: { repo, branch } }),
+      withGitHubSpan({ name: 'github-client.getLatestActivePRRun', attributes: { repo, branch } }),
     )
 
   /** Make an authenticated GraphQL query. */
@@ -1034,7 +1041,7 @@ const makeGitHubClient = Effect.gen(function* () {
           baseRefName: pr.baseRefName,
         }
       }),
-      Effect.withSpan('github-client.getPrHealth', { attributes: { repo, prNumber } }),
+      withGitHubSpan({ name: 'github-client.getPrHealth', attributes: { repo, prNumber } }),
     )
   }
 
@@ -1046,25 +1053,25 @@ const makeGitHubClient = Effect.gen(function* () {
         head_branch: pr.head.ref,
         head_sha: pr.head.sha,
       })),
-      Effect.withSpan('github-client.getPullRequest', { attributes: { repo, prNumber } }),
+      withGitHubSpan({ name: 'github-client.getPullRequest', attributes: { repo, prNumber } }),
     )
 
   /** Re-run an entire workflow. */
   const rerunWorkflow = ({ repo, runId }: { repo: string; runId: number }) =>
     apiPost({ repo, path: `/repos/${repo}/actions/runs/${runId}/rerun` }).pipe(
-      Effect.withSpan('github-client.rerunWorkflow', { attributes: { repo, runId } }),
+      withGitHubSpan({ name: 'github-client.rerunWorkflow', attributes: { repo, runId } }),
     )
 
   /** Re-run only failed jobs in a workflow. */
   const rerunFailedJobs = ({ repo, runId }: { repo: string; runId: number }) =>
     apiPost({ repo, path: `/repos/${repo}/actions/runs/${runId}/rerun-failed-jobs` }).pipe(
-      Effect.withSpan('github-client.rerunFailedJobs', { attributes: { repo, runId } }),
+      withGitHubSpan({ name: 'github-client.rerunFailedJobs', attributes: { repo, runId } }),
     )
 
   /** Force-cancel a workflow run (needed for runs stuck in queued state that regular cancel can't reach). */
   const forceCancelRun = ({ repo, runId }: { repo: string; runId: number }) =>
     apiPost({ repo, path: `/repos/${repo}/actions/runs/${runId}/force-cancel` }).pipe(
-      Effect.withSpan('github-client.forceCancelRun', { attributes: { repo, runId } }),
+      withGitHubSpan({ name: 'github-client.forceCancelRun', attributes: { repo, runId } }),
     )
 
   /**
@@ -1087,13 +1094,13 @@ const makeGitHubClient = Effect.gen(function* () {
         `Regular cancel did not terminate run ${runId} (status: ${run.status}), escalating to force-cancel`,
       )
       yield* forceCancelRun({ repo, runId })
-    }).pipe(Effect.withSpan('github-client.cancelRun', { attributes: { repo, runId } }))
+    }).pipe(withGitHubSpan({ name: 'github-client.cancelRun', attributes: { repo, runId } }))
 
   /** Get the default branch name for a repository. */
   const getDefaultBranch = (repo: string) =>
     apiGet({ repo, path: `/repos/${repo}`, schema: GH.RepoResponse }).pipe(
       Effect.map((r) => r.default_branch),
-      Effect.withSpan('github-client.getDefaultBranch', { attributes: { repo } }),
+      withGitHubSpan({ name: 'github-client.getDefaultBranch', attributes: { repo } }),
     )
 
   const getRateLimit = Ref.get(rateLimitRef)

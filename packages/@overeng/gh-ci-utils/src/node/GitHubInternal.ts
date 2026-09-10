@@ -20,6 +20,7 @@ import {
   loadSession,
   isSessionNearExpiry,
 } from './GitHubSession.ts'
+import { withGitHubSpan } from './observability.ts'
 
 const GITHUB_BASE = 'https://github.com'
 
@@ -134,7 +135,8 @@ const makeGitHubInternal = Effect.gen(function* () {
 
       return Number(match[1])
     }).pipe(
-      Effect.withSpan('github-internal.resolveInternalJobId', {
+      withGitHubSpan({
+        name: 'github-internal.resolveInternalJobId',
         attributes: { owner, repo, runId, restJobId },
       }),
     )
@@ -171,7 +173,8 @@ const makeGitHubInternal = Effect.gen(function* () {
         ),
       )
     }).pipe(
-      Effect.withSpan('github-internal.getSteps', {
+      withGitHubSpan({
+        name: 'github-internal.getSteps',
         attributes: { owner, repo, runId, internalJobId },
       }),
     )
@@ -235,7 +238,8 @@ const makeGitHubInternal = Effect.gen(function* () {
 
       return { lines: data.lines ?? [], etag: newEtag, unchanged: false } as const
     }).pipe(
-      Effect.withSpan('github-internal.getBackscroll', {
+      withGitHubSpan({
+        name: 'github-internal.getBackscroll',
         attributes: { owner, repo, runId, internalJobId, stepUuid },
       }),
     )

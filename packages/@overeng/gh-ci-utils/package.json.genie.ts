@@ -6,6 +6,7 @@ import {
   privatePackageDefaults,
   workspaceMember,
 } from '../../../genie/internal.ts'
+import otelContractPkg from '../otel-contract/package.json.genie.ts'
 import tuiReactPkg from '../tui-react/package.json.genie.ts'
 import utilsPkg from '../utils/package.json.genie.ts'
 
@@ -23,7 +24,7 @@ const composition = catalog.compose({
   mode: 'install',
   workspace: workspaceMember({ memberPath: 'packages/@overeng/gh-ci-utils' }),
   dependencies: {
-    workspace: [tuiReactPkg, utilsPkg],
+    workspace: [otelContractPkg, tuiReactPkg, utilsPkg],
   },
   devDependencies: {
     external: catalog.pick(

@@ -27,6 +27,7 @@
     "@effect/vitest": "4.0.0-rc.112",
     "@opentui/core": "0.5.11",
     "@opentui/react": "0.5.11",
+    "@overeng/otel-contract": "workspace:^",
     "@overeng/tui-react": "workspace:^",
     "@overeng/utils": "workspace:^",
     "@playwright/test": "1.63.0",
