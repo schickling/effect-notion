@@ -229,8 +229,6 @@ let
           // Ordinary `file:` dependencies do not appear in injectedDeps.
           // `.package-map.json` is pnpm's exact locator-to-package-target map,
           // including peer-context variants, so it extends the same selector
-          // without falling back to a package-name or virtual-dir scan.
-          const injectedTargets = new Set();
           const packageMapPath = path.join(entryPath, ".package-map.json");
           const packageMap = fs.existsSync(packageMapPath)
             ? JSON.parse(fs.readFileSync(packageMapPath, "utf8"))
@@ -277,13 +275,12 @@ let
               }
 
               registerRelink(relinkedTargets, packageDir, sourceProjectDir, sourceProjectId);
-              injectedTargets.add(packageDir);
             }
           }
 
           for (const [packageDir, sourceProjectDir] of relinkedTargets) {
             if (!fs.existsSync(packageDir)) {
-              if (injectedTargets.has(packageDir) || allowMissingFilteredTargets) continue;
+              if (allowMissingFilteredTargets) continue;
               throw new Error(`selected local dependency target is missing: ''${packageDir}`);
             }
             if (fs.realpathSync(packageDir) === sourceProjectDir) {
@@ -329,6 +326,7 @@ in
       sourceRoot,
       pnpmDepsHash,
       preInstall ? "",
+      postWorkspacePolicyScrub ? "",
       postPnpmInstall ? "",
       frozenLockfile ? true,
       lockfilePaths ? [ "pnpm-lock.yaml" ],
@@ -553,6 +551,7 @@ in
         if [ -f pnpm-workspace.yaml ]; then
           ${pkgs.perl}/bin/perl -0pi -e 's/^\s*(${lib.concatStringsSep "|" pnpmInstallPolicy.workspaceYamlPolicyKeys}):[^\n]*\n//mg; s/nodeLinker: hoisted/nodeLinker: isolated/g' pnpm-workspace.yaml
         fi
+                ${postWorkspacePolicyScrub}
                 # Keep prepared dependency artifacts platform-neutral. Native
                 # optional packages are owned by the Nix package/build layer so
                 # pnpm dependency preparation stays pure, smaller, and stable

@@ -1333,6 +1333,8 @@ let
       frozenLockfile = true;
       preInstall = ''
         chmod -R +w .
+      '';
+      postWorkspacePolicyScrub = ''
         find . -name package.json -print0 \
           | ${pkgs.gnutar}/bin/tar --null --files-from=- -cf "$NIX_BUILD_TOP/aggregate-manifests.tar"
         cp pnpm-workspace.yaml "$NIX_BUILD_TOP/aggregate-pnpm-workspace.yaml"
