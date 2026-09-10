@@ -386,6 +386,19 @@ file`). Effect-TS `tsgo` remains the export type-proof compiler
   settling, and screenshot comparison remain gate responsibilities without a
   peer override.
 
+  Two things the addon used to do for the gate had to be done explicitly.
+  A themed project pins its toolbar globals through the `initialGlobals`
+  project annotation, not `globals`: Storybook 10.6 ignores the latter, so
+  every theme project rendered the preview default and the light and dark runs
+  produced identical screenshots. And the composed module now carries the
+  title the story index would have given it, computed with `getStoryTitle`
+  from the same `stories` specifiers: `composeStory` otherwise falls back to
+  the literal `ComposedStory` title, and every CSF file relying on
+  Storybook's auto-title collapses onto `composedstory--<export>` — three
+  untitled files in `@overeng/notion-react` today — so one story's screenshot
+  baseline and settle record overwrite another's. A file that no specifier can
+  title now fails the run instead of taking a shared placeholder.
+
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for
   revision-changing `opened`, `reopened`, and `synchronize` activity; the

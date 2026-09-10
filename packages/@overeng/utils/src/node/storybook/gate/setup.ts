@@ -14,6 +14,7 @@ import { beforeAll, inject } from 'vitest'
 
 import { storyGateAnnotations } from './annotations.ts'
 import { initialGlobalsProvideKey } from './constants.ts'
+import { composeGateProjectAnnotations } from './project-annotations.ts'
 
 declare module 'vitest' {
   interface ProvidedContext {
@@ -75,11 +76,12 @@ freezeMotion()
  * consumer preview and addon annotations with the gate layer, plus the globals
  * carried by this Vitest project (one distinct value for each theme).
  */
-const base = getProjectAnnotations()
 const annotations = setProjectAnnotations([
-  ...(Array.isArray(base) === true ? base : [base]),
-  { globals: inject(initialGlobalsProvideKey) },
-  storyGateAnnotations,
+  ...composeGateProjectAnnotations({
+    base: getProjectAnnotations(),
+    initialGlobals: inject(initialGlobalsProvideKey),
+    gate: storyGateAnnotations,
+  }),
 ])
 
 beforeAll(annotations.beforeAll)
