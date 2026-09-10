@@ -1243,6 +1243,7 @@ describe('effect-utils CI composition workspace', () => {
         'if [ "$1" = "--cwd" ]; then',
         '  workspace="$2"; shift 2',
         '  test "$*" = "apply --worktree-mode tracking --lock-sync off --output ci"',
+        '  if [ -f "$workspace/.megarepo/composition-generation.json" ]; then exit 0; fi',
         '  bare="$(git -C "$workspace" rev-parse --path-format=absolute --git-common-dir)"',
         '  stage="${workspace}.member-stage"',
         '  git --git-dir="$bare" worktree move "$workspace" "$stage"',
@@ -1274,7 +1275,11 @@ describe('effect-utils CI composition workspace', () => {
         'mkdir -p "$(dirname "$workspace")"',
         'git --git-dir="$bare" worktree add "$workspace" "$ref" >/dev/null',
         'if [ -f "$fake_root/fail" ]; then exit 37; fi',
-        'printf \'%s\\n\' "$workspace"',
+        'if [ "${FAKE_MR_OUTPUT_MEMBER_ROOT:-0}" = 1 ]; then',
+        '  printf \'%s\\n\' "$workspace/repos/effect-utils"',
+        'else',
+        '  printf \'%s\\n\' "$workspace"',
+        'fi',
       ].join('\n'),
     )
     chmodSync(join(fakeBin, 'nix'), 0o755)
@@ -1404,6 +1409,22 @@ describe('effect-utils CI composition workspace', () => {
     20_000,
   )
 
+  it('accepts a member-root porcelain result from the release CLI', async () => {
+    const fixture = makeFixture('Linux')
+    try {
+      const result = await runComposition(fixture, { FAKE_MR_OUTPUT_MEMBER_ROOT: '1' })
+      expect(result.status, result.stderr).toBe(0)
+      const member = join(
+        fixture.runnerTemp,
+        'megarepo-store/100/2/unit_job/github.com/overengineeringstudio/effect-utils/refs/heads/ci-100-2-unit_job/repos/effect-utils',
+      )
+      expect(git(member, 'rev-parse', 'HEAD')).toBe(fixture.sha)
+      await expect(cleanupComposition(fixture)).resolves.toMatchObject({ status: 0 })
+    } finally {
+      rmSync(fixture.root, { force: true, recursive: true, maxRetries: 10, retryDelay: 20 })
+    }
+  }, 20_000)
+
   it('cleans a direct-final-path worktree after generation fails', async () => {
     const fixture = makeFixture('Linux')
     try {
@@ -1433,6 +1454,7 @@ describe('effect-utils CI composition workspace', () => {
     try {
       const result = await runComposition(fixture, { FAKE_MR_FAIL: '1' })
       expect(result.status).toBe(37)
+      const store = fixture.env.MEGAREPO_STORE!
       const member = join(
         store,
         'github.com/overengineeringstudio/effect-utils/refs/heads/ci-100-2-unit_job',
