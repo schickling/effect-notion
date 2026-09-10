@@ -12,14 +12,14 @@ export default pnpmWorkspaceYaml.root({
       package: 'typescript',
       // Two cohorts, both intentional and both present in the lock at this
       // commit: production compiles with the catalog's TypeScript 7, and
-      // @overeng/oxc-config stays on 6.0.3 because @typescript-eslint's
+      // @overeng/oxc-config keeps its own 5.9.3 because @typescript-eslint's
       // rule-tester harness still imports the classic compiler API that 7
       // removed. Pinned to exactly the resolved set, so a third compiler fails
       // closed (drift) instead of riding along on this acknowledgement; a
       // cohort move must update this list in the same change.
-      versions: ['7.0.2', '6.0.3'],
+      versions: ['7.0.2', '5.9.3'],
       reason:
-        'production compiles with catalog typescript@7.0.2 while @overeng/oxc-config keeps typescript@6.0.3 for @typescript-eslint@8.61.1 rule-tester, which imports the classic compiler API removed in 7',
+        'production compiles with catalog typescript@7.0.2 while @overeng/oxc-config keeps typescript@5.9.3 for the @typescript-eslint rule-tester, which imports the classic compiler API removed in 7',
       issue: '#821',
     },
     {

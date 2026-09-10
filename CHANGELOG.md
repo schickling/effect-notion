@@ -298,6 +298,12 @@ All notable changes to this project will be documented in this file.
   The `@overeng/oxc-config` rule-test harness is pinned to TypeScript 5.9.3
   because `@typescript-eslint/typescript-estree` still imports the removed
   classic compiler API; production compilers and toolchains remain on 7.0.2.
+  That pin is what the `typescript` catalog-duplicate exception blesses: its
+  permitted set is exact (`7.0.2`, `5.9.3`), so a harness pin that drifts or a
+  third compiler entering the graph is a hard
+  `catalog-duplicate-exception-version-drift` error rather than a silently
+  widened blessing.
+
   Genie now canonicalizes followed bootstrap paths through the filesystem for
   case-insensitive hosts, and its compiled-staging proof supplies the explicit
   platform TypeScript API server required by bundled executables.
