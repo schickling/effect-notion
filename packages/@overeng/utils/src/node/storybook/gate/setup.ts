@@ -15,6 +15,12 @@ import { beforeAll, inject } from 'vitest'
 import { storyGateAnnotations } from './annotations.ts'
 import { initialGlobalsProvideKey } from './constants.ts'
 
+declare module 'vitest' {
+  interface ProvidedContext {
+    'overeng/story-gate-initial-globals': Record<string, unknown>
+  }
+}
+
 /**
  * Freeze motion before anything renders.
  *
@@ -72,7 +78,7 @@ freezeMotion()
 const base = getProjectAnnotations()
 const annotations = setProjectAnnotations([
   ...(Array.isArray(base) === true ? base : [base]),
-  { globals: inject<Record<string, unknown>>(initialGlobalsProvideKey) },
+  { globals: inject(initialGlobalsProvideKey) },
   storyGateAnnotations,
 ])
 

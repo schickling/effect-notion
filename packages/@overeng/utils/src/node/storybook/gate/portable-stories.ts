@@ -96,13 +96,11 @@ export const portableStoryTests = async ({
         include: storyFiles.map((file) => relative(root, file).replaceAll(sep, '/')),
         provide: {
           ...storybookConfig.test?.provide,
-          [initialGlobalsProvideKey]:
-            theme === undefined ? {} : { [theme.name]: theme.value },
+          [initialGlobalsProvideKey]: theme === undefined ? {} : { [theme.name]: theme.value },
         },
       },
     }),
     transform: {
-      order: 'post',
       // oxlint-disable-next-line overeng/named-args -- Vite's transform hook has a fixed positional signature.
       handler: (_code, rawId) => {
         const [id, query = ''] = rawId.split('?', 2)
