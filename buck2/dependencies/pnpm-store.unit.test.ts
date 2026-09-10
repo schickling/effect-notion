@@ -408,12 +408,12 @@ describe('normalized store projection of the real lockfile', () => {
         'eslint@10.5.0_jiti@2.7.0',
       ],
       [
-        '@storybook+builder-vite@10.5.10_esbuild@0.28.2_storybook@10.5.10_@types+react-dom@19.2.7_@types+react@1_8f3a049df5e2e14f',
-        '@storybook+csf-plugin@10.5.10_esbuild@0.28.2_storybook@10.5.10_@types+react-dom@19.2.7_@types+react@19._ae2ff0465f1148c9',
-        '@storybook+react-dom-shim@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_rea_10292ccbfa8b078d',
-        '@storybook+react-vite@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_esbuild_59d007e1aba3c552',
-        '@storybook+react@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_react-dom@19_d74d5c5cec4f359a',
-        'storybook@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_prettier@3.9.6_reac_4f0491fa4743bd62',
+        '@storybook+builder-vite@10.5.10_esbuild@0.28.2_storybook@10.5.10_@types+react-dom@19.2.7_@types+react@1_eca29f02e19e22ed',
+        '@storybook+csf-plugin@10.5.10_esbuild@0.28.2_storybook@10.5.10_@types+react-dom@19.2.7_@types+react@19._82d57206c79ed577',
+        '@storybook+react-dom-shim@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_rea_2aeef0b478a8fae8',
+        '@storybook+react-vite@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_esbuild_be10b5a0aad866d7',
+        '@storybook+react@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_react-dom@19_7969ca0fdedc8460',
+        'storybook@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_prettier@3.9.6_reac_7702f1bfbfb8544e',
       ],
       [
         '@vitest+browser-playwright@4.1.9_playwright@1.61.0_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9',
@@ -470,11 +470,13 @@ describe('normalized store projection of the real lockfile', () => {
     // Decision 0030 recorded nine such packages; `oxlint-tsgolint` became the
     // tenth, and pnpm 12 resolves `@opentui/core` against two TypeScript
     // versions, so the same package contributes two platform-varying entries.
-    // The count is derived here so a new platform-selected dependency needs no
-    // edit to admit it.
+    // TypeScript 7 itself is the twelfth: the compiler now ships as per-platform
+    // `@typescript/typescript-<platform>` optional packages, so `typescript` is
+    // platform-selected too. The count is derived here so a new
+    // platform-selected dependency needs no edit to admit it.
     expect(varying).toEqual([
       '@opentui+core@0.4.1_typescript@5.9.3_web-tree-sitter@0.25.10',
-      '@opentui+core@0.4.1_typescript@6.0.3_web-tree-sitter@0.25.10',
+      '@opentui+core@0.4.1_typescript@7.0.2_web-tree-sitter@0.25.10',
       'esbuild@0.28.2',
       'lightningcss@1.33.0',
       'msgpackr-extract@3.0.4',
@@ -483,13 +485,14 @@ describe('normalized store projection of the real lockfile', () => {
       'oxlint-tsgolint@0.23.0',
       'playwright@1.61.0',
       'rolldown@1.2.7',
+      'typescript@7.0.2',
       'vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0',
     ])
   })
 
   it('declares one entry per snapshot and one view per importer', () => {
-    expect(projection.entries).toHaveLength(652)
-    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(652)
+    expect(projection.entries).toHaveLength(672)
+    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(672)
     expect(projection.views).toHaveLength(Object.keys(metadata.importers).length)
     expect(computeStoreSccs({ metadata })).toEqual(projection.sccs.map((scc) => scc.members))
   })

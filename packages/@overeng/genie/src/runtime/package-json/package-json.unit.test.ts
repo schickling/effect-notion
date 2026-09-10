@@ -575,6 +575,76 @@ describe('packageJson', () => {
     })
   })
 
+  it('forbids a Node builtin named only by an `import()` TYPE query', async () => {
+    const repo = createTempRepo('packages/pkg')
+    const packageDir = repo.memberDirs['packages/pkg']!
+    fs.mkdirSync(path.join(packageDir, 'src'))
+    fs.writeFileSync(
+      path.join(packageDir, 'src/mod.ts'),
+      'export type Handle = import("node:fs").Dir\n',
+    )
+    const result = packageJson({
+      name: '@test/package',
+      version: '1.0.0',
+      exports: {
+        '.': exportEntry('./src/mod.ts', {
+          environment: 'isomorphic-es2024',
+        }),
+      },
+    })
+
+    const issues = await result.validate?.({
+      cwd: repo.repoRoot,
+      location: 'packages/pkg',
+      validation: { packageJson: nodePackageJsonValidationRuntime },
+    })
+
+    expect(issues).toContainEqual({
+      severity: 'error',
+      packageName: '@test/package',
+      dependency: '.',
+      message: expect.stringContaining('imports "node:fs"'),
+      rule: 'package-json-export-environment-import',
+    })
+  })
+
+  it('follows a first-party edge named only by an `import()` TYPE query', async () => {
+    const repo = createTempRepo('packages/pkg')
+    const packageDir = repo.memberDirs['packages/pkg']!
+    fs.mkdirSync(path.join(packageDir, 'src'))
+    fs.writeFileSync(
+      path.join(packageDir, 'src/mod.ts'),
+      'export type Handle = import("./util.ts").Handle\n',
+    )
+    fs.writeFileSync(
+      path.join(packageDir, 'src/util.ts'),
+      "import fs from 'node:fs'\nexport type Handle = typeof fs.Dir\n",
+    )
+    const result = packageJson({
+      name: '@test/package',
+      version: '1.0.0',
+      exports: {
+        '.': exportEntry('./src/mod.ts', {
+          environment: 'isomorphic-es2024',
+        }),
+      },
+    })
+
+    const issues = await result.validate?.({
+      cwd: repo.repoRoot,
+      location: 'packages/pkg',
+      validation: { packageJson: nodePackageJsonValidationRuntime },
+    })
+
+    expect(issues).toContainEqual({
+      severity: 'error',
+      packageName: '@test/package',
+      dependency: '.',
+      message: expect.stringContaining('src/util.ts imports "node:fs"'),
+      rule: 'package-json-export-environment-import',
+    })
+  })
+
   it('follows NodeNext .js source imports when scanning export environments', async () => {
     const repo = createTempRepo('packages/pkg')
     const packageDir = repo.memberDirs['packages/pkg']!

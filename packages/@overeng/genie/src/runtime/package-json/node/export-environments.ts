@@ -31,7 +31,9 @@ import {
   isImportClause,
   isImportDeclaration,
   isImportSpecifier,
+  isImportTypeNode,
   isInterfaceDeclaration,
+  isLiteralTypeNode,
   isMethodDeclaration,
   isModuleBlock,
   isNamespaceImport,
@@ -345,7 +347,8 @@ const findForbiddenGlobals = ({
 
 /**
  * Every module specifier a file names: imports (type-only included), re-exports, dynamic `import()`,
- * `import x = require(...)`, and CommonJS `require(...)`. This is the TypeScript 7 replacement for
+ * `import()` TYPE queries (`type H = import('node:fs').Dir`), `import x = require(...)`, and CommonJS
+ * `require(...)`. This is the TypeScript 7 replacement for
  * `ts.preProcessFile(source, true, true).importedFiles`; triple-slash `referencedFiles` and
  * `typeReferenceDirectives` were never followed by this walk and stay out of it.
  */
@@ -372,6 +375,15 @@ const importedSpecifiersOf = (sourceFile: SourceFile): readonly string[] => {
       if (isModuleCall === true && first !== undefined && isStringLiteral(first) === true) {
         specifiers.push(first.text)
       }
+    }
+
+    // `type Handle = import('node:fs').Dir` — a type query, not a call. `preProcessFile` reported these
+    // too, and a forbidden module must stay forbidden even when it is only ever named in a type.
+    // The argument is a type: only a string-literal `LiteralTypeNode` names a module (`import(T)` with
+    // a generic or template type does not resolve to one specifier).
+    if (isImportTypeNode(node) === true && isLiteralTypeNode(node.argument) === true) {
+      const { literal } = node.argument
+      if (isStringLiteral(literal) === true) specifiers.push(literal.text)
     }
 
     node.forEachChild((child) => {

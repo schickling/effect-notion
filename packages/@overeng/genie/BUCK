@@ -7,7 +7,7 @@ load("//buck2/products:defs.bzl", "javascript_product")
 # Projection source: packages/@overeng/genie/BUCK.genie.ts
 # Projection schema version: 3
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:7dd30d5f5f98fcf90f060c3d9f01e3c44723328220a8764c2ac5c60430e8fbec
+# Semantic fingerprint: sha256:818c48753b7c2d42334d65ef2c4897e6abc8b5bb7a10d1b0b105617609c86624
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/genie/BUCK.genie.ts, packages/@overeng/genie/BUCK.genie.ts, packages/@overeng/genie/bin/**/*.cts, packages/@overeng/genie/bin/**/*.js, packages/@overeng/genie/bin/**/*.mts, packages/@overeng/genie/bin/**/*.ts, packages/@overeng/genie/bin/**/*.tsx, packages/@overeng/genie/package.json.genie.ts, packages/@overeng/genie/src/**/*.cts, packages/@overeng/genie/src/**/*.js, packages/@overeng/genie/src/**/*.mts, packages/@overeng/genie/src/**/*.ts, packages/@overeng/genie/src/**/*.tsx, packages/@overeng/genie/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
@@ -90,6 +90,7 @@ export_materialization_inputs([
     "src/runtime/node/bootstrap-closure.unit.test.ts",
     "src/runtime/node/io.ts",
     "src/runtime/node/mod.ts",
+    "src/runtime/node/ts-api.ts",
     "src/runtime/node/tsconfig-from-packages.ts",
     "src/runtime/oxfmt-config/mod.ts",
     "src/runtime/oxlint-config/mod.ts",
@@ -210,6 +211,7 @@ package_view(
         "src/runtime/node/bootstrap-closure.unit.test.ts": "src/runtime/node/bootstrap-closure.unit.test.ts",
         "src/runtime/node/io.ts": "src/runtime/node/io.ts",
         "src/runtime/node/mod.ts": "src/runtime/node/mod.ts",
+        "src/runtime/node/ts-api.ts": "src/runtime/node/ts-api.ts",
         "src/runtime/node/tsconfig-from-packages.ts": "src/runtime/node/tsconfig-from-packages.ts",
         "src/runtime/oxfmt-config/mod.ts": "src/runtime/oxfmt-config/mod.ts",
         "src/runtime/oxlint-config/mod.ts": "src/runtime/oxlint-config/mod.ts",
