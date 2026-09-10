@@ -7,10 +7,11 @@
 # authority for the bootstrap contract; `bootstrap-closure:check` (static) is fast local feedback.
 #
 # Mechanism:
-#   1. Realize the SELF-CONTAINED packaged Genie CLI (`.#genie`) — a `bun --compile`
-#      binary with its deps baked into the store, so it needs no `node_modules` to run.
-#      (Override with GENIE_COLD_PROOF_BIN=/path/to/genie to reuse an already-built binary
-#      and skip the nix build.)
+#   1. Realize the packaged Genie CLI (`.#genie`) — a wrapper over the reviewed,
+#      content-addressed Buck JavaScript product and its pinned Bun runtime, so
+#      it needs no `node_modules` to run. (Override with
+#      GENIE_COLD_PROOF_BIN=/path/to/genie to reuse an already-built product and
+#      skip the Nix build.)
 #   2. Materialize a `node_modules`-free tree of the COMMITTED repo source via `git archive HEAD`
 #      into a temp dir OUTSIDE the repo (so bun/pnpm cannot walk up into the repo's node_modules).
 #   3. Run `genie --phase bootstrap` COLD in that tree. Success proves every bootstrap generator's

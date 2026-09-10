@@ -15,6 +15,13 @@ node_modules
 *.tsbuildinfo
 dist
 
+# `dist` is Buck-owned and declaration-only, so @overeng/react-inspector's pack
+# build emits its JavaScript beside it instead of into it. Ignored here rather
+# than in the package: npm reads the package-local ignore file, not this one, so
+# a package-level entry would drop the directory from the published tarball that
+# `files` and `publishConfig.exports` name.
+/packages/@overeng/react-inspector/dist-pack/
+
 # Python
 __pycache__/
 *.pyc

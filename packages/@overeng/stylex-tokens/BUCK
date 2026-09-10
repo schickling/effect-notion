@@ -2,10 +2,10 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/stylex-tokens/BUCK.genie.ts
-# Projection schema version: 4
+# Projection schema version: 6
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:c9be0db055e99e466c7d783701510c549c789da3bed3214941971d7bb2669fb9
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/stylex-tokens/BUCK.genie.ts, packages/@overeng/stylex-tokens/BUCK.genie.ts, packages/@overeng/stylex-tokens/package.json.genie.ts, packages/@overeng/stylex-tokens/src/**/*.cts, packages/@overeng/stylex-tokens/src/**/*.js, packages/@overeng/stylex-tokens/src/**/*.mts, packages/@overeng/stylex-tokens/src/**/*.ts, packages/@overeng/stylex-tokens/src/**/*.tsx, packages/@overeng/stylex-tokens/tsconfig.json.genie.ts
+# Semantic fingerprint: sha256:2b9be62d02e605fea131cb30b3232d616ef82c402834b1d8eb5632eb6108eda2
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/stylex-tokens/BUCK.genie.ts, packages/@overeng/stylex-tokens/BUCK.genie.ts, packages/@overeng/stylex-tokens/package.json.genie.ts, packages/@overeng/stylex-tokens/src/**/*.cts, packages/@overeng/stylex-tokens/src/**/*.js, packages/@overeng/stylex-tokens/src/**/*.mts, packages/@overeng/stylex-tokens/src/**/*.spec.cjs, packages/@overeng/stylex-tokens/src/**/*.spec.jsx, packages/@overeng/stylex-tokens/src/**/*.spec.mjs, packages/@overeng/stylex-tokens/src/**/*.test.cjs, packages/@overeng/stylex-tokens/src/**/*.test.jsx, packages/@overeng/stylex-tokens/src/**/*.test.mjs, packages/@overeng/stylex-tokens/src/**/*.ts, packages/@overeng/stylex-tokens/src/**/*.tsx, packages/@overeng/stylex-tokens/src/**/__snapshots__/*.snap, packages/@overeng/stylex-tokens/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")

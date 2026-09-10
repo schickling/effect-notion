@@ -2,10 +2,10 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/notion-property-write/BUCK.genie.ts
-# Projection schema version: 4
+# Projection schema version: 6
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:77e5b3e26cc602b003453659c0dc72ce252fddba124b33e80fbc2783335f0f53
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-property-write/BUCK.genie.ts, packages/@overeng/notion-property-write/BUCK.genie.ts, packages/@overeng/notion-property-write/package.json.genie.ts, packages/@overeng/notion-property-write/src/**/*.cts, packages/@overeng/notion-property-write/src/**/*.js, packages/@overeng/notion-property-write/src/**/*.mts, packages/@overeng/notion-property-write/src/**/*.ts, packages/@overeng/notion-property-write/src/**/*.tsx, packages/@overeng/notion-property-write/tsconfig.json.genie.ts
+# Semantic fingerprint: sha256:8fa268a482e28d1854299666030b3bb4cecb776b3d268d7d38fe0111783207c1
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-property-write/BUCK.genie.ts, packages/@overeng/notion-property-write/BUCK.genie.ts, packages/@overeng/notion-property-write/package.json.genie.ts, packages/@overeng/notion-property-write/src/**/*.cts, packages/@overeng/notion-property-write/src/**/*.js, packages/@overeng/notion-property-write/src/**/*.mts, packages/@overeng/notion-property-write/src/**/*.spec.cjs, packages/@overeng/notion-property-write/src/**/*.spec.jsx, packages/@overeng/notion-property-write/src/**/*.spec.mjs, packages/@overeng/notion-property-write/src/**/*.test.cjs, packages/@overeng/notion-property-write/src/**/*.test.jsx, packages/@overeng/notion-property-write/src/**/*.test.mjs, packages/@overeng/notion-property-write/src/**/*.ts, packages/@overeng/notion-property-write/src/**/*.tsx, packages/@overeng/notion-property-write/src/**/__snapshots__/*.snap, packages/@overeng/notion-property-write/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
@@ -54,6 +54,25 @@ package_view(
         "src/proof.ts": "src/proof.ts",
         "src/proof.unit.test.ts": "src/proof.unit.test.ts",
         "tsconfig.json": "tsconfig.json",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "test_package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_notion_property_write_2cd3804e08be",
+    files = {
+        "package.json": "package.json",
+        "src/core.ts": "src/core.ts",
+        "src/core.unit.test.ts": "src/core.unit.test.ts",
+        "src/guards.ts": "src/guards.ts",
+        "src/guards.unit.test.ts": "src/guards.unit.test.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/proof.ts": "src/proof.ts",
+        "src/proof.unit.test.ts": "src/proof.unit.test.ts",
+        "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
     runtime = "//:package_tree_runtime",
@@ -85,6 +104,6 @@ tsgo_emit(
 
 vitest_test(
     name = "test",
-    package_tree = ":package_tree",
+    package_tree = ":test_package_tree",
     visibility = ["PUBLIC"],
 )

@@ -175,6 +175,9 @@ make_freshness_tools() {
   cat > "$repo/bin/tsgo" <<'TSGO'
 #!/usr/bin/env bash
 set -euo pipefail
+if [ -n "${TSGO_INVOCATION_LOG:-}" ]; then
+  printf 'ran\n' > "$TSGO_INVOCATION_LOG"
+fi
 out=""
 while [ "$#" -gt 0 ]; do
   if [ "$1" = "--outDir" ]; then
@@ -186,6 +189,14 @@ while [ "$#" -gt 0 ]; do
 done
 mkdir -p "$out/src"
 printf '%s\n' "${FAKE_EMIT_DECLARATIONS:?}" > "$out/src/mod.d.ts"
+# A declaration map records its sources relative to the directory the map is
+# emitted into, so its bytes depend on how deep the emit directory sits below
+# the package root. Reproduce that dependency: it is the only way a fixture can
+# tell a depth-faithful staging directory from a deeper one.
+if [ -n "${FAKE_EMIT_DECLARATION_MAP:-}" ]; then
+  printf '{"sources":["%s"]}\n' "$(realpath --relative-to="$out/src" "$PWD/src/mod.ts")" \
+    > "$out/src/mod.d.ts.map"
+fi
 TSGO
   chmod +x "$repo/bin/tsgo"
 }
@@ -212,6 +223,151 @@ test_standalone_staleness_fails() {
     return 1
   fi
   assert_old_dist "$repo"
+  assert_no_staging "$repo"
+}
+
+test_standalone_missing_publication_is_actionable() {
+  repo="$TEST_ROOT/standalone-missing-publication"
+  make_repo "$repo"
+  make_freshness_tools "$repo"
+  rm -rf -- "$repo/$PACKAGE_PATH/dist"
+  set +e
+  output="$(FAKE_EMIT_DECLARATIONS='old declarations' TYPESCRIPT_DIST_MODE=check \
+    TSGO_BIN="$repo/bin/tsgo" DIFF_BIN="$DIFF_BIN" \
+    TSGO_INVOCATION_LOG="$repo/tsgo-invoked" \
+    bash "$MATERIALIZER" "$repo" "$PACKAGE_PATH" "$TARGET" "$DECLARATION_ENTRYPOINT" "$PROJECT" 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -ne 0 ] || {
+    echo "FAIL: an unpublished dist was accepted in check mode" >&2
+    return 1
+  }
+  case "$output" in
+    *"found no published declarations at $PACKAGE_PATH/dist/$DECLARATION_ENTRYPOINT"*) ;;
+    *)
+      echo "FAIL: missing publication did not name the absent declaration: $output" >&2
+      return 1
+      ;;
+  esac
+  case "$output" in
+    *"composed workspace root"*) ;;
+    *)
+      echo "FAIL: missing publication did not name the publishing path: $output" >&2
+      return 1
+      ;;
+  esac
+  [ ! -e "$repo/tsgo-invoked" ] || {
+    echo "FAIL: the compiler ran before the publication prerequisite was proven" >&2
+    return 1
+  }
+  assert_no_staging "$repo"
+}
+
+test_standalone_handwritten_declarations_compare() {
+  repo="$TEST_ROOT/standalone-handwritten"
+  make_repo "$repo"
+  make_freshness_tools "$repo"
+  mkdir -p "$repo/$PACKAGE_PATH/src"
+  printf 'declare const handwritten: true\n' > "$repo/$PACKAGE_PATH/src/vendor.d.ts"
+  cp "$repo/$PACKAGE_PATH/src/vendor.d.ts" "$repo/$PACKAGE_PATH/dist/src/vendor.d.ts"
+  # The compiler never emits a handwritten declaration, so a published copy is
+  # only fresh because the materializer stages the same registry-declared set.
+  FAKE_EMIT_DECLARATIONS='old declarations' TYPESCRIPT_DIST_MODE=check \
+    TSGO_BIN="$repo/bin/tsgo" DIFF_BIN="$DIFF_BIN" \
+    bash "$MATERIALIZER" "$repo" "$PACKAGE_PATH" "$TARGET" "$DECLARATION_ENTRYPOINT" "$PROJECT" \
+    src/vendor.d.ts
+  printf 'declare const handwritten: false\n' > "$repo/$PACKAGE_PATH/dist/src/vendor.d.ts"
+  if FAKE_EMIT_DECLARATIONS='old declarations' TYPESCRIPT_DIST_MODE=check \
+    TSGO_BIN="$repo/bin/tsgo" DIFF_BIN="$DIFF_BIN" \
+    bash "$MATERIALIZER" "$repo" "$PACKAGE_PATH" "$TARGET" "$DECLARATION_ENTRYPOINT" "$PROJECT" \
+    src/vendor.d.ts; then
+    echo "FAIL: a drifted handwritten declaration copy was accepted" >&2
+    return 1
+  fi
+  # Registry drift stays visible: an undeclared published file is staleness, not
+  # something the comparison excludes.
+  cp "$repo/$PACKAGE_PATH/src/vendor.d.ts" "$repo/$PACKAGE_PATH/dist/src/vendor.d.ts"
+  if FAKE_EMIT_DECLARATIONS='old declarations' TYPESCRIPT_DIST_MODE=check \
+    TSGO_BIN="$repo/bin/tsgo" DIFF_BIN="$DIFF_BIN" \
+    bash "$MATERIALIZER" "$repo" "$PACKAGE_PATH" "$TARGET" "$DECLARATION_ENTRYPOINT" "$PROJECT"; then
+    echo "FAIL: an undeclared published declaration was accepted" >&2
+    return 1
+  fi
+  # A declared source that no longer exists is registry drift, not staleness.
+  rm -f -- "$repo/$PACKAGE_PATH/src/vendor.d.ts"
+  if FAKE_EMIT_DECLARATIONS='old declarations' TYPESCRIPT_DIST_MODE=check \
+    TSGO_BIN="$repo/bin/tsgo" DIFF_BIN="$DIFF_BIN" \
+    bash "$MATERIALIZER" "$repo" "$PACKAGE_PATH" "$TARGET" "$DECLARATION_ENTRYPOINT" "$PROJECT" \
+    src/vendor.d.ts; then
+    echo "FAIL: a missing declared declaration source was accepted" >&2
+    return 1
+  fi
+  assert_no_staging "$repo"
+}
+
+test_standalone_declaration_maps_compare() {
+  repo="$TEST_ROOT/standalone-declaration-maps"
+  make_repo "$repo"
+  make_freshness_tools "$repo"
+  mkdir -p "$repo/$PACKAGE_PATH/src"
+  printf 'export const mod = 1\n' > "$repo/$PACKAGE_PATH/src/mod.ts"
+  # What a compiler emitting into `<package>/dist` writes: two levels up to the
+  # package root, then into `src`. A staging directory at any other depth
+  # produces different bytes here.
+  printf '{"sources":["../../src/mod.ts"]}\n' \
+    > "$repo/$PACKAGE_PATH/dist/src/mod.d.ts.map"
+  FAKE_EMIT_DECLARATIONS='old declarations' FAKE_EMIT_DECLARATION_MAP=1 \
+    TYPESCRIPT_DIST_MODE=check TSGO_BIN="$repo/bin/tsgo" DIFF_BIN="$DIFF_BIN" \
+    bash "$MATERIALIZER" "$repo" "$PACKAGE_PATH" "$TARGET" "$DECLARATION_ENTRYPOINT" "$PROJECT"
+  # Maps are compared, not excluded: a drifted map is staleness even when every
+  # declaration matches.
+  printf '{"sources":["../../src/other.ts"]}\n' \
+    > "$repo/$PACKAGE_PATH/dist/src/mod.d.ts.map"
+  if FAKE_EMIT_DECLARATIONS='old declarations' FAKE_EMIT_DECLARATION_MAP=1 \
+    TYPESCRIPT_DIST_MODE=check TSGO_BIN="$repo/bin/tsgo" DIFF_BIN="$DIFF_BIN" \
+    bash "$MATERIALIZER" "$repo" "$PACKAGE_PATH" "$TARGET" "$DECLARATION_ENTRYPOINT" "$PROJECT"; then
+    echo "FAIL: a drifted declaration map was accepted" >&2
+    return 1
+  fi
+  assert_no_staging "$repo"
+}
+
+test_standalone_buildinfo_alone_is_not_staleness() {
+  repo="$TEST_ROOT/standalone-buildinfo"
+  make_repo "$repo"
+  make_freshness_tools "$repo"
+  # Source-owned build metadata, not a published declaration: it embeds absolute
+  # machine paths and the comparison never emits one.
+  printf 'machine-local build state\n' \
+    > "$repo/$PACKAGE_PATH/dist/tsconfig.tsbuildinfo"
+  FAKE_EMIT_DECLARATIONS='old declarations' TYPESCRIPT_DIST_MODE=check \
+    TSGO_BIN="$repo/bin/tsgo" DIFF_BIN="$DIFF_BIN" \
+    bash "$MATERIALIZER" "$repo" "$PACKAGE_PATH" "$TARGET" "$DECLARATION_ENTRYPOINT" "$PROJECT"
+  assert_old_dist "$repo"
+  assert_no_staging "$repo"
+}
+
+test_standalone_published_contamination_fails() {
+  repo="$TEST_ROOT/standalone-contamination"
+  make_repo "$repo"
+  make_freshness_tools "$repo"
+  # The published dist carries declarations only. JavaScript in it means some
+  # source-side build wrote through the Buck-owned directory.
+  printf 'export const mod = 1\n' > "$repo/$PACKAGE_PATH/dist/src/mod.js"
+  if FAKE_EMIT_DECLARATIONS='old declarations' TYPESCRIPT_DIST_MODE=check \
+    TSGO_BIN="$repo/bin/tsgo" DIFF_BIN="$DIFF_BIN" \
+    bash "$MATERIALIZER" "$repo" "$PACKAGE_PATH" "$TARGET" "$DECLARATION_ENTRYPOINT" "$PROJECT"; then
+    echo "FAIL: published JavaScript in the declaration dist was accepted" >&2
+    return 1
+  fi
+  rm -f -- "$repo/$PACKAGE_PATH/dist/src/mod.js"
+  printf 'declare const extra: true\n' > "$repo/$PACKAGE_PATH/dist/src/extra.d.ts"
+  if FAKE_EMIT_DECLARATIONS='old declarations' TYPESCRIPT_DIST_MODE=check \
+    TSGO_BIN="$repo/bin/tsgo" DIFF_BIN="$DIFF_BIN" \
+    bash "$MATERIALIZER" "$repo" "$PACKAGE_PATH" "$TARGET" "$DECLARATION_ENTRYPOINT" "$PROJECT"; then
+    echo "FAIL: an extra published declaration nobody emitted was accepted" >&2
+    return 1
+  fi
   assert_no_staging "$repo"
 }
 
@@ -335,6 +491,11 @@ run_test 'stale dist is atomically replaced by fresh bytes' test_replaces_stale_
 run_test 'post-publish validation failure is nonzero and restores old dist' test_post_publish_validation_failure
 run_test 'standalone fresh declarations pass without publication' test_standalone_freshness_passes
 run_test 'standalone stale declarations fail without mutation' test_standalone_staleness_fails
+run_test 'standalone check without a published dist is actionable and skips the compiler' test_standalone_missing_publication_is_actionable
+run_test 'handwritten declaration copies compare instead of reading as staleness' test_standalone_handwritten_declarations_compare
+run_test 'declaration maps compare at the published depth' test_standalone_declaration_maps_compare
+run_test 'a published tsbuildinfo alone is not staleness' test_standalone_buildinfo_alone_is_not_staleness
+run_test 'published JavaScript and extra declarations read as staleness' test_standalone_published_contamination_fails
 run_test 'only reciprocal composed worktrees select parent publication' test_composed_worktree_selection
 run_test 'cleanup refuses non-reciprocal worktree metadata without deletion' test_cleanup_refuses_nonreciprocal_worktree
 

@@ -54,5 +54,10 @@
   },
   "include": [
     "src/**/*"
+  ],
+  "exclude": [
+    "src/**/*.cjs",
+    "src/**/*.jsx",
+    "src/**/*.mjs"
   ]
 }

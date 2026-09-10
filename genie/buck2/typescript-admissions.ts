@@ -49,6 +49,7 @@ export type Buck2TypeScriptAdmission = Buck2TypeScriptPackageProjection & {
 /** Derived command and manifest data for a Buck-authoritative TypeScript package. */
 export type AuthoritativeBuck2TypeScriptAdmission = Buck2TypeScriptAuthorityMetadata & {
   readonly packagePath: string
+  readonly sourceRoots: readonly string[]
   readonly typecheckTarget: `//${string}:typecheck`
   readonly distTarget: `//${string}:dist`
 }
@@ -94,6 +95,7 @@ export const buck2TypeScriptAdmissions = {
 export const deriveBuck2TypeScriptAuthority = ({
   authority,
   packagePath,
+  sourceRoots,
 }: Buck2TypeScriptAdmission & {
   readonly authority: Buck2TypeScriptAuthorityMetadata
 }): AuthoritativeBuck2TypeScriptAdmission => ({
@@ -101,6 +103,7 @@ export const deriveBuck2TypeScriptAuthority = ({
   distTarget: `//${packagePath}:dist`,
   packagePath,
   projectFile: authority.projectFile,
+  sourceRoots,
   typecheckTarget: `//${packagePath}:typecheck`,
 })
 

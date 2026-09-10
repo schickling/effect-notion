@@ -307,7 +307,7 @@ RENAME_EXCHANGE advance.
   [0025](./.decisions/0025-cow-reflink-local-disk-economics.md) hygiene):
   measured 90% hardlink dedup where the store is shared versus zero on
   private stores (~95 GB reclaim) makes the former "moot under 0022" parking
-  premature while 36 of 38 projects still require the root install.
+  premature while 37 of 38 workspace importers still require the root install.
   Consolidation stays live until Phase 4 deletes the root install, then the
   developer-time store leaves Buck scope again.
 - pnpm 12: revisit when it is the `latest` dist-tag and packaged in nixpkgs;
