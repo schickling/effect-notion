@@ -25,13 +25,6 @@ export interface InspectViewProps {
   readonly stateAtom: Atom.Atom<InspectState>
 }
 
-const DISPOSITION_COLOR = {
-  active: 'green',
-  idle: 'blue',
-  'resource-pressure': 'yellow',
-  unknown: 'gray',
-} as const satisfies Readonly<Record<InspectDisposition, string>>
-
 /** TUI view rendering a single job's runner diagnosis */
 export const InspectView = ({ stateAtom }: InspectViewProps) => {
   const state = useTuiAtomValue(stateAtom) as InspectState
@@ -72,6 +65,12 @@ export const InspectView = ({ stateAtom }: InspectViewProps) => {
     </Box>
   )
 }
+const DISPOSITION_COLOR = {
+  active: 'green',
+  idle: 'blue',
+  'resource-pressure': 'yellow',
+  unknown: 'gray',
+} as const satisfies Readonly<Record<InspectDisposition, string>>
 
 const AssessmentSection = ({ assessment }: { readonly assessment: InspectAssessment }) => {
   const symbols = useSymbols()

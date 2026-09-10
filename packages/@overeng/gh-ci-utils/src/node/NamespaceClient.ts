@@ -178,13 +178,19 @@ const MAX_LOOKUP_DEPTH = 6
  * current level are preferred over nested ones, so a top-level `status` is
  * never shadowed by a deeper one.
  */
-const findString = (root: unknown, keys: ReadonlyArray<string>): string | null => {
-  const visit = (node: unknown, depth: number): string | null => {
+const findString = ({
+  root,
+  keys,
+}: {
+  root: unknown
+  keys: ReadonlyArray<string>
+}): string | null => {
+  const visit = ({ node, depth }: { node: unknown; depth: number }): string | null => {
     if (depth > MAX_LOOKUP_DEPTH || typeof node !== 'object' || node === null) return null
 
     if (Array.isArray(node)) {
       for (const item of node) {
-        const found = visit(item, depth + 1)
+        const found = visit({ node: item, depth: depth + 1 })
         if (found !== null) return found
       }
       return null
@@ -197,12 +203,12 @@ const findString = (root: unknown, keys: ReadonlyArray<string>): string | null =
       if (typeof value === 'number' && Number.isFinite(value)) return String(value)
     }
     for (const [, value] of entries) {
-      const found = visit(value, depth + 1)
+      const found = visit({ node: value, depth: depth + 1 })
       if (found !== null) return found
     }
     return null
   }
-  return visit(root, 0)
+  return visit({ node: root, depth: 0 })
 }
 
 /** Status strings that positively establish a live instance. */
@@ -245,19 +251,16 @@ export const parseJobDescribe = (stdout: string): JobDescribeParse => {
     }
   }
 
-  const instanceId = findString(parsed, ['instance_id', 'instanceId'])
+  const instanceId = findString({ root: parsed, keys: ['instance_id', 'instanceId'] })
   if (instanceId === null) {
     return { _tag: 'unrecognized', detail: 'no instance id in job description' }
   }
 
-  const destroyedAt = findString(parsed, ['destroyed_at', 'destroyedAt'])
-  const statusRaw = findString(parsed, [
-    'instance_status',
-    'instanceStatus',
-    'status',
-    'phase',
-    'state',
-  ])
+  const destroyedAt = findString({ root: parsed, keys: ['destroyed_at', 'destroyedAt'] })
+  const statusRaw = findString({
+    root: parsed,
+    keys: ['instance_status', 'instanceStatus', 'status', 'phase', 'state'],
+  })
 
   return {
     _tag: 'parsed',
@@ -265,16 +268,17 @@ export const parseJobDescribe = (stdout: string): JobDescribeParse => {
       instanceId,
       instanceStatus: deriveInstanceStatus({ statusRaw, destroyedAt }),
       instanceStatusRaw: statusRaw,
-      runnerName: findString(parsed, ['runner_name', 'runnerName']),
-      containerName: findString(parsed, ['container_name', 'containerName']),
-      repository: findString(parsed, ['repository', 'github_repository', 'githubRepository']),
-      workflow: findString(parsed, [
-        'workflow',
-        'workflow_name',
-        'workflowName',
-        'github_job_workflow_name',
-      ]),
-      jobName: findString(parsed, ['job_name', 'jobName']),
+      runnerName: findString({ root: parsed, keys: ['runner_name', 'runnerName'] }),
+      containerName: findString({ root: parsed, keys: ['container_name', 'containerName'] }),
+      repository: findString({
+        root: parsed,
+        keys: ['repository', 'github_repository', 'githubRepository'],
+      }),
+      workflow: findString({
+        root: parsed,
+        keys: ['workflow', 'workflow_name', 'workflowName', 'github_job_workflow_name'],
+      }),
+      jobName: findString({ root: parsed, keys: ['job_name', 'jobName'] }),
       destroyedAt,
     },
   }

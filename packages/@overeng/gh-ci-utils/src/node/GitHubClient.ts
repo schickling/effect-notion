@@ -821,7 +821,7 @@ const makeGitHubClient = Effect.gen(function* () {
       path: `/repos/${repo}/actions/jobs/${jobId}`,
       schema: GH.WorkflowJob,
       useETag: true,
-    }).pipe(Effect.withSpan('github-client.getWorkflowJob', { attributes: { repo, jobId } }))
+    }).pipe(withGitHubSpan({ name: 'github-client.getWorkflowJob', attributes: { repo, jobId } }))
 
   /** List all jobs for a workflow run (handles pagination). */
   const listWorkflowJobs = ({ repo, runId }: { repo: string; runId: number }) =>
