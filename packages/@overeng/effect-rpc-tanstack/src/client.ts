@@ -84,13 +84,15 @@ const isRequestEncoded = (
 ): message is { readonly _tag: 'Request'; readonly id: unknown } =>
   typeof message === 'object' && message !== null && '_tag' in message && message._tag === 'Request'
 
+/**
+ * Wraps an `RpcSerialization` service so outgoing `Request` envelopes are
+ * checked against `validateRequestId`, while every other member of the service
+ * contract (`contentType`, `includesFraming`, `codecFor`, ...) is passed
+ * through unchanged.
+ */
 const withRequestIdPolicy = (serialization: SerializationService): SerializationService =>
-  // `RpcSerialization.of` exists only in the rc.111 sources, not the compiled
-  // package, so the wrapped plain object is asserted to the nominal Service
-  // shape; its members are checked against the parameter above.
-  ({
-    contentType: serialization.contentType,
-    includesFraming: serialization.includesFraming,
+  RpcSerialization.RpcSerialization.of({
+    ...serialization,
     makeUnsafe: () => {
       const parser = serialization.makeUnsafe()
       return {
@@ -103,7 +105,7 @@ const withRequestIdPolicy = (serialization: SerializationService): Serialization
         },
       }
     },
-  }) as unknown as SerializationService
+  })
 
 const requestIdPolicyLayer = (
   base: Layer.Layer<RpcSerialization.RpcSerialization, never, never>,
