@@ -43,6 +43,9 @@ const loadedState = (conclusions: Array<string | null>): CiState => {
     conclusion: c,
     durationSeconds: 30,
     runner: 'runner-1',
+    runnerName: 'runner-1',
+    runnerKind: 'other',
+    runnerInstance: 'runner-1',
     jobUrl: `https://github.com/test/test/actions/runs/1/job/${i}`,
     failedStepName: null,
   }))

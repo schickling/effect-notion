@@ -1,5 +1,7 @@
 /** Pure formatting utilities for CI output. */
 
+import type { RunnerKind } from './viewModels.ts'
+
 /** Format a duration in seconds as a human-readable string */
 export const formatDuration = (seconds: number): string => {
   if (seconds < 60) return `${seconds}s`
@@ -32,7 +34,36 @@ export const splitOwnerRepo = (repo: string): { owner: string; repo: string } =>
   return { owner: repo.slice(0, idx), repo: repo.slice(idx + 1) }
 }
 
-/** Abbreviate a runner hostname for compact display */
+/**
+ * Structured identity parsed out of a GitHub Actions runner name.
+ *
+ * `instance` keeps the stable part of the raw name: the Namespace runner id, the
+ * host prefix of a runner-scaler worker, or the whole name when nothing is known
+ * about its shape. `unknown` covers jobs GitHub never assigned a runner to.
+ */
+type Identity<K extends RunnerKind, I> = { readonly _tag: K; readonly instance: I }
+export type RunnerIdentity =
+  | Identity<'namespace', string>
+  | Identity<'self-hosted', string>
+  | Identity<'other', string>
+  | Identity<'unknown', null>
+
+/** Namespace cloud runners: `nsc-runner-<id>` (abbreviated to the first 6 id chars). */
+const NAMESPACE_RUNNER = /^nsc-runner-(.{6,})$/
+/** runner-scaler workers: `<host>-<8 hex>`. */
+const SELF_HOSTED_RUNNER = /^(.+)-[a-f0-9]{8}$/
+
+/** Parse a raw runner name into its provider kind and stable instance identity. */
+export const parseRunnerIdentity = (name: string | null): RunnerIdentity => {
+  if (!name) return { _tag: 'unknown', instance: null }
+  const namespace = NAMESPACE_RUNNER.exec(name)
+  if (namespace) return { _tag: 'namespace', instance: namespace[1]! }
+  const selfHosted = SELF_HOSTED_RUNNER.exec(name)
+  if (selfHosted) return { _tag: 'self-hosted', instance: selfHosted[1]! }
+  return { _tag: 'other', instance: name }
+}
+
+/** Abbreviate a runner hostname for compact display. */
 export const abbreviateRunner = (name: string | null): string => {
   if (!name) return '—'
   const nscMatch = /^nsc-runner-(.{6})/.exec(name)
@@ -41,3 +72,20 @@ export const abbreviateRunner = (name: string | null): string => {
   if (selfHostedMatch) return selfHostedMatch[1]!
   return name
 }
+
+/** Compact display string for a parsed runner identity. */
+export const formatRunnerIdentity = (identity: RunnerIdentity): string => {
+  switch (identity._tag) {
+    case 'unknown':
+      return '—'
+    case 'namespace':
+      return `nsc:${identity.instance.slice(0, 6)}`
+    case 'self-hosted':
+    case 'other':
+      return identity.instance
+  }
+}
+
+/** Abbreviate a runner hostname for compact display */
+export const abbreviateRunner = (name: string | null): string =>
+  formatRunnerIdentity(parseRunnerIdentity(name))

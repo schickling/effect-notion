@@ -14,7 +14,7 @@ import type {
   WarningItem,
   WorkflowJobVM,
 } from '../../lib/viewModels.ts'
-import { lookupRunnerHost, type CiState, type RunInfo, type RunnerHostMap } from './schema.ts'
+import { resolveRunnerDisplay, type CiState, type RunInfo, type RunnerHostMap } from './schema.ts'
 
 /** Props for the CiView component */
 export interface CiViewProps {
@@ -226,7 +226,7 @@ const CriticalSection = ({
       <Text> </Text>
       <Box flexDirection="column">
         {failedJobs.map((job) => {
-          const runner = resolveRunnerDisplay({ runner: job.runner, runnerHostMap })
+          const runner = resolveRunnerDisplay({ job, entries: runnerHostMap })
           return (
             <Box key={job.id} flexDirection="column">
               <Box flexDirection="row">
@@ -359,7 +359,7 @@ const JobRow = ({
   const { symbol, color } = getJobSymbol({ job, symbols })
   const statusText = job.conclusion ?? job.status
   const duration = formatDuration(job.durationSeconds)
-  const runner = resolveRunnerDisplay({ runner: job.runner, runnerHostMap })
+  const runner = resolveRunnerDisplay({ job, entries: runnerHostMap })
   const jobId = String(job.id)
 
   return (
@@ -395,17 +395,6 @@ const getJobSymbol = ({
   if (job.conclusion === 'skipped') return { symbol: symbols.status.circle, color: 'gray' as const }
   if (job.status === 'in_progress') return { symbol: symbols.status.circle, color: 'blue' as const }
   return { symbol: symbols.status.circle, color: 'gray' as const }
-}
-
-const resolveRunnerDisplay = ({
-  runner,
-  runnerHostMap,
-}: {
-  runner: string
-  runnerHostMap: RunnerHostMap
-}): string => {
-  if (runner === '—') return runner
-  return lookupRunnerHost({ entries: runnerHostMap, runnerName: runner }) ?? runner
 }
 
 const ErrorBlock = ({ error }: { readonly error: JobError }) => (

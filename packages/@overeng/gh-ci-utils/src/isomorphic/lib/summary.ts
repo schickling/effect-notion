@@ -6,7 +6,7 @@
  * without pulling in the CLI, React, or the TUI renderer.
  */
 import type { WorkflowJob } from '../GitHubSchemas.ts'
-import { abbreviateRunner, computeDurationSeconds } from './format.ts'
+import { computeDurationSeconds, formatRunnerIdentity, parseRunnerIdentity } from './format.ts'
 import type {
   PrHealth,
   RunInfo,
@@ -85,24 +85,37 @@ export const toJobVM = ({
   job: WorkflowJob
   runHtmlUrl: string
   includeSteps: boolean
-}): WorkflowJobVM => ({
-  id: job.id,
-  name: job.name,
-  status: job.status,
-  conclusion: job.conclusion,
-  durationSeconds: computeDurationSeconds({
-    startedAt: job.started_at,
-    completedAt: job.completed_at,
-  }),
-  runner: abbreviateRunner(job.runner_name),
-  jobUrl: `${runHtmlUrl}/job/${job.id}`,
-  ...(includeSteps
-    ? {
-        steps: job.steps.map((s) => ({ name: s.name, status: s.status, conclusion: s.conclusion })),
-      }
-    : {}),
-  failedStepName: job.steps.find((s) => s.conclusion === 'failure')?.name ?? null,
-})
+}): WorkflowJobVM => {
+  const runnerIdentity = parseRunnerIdentity(job.runner_name)
+  return {
+    id: job.id,
+    name: job.name,
+    status: job.status,
+    conclusion: job.conclusion,
+    durationSeconds: computeDurationSeconds({
+      startedAt: job.started_at,
+      completedAt: job.completed_at,
+    }),
+    runner: formatRunnerIdentity(runnerIdentity),
+    runnerName: job.runner_name,
+    runnerKind: runnerIdentity._tag,
+    runnerInstance: runnerIdentity.instance,
+    jobUrl: `${runHtmlUrl}/job/${job.id}`,
+    ...(includeSteps
+      ? {
+          steps: job.steps.map((s) => ({
+            name: s.name,
+            status: s.status,
+            conclusion: s.conclusion,
+            number: s.number,
+            startedAt: s.started_at?.toISOString() ?? null,
+            completedAt: s.completed_at?.toISOString() ?? null,
+          })),
+        }
+      : {}),
+    failedStepName: job.steps.find((s) => s.conclusion === 'failure')?.name ?? null,
+  }
+}
 
 /** True when the inspected run describes a different commit than the one under review. */
 export const isStaleRunSelection = (selection: RunSelection): boolean =>

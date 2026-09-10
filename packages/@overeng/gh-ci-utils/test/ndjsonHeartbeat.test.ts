@@ -42,6 +42,9 @@ const loadedState = (status: string): Extract<CiState, { _tag: 'Loaded' }> => ({
       conclusion: null,
       durationSeconds: 100,
       runner: 'nsc:x',
+      runnerName: 'nsc-runner-x1y2z3w4v5',
+      runnerKind: 'namespace',
+      runnerInstance: 'x1y2z3w4v5',
       jobUrl: 'https://github.com/o/r/actions/runs/1/job/1',
       failedStepName: null,
     },
@@ -217,5 +220,36 @@ describe('ndjson watch liveness', () => {
       passed: 1,
     })
     expect(Schema.decodeUnknownSync(CiNdjsonEvent)(complete)).toEqual(complete)
+  })
+
+  it('carries the raw runner name on JobUpdate, so consumers can join on runner identity', () => {
+    const prev = loadedState('in_progress')
+    const lint = prev.jobs[0]!
+    const events = fromCiAction({
+      action: {
+        _tag: 'SetLoaded',
+        run: prev.run,
+        jobs: [{ ...lint, status: 'completed', conclusion: 'success' }],
+        errors: [],
+        annotations: [],
+        runnerHostMap: [],
+        prHealth: null,
+        summary: prev.summary,
+      },
+      prevState: prev,
+    })
+
+    const update = events.find((e) => e._tag === 'JobUpdate')
+    expect(update).toEqual({
+      _tag: 'JobUpdate',
+      jobId: 1,
+      name: 'lint',
+      status: 'completed',
+      conclusion: 'success',
+      durationSeconds: 100,
+      runner: 'nsc:x',
+      runnerName: 'nsc-runner-x1y2z3w4v5',
+    })
+    expect(Schema.decodeUnknownSync(CiNdjsonEvent)(update)).toEqual(update)
   })
 })

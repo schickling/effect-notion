@@ -48,6 +48,24 @@ export const lookupRunnerHost = ({
   return entry?.[1]
 }
 
+/**
+ * Runner label to show for a job: the runner-scaler host when the job's raw
+ * runner name is one we polled, else the abbreviated runner label.
+ *
+ * The join must use the raw name (`dev3-6038ddf9`), since that is what the
+ * runner-scaler `/jobs` endpoint reports; the abbreviated label never matches.
+ */
+export const resolveRunnerDisplay = ({
+  job,
+  entries,
+}: {
+  job: WorkflowJobVM
+  entries: RunnerHostMap
+}): string =>
+  job.runnerName === null
+    ? job.runner
+    : (lookupRunnerHost({ entries, runnerName: job.runnerName }) ?? job.runner)
+
 /** Renderer state for the CI status view */
 export const CiStateSchema = Schema.Union([
   Schema.TaggedStruct('Loading', {

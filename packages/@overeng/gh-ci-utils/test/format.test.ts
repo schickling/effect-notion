@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatDuration, abbreviateRunner } from '../src/isomorphic/lib/format.ts'
+import {
+  abbreviateRunner,
+  formatDuration,
+  parseRunnerIdentity,
+} from '../src/isomorphic/lib/format.ts'
 import { lookupRunnerHost, makeRunnerHostMap } from '../src/isomorphic/renderers/CiOutput/schema.ts'
 import { runTerminalConclusionText } from '../src/isomorphic/renderers/CiOutput/view.tsx'
 
@@ -59,4 +63,37 @@ describe('run-level terminal conclusion banner', () => {
       expect(runTerminalConclusionText({ conclusion, overallStatus: status })).toBe(text)
     },
   )
+})
+
+describe('parseRunnerIdentity', () => {
+  it('keeps the full Namespace runner id, not just the abbreviated prefix', () =>
+    expect(parseRunnerIdentity('nsc-runner-example123')).toEqual({
+      _tag: 'namespace',
+      instance: 'example123',
+    }))
+
+  it('resolves self-hosted runner-scaler workers to their host', () => {
+    expect(parseRunnerIdentity('runnera-1234abcd')).toEqual({
+      _tag: 'self-hosted',
+      instance: 'runnera',
+    })
+    expect(parseRunnerIdentity('runnerb-9876fedc')).toEqual({
+      _tag: 'self-hosted',
+      instance: 'runnerb',
+    })
+  })
+
+  it('reports unrecognized names verbatim rather than guessing a scheme', () => {
+    expect(parseRunnerIdentity('some-other-runner')).toEqual({
+      _tag: 'other',
+      instance: 'some-other-runner',
+    })
+    expect(parseRunnerIdentity('ubuntu-latest')).toEqual({
+      _tag: 'other',
+      instance: 'ubuntu-latest',
+    })
+  })
+
+  it('distinguishes "no runner assigned" from an unrecognized runner', () =>
+    expect(parseRunnerIdentity(null)).toEqual({ _tag: 'unknown', instance: null }))
 })

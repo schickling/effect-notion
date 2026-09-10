@@ -5,6 +5,7 @@ export {
   createInitialCiState,
   lookupRunnerHost,
   makeRunnerHostMap,
+  resolveRunnerDisplay,
   type CiAction,
   type CiState,
   type PrHealth,

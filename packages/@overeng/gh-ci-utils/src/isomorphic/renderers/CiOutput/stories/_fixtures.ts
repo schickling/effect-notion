@@ -1,12 +1,14 @@
 /** Synthetic CiOutput story fixtures with realistic CI shapes. */
 
 import type { ApiMeta } from '../../../lib/apiMeta.ts'
+import { parseRunnerIdentity } from '../../../lib/format.ts'
 import { computeSummary, directRunSelection } from '../../../lib/summary.ts'
 import type {
   AnnotationInfo,
   JobError,
   PrHealth,
   RunInfo,
+  StepInfo,
   Summary,
   WorkflowJobVM,
 } from '../../../lib/viewModels.ts'
@@ -53,9 +55,32 @@ export const makeRun = (overrides: Partial<RunInfo> = {}): RunInfo => {
   }
 }
 
-export const makeJob = (overrides: Partial<WorkflowJobVM> = {}): WorkflowJobVM => {
-  const id = overrides.id ?? nextId()
-  const steps = overrides.steps
+/** Stories only care about a step's name/status/conclusion; ordering and timestamps are filled in. */
+export type StepOverrides = Pick<StepInfo, 'name' | 'status' | 'conclusion'> & Partial<StepInfo>
+
+const makeStep = (step: StepOverrides, ord: number): StepInfo => ({
+  number: ord + 1,
+  startedAt: null,
+  completedAt: null,
+  ...step,
+})
+
+type JobOverrides = Omit<Partial<WorkflowJobVM>, 'steps'> & {
+  steps?: readonly StepOverrides[] | undefined
+}
+
+export const makeJob = (overrides: JobOverrides = {}): WorkflowJobVM => {
+  const { steps: stepOverrides, ...rest } = overrides
+  const id = rest.id ?? nextId()
+  const steps = stepOverrides?.map(makeStep)
+  /** Stories set the abbreviated `runner`; derive a plausible raw name from it. */
+  const runnerName =
+    rest.runnerName !== undefined
+      ? rest.runnerName
+      : rest.runner === '—'
+        ? null
+        : (rest.runner ?? 'dev3')
+  const identity = parseRunnerIdentity(runnerName)
   return {
     id,
     name: 'build',
@@ -63,11 +88,14 @@ export const makeJob = (overrides: Partial<WorkflowJobVM> = {}): WorkflowJobVM =
     conclusion: 'success',
     durationSeconds: 300,
     runner: 'linux-runner-a',
+    runnerName,
+    runnerKind: identity._tag,
+    runnerInstance: identity.instance,
     jobUrl: `https://github.com/example-org/example-repo/actions/runs/0/job/${id}`,
     ...(steps !== undefined ? { steps } : {}),
     failedStepName:
-      overrides.failedStepName ?? steps?.find((s) => s.conclusion === 'failure')?.name ?? null,
-    ...overrides,
+      rest.failedStepName ?? steps?.find((s) => s.conclusion === 'failure')?.name ?? null,
+    ...rest,
   }
 }
 
@@ -540,7 +568,7 @@ type JobEvent = {
   conclusion?: 'success' | 'failure' | 'cancelled'
   runner?: string
   /** For completed-failure jobs: step overrides */
-  steps?: WorkflowJobVM['steps']
+  steps?: readonly StepOverrides[]
 }
 
 type JobState = {
@@ -551,7 +579,7 @@ type JobState = {
   durationSeconds: number
   /** Real-time seconds when the job started (for computing elapsed time on in-progress jobs). */
   startedAtSeconds: number
-  steps: WorkflowJobVM['steps']
+  steps: readonly StepOverrides[] | undefined
   failedStepName: string | null
 }
 

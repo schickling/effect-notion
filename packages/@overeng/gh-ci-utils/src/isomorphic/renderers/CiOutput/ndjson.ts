@@ -17,7 +17,10 @@ export const CiJobUpdate = Schema.TaggedStruct('JobUpdate', {
   status: Schema.String,
   conclusion: Schema.NullOr(Schema.String),
   durationSeconds: Schema.Finite,
+  /** Abbreviated runner label, as shown in the TUI. */
   runner: Schema.String,
+  /** Raw `runner_name` from GitHub — `null` when no runner was assigned. */
+  runnerName: Schema.NullOr(Schema.String),
 }).annotate({ identifier: 'CiNdjson.JobUpdate' })
 
 /** Event emitted when errors are extracted from a failed job */
@@ -162,6 +165,7 @@ export const fromCiAction = ({
         conclusion: job.conclusion,
         durationSeconds: job.durationSeconds,
         runner: job.runner,
+        runnerName: job.runnerName,
       })
     }
   }

@@ -46,11 +46,24 @@ export const HostResultSchema = Schema.Struct({
 }).annotate({ identifier: 'ViewModel.HostResult' })
 export type HostResult = typeof HostResultSchema.Type
 
-/** Step info for display */
+/**
+ * Coarse provider kind parsed from a raw runner name.
+ *
+ * `other` means the name parsed but matched no known naming scheme; `unknown`
+ * means GitHub reported no runner at all.
+ */
+export const RunnerKind = Schema.Literals(['namespace', 'self-hosted', 'other', 'unknown'])
+export type RunnerKind = typeof RunnerKind.Type
+
+/** Step info for display (timestamps kept as ISO strings — no Date transforms) */
 export const StepInfoSchema = Schema.Struct({
   name: Schema.String,
   status: Schema.String,
   conclusion: Schema.NullOr(Schema.String),
+  /** GitHub's 1-based step number within the job. */
+  number: Schema.Finite,
+  startedAt: Schema.NullOr(Schema.String),
+  completedAt: Schema.NullOr(Schema.String),
 }).annotate({ identifier: 'ViewModel.StepInfo' })
 export type StepInfo = typeof StepInfoSchema.Type
 
@@ -61,7 +74,13 @@ export const WorkflowJobViewModel = Schema.Struct({
   status: Schema.String,
   conclusion: Schema.NullOr(Schema.String),
   durationSeconds: Schema.Finite,
+  /** Abbreviated runner label for compact display. */
   runner: Schema.String,
+  /** Raw `runner_name` as GitHub reported it — `null` when no runner was assigned. */
+  runnerName: Schema.NullOr(Schema.String),
+  runnerKind: RunnerKind,
+  /** Stable identity within the kind — `null` only for `unknown`. */
+  runnerInstance: Schema.NullOr(Schema.String),
   jobUrl: Schema.String,
   steps: Schema.optional(Schema.Array(StepInfoSchema)),
   failedStepName: Schema.NullOr(Schema.String),

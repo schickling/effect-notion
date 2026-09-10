@@ -83,6 +83,9 @@ const job = (overrides: Partial<WorkflowJobVM> = {}): WorkflowJobVM => ({
   conclusion: 'success',
   durationSeconds: 300,
   runner: 'linuxbuildera',
+  runnerName: 'linuxbuildera-1234abcd',
+  runnerKind: 'self-hosted',
+  runnerInstance: 'linuxbuildera',
   jobUrl: `${RUN.htmlUrl}/job/1`,
   failedStepName: null,
   ...overrides,
@@ -148,8 +151,22 @@ describe('status --output json job contract (#927)', () => {
     const vm = toJobVM({ job: rawJob, runHtmlUrl: RUN.htmlUrl, includeSteps: true })
 
     expect(vm.steps).toEqual([
-      { name: 'Set up job', status: 'completed', conclusion: 'success' },
-      { name: 'Build flake outputs', status: 'completed', conclusion: 'failure' },
+      {
+        name: 'Set up job',
+        status: 'completed',
+        conclusion: 'success',
+        number: 1,
+        startedAt: null,
+        completedAt: null,
+      },
+      {
+        name: 'Build flake outputs',
+        status: 'completed',
+        conclusion: 'failure',
+        number: 2,
+        startedAt: null,
+        completedAt: null,
+      },
     ])
     expect(vm.failedStepName).toBe('Build flake outputs')
   })
