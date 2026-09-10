@@ -94,8 +94,7 @@ export const attr = {
   ): AttrMatcher => ({
     _tag: 'Schema',
     description,
-    matches: (actual) =>
-      Exit.isSuccess(Schema.decodeExit(Schema.fromJsonString(schema))(actual)),
+    matches: (actual) => Exit.isSuccess(Schema.decodeExit(Schema.fromJsonString(schema))(actual)),
   }),
 } as const
 

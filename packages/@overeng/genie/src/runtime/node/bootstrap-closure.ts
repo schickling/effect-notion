@@ -18,7 +18,7 @@
  * are excluded from the closure.
  */
 
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { isBuiltin } from 'node:module'
 import path from 'node:path'
 
@@ -156,13 +156,19 @@ const resolveFollowableSpecifier = async ({
   specifier: StringLiteral
   importerFile: string
   analysis: TsFileAnalysis
-}): Promise<string | undefined> =>
-  isImportMapSpecifier(specifier.text) === true
-    ? resolveImportMapSpecifierForImporterSync({
-        specifier: specifier.text,
-        importerPath: importerFile,
-      })
-    : await analysis.resolveModuleSpecifier(specifier)
+}): Promise<string | undefined> => {
+  const resolved =
+    isImportMapSpecifier(specifier.text) === true
+      ? resolveImportMapSpecifierForImporterSync({
+          specifier: specifier.text,
+          importerPath: importerFile,
+        })
+      : await analysis.resolveModuleSpecifier(specifier)
+
+  // TypeScript canonicalizes paths for case-insensitive filesystems. Restore the on-disk spelling so
+  // importer chains stay comparable to their source roots and diagnostics preserve the real path.
+  return resolved !== undefined && existsSync(resolved) === true ? realpathSync(resolved) : resolved
+}
 
 /**
  * Walk the transitive runtime import closure of each `.genie.ts` source and report those that reach a

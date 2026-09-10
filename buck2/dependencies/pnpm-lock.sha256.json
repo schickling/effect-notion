@@ -1,6 +1,6 @@
 {
   "schema": "effect-utils/buck2-pnpm-sha256/v1",
-  "lockfileFingerprint": "sha256:73f1c8b57fd48937e801c9873e71467edcd88ed8c8408f703540a33d7467a55f",
+  "lockfileFingerprint": "sha256:35666efc6f2919ab52d950a1b8e5afe995105ef5253e485423563ce3028d1e7f",
   "source": "pnpm-lock.yaml",
   "generator": "buck2/dependencies/pnpm-lock.sha256.json.genie.ts",
   "regenerate": "devenv tasks run genie:run",
@@ -3236,13 +3236,13 @@
       "integrity": "sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==",
       "sha256": "8035d10cc48e2692358ac06cbadfa795279aaf6b3c04f29bd322f6df09513f8e"
     },
-    "typescript@5.9.3": {
+    "typescript@6.0.3": {
       "bins": {
         "tsc": "bin/tsc",
         "tsserver": "bin/tsserver"
       },
-      "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
-      "sha256": "10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3"
+      "integrity": "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==",
+      "sha256": "33cd0ee1beaa8c9e9d15a9da836c62ddea4c34a42d7c2d349dbc80d94165d22a"
     },
     "typescript@7.0.2": {
       "bins": {
@@ -3432,5 +3432,5 @@
       "sha256": "2c162e000f5fb5a816987d6f8ad7aad295203f777a5992d514ae4660778a51a4"
     }
   },
-  "fingerprint": "sha256:c6580f5192793d92d490010b66d959c121bf57ebef5852103f5fc0888f2707cc"
+  "fingerprint": "sha256:a81665b342c50455fbc973ac49f525619d12816871a13a0c504c013256aa127f"
 }

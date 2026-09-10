@@ -5,12 +5,12 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+
 - **@overeng/megarepo**: composition-enabled branch worktrees are now created
   directly at their final `P/repos/<owned>` path and use Git registration as
   identity authority. Routine commands refuse legacy flat roots without
   mutation, composed roots are protected from every GC mode, and the permanent
   migration lifecycle commands and metadata have been removed.
-
 
 - **Buck2 (inert)**: added sandbox-free package, editor-view, and product
   actions; normalized dependency views; tracked remote-cache configuration with
@@ -42,7 +42,7 @@ All notable changes to this project will be documented in this file.
   unusable baseline. It subtracts failures present at both refs so it answers
   "did this change make it worse" on packages carrying drift — but with no
   floor, a run where every story failed at the baseline produced an empty
-  regression list *by construction* and reported no regressions over a total
+  regression list _by construction_ and reported no regressions over a total
   loss of styling. Measured at 212/212 failed on one app and 708/942 on another.
   Now: missing-reference is detected before the pre-existing skip that swallowed
   it; stories whose baseline image does not exist are `uncovered`, derived from
@@ -112,7 +112,7 @@ All notable changes to this project will be documented in this file.
   fifth is `@overeng/stylex-tokens/preflight.css`.
   **That last one is why "Tailwind-free" was not sufficient.** The reset was
   unlayered and sets `box-sizing`, `margin`, `padding` and `border` on `*`.
-  Layered CSS loses to *any* unlayered CSS, so flipping layers on without
+  Layered CSS loses to _any_ unlayered CSS, so flipping layers on without
   touching it would have handed those four properties to the reset on every
   component in the package — silently, and in the direction the migration is
   supposed to prevent. The reset now declares itself in `overeng.reset` and the
@@ -122,13 +122,13 @@ All notable changes to this project will be documented in this file.
   same "do not depend on injection order" rule the token layer already follows.
 - **genie**: the CI workflow generator proves that every helper script a
   generated step invokes is a script it actually emits. `prepareCiScriptsStep`
-  copies the *consuming* repository's `genie/ci-scripts/` into the job-local
+  copies the _consuming_ repository's `genie/ci-scripts/` into the job-local
   `composition-state/ci-runtime/`, and only `ciWorkflowSupportFiles` puts files
   there, so a step naming a script that merely happens to be hand-committed in
   this repo resolves here and exits 127 in every consumer. That is how
   `.../ci-runtime/resolve-devenv-ci.sh` failed 14 of 15 jobs on
   schickling/schickling.dev#178 (run 33752627726) while this repo's own CI
-  stayed green: the assertion that existed checked the step *mentioned* the
+  stayed green: the assertion that existed checked the step _mentioned_ the
   script, never that a consumer could resolve it. Three scans now close the
   class — generator-source references through any `*ScriptsDir`,
   `composition-state/ci-runtime/...` references in the generated workflows, and
@@ -147,6 +147,7 @@ All notable changes to this project will be documented in this file.
   the two dropped members. No behavior change.
 
 ### Fixed
+
 - **CI**: keep draft assistant PRs mergeable by completing the auto-review job
   successfully when no review request is needed.
 - **CI**: stop requiring `main`-only Notion integration, live-deploy, and
@@ -212,7 +213,7 @@ All notable changes to this project will be documented in this file.
   Adjudicated against the gate: 20 stories changed, 18 of them the intended
   `43,127,255 -> 21,93,252` recolour confined to selected segments, checkbox
   boxes and the accent tick. The other two are the gate's own sub-pixel fringe,
-  proven by recapturing the *unchanged* baseline tree and reproducing both
+  proven by recapturing the _unchanged_ baseline tree and reproducing both
   diffs identically (689 and 693 pixels, max channel delta 2). Zero
   accessibility failures remain, and the condition-nesting, ordered-argument and
   landmark changes moved no pixels at all. Closes #1171.
@@ -262,6 +263,7 @@ All notable changes to this project will be documented in this file.
   recognized, and the full live install policy flag set and `.npmrc` policy
   lines are accepted. `packageImportMethod: auto` now prefers hardlinks over
   reflinks on Linux, a behavior change with no source change.
+
 - **TypeScript 7**: move the npm compiler/API package from 6.0.3 to 7.0.2 and
   refresh the Effect-TS `tsgo` flake input. The existing nixpkgs
   `tsgolint` 7.0.2001 pin is already the latest release built against
@@ -272,6 +274,13 @@ All notable changes to this project will be documented in this file.
   explicitly closed native compiler session; the OTEL boundary uses the new
   scanner API; and JSONC validation uses `jsonc-parser` because the classic
   config-text parser was removed.
+
+  The `@overeng/oxc-config` rule-test harness remains on TypeScript 6.0.3
+  because `@typescript-eslint/typescript-estree` still imports the removed
+  classic compiler API; production compilers and toolchains remain on 7.0.2.
+  Genie now canonicalizes followed bootstrap paths through the filesystem for
+  case-insensitive hosts, and its compiled-staging proof supplies the explicit
+  platform TypeScript API server required by bundled executables.
 
   One pnpm 12 resolution change needed a source decision: with the repo's
   load-bearing `injectWorkspacePackages: true`, pnpm 12 resolved
@@ -302,7 +311,7 @@ All notable changes to this project will be documented in this file.
   cannot resolve the optional package on disk. `tsgo` is no longer discovered
   from `PATH` for the API: the dev shell exposes the Effect-TS fork, whose
   revision answers `updateSnapshot` with zero projects (`no project found for
-  file`). Effect-TS `tsgo` remains the export type-proof compiler
+file`). Effect-TS `tsgo` remains the export type-proof compiler
   (`GENIE_EXPORT_TYPE_PROOF_COMPILER`). The checker derivation
   (`packages/@overeng/genie/nix/bootstrap-closure-check.nix`) owns the pinned
   platform packages and hashes and publishes the server path through its
