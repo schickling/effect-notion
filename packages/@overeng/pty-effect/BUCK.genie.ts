@@ -31,10 +31,7 @@ export const buck2TypeScriptAdmission = {
       // Only the pure client suite is bounded: the session and compiled-binary suites need a
       // real PTY, the Nix-built `node-pty` addon, and `bun build --compile`, so they stay
       // unbounded (decision 0026) under the devenv `test:pty-effect` task.
-      excludes: [
-        'src/PtySession.test.ts',
-        'src/client.test.ts',
-      ],
+      excludes: ['src/PtySession.test.ts', 'src/client.test.ts'],
     },
   ],
 } as const satisfies Buck2TypeScriptAdmission

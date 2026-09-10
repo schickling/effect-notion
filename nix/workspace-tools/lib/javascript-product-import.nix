@@ -17,6 +17,7 @@
 {
   artifact,
   descriptor,
+  descriptorContent,
   expectedDescriptorSha256,
   expectedExternalCapabilities ? [ ],
   expectedExternalModules ? [ ],
@@ -35,7 +36,7 @@
 
 let
   lib = pkgs.lib;
-  value = builtins.fromJSON (builtins.readFile descriptor);
+  value = builtins.fromJSON descriptorContent;
   expectedKeys = [
     "externalCapabilities"
     "externalModules"
@@ -104,7 +105,7 @@ assert lib.assertMsg (
   builtins.match "[0-9a-f]{64}" expectedDescriptorSha256 != null
 ) "javascript-product-import: expectedDescriptorSha256 must be lowercase SHA-256 hex";
 assert lib.assertMsg (
-  builtins.hashFile "sha256" descriptor == expectedDescriptorSha256
+  builtins.hashString "sha256" descriptorContent == expectedDescriptorSha256
 ) "javascript-product-import: descriptor digest mismatch";
 assert lib.assertMsg (
   value.productName == expectedProductName

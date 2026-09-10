@@ -34,6 +34,7 @@ let
         inherit (products.${name})
           artifact
           descriptor
+          descriptorContent
           expectedDescriptorSha256
           expectedModuleSha256
           ;

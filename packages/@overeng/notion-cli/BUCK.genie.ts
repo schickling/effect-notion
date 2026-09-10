@@ -11,6 +11,11 @@ export const buck2TypeScriptAdmission = {
   sourceRoots: ['src'],
   workspaceSiblings: [
     {
+      packageName: '@overeng/effect-path',
+      packagePath: 'packages/@overeng/effect-path',
+      distTarget: '//packages/@overeng/effect-path:dist',
+    },
+    {
       packageName: '@overeng/notion-datasource-sync',
       packagePath: 'packages/@overeng/notion-datasource-sync',
       distTarget: '//packages/@overeng/notion-datasource-sync:dist',

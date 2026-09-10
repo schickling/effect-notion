@@ -6,7 +6,7 @@ export default tsconfigJson({
   compilerOptions: {
     ...baseTsconfigCompilerOptions,
     lib: ['ES2023', 'DOM'],
-    rootDir: 'src',
+    rootDir: '.',
     outDir: './dist',
     ...reactJsx,
     allowJs: true,
