@@ -12,6 +12,7 @@ import {
   type GenieContext,
   type PackageInfo,
 } from '../mod.ts'
+import type { TsFileAnalysisSession } from '../node/ts-api.ts'
 import { defineCatalog } from './catalog.ts'
 import {
   createNodePackageJsonValidationRuntime,
@@ -1067,6 +1068,79 @@ describe('packageJson', () => {
       }
     }
   })
+
+  it('fails closed when the analysis session cannot open a graph file', async () => {
+    const repo = createTempRepo('packages/pkg')
+    const packageDir = repo.memberDirs['packages/pkg']!
+    fs.mkdirSync(path.join(packageDir, 'src'))
+    fs.writeFileSync(path.join(packageDir, 'src/mod.ts'), 'export const value = 1\n')
+    // A compiler that always succeeds: the ONLY thing that can keep an `.ok` proof out of the cache
+    // here is the walk refusing to hand an unscanned closure to the type proof.
+    const compilerPath = path.join(repo.repoRoot, 'always-ok-compiler')
+    fs.writeFileSync(compilerPath, '#!/usr/bin/env bash\nexit 0\n')
+    fs.chmodSync(compilerPath, 0o755)
+
+    // Exactly what a stale `GENIE_TYPESCRIPT_API_SERVER` or a project-inference miss produces: the
+    // session answers every file with "no project", so nothing is ever inspected.
+    const deadSession = async <A>({
+      use: run,
+    }: {
+      cwd: string
+      use: (session: TsFileAnalysisSession) => A | Promise<A>
+    }): Promise<A> =>
+      run({ analyze: async () => ({ kind: 'failed', reason: 'no project found for file' }) })
+
+    const result = await createNodePackageJsonValidationRuntime({
+      typeProofCompiler: { path: compilerPath, kind: 'custom' },
+      runAnalysis: deadSession,
+    }).validateExportEnvironments({
+      cwd: repo.repoRoot,
+      location: 'packages/pkg',
+      packageName: '@test/package',
+      exports: { '.': './src/mod.ts' },
+      contracts: { '.': [{ environment: 'isomorphic-es2024', typeProof: 'strict' }] },
+    })
+
+    expect(result.issues).toContainEqual({
+      severity: 'error',
+      packageName: '@test/package',
+      dependency: '.',
+      message: expect.stringContaining('could not be analyzed by the TypeScript session'),
+      rule: 'package-json-export-environment-analysis',
+    })
+    expect(result.cache).toEqual({ hits: 0, misses: 0 })
+    expect(
+      fs.existsSync(
+        path.join(repo.repoRoot, '.devenv/task-cache/genie-package-json-export-environments'),
+      ),
+    ).toBe(false)
+  })
+
+  it('still enforces the export environment when the session opens the graph', async () => {
+    const repo = createTempRepo('packages/pkg')
+    const packageDir = repo.memberDirs['packages/pkg']!
+    fs.mkdirSync(path.join(packageDir, 'src'))
+    fs.writeFileSync(
+      path.join(packageDir, 'src/mod.ts'),
+      "import { readFileSync } from 'node:fs'\n\nexport const value = readFileSync\n",
+    )
+
+    const result = await createNodePackageJsonValidationRuntime().validateExportEnvironments({
+      cwd: repo.repoRoot,
+      location: 'packages/pkg',
+      packageName: '@test/package',
+      exports: { '.': './src/mod.ts' },
+      contracts: { '.': [{ environment: 'isomorphic-es2024' }] },
+    })
+
+    expect(result.issues).toContainEqual({
+      severity: 'error',
+      packageName: '@test/package',
+      dependency: '.',
+      message: expect.stringContaining('imports "node:fs"'),
+      rule: 'package-json-export-environment-import',
+    })
+  }, 30_000)
 
   it('accepts a strict isomorphic TypeScript proof for the pure genie runtime entry', async () => {
     const repoRoot = path.resolve(import.meta.dirname, '../../../../../..')

@@ -70,6 +70,11 @@ type EnvironmentProfile = {
 type GraphResult = {
   files: readonly string[]
   issues: readonly ValidationIssue[]
+  /**
+   * False when the compiler session declined a file in the closure. The walk then saw less code than
+   * the export actually ships, so its silence proves nothing and no proof may be cached for it.
+   */
+  complete: boolean
 }
 
 /** Which compiler backend proves an export's type closure — the bundled `tsgo` or a `custom` binary. */
@@ -84,6 +89,12 @@ export type ExportTypeProofCompiler = {
 /** Node-runtime knobs for package.json export validation (e.g. overriding the type-proof compiler). */
 export type NodePackageJsonValidationRuntimeOptions = {
   typeProofCompiler?: ExportTypeProofCompiler
+  /**
+   * How the analysis session is obtained; defaults to a real TypeScript 7 session ({@link runTsFileAnalysis}).
+   * The seam exists so the fail-closed behaviour against a session that cannot open projects is testable
+   * without a broken compiler installation.
+   */
+  runAnalysis?: typeof runTsFileAnalysis
 }
 
 const validatorVersion = 'package-json-export-environments-v2'
@@ -412,6 +423,7 @@ const scanGraph = async ({
   const seen = new Set<string>()
   const pending = [entry]
   const issues: ValidationIssue[] = []
+  let complete = true
 
   while (pending.length > 0) {
     const file = pending.pop()!
@@ -420,41 +432,56 @@ const scanGraph = async ({
 
     // Graph discovery is intentionally serial because the analysis session advances one mutable snapshot.
     // eslint-disable-next-line no-await-in-loop
-    const analysis = await session.analyze(file)
-    if (analysis !== undefined) {
-      for (const specifier of importedSpecifiersOf(analysis.sourceFile)) {
-        const forbiddenPattern = profile.forbiddenImports.find((pattern) =>
-          matchesForbiddenImport({ specifier, pattern }),
-        )
-        if (forbiddenPattern !== undefined) {
-          issues.push(
-            issue({
-              packageName,
-              dependency: exportPath,
-              message: `${path.relative(process.cwd(), file)} imports "${specifier}", which is forbidden by this export environment.`,
-              rule: 'package-json-export-environment-import',
-            }),
-          )
-          continue
-        }
-
-        const resolved = resolveRelativeImport({ fromFile: file, specifier })
-        if (resolved !== undefined) pending.push(resolved)
-      }
-
+    const outcome = await session.analyze(file)
+    // A file the compiler session cannot open is NOT a clean file: enforcement never ran on it. A dead
+    // or mismatched session (`GENIE_TYPESCRIPT_API_SERVER`, a project-inference miss) would otherwise
+    // turn this whole check into a silent no-op that still cached an `.ok` proof.
+    if (outcome.kind === 'failed') {
+      complete = false
       issues.push(
-        ...findForbiddenGlobals({
-          file,
-          sourceFile: analysis.sourceFile,
-          profile,
+        issue({
           packageName,
-          exportPath,
+          dependency: exportPath,
+          message: `${path.relative(process.cwd(), file)} could not be analyzed by the TypeScript session (${outcome.reason}), so this export environment was left unchecked.`,
+          rule: 'package-json-export-environment-analysis',
         }),
       )
+      continue
     }
+    if (outcome.kind === 'unsupported-extension') continue
+
+    for (const specifier of importedSpecifiersOf(outcome.analysis.sourceFile)) {
+      const forbiddenPattern = profile.forbiddenImports.find((pattern) =>
+        matchesForbiddenImport({ specifier, pattern }),
+      )
+      if (forbiddenPattern !== undefined) {
+        issues.push(
+          issue({
+            packageName,
+            dependency: exportPath,
+            message: `${path.relative(process.cwd(), file)} imports "${specifier}", which is forbidden by this export environment.`,
+            rule: 'package-json-export-environment-import',
+          }),
+        )
+        continue
+      }
+
+      const resolved = resolveRelativeImport({ fromFile: file, specifier })
+      if (resolved !== undefined) pending.push(resolved)
+    }
+
+    issues.push(
+      ...findForbiddenGlobals({
+        file,
+        sourceFile: outcome.analysis.sourceFile,
+        profile,
+        packageName,
+        exportPath,
+      }),
+    )
   }
 
-  return { files: [...seen].toSorted(), issues }
+  return { files: [...seen].toSorted(), issues, complete }
 }
 
 const resolveExportTarget = ({
@@ -774,11 +801,12 @@ const typecheck = ({
 /** Package-json-owned node validation runtime injected during Genie validation. */
 export const createNodePackageJsonValidationRuntime = ({
   typeProofCompiler: configuredTypeProofCompiler,
+  runAnalysis = runTsFileAnalysis,
 }: NodePackageJsonValidationRuntimeOptions = {}): PackageJsonValidationRuntime => ({
   // One compiler session serves every export of the package: it parses each graph file and answers the
   // module resolution the walk needs, and is torn down before the runtime returns.
   validateExportEnvironments: (args) =>
-    runTsFileAnalysis({
+    runAnalysis({
       cwd: args.cwd,
       use: async (session) => {
         const start = performance.now()
@@ -845,6 +873,11 @@ export const createNodePackageJsonValidationRuntime = ({
                 exportPath,
                 session,
               })
+              issues.push(...graph.issues)
+              // An incomplete walk must not reach the type proof: its cache key hashes only the files
+              // the walk found, so a `.ok` written here would pin a closure that was never scanned.
+              if (graph.complete === false) continue
+
               const typecheckResult = typecheck({
                 cwd: args.cwd,
                 entry,
@@ -861,7 +894,7 @@ export const createNodePackageJsonValidationRuntime = ({
                 packageName: args.packageName,
                 exportPath,
               })
-              issues.push(...graph.issues, ...typecheckResult.issues)
+              issues.push(...typecheckResult.issues)
               hits += typecheckResult.cache.hits
               misses += typecheckResult.cache.misses
             }

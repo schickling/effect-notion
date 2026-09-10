@@ -282,6 +282,23 @@ All notable changes to this project will be documented in this file.
   case-insensitive hosts, and its compiled-staging proof supplies the explicit
   platform TypeScript API server required by bundled executables.
 
+  Three gates that the migration would otherwise have hollowed out are held by
+  their own regression tests. The raw-OTEL boundary drives the scanner's
+  `reScanSlashToken`/`reScanTemplateToken` re-scans, because a context-free
+  `scan()` loop reads a regex literal such as `/https?:\/\//` as a line comment
+  (blanking real code out of the gate's view — measured at 9.7k and 28k
+  characters in two production files) and stops a template at its first `${`
+  (leaving a real comment unblanked in 167 of the 750 scanned files). The
+  synthesized virtual project collects `getGlobalDiagnostics` alongside the
+  per-file ones, because project-wide errors such as `Cannot find global type
+  'Array'` belong to no file and would let a broken lib pass vacuously. And the
+  export-environment walk now distinguishes "extension carries no program" from
+  "the session declined the file": the latter raises a
+  `package-json-export-environment-analysis` error and withholds the `.ok`
+  proof-cache entry, so a stale `GENIE_TYPESCRIPT_API_SERVER` or a
+  project-inference miss can no longer report a clean, cached closure that was
+  never scanned.
+
   One pnpm 12 resolution change needed a source decision: with the repo's
   load-bearing `injectWorkspacePackages: true`, pnpm 12 resolved
   `packages/@overeng/restate-effect`'s `@overeng/utils` edge as an injected

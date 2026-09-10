@@ -199,8 +199,12 @@ export const checkBootstrapClosure = async ({
     if (cached !== undefined) return cached
     const violationSpecifiers: string[] = []
     const followTargets: string[] = []
-    const analysis = existsSync(file) === true ? await session.analyze(file) : undefined
-    if (analysis !== undefined) {
+    // A file the session declines contributes no edges. The bootstrap check does not turn that into a
+    // violation itself: `nix/bootstrap-closure-check.nix` carries a negative fixture whose expected
+    // violation disappears the moment the session cannot open projects, so a dead session fails there.
+    const outcome = existsSync(file) === true ? await session.analyze(file) : undefined
+    if (outcome?.kind === 'analyzed') {
+      const { analysis } = outcome
       const resolutions = await Promise.all(
         runtimeSpecifiersOf(analysis.sourceFile).map(async (specifier) => ({
           specifier: specifier.text,

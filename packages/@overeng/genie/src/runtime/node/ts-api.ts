@@ -65,10 +65,22 @@ export type TsFileAnalysis = {
   readonly resolveModuleSpecifier: (moduleSpecifier: StringLiteral) => Promise<string | undefined>
 }
 
+/**
+ * What opening a file produced. "Nothing to analyze" and "the session could not open it" are
+ * deliberately distinct: the first is normal (an asset the compiler owns no program for), the second
+ * means the walk saw NO code and must fail closed instead of reporting a clean file.
+ */
+export type TsFileAnalysisOutcome =
+  | { readonly kind: 'analyzed'; readonly analysis: TsFileAnalysis }
+  /** The extension carries no TypeScript program (assets such as `.css` or `.json`). */
+  | { readonly kind: 'unsupported-extension' }
+  /** The session declined the file: no project owns it, or its program has no source file for it. */
+  | { readonly kind: 'failed'; readonly reason: string }
+
 /** Analysis session over files that are opened one at a time, LSP-style. */
 export type TsFileAnalysisSession = {
-  /** Open `file` (idempotent) and return its AST plus resolver, or `undefined` when it is not analyzable. */
-  readonly analyze: (file: string) => Promise<TsFileAnalysis | undefined>
+  /** Open `file` (idempotent) and return its AST plus resolver, or why no analysis was produced. */
+  readonly analyze: (file: string) => Promise<TsFileAnalysisOutcome>
 }
 
 /** Run `use` against a TypeScript 7 session that analyzes on-disk files, closing the compiler process afterwards. */
@@ -87,9 +99,11 @@ export const runTsFileAnalysis = async <A>({
     // snapshot, so nodes must always be read out of the snapshot the open produced.
     let snapshot = await api.updateSnapshot()
 
-    const analyze = async (file: string): Promise<TsFileAnalysis | undefined> => {
+    const analyze = async (file: string): Promise<TsFileAnalysisOutcome> => {
       // The unstable API does not infer a ScriptKind for assets such as CSS and panics if they are opened.
-      if (analyzableSourceExtensions[path.extname(file)] !== true) return undefined
+      if (analyzableSourceExtensions[path.extname(file)] !== true) {
+        return { kind: 'unsupported-extension' }
+      }
       if (opened.has(file) === false) {
         const superseded = snapshot
         // A snapshot pins its server-side projects, programs and ASTs until it is disposed, so every
@@ -100,13 +114,18 @@ export const runTsFileAnalysis = async <A>({
         await superseded.dispose()
       }
       const project = await snapshot.getDefaultProjectForFile(file)
-      if (project === undefined) return undefined
+      if (project === undefined) return { kind: 'failed', reason: 'no project found for file' }
       const sourceFile = await project.program.getSourceFile(file)
-      if (sourceFile === undefined) return undefined
+      if (sourceFile === undefined) {
+        return { kind: 'failed', reason: 'the owning project has no source file for it' }
+      }
       return {
-        sourceFile,
-        resolveModuleSpecifier: async (moduleSpecifier) =>
-          (await project.checker.getSymbolAtLocation(moduleSpecifier))?.declarations[0]?.path,
+        kind: 'analyzed',
+        analysis: {
+          sourceFile,
+          resolveModuleSpecifier: async (moduleSpecifier) =>
+            (await project.checker.getSymbolAtLocation(moduleSpecifier))?.declarations[0]?.path,
+        },
       }
     }
 
@@ -167,6 +186,10 @@ export const runTsVirtualProject = async <A>({
             project.program.getProgramDiagnostics(),
             project.program.getSyntacticDiagnostics(),
             project.program.getSemanticDiagnostics(),
+            // Project-wide semantic errors (a missing lib, an unresolvable global type) belong to no
+            // file, so `getSemanticDiagnostics` never reports them — dropping this call is what makes
+            // a broken lib pass vacuously.
+            project.program.getGlobalDiagnostics(),
           ])
         )
           .flat()
@@ -179,7 +202,7 @@ export const runTsVirtualProject = async <A>({
 
 /** A synthesized in-memory project. */
 export type TsVirtualProject = {
-  /** Config, program-wide, syntactic and semantic diagnostics as flattened messages. */
+  /** Config, program-wide, syntactic, semantic and global diagnostics as flattened messages. */
   readonly diagnosticMessages: () => Promise<ReadonlyArray<string>>
 }
 

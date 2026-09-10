@@ -504,8 +504,10 @@ export const commonPnpmPolicySettings = {
   strictPeerDependencies: true as const,
   peerDependencyRules: {
     allowedVersions: {
-      // Most projects compile with TS 7. @overeng/oxc-config intentionally keeps TS 6 for
-      // @typescript-eslint's classic compiler-API rule-test harness until it supports TS 7.
+      // Shared floor for every megarepo, including the ones still compiling with TS 6 (e.g.
+      // bun-ffi-structs@0.2.3 via @myobie/pty declares typescript ^5 there). This repo compiles with
+      // TS 7 and raises its own floor to `>=7.0.0` in `genie/internal.ts`, which is what the
+      // generated `pnpm-workspace.yaml` carries.
       typescript: '>=6.0.0',
       eslint: '>=10.0.0',
       vitest: '>=4.0.0',
