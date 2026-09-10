@@ -151,6 +151,45 @@ describe('validateCatalogDuplicates', () => {
     expect(issues[0]!.message).toContain('permits exactly: 3.21.4, 4.0.0-beta.99')
   })
 
+  // The repo's own TypeScript exception is pinned to `['7.0.2', '6.0.3']` (production compiler plus the
+  // isolated oxc-config one). An unpinned exception blesses whatever the lock happens to hold, so the
+  // pin is what makes a THIRD compiler — an older peer such as 5.9.3 creeping back in — fail closed
+  // rather than ride along on the acknowledgement.
+  it('errors when an extra OLDER version joins an exactly pinned compiler cohort', () => {
+    const compilerCatalog = { typescript: '7.0.2' }
+    const exceptions = [
+      {
+        package: 'typescript',
+        versions: ['7.0.2', '6.0.3'],
+        reason: 'production compiles with 7 while the lint rule-tester harness keeps 6',
+        issue: '#821',
+      },
+    ]
+
+    const pinned = validateCatalogDuplicates({
+      catalog: compilerCatalog,
+      lockfileContent: makeLockfileYaml(['typescript@6.0.3', 'typescript@7.0.2']),
+      exceptions,
+    })
+    expect(pinned).toHaveLength(1)
+    expect(pinned[0]!.rule).toBe('catalog-duplicate-version-acknowledged')
+
+    const drifted = validateCatalogDuplicates({
+      catalog: compilerCatalog,
+      lockfileContent: makeLockfileYaml([
+        'typescript@5.9.3',
+        'typescript@6.0.3',
+        'typescript@7.0.2',
+      ]),
+      exceptions,
+    })
+    expect(drifted).toHaveLength(1)
+    expect(drifted[0]!.severity).toBe('error')
+    expect(drifted[0]!.rule).toBe('catalog-duplicate-exception-version-drift')
+    expect(drifted[0]!.message).toContain('7.0.2, 6.0.3, 5.9.3')
+    expect(drifted[0]!.message).toContain('permits exactly: 7.0.2, 6.0.3')
+  })
+
   it('errors when an importer-only version leaks into a snapshot peer graph', () => {
     const yaml = [
       makeLockfileYaml(['effect@3.21.4', 'effect@4.0.0-beta.99']),
