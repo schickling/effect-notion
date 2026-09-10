@@ -76,7 +76,7 @@ export type TsFileAnalysisSession = {
 /** Run `use` against a TypeScript 7 session that analyzes on-disk files, closing the compiler process afterwards. */
 export const runTsFileAnalysis = async <A>({
   cwd,
-  use,
+  use: run,
 }: {
   /** Working directory the compiler resolves relative paths and ancestor configs against. */
   cwd: string
@@ -107,7 +107,7 @@ export const runTsFileAnalysis = async <A>({
       }
     }
 
-    return await use({ analyze })
+    return await run({ analyze })
   } finally {
     await api.close()
   }
@@ -119,7 +119,7 @@ export const runTsVirtualProject = async <A>({
   files,
   compilerOptions,
   rootFiles,
-  use,
+  use: run,
 }: {
   /** Absolute directory the synthesized config lives in; `files` keys are resolved against it. */
   root: string
@@ -156,7 +156,7 @@ export const runTsVirtualProject = async <A>({
     if (project === undefined) {
       throw new Error(`TypeScript API did not open the synthesized project ${configPath}`)
     }
-    return await use({
+    return await run({
       diagnosticMessages: async () =>
         (
           await Promise.all([
