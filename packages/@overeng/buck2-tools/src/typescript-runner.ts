@@ -28,6 +28,7 @@ type ForwardedSignal = keyof typeof signalNumbers
 
 type TypecheckOptions = {
   readonly packageTree: string
+  readonly readRoots: readonly string[]
   readonly project: string
   readonly tsgo: string
   readonly verdict: string
@@ -39,11 +40,12 @@ type EmitOptions = {
   readonly outDir: string
   readonly output: string
   readonly packageTree: string
+  readonly readRoots: readonly string[]
   readonly project: string
   readonly tsgo: string
 }
 
-let activeChild: ReturnType<typeof Bun.spawn> | undefined
+let activeChild: Bun.Subprocess | undefined
 let forwardedSignal: ForwardedSignal | undefined
 
 const fail = (message: string): never => {
@@ -62,13 +64,15 @@ const requireArgument = (options: {
   readonly name: string
 }): string => options.args[options.index] ?? fail(`missing ${options.name}`)
 
-const requireExactArgumentCount = (options: {
+const requireMinimumArgumentCount = (options: {
   readonly args: readonly string[]
   readonly command: string
   readonly count: number
 }): void => {
-  if (options.args.length !== options.count)
-    fail(`${options.command} expected ${options.count} arguments, received ${options.args.length}`)
+  if (options.args.length < options.count)
+    fail(
+      `${options.command} expected at least ${options.count} arguments, received ${options.args.length}`,
+    )
 }
 
 const requireNormalizedRelativePath = (options: {
@@ -96,11 +100,40 @@ const requireTsgo = (value: string): string => {
   return value
 }
 
-const parseTypecheckOptions = (args: readonly string[]): TypecheckOptions => {
-  requireExactArgumentCount({ args, command: 'typecheck', count: 4 })
+const parseReadRoots = (options: {
+  readonly args: readonly string[]
+  readonly command: string
+  readonly from: number
+  readonly declarationSources?: string[]
+}): readonly string[] => {
+  const roots: string[] = []
+  for (let index = options.from; index < options.args.length; index += 2) {
+    const flag = requireArgument({ args: options.args, index, name: 'flag' })
+    const value = requireArgument({
+      args: options.args,
+      index: index + 1,
+      name: `value for ${flag}`,
+    })
+    if (flag === '--read-root') {
+      const root = resolve(value)
+      if (value.length === 0 || root === '/') fail(`invalid declared read root: ${value}`)
+      roots.push(root)
+    } else if (flag === '--copy-declaration' && options.declarationSources !== undefined) {
+      options.declarationSources.push(
+        requireNormalizedRelativePath({ name: 'declaration source', value }),
+      )
+    } else fail(`unexpected ${options.command} argument: ${flag}`)
+  }
+  return canonicalRoots(roots)
+}
+
+/** Parses the fail-closed typecheck command contract for focused rule/runner tests. */
+export const parseTypecheckOptions = (args: readonly string[]): TypecheckOptions => {
+  requireMinimumArgumentCount({ args, command: 'typecheck', count: 4 })
   return {
     tsgo: requireTsgo(requireArgument({ args, index: 0, name: 'tsgo' })),
     packageTree: requireArgument({ args, index: 1, name: 'package tree' }),
+    readRoots: parseReadRoots({ args, command: 'typecheck', from: 4 }),
     project: requireNormalizedRelativePath({
       name: 'project',
       value: requireArgument({ args, index: 2, name: 'project' }),
@@ -111,25 +144,18 @@ const parseTypecheckOptions = (args: readonly string[]): TypecheckOptions => {
 
 /** Parses the fail-closed emit command contract for focused rule/runner tests. */
 export const parseEmitOptions = (args: readonly string[]): EmitOptions => {
-  if (args.length < 6 || (args.length - 6) % 2 !== 0) {
-    fail(
-      `emit expected 6 arguments followed by declaration flag/path pairs, received ${args.length}`,
-    )
-  }
+  requireMinimumArgumentCount({ args, command: 'emit', count: 6 })
   const declarationSources: string[] = []
-  for (let index = 6; index < args.length; index += 2) {
-    const flag = requireArgument({ args, index, name: 'declaration flag' })
-    if (flag !== '--copy-declaration') fail(`unexpected emit argument: ${flag}`)
-    declarationSources.push(
-      requireNormalizedRelativePath({
-        name: 'declaration source',
-        value: requireArgument({ args, index: index + 1, name: 'declaration source' }),
-      }),
-    )
-  }
+  const readRoots = parseReadRoots({
+    args,
+    command: 'emit',
+    from: 6,
+    declarationSources,
+  })
   return {
     tsgo: requireTsgo(requireArgument({ args, index: 0, name: 'tsgo' })),
     packageTree: requireArgument({ args, index: 1, name: 'package tree' }),
+    readRoots,
     project: requireNormalizedRelativePath({
       name: 'project',
       value: requireArgument({ args, index: 2, name: 'project' }),
@@ -165,6 +191,9 @@ const forEachSequential = async <T>(options: {
   await options.visit(next.value)
   await forEachSequential(options)
 }
+
+const canonicalRoots = (roots: readonly string[]): readonly string[] =>
+  [...new Set(roots.map((root) => resolve(root)))].toSorted()
 
 const hashTree = async (root: string): Promise<string> => {
   const hash = createHash('sha256')
@@ -203,6 +232,22 @@ const hashTree = async (root: string): Promise<string> => {
   }
 
   await visit(root)
+  return hash.digest('hex')
+}
+
+/**
+ * Deterministic immutability evidence for the complete declared input boundary. Symlinks are
+ * hashed as links rather than followed, so cyclic package views cannot recurse forever.
+ */
+export const hashDeclaredInputRoots = async (roots: readonly string[]): Promise<string> => {
+  const hash = createHash('sha256')
+  await forEachSequential({
+    iterator: canonicalRoots(roots).values(),
+    visit: async (root) => {
+      updateFramedText({ hash, value: root })
+      updateFramedText({ hash, value: await hashTree(root) })
+    },
+  })
   return hash.digest('hex')
 }
 
@@ -378,7 +423,8 @@ const runTsgo = async (options: {
 
 const runTypecheck = async (options: TypecheckOptions): Promise<number> => {
   const packageTree = resolve(options.packageTree)
-  const before = await hashTree(packageTree)
+  const readRoots = canonicalRoots([packageTree, ...options.readRoots])
+  const before = await hashDeclaredInputRoots(readRoots)
   let status = 1
   let compilerError: unknown
   try {
@@ -403,10 +449,10 @@ const runTypecheck = async (options: TypecheckOptions): Promise<number> => {
 
   let invariantError: unknown
   try {
-    const after = await hashTree(packageTree)
+    const after = await hashDeclaredInputRoots(readRoots)
     if (after !== before) {
       invariantError = new Error(
-        `typescript runner: package tree changed during typecheck (before ${before}, after ${after})`,
+        `typescript runner: declared input roots changed during typecheck (before ${before}, after ${after})`,
       )
     }
   } catch (error) {
@@ -417,7 +463,6 @@ const runTypecheck = async (options: TypecheckOptions): Promise<number> => {
   if (invariantError !== undefined) console.error(formatError(invariantError))
   if (compilerError !== undefined || invariantError !== undefined) return status === 0 ? 1 : status
   if (status !== 0) return status
-
   await writeFile(options.verdict, `${options.tsgo}\n`)
   return 0
 }
@@ -425,6 +470,8 @@ const runTypecheck = async (options: TypecheckOptions): Promise<number> => {
 const runEmit = async (options: EmitOptions): Promise<number> => {
   const packageTree = resolve(options.packageTree)
   const output = resolve(options.output)
+  const readRoots = canonicalRoots([packageTree, ...options.readRoots])
+  const before = await hashDeclaredInputRoots(readRoots)
   const stagingRoot = await mkdtemp(join(tmpdir(), 'tsgo-emit-'))
   let status = 1
   let primaryError: unknown
@@ -465,6 +512,18 @@ const runEmit = async (options: EmitOptions): Promise<number> => {
     primaryError = error
   }
 
+  let invariantError: unknown
+  try {
+    const after = await hashDeclaredInputRoots(readRoots)
+    if (after !== before) {
+      invariantError = new Error(
+        `typescript runner: declared input roots changed during emit (before ${before}, after ${after})`,
+      )
+    }
+  } catch (error) {
+    invariantError = error
+  }
+
   let cleanupError: unknown
   try {
     await removeTree(stagingRoot)
@@ -473,9 +532,11 @@ const runEmit = async (options: EmitOptions): Promise<number> => {
   }
 
   if (primaryError !== undefined) console.error(formatError(primaryError))
+  if (invariantError !== undefined) console.error(formatError(invariantError))
   if (cleanupError !== undefined)
     console.error(`typescript runner cleanup failed: ${formatError(cleanupError)}`)
-  if (primaryError !== undefined || cleanupError !== undefined) return status === 0 ? 1 : status
+  if (primaryError !== undefined || invariantError !== undefined || cleanupError !== undefined)
+    return status === 0 ? 1 : status
   return status
 }
 

@@ -5,8 +5,14 @@ import { describe, expect, it } from 'vitest'
 
 import ciWorkflow from '../../.github/workflows/ci.yml.genie.ts'
 import dependencyBuck from '../../buck2/dependencies/BUCK.genie.ts'
+import ciToolsBuck from '../../packages/@overeng/ci-tools/BUCK.genie.ts'
 import contentAddressBuck from '../../packages/@overeng/content-address/BUCK.genie.ts'
 import effectDistributedLockBuck from '../../packages/@overeng/effect-distributed-lock/BUCK.genie.ts'
+import effectPathBuck from '../../packages/@overeng/effect-path/BUCK.genie.ts'
+import genieBuck from '../../packages/@overeng/genie/BUCK.genie.ts'
+import kdlEffectBuck from '../../packages/@overeng/kdl-effect/BUCK.genie.ts'
+import kdlBuck from '../../packages/@overeng/kdl/BUCK.genie.ts'
+import megarepoBuck from '../../packages/@overeng/megarepo/BUCK.genie.ts'
 import type { GenieContext } from '../../packages/@overeng/genie/src/runtime/core.ts'
 import notionCliBuck from '../../packages/@overeng/notion-cli/BUCK.genie.ts'
 import notionCoreBuck from '../../packages/@overeng/notion-core/BUCK.genie.ts'
@@ -16,10 +22,13 @@ import notionEffectSchemaBuck from '../../packages/@overeng/notion-effect-schema
 import notionMdBuck from '../../packages/@overeng/notion-md/BUCK.genie.ts'
 import notionPropertyWriteBuck from '../../packages/@overeng/notion-property-write/BUCK.genie.ts'
 import notionReactBuck from '../../packages/@overeng/notion-react/BUCK.genie.ts'
+import npmReleaseBuck from '../../packages/@overeng/npm-release/BUCK.genie.ts'
 import otelContractBuck from '../../packages/@overeng/otel-contract/BUCK.genie.ts'
+import oxcConfigBuck from '../../packages/@overeng/oxc-config/BUCK.genie.ts'
 import stylexTokensBuck from '../../packages/@overeng/stylex-tokens/BUCK.genie.ts'
 import tuiCoreBuck from '../../packages/@overeng/tui-core/BUCK.genie.ts'
 import tuiReactBuck from '../../packages/@overeng/tui-react/BUCK.genie.ts'
+import tuiStoriesBuck from '../../packages/@overeng/tui-stories/BUCK.genie.ts'
 import utilsDevBuck from '../../packages/@overeng/utils-dev/BUCK.genie.ts'
 import utilsBuck from '../../packages/@overeng/utils/BUCK.genie.ts'
 import {
@@ -31,8 +40,14 @@ import { buck2TypeScriptPackageProjection } from './typescript-package-projectio
 const genieContext: GenieContext = { cwd: process.cwd(), location: '' }
 
 const outputsByAdmission = {
+  ciTools: ciToolsBuck.stringify(genieContext),
   contentAddress: contentAddressBuck.stringify(genieContext),
   effectDistributedLock: effectDistributedLockBuck.stringify(genieContext),
+  effectPath: effectPathBuck.stringify(genieContext),
+  genie: genieBuck.stringify(genieContext),
+  kdl: kdlBuck.stringify(genieContext),
+  kdlEffect: kdlEffectBuck.stringify(genieContext),
+  megarepo: megarepoBuck.stringify(genieContext),
   notionCli: notionCliBuck.stringify(genieContext),
   notionCore: notionCoreBuck.stringify(genieContext),
   notionDatasourceSync: notionDatasourceSyncBuck.stringify(genieContext),
@@ -41,19 +56,27 @@ const outputsByAdmission = {
   notionMd: notionMdBuck.stringify(genieContext),
   notionPropertyWrite: notionPropertyWriteBuck.stringify(genieContext),
   notionReact: notionReactBuck.stringify(genieContext),
+  npmRelease: npmReleaseBuck.stringify(genieContext),
   otelContract: otelContractBuck.stringify(genieContext),
+  oxcConfig: oxcConfigBuck.stringify(genieContext),
   stylexTokens: stylexTokensBuck.stringify(genieContext),
   tuiCore: tuiCoreBuck.stringify(genieContext),
   tuiReact: tuiReactBuck.stringify(genieContext),
+  tuiStories: tuiStoriesBuck.stringify(genieContext),
   utils: utilsBuck.stringify(genieContext),
   utilsDev: utilsDevBuck.stringify(genieContext),
 } as const satisfies Record<keyof typeof buck2TypeScriptAdmissions, string>
 
 const admittedPackages = Object.entries(buck2TypeScriptAdmissions).map(([key, admission]) => ({
   output: outputsByAdmission[key as keyof typeof outputsByAdmission],
-  importer: admission.dependencyImporter,
+  dependencyView: admission.dependencyImporter.replace(':importer_', ':view_'),
   packagePath: admission.packagePath,
 }))
+
+const editorViewTarget = `editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",`
 
 const retiredProviderTerms = [
   'pnpm_node_modules',
@@ -70,12 +93,17 @@ describe('declared-closure package projection', () => {
     expect(buck2TypeScriptAdmissions.tuiReact.editorViewConsumer).toBe(false)
   })
 
-  it('wires each admitted package only to its generated importer', () => {
+  it('wires each admitted package only to its normalized dependency view', () => {
     for (const admitted of admittedPackages) {
-      expect(admitted.output).toContain(`    actual = "${admitted.importer}",`)
+      expect(admitted.output).toContain(`    actual = "${admitted.dependencyView}",`)
+      expect(admitted.output).toContain(`    dependency_view = "${admitted.dependencyView}",`)
       expect(admitted.output).toContain('    actual = ":node_modules",')
+      expect(admitted.output).not.toContain('//buck2/dependencies:importer_')
       expect(admitted.output).toContain('    runtime = "//:package_tree_runtime",')
       expect(admitted.output).toContain('    runtime_entry = "package-tree.ts",')
+      expect(admitted.output).toContain('load("//buck2:editor_view.bzl", "editor_view_inputs")')
+      expect(admitted.output).toContain(editorViewTarget)
+      expect(admitted.output.split('    name = "editor_view_inputs",')).toHaveLength(2)
       for (const retiredTerm of retiredProviderTerms) {
         expect(admitted.output).not.toContain(retiredTerm)
       }
@@ -83,12 +111,12 @@ describe('declared-closure package projection', () => {
   })
 
   it('admits the complete recursive workspace closure for tui-react', () => {
-    const tuiReactImporter = dependencyBuck.data.importers.find(
-      (importer) => importer.importer === 'packages/@overeng/tui-react',
+    const tuiReactView = dependencyBuck.data.store.views.find(
+      (view) => view.importer === 'packages/@overeng/tui-react',
     )
-    expect(tuiReactImporter).toBeDefined()
+    expect(tuiReactView).toBeDefined()
     const admittedPackagePaths = new Set(admittedPackages.map(({ packagePath }) => packagePath))
-    for (const label of Object.values(tuiReactImporter?.workspaceTrees ?? {})) {
+    for (const label of Object.values(tuiReactView?.workspaceTrees ?? {})) {
       const packagePath = label.slice('//'.length, -':package_tree'.length)
       expect(admittedPackagePaths.has(packagePath), `missing projection for ${label}`).toBe(true)
     }
@@ -154,7 +182,7 @@ describe('same-cell label projection', () => {
     for (const admitted of admittedPackages) {
       expect(admitted.output).not.toMatch(/@?effect_utils\/\//u)
       expect(admitted.output).toContain('load("//buck2:materialization.bzl"')
-      expect(admitted.output).toContain('//buck2/dependencies:importer_')
+      expect(admitted.output).toContain('//buck2/dependencies:view_')
       expect(admitted.output).toContain('//:package_tree_runtime')
     }
 

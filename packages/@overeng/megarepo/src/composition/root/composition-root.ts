@@ -121,6 +121,33 @@ const CapabilityExecutable = Schema.String.check(
   }),
 ).annotate({ identifier: 'Megarepo.BuckCapabilityExecutable' })
 
+const RemoteCacheEndpoint = Schema.String.check(
+  Schema.makeFilter<string>((value) => {
+    const match =
+      /^grpc:\/\/(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*:([1-9][0-9]{0,4})$/u.exec(
+        value,
+      )
+    return match !== null && Number(match[1]) <= 65_535
+      ? undefined
+      : 'Expected a canonical credential-free grpc://<host>:<port> endpoint'
+  }),
+).annotate({ identifier: 'Megarepo.BuckRemoteCacheEndpoint' })
+
+const RemoteCacheInstanceName = Schema.String.check(
+  Schema.makeFilter<string>((value) =>
+    /^[a-z0-9][a-z0-9._-]*$/u.test(value) === true
+      ? undefined
+      : 'Expected a canonical one-segment remote-cache instance name',
+  ),
+).annotate({ identifier: 'Megarepo.BuckRemoteCacheInstanceName' })
+
+/** Platform-hub-owned, credential-free remote cache coordinates. */
+export const BuckMemberRemoteCacheSchema = Schema.Struct({
+  endpoint: RemoteCacheEndpoint,
+  instanceName: RemoteCacheInstanceName,
+}).annotate({ identifier: 'Megarepo.BuckMemberRemoteCache' })
+export type BuckMemberRemoteCache = typeof BuckMemberRemoteCacheSchema.Type
+
 /** One member-owned Nix executable capability. Toolchain pins remain hub-owned. */
 export const BuckMemberCapabilitySchema = Schema.Struct({
   toolId: CapabilityToken,
@@ -196,6 +223,7 @@ export const BuckMemberManifestSchema = Schema.Struct({
   schemaVersion: Schema.Literal(COMPOSITION_ROOT_SCHEMA_VERSION),
   cell: CellName,
   mount: MemberMount,
+  remoteCache: Schema.optional(BuckMemberRemoteCacheSchema),
   projectIgnore: Schema.Array(IgnorePattern),
   distOverlays: Schema.Array(BuckMemberDistOverlaySchema),
   capabilities: Schema.Array(BuckMemberManifestCapabilitySchema),
@@ -292,6 +320,14 @@ export const normalizeBuckMemberManifest = (manifest: BuckMemberManifest): BuckM
   schemaVersion: COMPOSITION_ROOT_SCHEMA_VERSION,
   cell: manifest.cell,
   mount: manifest.mount,
+  ...(manifest.remoteCache === undefined
+    ? {}
+    : {
+        remoteCache: {
+          endpoint: manifest.remoteCache.endpoint,
+          instanceName: manifest.remoteCache.instanceName,
+        },
+      }),
   projectIgnore: canonicalStringSet(manifest.projectIgnore),
   distOverlays: [...manifest.distOverlays]
     .map(normalizeDistOverlay)
@@ -410,6 +446,33 @@ export const BuckCacheSectionSchema = Schema.Struct({
   )
   .annotate({ identifier: 'Megarepo.BuckCacheSection' })
 export type BuckCacheSection = typeof BuckCacheSectionSchema.Type
+
+/** Lower platform-hub cache coordinates into canonical generated buckconfig sections. */
+export const buckMemberRemoteCacheSections = (
+  remoteCache: BuckMemberRemoteCache,
+): ReadonlyArray<BuckCacheSection> => [
+  {
+    section: 'buck2',
+    entries: [
+      { key: 'default_allow_cache_upload', value: 'true' },
+      { key: 'digest_algorithms', value: 'SHA256' },
+    ],
+  },
+  {
+    section: 'buck2_re_client',
+    entries: [
+      { key: 'action_cache_address', value: remoteCache.endpoint },
+      { key: 'cas_address', value: remoteCache.endpoint },
+      { key: 'engine_address', value: remoteCache.endpoint },
+      {
+        key: 'http_headers',
+        value: 'authorization: Basic $BUCK2_REMOTE_CACHE_BASIC_AUTH',
+      },
+      { key: 'instance_name', value: remoteCache.instanceName },
+      { key: 'tls', value: 'false' },
+    ],
+  },
+]
 
 /** Pure generator input. `isolationDir` defaults to `megarepo`; cache sections default empty. */
 export const CompositionRootInputSchema = Schema.Struct({
@@ -548,6 +611,16 @@ export const decodeCompositionRootInput = (input: unknown): NormalizedCompositio
 
   if (cells.has(decoded.platformHubCell) === false) {
     throw new TypeError(`Platform hub cell is not a composition member: ${decoded.platformHubCell}`)
+  }
+
+  const remoteCacheOwner = members.find(
+    (member) =>
+      member.manifest.remoteCache !== undefined && member.manifest.cell !== decoded.platformHubCell,
+  )
+  if (remoteCacheOwner !== undefined) {
+    throw new TypeError(
+      `Member ${remoteCacheOwner.memberKey} cannot own remote cache coordinates; authority belongs to platform hub ${decoded.platformHubCell}`,
+    )
   }
 
   const cacheSectionNames = new Set<string>()

@@ -227,15 +227,12 @@ extract_devenv_scripts() {
       inputs.tsgo.packages.${pkgs.stdenv.hostPlatform.system}.effect-tsgo = "/tsgo";
     };
   in {
-    enterShell = pkgs.writeShellScript "test-enter-shell" module.enterShell;
     materializeTask = pkgs.writeShellScript "test-materialize-task"
       module.tasks."buck2:typescript:materialize-dist".exec;
   }'
-  cp "$(nix build --no-link --print-out-paths --impure --expr "$nix_expr.enterShell")" \
-    "$TEST_ROOT/enter-shell.sh"
   cp "$(nix build --no-link --print-out-paths --impure --expr "$nix_expr.materializeTask")" \
     "$TEST_ROOT/materialize-task.sh"
-  chmod +x "$TEST_ROOT/enter-shell.sh" "$TEST_ROOT/materialize-task.sh"
+  chmod +x "$TEST_ROOT/materialize-task.sh"
 }
 
 make_git_commit() {
@@ -266,13 +263,6 @@ test_composed_worktree_selection() {
   mkdir -p "$(dirname "$standalone")"
   make_git_commit "$standalone"
   make_runtime_probe "$standalone"
-  printf 'parent sentinel\n' > "$TEST_ROOT/lookalike/.buckconfig.local"
-  (
-    cd "$standalone"
-    env -u BUCK2_NO_REMOTE_CACHE DEVENV_ROOT="$standalone" bash "$TEST_ROOT/enter-shell.sh"
-  )
-  grep -qxF 'parent sentinel' "$TEST_ROOT/lookalike/.buckconfig.local"
-  test -f "$standalone/.buckconfig.local"
   mode="$(DEVENV_ROOT="$standalone" bash "$TEST_ROOT/materialize-task.sh")"
   case "$mode" in
     check\|*) ;;
@@ -289,12 +279,6 @@ test_composed_worktree_selection() {
   git --git-dir="$repo_root/.bare" worktree add -q -b composed "$member_root" HEAD
   make_runtime_probe "$member_root"
   mkdir -p "$workspace_root/.megarepo/bin"
-  (
-    cd "$member_root"
-    env -u BUCK2_NO_REMOTE_CACHE DEVENV_ROOT="$member_root" bash "$TEST_ROOT/enter-shell.sh"
-  )
-  test -f "$workspace_root/.buckconfig.local"
-  test ! -e "$member_root/.buckconfig.local"
   mode="$(DEVENV_ROOT="$member_root" bash "$TEST_ROOT/materialize-task.sh")"
   expected_mode="publish|$workspace_root|$workspace_root/.megarepo/bin/buck2"
   if [ "$mode" != "$expected_mode" ]; then
@@ -306,13 +290,6 @@ test_composed_worktree_selection() {
   mkdir -p "$TEST_ROOT/foreign"
   printf 'gitdir: nowhere\n' > "$TEST_ROOT/foreign/.git"
   printf '%s\n' "$TEST_ROOT/foreign/.git" > "$admin_dir/gitdir"
-  rm -f "$workspace_root/.buckconfig.local"
-  (
-    cd "$member_root"
-    env -u BUCK2_NO_REMOTE_CACHE DEVENV_ROOT="$member_root" bash "$TEST_ROOT/enter-shell.sh"
-  )
-  test ! -e "$workspace_root/.buckconfig.local"
-  test ! -e "$member_root/.buckconfig.local"
   if DEVENV_ROOT="$member_root" bash "$TEST_ROOT/materialize-task.sh"; then
     echo 'FAIL: materializer accepted non-reciprocal metadata' >&2
     return 1

@@ -13,6 +13,10 @@ const buckMemberSchemaVersion = COMPOSITION_ROOT_SCHEMA_VERSION
 const manifestProjection = {
   cell: 'effect_utils',
   mount: 'repos/effect-utils',
+  remoteCache: {
+    endpoint: 'grpc://dev3:41045',
+    instanceName: 'effect-utils',
+  },
   projectIgnore: [
     '**/__pycache__',
     '**/dist',
@@ -94,6 +98,12 @@ const manifestProjection = {
       protocol: 'facebook/buck2-cli/2026-09-01',
       flakePackage: 'buck2',
       executable: 'bin/buck2',
+    },
+    {
+      toolId: 'coreutils-readlink',
+      protocol: 'gnu/coreutils/v9',
+      flakePackage: 'buck2-coreutils',
+      executable: 'bin/readlink',
     },
     {
       toolId: 'product',

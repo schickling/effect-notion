@@ -1,0 +1,128 @@
+# Generated file - DO NOT EDIT
+# Source: BUCK.genie.ts
+
+load("//buck2:package_tools.bzl", "package_bin_artifact")
+load("//buck2/products:defs.bzl", "javascript_product")
+
+# Projection source: packages/@overeng/ci-tools/BUCK.genie.ts
+# Projection schema version: 3
+# Projection generator: effect-utils/genie/buck2-typescript-package-projection
+# Semantic fingerprint: sha256:04e3dd497a46891c11052eb7531231877622ab79e1483a10ee8acd5a787f4c56
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/ci-tools/BUCK.genie.ts, packages/@overeng/ci-tools/BUCK.genie.ts, packages/@overeng/ci-tools/bin/**/*.cts, packages/@overeng/ci-tools/bin/**/*.js, packages/@overeng/ci-tools/bin/**/*.mts, packages/@overeng/ci-tools/bin/**/*.ts, packages/@overeng/ci-tools/bin/**/*.tsx, packages/@overeng/ci-tools/package.json.genie.ts, packages/@overeng/ci-tools/src/**/*.cts, packages/@overeng/ci-tools/src/**/*.js, packages/@overeng/ci-tools/src/**/*.mts, packages/@overeng/ci-tools/src/**/*.ts, packages/@overeng/ci-tools/src/**/*.tsx, packages/@overeng/ci-tools/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Regenerate: devenv tasks run genie:run
+
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
+
+export_file(
+    name = "package.json",
+    src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_materialization_inputs([
+    "bin/ci-tools.ts",
+    "src/cli-command.ts",
+    "src/cli.contract.test.ts",
+    "src/deploy-domain.contract.ts",
+    "src/deploy-domain.test.ts",
+    "src/deploy-domain.ts",
+    "src/deploy-io.ts",
+    "src/deploy-netlify.e2e.test.ts",
+    "src/deploy-netlify.live.e2e.test.ts",
+    "src/deploy-netlify.ts",
+    "src/deploy-vercel.e2e.test.ts",
+    "src/deploy-vercel.live.e2e.test.ts",
+    "src/deploy-vercel.ts",
+    "src/mod.ts",
+    "src/quarantine.test.ts",
+    "src/quarantine.ts",
+    "src/workflow-report.e2e.test.ts",
+    "src/workflow-report.test.ts",
+    "src/workflow-report.ts",
+])
+
+alias(
+    name = "node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_ci_tools_ed163de971d5",
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "editor_inputs",
+    actual = ":node_modules",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_ci_tools_ed163de971d5",
+    files = {
+        "bin/ci-tools.ts": "bin/ci-tools.ts",
+        "package.json": "package.json",
+        "src/cli-command.ts": "src/cli-command.ts",
+        "src/cli.contract.test.ts": "src/cli.contract.test.ts",
+        "src/deploy-domain.contract.ts": "src/deploy-domain.contract.ts",
+        "src/deploy-domain.test.ts": "src/deploy-domain.test.ts",
+        "src/deploy-domain.ts": "src/deploy-domain.ts",
+        "src/deploy-io.ts": "src/deploy-io.ts",
+        "src/deploy-netlify.e2e.test.ts": "src/deploy-netlify.e2e.test.ts",
+        "src/deploy-netlify.live.e2e.test.ts": "src/deploy-netlify.live.e2e.test.ts",
+        "src/deploy-netlify.ts": "src/deploy-netlify.ts",
+        "src/deploy-vercel.e2e.test.ts": "src/deploy-vercel.e2e.test.ts",
+        "src/deploy-vercel.live.e2e.test.ts": "src/deploy-vercel.live.e2e.test.ts",
+        "src/deploy-vercel.ts": "src/deploy-vercel.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/quarantine.test.ts": "src/quarantine.test.ts",
+        "src/quarantine.ts": "src/quarantine.ts",
+        "src/workflow-report.e2e.test.ts": "src/workflow-report.e2e.test.ts",
+        "src/workflow-report.test.ts": "src/workflow-report.test.ts",
+        "src/workflow-report.ts": "src/workflow-report.ts",
+        "tsconfig.json": "tsconfig.json",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+tsgo_typecheck(
+    name = "typecheck",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+tsgo_emit(
+    name = "dist",
+    package_tree = ":package_tree",
+    declaration_sources = {
+    },
+    visibility = ["PUBLIC"],
+)
+
+package_bin_artifact(
+    name = "ci-tools-candidate-module",
+    entrypoint = "bin/ci-tools.ts",
+    external = [],
+    external_capabilities = [],
+    kind = "cli",
+    output = "ci-tools.js",
+    package_tree = ":package_tree",
+    target = "node",
+    visibility = ["PUBLIC"],
+)
+
+javascript_product(
+    name = "ci-tools-candidate",
+    module = ":ci-tools-candidate-module",
+    product_kind = "cli",
+    product_name = "ci-tools",
+    visibility = ["PUBLIC"],
+)

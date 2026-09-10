@@ -1,11 +1,23 @@
 """Generic TypeScript package-tree assembly from declared Buck artifacts."""
 
+load("//buck2/dependencies:defs.bzl", "PnpmDeclaredClosureInfo")
 load("//buck2/toolchains:defs.bzl", "BunToolchainInfo")
 
 
 PackageTreeInfo = provider(fields = {
+    "read_roots": provider_field(list[Artifact]),
     "tree": Artifact,
 })
+
+
+def _unique_artifacts(artifacts):
+    seen = {}
+    roots = []
+    for artifact in artifacts:
+        if artifact not in seen:
+            seen[artifact] = True
+            roots.append(artifact)
+    return roots
 
 
 def _require_relative_path(value, field):
@@ -24,8 +36,10 @@ def _add_mapped_sources(args, flag, sources):
         args.add(flag, destination, sources[destination])
 
 def _package_tree_impl(ctx):
-    node_modules = ctx.attrs.node_modules
     out = ctx.actions.declare_output("package_tree", dir = True)
+    dependency_choices = (1 if ctx.attrs.node_modules != None else 0) + (1 if ctx.attrs.dependency_view != None else 0) + (1 if ctx.attrs.empty_dependencies else 0)
+    if dependency_choices != 1:
+        fail("a package view declares exactly one of empty_dependencies, node_modules, or dependency_view")
     _require_relative_path(ctx.attrs.runtime_entry, "runtime entry")
 
     # The runner is staged as a directory holding its complete relative-import
@@ -37,9 +51,20 @@ def _package_tree_impl(ctx):
         cmd_args(runtime_tree, format = "{}/" + ctx.attrs.runtime_entry),
         "--output",
         out.as_output(),
-        "--node-modules",
-        node_modules,
     ])
+
+    # A dependency view owns no dependency bytes: the package view links it as
+    # one first hop instead of copying a closure per consumer.
+    read_roots = [out]
+    if ctx.attrs.empty_dependencies:
+        args.add("--empty-node-modules", "true")
+    elif ctx.attrs.dependency_view != None:
+        dependency_view = ctx.attrs.dependency_view[PnpmDeclaredClosureInfo]
+        args.add("--dependency-view", dependency_view.node_modules)
+        args.add(cmd_args(hidden = dependency_view.read_roots))
+        read_roots = _unique_artifacts([out] + dependency_view.read_roots)
+    else:
+        args.add("--node-modules", ctx.attrs.node_modules)
     _add_mapped_sources(args, "--file", ctx.attrs.files)
     _add_mapped_sources(args, "--workspace-file", ctx.attrs.workspace_files)
     for link_path in sorted(ctx.attrs.workspace_links.keys()):
@@ -55,15 +80,21 @@ def _package_tree_impl(ctx):
         allow_cache_upload = True,
     )
     return [
-        DefaultInfo(default_output = out),
-        PackageTreeInfo(tree = out),
+        # Export every root that links beneath the tree may resolve into.
+        DefaultInfo(default_output = out, other_outputs = read_roots[1:]),
+        PackageTreeInfo(read_roots = read_roots, tree = out),
     ]
 
 
 _package_tree = rule(
     impl = _package_tree_impl,
     attrs = {
-        "node_modules": attrs.source(),
+        "node_modules": attrs.option(attrs.source(), default = None),
+        "empty_dependencies": attrs.bool(default = False),
+        "dependency_view": attrs.option(
+            attrs.dep(providers = [PnpmDeclaredClosureInfo]),
+            default = None,
+        ),
         "files": attrs.dict(key = attrs.string(), value = attrs.source()),
         "workspace_files": attrs.dict(
             key = attrs.string(),
@@ -114,11 +145,48 @@ def package_tree(name, node_modules, files, runtime, runtime_entry, workspace_si
     )
 
 
+def package_view(name, dependency_view, files, runtime, runtime_entry, workspace_dist = {}, **kwargs):
+    """Assembles one bounded package view over a normalized dependency view."""
+    workspace_files = {}
+    for destination in sorted(workspace_dist.keys()):
+        _require_relative_path(destination, "workspace dist boundary")
+        workspace_files[destination] = workspace_dist[destination]
+    _package_tree(
+        name = name,
+        dependency_view = dependency_view,
+        files = files,
+        runtime = runtime,
+        runtime_entry = runtime_entry,
+        workspace_files = workspace_files,
+        workspace_links = {},
+        **kwargs
+    )
+
+
+def empty_package_view(name, files, runtime, runtime_entry, **kwargs):
+    """Assembles a bounded package view for code with no package dependencies."""
+    _package_tree(
+        name = name,
+        empty_dependencies = True,
+        files = files,
+        runtime = runtime,
+        runtime_entry = runtime_entry,
+        workspace_files = {},
+        workspace_links = {},
+        **kwargs
+    )
+
+
 def export_materialization_inputs(inputs):
     """Exports explicit root inputs for package-local rules."""
+    names = {}
     for source in inputs:
+        name = source.replace("$", "__dollar__")
+        if name in names:
+            fail("materialization input target collision: {} and {}".format(names[name], source))
+        names[name] = source
         native.export_file(
-            name = source,
+            name = name,
             src = source,
             visibility = ["PUBLIC"],
         )

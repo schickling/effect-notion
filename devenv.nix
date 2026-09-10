@@ -452,51 +452,6 @@ let
       printf "%s\n" "$workspace_root"
     }
   '';
-  # Shared-cache client contract (decision 0013, REUSE-R01..R05). The fleet
-  # default endpoint lives HERE on purpose — it must match the dotfiles
-  # build-cache trait (dotfiles#2048); changing the service means changing
-  # both. It is materialized into a gitignored `.buckconfig.local` at shell
-  # entry so machine-local hand edits stay untracked and win until removed:
-  # an existing file with different content is preserved. An unreachable
-  # cache hard-fails buck2 builds, so off-tailnet checkouts export
-  # BUCK2_NO_REMOTE_CACHE=1 before shell entry (checked at entry only).
-  # digest_algorithms pins what this Buck2 already produces by default —
-  # explicitness only, no key migration.
-  buck2CacheEndpoint = "grpc://dev3:41045";
-  buck2LocalConfig = pkgs.writeText "buck2-buckconfig-local" ''
-    [buck2]
-    digest_algorithms = SHA256
-    default_allow_cache_upload = true
-
-    [buck2_re_client]
-    engine_address = ${buck2CacheEndpoint}
-    action_cache_address = ${buck2CacheEndpoint}
-    cas_address = ${buck2CacheEndpoint}
-    instance_name = effect-utils
-    tls = false
-  '';
-  buck2LocalConfigHook =
-    let
-      script = pkgs.writeShellScript "buck2-local-config-hook" ''
-        set -euo pipefail
-        ${composedWorkspaceRootPredicate}
-        member_root="''${DEVENV_ROOT:-$PWD}"
-        workspace_root="$member_root"
-        if proven_workspace_root="$(composed_workspace_root "$member_root")"; then
-          workspace_root="$proven_workspace_root"
-        else
-          identity_status=$?
-          [ "$identity_status" -eq 1 ] || exit "$identity_status"
-        fi
-        target="$workspace_root/.buckconfig.local"
-        if [ "''${BUCK2_NO_REMOTE_CACHE:-}" = "1" ]; then
-          ${pkgs.coreutils}/bin/rm -f "$target"
-        elif ! ${pkgs.diffutils}/bin/cmp -s "$target" ${buck2LocalConfig}; then
-          ${pkgs.coreutils}/bin/install -m 644 ${buck2LocalConfig} "$target"
-        fi
-      '';
-    in
-    "${script}";
 in
 {
   imports = [
@@ -521,7 +476,6 @@ in
         # so its task-cache refresh cannot race sibling check:all work.
         prerequisiteTasks = [
           "bootstrap-closure:check"
-          "buck2:check"
           "cargo:check"
           "dependency-materialization:evidence:check"
           "devenv:trace-audit"
@@ -740,6 +694,7 @@ in
   env.MR_COMPOSITION_SYSTEM = currentSystem;
   env.MR_COMPOSITION_PLATFORM = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "linux";
   env.MR_COMPOSITION_GIT_BIN = "${pkgs.git}/bin/git";
+  env.MR_COMPOSITION_WATCHMAN_BIN = "${pkgs.watchman}/bin/watchman";
   env.MR_CAPABILITY_NIX_BIN = "${pkgs.nix}/bin/nix";
   env.MR_CAPABILITY_MV_BIN = "${pkgs.coreutils}/bin/mv";
 
@@ -771,6 +726,11 @@ in
   # buck2-tools executes inside pinned Bun actions and exercises Bun.YAML/Bun.which.
   # Keep its package gate on that runtime rather than Vitest's Node process.
   tasks."test:buck2-tools".description = lib.mkForce "Run buck2-tools tests under pinned Bun";
+  tasks."test:buck2-tools".env = {
+    CP_BIN = "${pkgs.coreutils}/bin/cp";
+    MV_BIN = "${pkgs.coreutils}/bin/mv";
+    FALSE_BIN = "${pkgs.coreutils}/bin/false";
+  };
   tasks."test:buck2-tools".exec = lib.mkForce (
     trace.exec "test:buck2-tools" ''
       set -euo pipefail
@@ -1150,10 +1110,6 @@ in
     '';
   };
 
-  tasks."ts:check".after = [ "buck2:typescript:materialize-dist" ];
-  tasks."ts:build".after = [ "buck2:typescript:materialize-dist" ];
-  tasks."ts:build-watch".after = [ "buck2:typescript:materialize-dist" ];
-
   tasks."buck2:task-guards:check" = {
     description = "Check TypeScript publication failure paths and evaluated task ordering";
     exec = trace.exec "buck2:task-guards:check" ''
@@ -1194,14 +1150,10 @@ in
     '';
   };
 
-  tasks."check:all".after =
-    lib.optionals (currentSystem == "x86_64-linux") [
-      "buck2:check"
-    ]
-    ++ [
-      "cargo:check"
-      "dependency-materialization:evidence:check"
-    ];
+  tasks."check:all".after = [
+    "cargo:check"
+    "dependency-materialization:evidence:check"
+  ];
 
   # `test:run` executes after its package-task dependencies, so the
   # baseline-collection gate sees the complete managed-test summary directory in CI.
@@ -1225,7 +1177,6 @@ in
   enterShell = ''
     export WORKSPACE_ROOT="$PWD"
     export PATH="$WORKSPACE_ROOT/node_modules/.bin:$PATH"
-    ${buck2LocalConfigHook}
     ${cliBuildStamp.shellHook}
   '';
 

@@ -138,6 +138,10 @@ export const buck2TypeScriptPackageProjection = ({
       existsSync(path.join(process.cwd(), candidate, 'BUCK.genie.ts')),
     ),
   )
+  const dependencyView = dependencyImporter.replace(
+    '//buck2/dependencies:importer_',
+    '//buck2/dependencies:view_',
+  )
   const visibility = ['PUBLIC'] as const
   const runtimeEntry = stagedModuleName(packageTreeRuntime.entry)
   const sourceLabel = (repoRelativePath: string): string => {
@@ -214,7 +218,7 @@ export const buck2TypeScriptPackageProjection = ({
     buckPackagePaths: [...buckPackagePaths].toSorted((left, right) =>
       compareStrings({ left, right }),
     ),
-    dependencyImporter,
+    dependencyView,
     packageName,
     packagePath,
     packageSources,
@@ -228,46 +232,21 @@ export const buck2TypeScriptPackageProjection = ({
   }
   const fingerprint = buck2SemanticFingerprint({
     generator: 'effect-utils/genie/buck2-typescript-package-projection',
-    schemaVersion: 1,
+    schemaVersion: 3,
     semanticData: data,
   })
-
-  const renderWorkspaceSiblings = (): readonly string[] => {
-    if (workspaceSiblingProjections.length === 0) return ['    workspace_siblings = {},']
-    return [
-      '    workspace_siblings = {',
-      ...workspaceSiblingProjections
-        .toSorted((left, right) =>
-          compareStrings({ left: left.packageName, right: right.packageName }),
-        )
-        .flatMap((sibling) =>
-          [`        ${starlarkString(sibling.packageName)}: {`, '            "files": {']
-            .concat(
-              sibling.files.map(
-                ([destination, source]) =>
-                  `                ${starlarkString(destination)}: ${starlarkString(source)},`,
-              ),
-            )
-            .concat([
-              '            },',
-              `            "links": [${starlarkString(sibling.packageName)}],`,
-              '        },',
-            ]),
-        ),
-      '    },',
-    ]
-  }
 
   const stringify = (): string => {
     const lines = [
       `# Projection source: ${projectionSource}`,
-      '# Projection schema version: 1',
+      '# Projection schema version: 3',
       '# Projection generator: effect-utils/genie/buck2-typescript-package-projection',
       `# Semantic fingerprint: ${fingerprint}`,
       `# Semantic inputs: ${semanticInputs.join(', ')}`,
       `# Regenerate: ${regenerationCommand}`,
       '',
-      'load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")',
+      'load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")',
+      'load("//buck2:editor_view.bzl", "editor_view_inputs")',
       'load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")',
       '',
       'export_file(',
@@ -282,7 +261,7 @@ export const buck2TypeScriptPackageProjection = ({
       '',
       'alias(',
       '    name = "node_modules",',
-      `    actual = ${starlarkString(dependencyImporter)},`,
+      `    actual = ${starlarkString(dependencyView)},`,
       renderBuck2Visibility({ visibility }),
       ')',
       '',
@@ -292,13 +271,19 @@ export const buck2TypeScriptPackageProjection = ({
       renderBuck2Visibility({ visibility }),
       ')',
       '',
-      'package_tree(',
+      'package_view(',
       '    name = "package_tree",',
-      '    node_modules = ":node_modules",',
+      `    dependency_view = ${starlarkString(dependencyView)},`,
       ...renderMap({ name: 'files', entries: packageFileEntries }),
       `    runtime = ${starlarkString(packageTreeRuntime.label)},`,
       `    runtime_entry = ${starlarkString(runtimeEntry)},`,
-      ...renderWorkspaceSiblings(),
+      renderBuck2Visibility({ visibility }),
+      ')',
+      '',
+      'editor_view_inputs(',
+      '    name = "editor_view_inputs",',
+      '    editor_inputs = ":editor_inputs",',
+      '    package_tree = ":package_tree",',
       renderBuck2Visibility({ visibility }),
       ')',
       '',

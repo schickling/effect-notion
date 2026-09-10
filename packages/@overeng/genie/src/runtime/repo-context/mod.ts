@@ -17,12 +17,23 @@ export interface DefineRepoContextOptions {
   readonly importMetaUrl: string
 }
 
+/**
+ * Repository markers, in the same order Genie's own generation core resolves a repo root:
+ * a local megarepo config first, then `.git`. A generated tree can legitimately carry no
+ * `.git` at all — `bootstrap:cold-proof` generates a `git archive` export of the committed
+ * source — so anchoring on `.git` alone would refuse exactly the install-free tree the
+ * proof exists to exercise.
+ */
+const repoRootMarkers = ['megarepo.kdl', 'megarepo.json', '.git'] as const
+
 const findRepoRoot = (startPath: string): string | undefined => {
   let current = dirname(startPath)
   const root = parse(current).root
 
   while (true) {
-    if (existsSync(join(current, '.git')) === true) return current
+    if (repoRootMarkers.some((marker) => existsSync(join(current, marker)) === true) === true) {
+      return current
+    }
     if (current === root) return undefined
     current = dirname(current)
   }
@@ -56,6 +67,23 @@ export const repoRootFromModuleUrl = (importMetaUrl: string): string => {
     const recoveredRoot = findRepoRoot(originalModulePath)
     if (recoveredRoot !== undefined) return recoveredRoot
   }
+
+  throw new Error(`Could not find repository root for module ${importMetaUrl}`)
+}
+
+/**
+ * Absolute repository path of the module identified by `importMetaUrl`, recovering the
+ * original path when the module runs from a compiled-binary import mirror. Generator code
+ * that needs its own repo-relative identity must use this rather than a `process.cwd()`
+ * relative path: the Buck-built product runs with its own working directory, which is not
+ * the tree being generated.
+ */
+export const modulePathFromUrl = (importMetaUrl: string): string => {
+  const modulePath = fileURLToPath(importMetaUrl)
+  if (findRepoRoot(modulePath) !== undefined) return modulePath
+
+  const originalModulePath = recoverOriginalModulePath(modulePath)
+  if (originalModulePath !== undefined) return originalModulePath
 
   throw new Error(`Could not find repository root for module ${importMetaUrl}`)
 }

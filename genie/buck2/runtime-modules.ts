@@ -36,6 +36,16 @@ export const buck2StagedRuntimes = [
     staging: 'filegroup',
   },
   {
+    label: '//:package_command_runtime',
+    entry: runnerSource('package-command-runner.ts'),
+    modules: [
+      runnerSource('package-command-runner.ts'),
+      runnerSource('real-path.ts'),
+      runnerSource('typescript-runner.ts'),
+    ],
+    staging: 'filegroup',
+  },
+  {
     label: '//:packages/@overeng/buck2-tools/src/typescript-runner.ts',
     entry: runnerSource('typescript-runner.ts'),
     modules: [runnerSource('typescript-runner.ts')],

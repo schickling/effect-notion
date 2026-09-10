@@ -24,11 +24,12 @@ __pycache__/
 
 # Buck2 daemon and materialized build state
 buck-out/
-# Scoped generated editor snapshots for packages/@overeng/*
-/packages/.editor-view/
-# Machine-local cache client wiring (devenv-generated from the fleet default in
-# devenv.nix; hand-edited overrides stay local)
-/.buckconfig.local
+# Generated editor snapshots. Unanchored so every admitted package root — present
+# and future — is covered: these stores are machine-local, digest-addressed, and
+# hardened read-only at publication, which git cannot represent (it records only
+# 100644/100755 and never the node_modules symlink tree), so a tracked copy is
+# unrestorable by construction.
+.editor-view/
 # Executor-local, Nix-realized Buck capability projection
 /.buck2/capabilities/
 /.buck2/capabilities

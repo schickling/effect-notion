@@ -548,21 +548,62 @@ const singleNixOutput = ({
   return lines[0]!
 }
 
+/** Exactly the Nix invocations one capability needs: realize it, then read its runtime closure. */
+interface CapabilityNixCommands {
+  readonly build: CompositionCapabilityCommand
+  readonly closure: CompositionCapabilityCommand
+}
+
+const closureStorePaths = ({
+  stdout,
+  capability,
+  nixOutputPath,
+  value,
+}: {
+  readonly stdout: string
+  readonly capability: BuckMemberCapability
+  readonly nixOutputPath: string
+  readonly value: CompositionCapabilityCommand
+}): ReadonlyArray<string> => {
+  const lines = stdout.split(/\r?\n/u).filter((line) => line.length > 0)
+  const invalid =
+    lines.length === 0 ||
+    lines.some((line) => /^\/nix\/store\/[^/\s]+$/u.test(line) === false) ||
+    lines.includes(nixOutputPath) === false
+  if (invalid === true) {
+    throw new CompositionCapabilityResolutionError({
+      reason: 'InvalidNixOutput',
+      message: `Nix must return the complete /nix/store closure of '${nixOutputPath}' for capability '${capability.toolId}'`,
+      command: value,
+    })
+  }
+  return [...new Set(lines)].toSorted((left, right) => (left < right ? -1 : left > right ? 1 : 0))
+}
+
 const resolveCapability = async ({
   capability,
-  nixCommand,
+  nixCommands,
   env,
   lock,
 }: {
   readonly capability: BuckMemberCapability
-  readonly nixCommand: CompositionCapabilityCommand
+  readonly nixCommands: CapabilityNixCommands
   readonly env: NodeJS.ProcessEnv
   readonly lock: RegularFileIdentity
 }): Promise<ResolvedCompositionCapability> => {
-  const { stdout } = await run({ value: nixCommand, env }).finally(() =>
+  const { stdout } = await run({ value: nixCommands.build, env }).finally(() =>
     assertRegularFileIdentity(lock),
   )
-  const nixOutputPath = singleNixOutput({ stdout, capability, value: nixCommand })
+  const nixOutputPath = singleNixOutput({ stdout, capability, value: nixCommands.build })
+  const closure = await run({ value: nixCommands.closure, env }).finally(() =>
+    assertRegularFileIdentity(lock),
+  )
+  const closurePaths = closureStorePaths({
+    stdout: closure.stdout,
+    capability,
+    nixOutputPath,
+    value: nixCommands.closure,
+  })
   const declaredExecutable = NodePath.join(nixOutputPath, capability.executable)
   try {
     const [canonicalOutput, outputInfo, executableInfo] = await Promise.all([
@@ -583,6 +624,7 @@ const resolveCapability = async ({
       nixOutputPath,
       executablePath,
       executableDigest: await executableDigest(executablePath),
+      closureStorePaths: closurePaths,
     }
   } catch (cause) {
     throw new CompositionCapabilityResolutionError({
@@ -601,7 +643,7 @@ const resolveCapabilitiesInOrder = ({
   lock,
 }: {
   readonly capabilities: ReadonlyArray<BuckMemberCapability>
-  readonly nixCommands: ReadonlyArray<CompositionCapabilityCommand>
+  readonly nixCommands: ReadonlyArray<CapabilityNixCommands>
   readonly env: NodeJS.ProcessEnv
   readonly lock: RegularFileIdentity
 }): Promise<Array<ResolvedCompositionCapability>> => {
@@ -609,7 +651,7 @@ const resolveCapabilitiesInOrder = ({
   const next = (index: number): Promise<Array<ResolvedCompositionCapability>> => {
     const capability = capabilities[index]
     if (capability === undefined) return Promise.resolve(resolved)
-    return resolveCapability({ capability, nixCommand: nixCommands[index]!, env, lock }).then(
+    return resolveCapability({ capability, nixCommands: nixCommands[index]!, env, lock }).then(
       (value) => {
         resolved.push(value)
         return next(index + 1)
@@ -639,6 +681,7 @@ const safeNixEnvironment = ({
 
 const ToolProjectionManifest = Schema.Struct({
   closureIdentity: Schema.String,
+  closureStorePaths: Schema.Array(Schema.String),
   contentDigest: Schema.String,
   executableStorePath: Schema.String,
   executionPlatform: Schema.Literals(['x86_64-linux', 'aarch64-linux', 'aarch64-macos']),
@@ -649,6 +692,32 @@ const ToolProjectionManifest = Schema.Struct({
 })
 const ToolProjectionManifestJson = Schema.fromJsonString(ToolProjectionManifest)
 type ToolProjectionManifest = typeof ToolProjectionManifest.Type
+
+/**
+ * Per-tool projected manifest identity as written into `.buck2/capabilities`.
+ */
+export const CapabilityProjectionManifestJsonSchema = ToolProjectionManifestJson
+/** Decoded per-tool projected manifest: the tool's pinned realization, closure, and protocol. */
+export type CapabilityProjectionManifest = ToolProjectionManifest
+
+/** Binds a projected tool to its exact Nix realization, independent of executable depth. */
+export const makeCapabilityProjectionManifest = ({
+  platform,
+  resolved,
+}: {
+  readonly platform: 'x86_64-linux' | 'aarch64-linux' | 'aarch64-macos'
+  readonly resolved: ResolvedCompositionCapability
+}): CapabilityProjectionManifest => ({
+  closureIdentity: resolved.nixOutputPath,
+  closureStorePaths: resolved.closureStorePaths,
+  contentDigest: resolved.executableDigest.slice('sha256:'.length),
+  executableStorePath: resolved.executablePath,
+  executionPlatform: platform,
+  protocol: resolved.capability.protocol,
+  runtimeContract: 'native-executable/v1',
+  schema: 'effect-utils/buck2-support-tools/v1',
+  toolId: resolved.capability.toolId,
+})
 const toolBuckBytes =
   'export_file(name = "executable", src = "executable", visibility = ["PUBLIC"])\n' +
   'export_file(name = "manifest", src = "manifest.json", visibility = ["PUBLIC"])\n'
@@ -689,7 +758,7 @@ const renderDefs = ({
     `  "${platform}": {`,
     ...manifests.map(
       (manifest) =>
-        `    "${manifest.toolId}": {"generation": "${generation}", "contentDigest": "${manifest.contentDigest}", "closureIdentity": "${manifest.closureIdentity}", "executableStorePath": "${manifest.executableStorePath}"},`,
+        `    "${manifest.toolId}": {"generation": "${generation}", "contentDigest": "${manifest.contentDigest}", "closureIdentity": "${manifest.closureIdentity}", "executableStorePath": "${manifest.executableStorePath}", "closureStorePaths": [${manifest.closureStorePaths.map((path) => `"${path}"`).join(', ')}]},`,
     ),
     '  },',
     '}',
@@ -705,16 +774,9 @@ const projectResolvedCapabilities = async ({
   readonly platform: 'x86_64-linux' | 'aarch64-linux' | 'aarch64-macos'
   readonly resolved: ReadonlyArray<ResolvedCompositionCapability>
 }) => {
-  const manifests = resolved.map(({ capability, executablePath, executableDigest }) => ({
-    closureIdentity: NodePath.dirname(NodePath.dirname(executablePath)),
-    contentDigest: executableDigest.slice('sha256:'.length),
-    executableStorePath: executablePath,
-    executionPlatform: platform,
-    protocol: capability.protocol,
-    runtimeContract: 'native-executable/v1' as const,
-    schema: 'effect-utils/buck2-support-tools/v1' as const,
-    toolId: capability.toolId,
-  }))
+  const manifests = resolved.map((resolvedCapability) =>
+    makeCapabilityProjectionManifest({ platform, resolved: resolvedCapability }),
+  )
   const files = manifests.flatMap((manifest) => [
     { path: `${platform}/${manifest.toolId}/BUCK`, bytes: toolBuckBytes },
     { path: `${platform}/${manifest.toolId}/manifest.json`, bytes: manifestBytes(manifest) },
@@ -743,6 +805,38 @@ const projectResolvedCapabilities = async ({
   return { projectionPath, generation }
 }
 
+/**
+ * A projected closure must be complete, canonical, and present: strictly sorted unique store
+ * paths, containing the tool's own realization, each still valid in the local store.
+ */
+const assertProjectedClosure = async ({
+  manifest,
+  path,
+}: {
+  readonly manifest: ToolProjectionManifest
+  readonly path: string
+}): Promise<void> => {
+  const paths = manifest.closureStorePaths
+  const canonical = paths.every(
+    (value, index) =>
+      /^\/nix\/store\/[^/]+$/u.test(value) === true && (index === 0 || value > paths[index - 1]!),
+  )
+  if (paths.length === 0 || canonical === false) {
+    throw invalidInput({ message: 'Capability closure paths are not canonical', path })
+  }
+  if (paths.includes(manifest.closureIdentity) === false) {
+    throw invalidInput({ message: 'Capability closure omits its own realization', path })
+  }
+  await Promise.all(
+    paths.map(async (storePath) => {
+      try {
+        await lstat(storePath)
+      } catch (cause) {
+        throw invalidInput({ message: 'Capability closure path is absent', path: storePath, cause })
+      }
+    }),
+  )
+}
 /** Validate a capability projection without executing member-controlled code. */
 const checkCompositionCapabilityProjectionInternal = async ({
   memberRoot,
@@ -787,6 +881,7 @@ const checkCompositionCapabilityProjectionInternal = async ({
       ) {
         throw invalidInput({ message: 'Capability executable identity mismatch', path: executable })
       }
+      await assertProjectedClosure({ manifest, path: manifestFile })
       if ((await readFile(NodePath.join(directory, 'BUCK'), 'utf8')) !== toolBuckBytes) {
         throw invalidInput({ message: 'Capability tool BUCK is invalid', path: directory })
       }
@@ -963,19 +1058,35 @@ const resolveCompositionCapabilitiesInternal = async (
     )
     const plannedCandidateRoot = NodePath.join(plannedPrivateRoot, 'candidate')
     const projectorPlatform = platformFor(system)
-    const nixCommands = capabilities.map((capability) =>
-      command({
-        executable: input.runtime.nixPath,
-        args: [
-          'build',
-          '--no-link',
-          '--print-out-paths',
-          '--no-write-lock-file',
-          '--no-update-lock-file',
-          `${roots.memberRoot}#${capability.flakePackage}^out`,
-        ],
-      }),
-    )
+    const capabilityCommands = capabilities.map((capability) => {
+      const installable = `${roots.memberRoot}#${capability.flakePackage}^out`
+      return {
+        build: command({
+          executable: input.runtime.nixPath,
+          args: [
+            'build',
+            '--no-link',
+            '--print-out-paths',
+            '--no-write-lock-file',
+            '--no-update-lock-file',
+            installable,
+          ],
+        }),
+        // The realization already exists, so the closure query stays offline.
+        closure: command({
+          executable: input.runtime.nixPath,
+          args: [
+            'path-info',
+            '--recursive',
+            '--offline',
+            '--no-write-lock-file',
+            '--no-update-lock-file',
+            installable,
+          ],
+        }),
+      }
+    })
+    const nixCommands = capabilityCommands.flatMap(({ build, closure }) => [build, closure])
     if (input.dryRun === true) {
       return {
         _tag: 'Planned',
@@ -992,7 +1103,7 @@ const resolveCompositionCapabilitiesInternal = async (
     const env = safeNixEnvironment({ runtime: input.runtime, privateRoot: scratchIdentity.path })
     const resolved = await resolveCapabilitiesInOrder({
       capabilities,
-      nixCommands,
+      nixCommands: capabilityCommands,
       env,
       lock: roots.lock,
     })

@@ -1,14 +1,16 @@
 import { createHash } from 'node:crypto'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
-import process from 'node:process'
-import { fileURLToPath } from 'node:url'
 
 import { buck2SemanticFingerprint } from '../../../genie/buck2/mod.ts'
 import {
   createGenieOutput,
   type GenieOutput,
 } from '../../../packages/@overeng/genie/src/runtime/core.ts'
+import {
+  defineRepoContext,
+  modulePathFromUrl,
+} from '../../../packages/@overeng/genie/src/runtime/repo-context/mod.ts'
 import otelScrapeManifest from '../../../packages/@overeng/otel-scrape/Cargo.toml' with { type: 'toml' }
 import oteliteManifest from '../../../packages/@overeng/otelite/Cargo.toml' with { type: 'toml' }
 import cargoLock from '../../Cargo.lock' with { type: 'toml' }
@@ -16,6 +18,16 @@ import cargoWorkspace from '../../Cargo.toml' with { type: 'toml' }
 import archiveToolManifest from '../archive-tool/Cargo.toml' with { type: 'toml' }
 import productManifest from '../product/Cargo.toml' with { type: 'toml' }
 import coreManifest from './Cargo.toml' with { type: 'toml' }
+
+/**
+ * Every path this projector reads is repository-relative, and the reader is not always the
+ * repository: `bootstrap:cold-proof` runs the Buck-built Genie product, whose working
+ * directory is the composed workspace root while the tree under generation is a separate
+ * install-free export. The repo context anchors reads at the repository that owns this
+ * module — recovering the original path when the compiled product stages its import graph
+ * into a temporary mirror — so the census is identical from any working directory.
+ */
+const repo = defineRepoContext({ name: 'effect-utils', importMetaUrl: import.meta.url })
 
 /**
  * Projects one Cargo workspace member into its generated first-party Buck package.
@@ -28,7 +40,7 @@ export const cargoBuck2PackageProjection = ({
   readonly sourceUrl: string
 }): GenieOutput<unknown> => {
   const projectionSource = path
-    .relative(process.cwd(), fileURLToPath(sourceUrl))
+    .relative(repo.rootPath, modulePathFromUrl(sourceUrl))
     .replaceAll('\\', '/')
   if (path.posix.basename(projectionSource) !== 'BUCK.genie.ts') {
     throw new Error(`Cargo Buck projection source must be BUCK.genie.ts: ${projectionSource}`)
@@ -70,7 +82,7 @@ export const cargoBuck2PackageProjection = ({
   }
   if (
     (packageMetadata.build !== undefined && packageMetadata.build !== false) ||
-    existsSync(path.join(process.cwd(), packagePath, 'build.rs')) === true
+    existsSync(repo.resolve(packagePath, 'build.rs')) === true
   ) {
     throw new Error(`Cargo build scripts are unsupported in ${member.manifestPath}`)
   }
@@ -199,7 +211,7 @@ export const cargoBuck2PackageProjection = ({
   const graphFingerprints = Object.fromEntries(
     semanticInputPaths
       .filter((input) => input.endsWith('/**/*.rs') === false && input.endsWith('.ts') === false)
-      .map((input) => [input, sha256(readFileSync(path.join(process.cwd(), input), 'utf8'))]),
+      .map((input) => [input, sha256(repo.readText(input))]),
   )
   const semanticData = {
     binaries,
@@ -521,8 +533,7 @@ const lockPackageNames = new Set(
     requireValue({ value: entry.name, field: 'Cargo.lock package.name' }),
   ),
 )
-const thirdPartyBuckPath = path.join(process.cwd(), 'rust/third-party/BUCK')
-const thirdPartyBuck = readFileSync(thirdPartyBuckPath, 'utf8')
+const thirdPartyBuck = repo.readText('rust/third-party/BUCK')
 const thirdPartyTargets = new Set(
   [...thirdPartyBuck.matchAll(/^    name = "([^"]+)",$/gm)].map((match) =>
     requireValue({ value: match[1], field: 'rust/third-party/BUCK target name' }),
@@ -698,7 +709,7 @@ const discoverRustSources = ({
 }: {
   readonly packagePath: string
 }): readonly string[] => {
-  const packageRoot = path.join(process.cwd(), packagePath)
+  const packageRoot = repo.resolve(packagePath)
   const sources: string[] = []
   const walk = (relativeDirectory: string): void => {
     for (const entry of readdirSync(path.join(packageRoot, relativeDirectory), {

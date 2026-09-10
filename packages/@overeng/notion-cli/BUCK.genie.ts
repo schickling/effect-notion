@@ -1,3 +1,5 @@
+import { withJavaScriptCandidates } from '../../../genie/buck2/javascript-candidates.ts'
+import { javaScriptProductsFor } from '../../../genie/buck2/javascript-product-registry.ts'
 import type { Buck2TypeScriptAdmission } from '../../../genie/buck2/typescript-admissions.ts'
 import { buck2TypeScriptPackageProjection } from '../../../genie/buck2/typescript-package-projection.ts'
 
@@ -57,4 +59,7 @@ export const buck2TypeScriptAdmission = {
   editorViewConsumer: false,
 } as const satisfies Buck2TypeScriptAdmission
 
-export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)
+export default withJavaScriptCandidates({
+  projection: buck2TypeScriptPackageProjection(buck2TypeScriptAdmission),
+  products: javaScriptProductsFor(buck2TypeScriptAdmission.packagePath),
+})

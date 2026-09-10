@@ -5,7 +5,11 @@ import { describe, expect, it } from 'vitest'
 
 import buckMemberManifest from '../../buck2-member.json.genie.ts'
 import { decodeBuckMemberManifestJson } from '../../packages/@overeng/megarepo/src/buck2-manifest.ts'
-import { rootWorkspaceTsconfigProjects } from '../tsconfig-projects.ts'
+import {
+  isRootTsconfigCheckProject,
+  isRootTsconfigEmitProject,
+  rootWorkspaceTsconfigProjects,
+} from '../tsconfig-projects.ts'
 import {
   authoritativeBuck2TypeScriptAdmissions,
   buck2TypeScriptAdmissions,
@@ -29,6 +33,15 @@ describe('Buck2 TypeScript authority derivation', () => {
     )
 
     expect(authoritativeBuck2TypeScriptAdmissions).toEqual(packageLocalAuthorities)
+  })
+
+  it('keeps legacy typechecking authoritative without emitting noEmit projects', () => {
+    expect(rootWorkspaceTsconfigProjects.every(isRootTsconfigCheckProject)).toBe(true)
+    expect(
+      rootWorkspaceTsconfigProjects
+        .filter((project) => isRootTsconfigEmitProject(project) === false)
+        .map(({ path }) => path),
+    ).toEqual(['packages/@overeng/stylex-tokens'])
   })
 
   it('derives manifest overlays and root TypeScript authority from the same entries', () => {

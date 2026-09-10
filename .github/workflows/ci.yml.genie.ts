@@ -633,6 +633,166 @@ const nixClosureMeasurementTargets = [
 // Non-core jobs are kept outside the typed product-job block but still tracked
 // in genie/ci.ts for required-check policy.
 const extraJobs: Record<string, any> = {
+  /**
+   * Fresh-checkout PR-A proof. This deliberately uses only a GitHub-hosted runner,
+   * public caches, read-only permissions, and inert commands: it can validate product
+   * and editor machinery from an untrusted fork without publication authority.
+   */
+  'pr-a-inert-buck': {
+    if: `\${{ github.event_name == 'pull_request' && github.event.action != 'labeled' }}`,
+    'runs-on': 'ubuntu-latest',
+    'timeout-minutes': jobTimeoutMinutes,
+    defaults: bashShellDefaults,
+    permissions: { contents: 'read' },
+    env: {
+      FORCE_SETUP: '1',
+      CI: 'true',
+      BUCK2_NO_REMOTE_CACHE: '1',
+    },
+    steps: [
+      checkoutStep(),
+      installNixStep(),
+      cachixCliBuildStep,
+      cachixStep({ name: 'overeng-effect-utils' }),
+      prepareEffectUtilsCompositionStep,
+      prepareCiScriptsStep,
+      preparePinnedDevenvStep,
+      validateNixStoreStep,
+      {
+        name: 'Check generated sources',
+        run: runDevenvTasksBefore('genie:check'),
+      },
+      {
+        name: 'Run focused normalized, projection, and runner tests',
+        run: withCiSourceRoot(
+          [
+            'set -euo pipefail',
+            '"${DEVENV_BIN:?DEVENV_BIN not set}" shell -- bun test \\',
+            '  genie/buck2/typescript-package-projection.unit.test.ts \\',
+            '  genie/buck2/javascript-candidates.unit.test.ts \\',
+            '  packages/@overeng/buck2-tools/src/package-command-runner.unit.test.ts',
+          ].join('\n'),
+        ),
+      },
+      {
+        name: 'Check product publisher contract and dry-run',
+        run: withCiSourceRoot(
+          '"${DEVENV_BIN:?DEVENV_BIN not set}" shell -- env -u GITHUB_EVENT_NAME bash nix/workspace-tools/lib/tests/buck2-release-products.sh "$PWD"',
+        ),
+      },
+      {
+        name: 'Reject tracked product and editor payload bytes',
+        run: withCiSourceRoot(
+          [
+            'set -euo pipefail',
+            "tracked_editor=$(git ls-files -- '**/.editor-view/**' '.editor-view/**')",
+            `tracked_product=$(git ls-files -- 'nix/buck2-products/**' | grep -Ev '^nix/buck2-products/(default\\.nix|manifest\\.json|publish\\.sh)$' || true)`,
+            'if [ -n "$tracked_editor$tracked_product" ]; then',
+            '  printf \'Tracked inert payload bytes are forbidden:\\n%s\\n%s\\n\' "$tracked_editor" "$tracked_product" >&2',
+            '  exit 1',
+            'fi',
+          ].join('\n'),
+        ),
+      },
+      {
+        name: 'Query and build representative inert Buck targets',
+        run: withCiSourceRoot(
+          [
+            'set -euo pipefail',
+            '"${DEVENV_BIN:?DEVENV_BIN not set}" shell -- bash -euo pipefail -c \'',
+            '  cd "${EFFECT_UTILS_WORKSPACE_ROOT:?EFFECT_UTILS_WORKSPACE_ROOT not set}"',
+            '  buck="$PWD/.megarepo/bin/buck2"',
+            '  "$buck" query effect_utils//packages/@overeng/ci-tools:ci-tools-candidate',
+            '  "$buck" query effect_utils//packages/@overeng/tui-core:editor_view_inputs',
+            '  "$buck" build \\',
+            '    effect_utils//packages/@overeng/ci-tools:ci-tools-candidate \\',
+            '    effect_utils//packages/@overeng/tui-core:editor_view_inputs',
+            "'",
+          ].join('\n'),
+        ),
+      },
+    ],
+  },
+  /**
+   * Trusted-only proof that a freshly materialized Buck context can consume an
+   * action uploaded by an independent local context through the tailnet cache.
+   */
+  'trusted-buck2-remote-cache-proof': {
+    if: trustedSecretCiIf,
+    'runs-on': namespaceRunner({
+      profile: 'namespace-profile-linux-x86-64',
+      runId: '${{ github.run_id }}',
+    }),
+    'timeout-minutes': jobTimeoutMinutes,
+    defaults: bashShellDefaults,
+    permissions: { contents: 'read' },
+    env: {
+      ...standardCIEnv,
+      // Composition only suppresses remote-cache projection for the exact value `1`.
+      BUCK2_NO_REMOTE_CACHE: '0',
+    },
+    steps: [
+      checkoutStep(),
+      installNixStep(),
+      prepareEffectUtilsCompositionStep,
+      {
+        name: 'Prove a fresh context gets a remote action-cache hit',
+        env: {
+          BUCK2_REMOTE_CACHE_BASIC_AUTH:
+            '${{ secrets.BUCK2_REMOTE_CACHE_BASIC_AUTH }}',
+        },
+        run: [
+          'set -euo pipefail',
+          'proof_script="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-remote-cache-proof.sh"',
+          `trap 'rm -f "$proof_script"' EXIT`,
+          `cat > "$proof_script" <<'BUCK2_REMOTE_CACHE_PROOF'`,
+          'set -euo pipefail',
+          'if [ -z "${BUCK2_REMOTE_CACHE_BASIC_AUTH:-}" ]; then',
+          '  echo "::error::BUCK2_REMOTE_CACHE_BASIC_AUTH is required for the trusted remote-cache proof"',
+          '  exit 1',
+          'fi',
+          'cd "${EFFECT_UTILS_WORKSPACE_ROOT:?EFFECT_UTILS_WORKSPACE_ROOT not set}"',
+          'buck="$PWD/.megarepo/bin/buck2"',
+          'target="effect_utils//packages/@overeng/ci-tools:ci-tools-candidate"',
+          'proof_source="${EFFECT_UTILS_MEMBER_ROOT:?EFFECT_UTILS_MEMBER_ROOT not set}/packages/@overeng/ci-tools/bin/ci-tools.ts"',
+          `printf '%s\\n' '' "// trusted remote-cache proof \${GITHUB_RUN_ID:?GITHUB_RUN_ID not set}-\${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT not set}" >> "$proof_source"`,
+          'evidence_a="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-remote-cache-proof-a.jsonl"',
+          'evidence_b="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-remote-cache-proof-b.jsonl"',
+          `trap 'rm -f "$evidence_a" "$evidence_b"' EXIT`,
+          '',
+          '# Context A has a run-unique source input, executes locally, and uploads to the remote cache.',
+          '# The composition wrapper fixes --isolation-dir, so freshness comes from daemon and state removal.',
+          '"$buck" kill',
+          'rm -rf buck-out',
+          '"$buck" build --local-only "$target"',
+          '"$buck" log show --recent 1 > "$evidence_a"',
+          `if ! jq -e 'select(.Event.data.SpanEnd.data.ActionExecution as $action | $action.execution_kind == "ACTION_EXECUTION_KIND_LOCAL" and $action.cache_upload_result == "UPLOAD_RESULT_UPLOADED")' "$evidence_a" >/dev/null; then`,
+          '  echo "::error::Context A did not report a successful upload for a locally executed action"',
+          '  exit 1',
+          'fi',
+          '',
+          '# Context B is a fresh daemon and materializer over the identical action input.',
+          '"$buck" kill',
+          'rm -rf buck-out',
+          '',
+          '# Buck event data must classify the independently built result as a remote action-cache hit.',
+          '"$buck" build --local-only "$target"',
+          '"$buck" log show --recent 1 > "$evidence_b"',
+          `if ! jq -e 'select(.Event.data.SpanEnd.data.ActionExecution.execution_kind == "ACTION_EXECUTION_KIND_ACTION_CACHE")' "$evidence_b" >/dev/null; then`,
+          '  echo "::error::Context B did not report a remote action-cache hit"',
+          '  exit 1',
+          'fi',
+          `if jq -e 'select(.Event.data.SpanEnd.data.ActionExecution.execution_kind as $kind | $kind == "ACTION_EXECUTION_KIND_LOCAL" or $kind == "ACTION_EXECUTION_KIND_REMOTE" or $kind == "ACTION_EXECUTION_KIND_LOCAL_DEP_FILE" or $kind == "ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE" or $kind == "ACTION_EXECUTION_KIND_LOCAL_WORKER" or $kind == "ACTION_EXECUTION_KIND_REMOTE_WORKER")' "$evidence_b" >/dev/null; then`,
+          '  echo "::error::Context B executed an action or reused local action state instead of relying on the remote action cache"',
+          '  exit 1',
+          'fi',
+          'echo "Fresh-context remote action-cache proof passed"',
+          'BUCK2_REMOTE_CACHE_PROOF',
+          '"${DEVENV_BIN:?DEVENV_BIN not set}" shell -- bash "$proof_script"',
+        ].join('\n'),
+      },
+    ],
+  },
   // bootstrap:cold-proof (R32) — the empirical authority for the bootstrap-safe import-closure
   // contract (issue #884). In a fresh, no-node_modules tree of the committed source it runs the
   // self-contained nix genie (`.#genie`, a cachix cache hit here) with `--phase bootstrap`, then

@@ -4,13 +4,13 @@ import { gzipSync } from 'node:zlib'
 
 import { describe, expect, it } from 'vitest'
 
-import { makePnpmBuckProjection, renderPnpmBuck } from './pnpm-lock-buck.ts'
 import {
   decodePnpmSha256Sidecar,
   generatePnpmSha256Sidecar,
   translatePnpmLock,
   validatePnpmSha256Sidecar,
 } from './pnpm-lock.ts'
+import { renderPnpmPackageTargets } from './pnpm-store-buck.ts'
 
 const archive = new TextEncoder().encode('archive bytes')
 const archiveIntegrity = `sha512-${createHash('sha512').update(archive).digest('base64')}`
@@ -172,9 +172,9 @@ describe('translatePnpmLock', () => {
     const second = translatePnpmLock(options)
 
     expect(second).toEqual(first)
-    expect(Object.keys(first.packages)).toHaveLength(641)
-    expect(Object.keys(first.snapshots)).toHaveLength(644)
-    expect(Object.keys(first.importers)).toHaveLength(38)
+    expect(Object.keys(first.packages)).toHaveLength(648)
+    expect(Object.keys(first.snapshots)).toHaveLength(650)
+    expect(Object.keys(first.importers)).toHaveLength(39)
     expect(first.packages['@myobie/pty@0.10.0']!.patch?.path).toBe(
       'packages/@overeng/utils/patches/@myobie__pty@0.10.0.patch',
     )
@@ -335,8 +335,8 @@ describe('pnpm sha256 sidecar', () => {
   })
 })
 
-describe('Buck lock projection', () => {
-  it('renders deterministic package/importer calls with mandatory platform maps', async () => {
+describe('Buck package targets', () => {
+  it('renders one deterministic hash-pinned archive target per registry package', async () => {
     const metadata = translatePnpmLock({
       lockfileText: lock({
         importers: `  .:
@@ -357,48 +357,13 @@ describe('Buck lock projection', () => {
       metadata,
       fetchArchive: async () => archive,
     })
-    const projection = makePnpmBuckProjection({ metadata, sidecar })
-    const rendered = renderPnpmBuck(projection)
+    const rendered = renderPnpmPackageTargets({ metadata, sidecar })
 
-    expect(renderPnpmBuck(makePnpmBuckProjection({ metadata, sidecar }))).toBe(rendered)
-    expect(rendered).toContain('pnpm_platform_configurations()')
-    expect(rendered).toContain('pnpm_package(')
-    expect(rendered).toContain('pnpm_importer(')
-    expect(rendered).toContain('packages_by_platform = {')
-    expect(rendered).toContain('"linux_x86_64": {\n            "native@1.0.0":')
-    expect(rendered).toContain('"linux_aarch64": {\n        }')
-    expect(rendered).toContain('"macos_aarch64": {\n        }')
-    expect(rendered).toContain('runtime = ":assemble-node-modules.ts"')
-  })
-
-  it('projects workspace root links as closed workspace package trees', async () => {
-    const metadata = translatePnpmLock({
-      lockfileText: lock({
-        importers: `  packages/app:
-    dependencies:
-      workspace-lib:
-        specifier: workspace:*
-        version: link:../lib
-  packages/lib:
-    dependencies:
-      bar:
-        specifier: 2.0.0
-        version: 2.0.0`,
-        packages: `  bar@2.0.0:
-    resolution: {integrity: ${archiveIntegrity}}`,
-        snapshots: '  bar@2.0.0: {}',
-      }),
-      workspaceText: workspace(),
-    })
-    const sidecar = await generatePnpmSha256Sidecar({
-      metadata,
-      fetchArchive: async () => archive,
-    })
-    const rendered = renderPnpmBuck(makePnpmBuckProjection({ metadata, sidecar }))
-
-    expect(rendered).toContain('"workspace-lib": "workspace_packages_lib_')
-    expect(rendered).toContain('": "//packages/lib:package_tree"')
-    expect(rendered).not.toContain('\\tbar": "bar@2.0.0"')
+    expect(renderPnpmPackageTargets({ metadata, sidecar })).toBe(rendered)
+    expect([...rendered.matchAll(/^pnpm_package\($/gm)]).toHaveLength(1)
+    expect(rendered).toContain(
+      `    package_name = "native",\n    url = ${JSON.stringify(metadata.packages['native@1.0.0']!.url)},`,
+    )
   })
 
   it('renders same-cell patch labels without a cell name', async () => {
@@ -423,7 +388,7 @@ describe('Buck lock projection', () => {
       metadata,
       fetchArchive: async () => archive,
     })
-    const rendered = renderPnpmBuck(makePnpmBuckProjection({ metadata, sidecar }))
+    const rendered = renderPnpmPackageTargets({ metadata, sidecar })
 
     expect(rendered).toContain('patches = ["//:patches/foo.patch"]')
     expect(rendered).not.toContain('effect_utils//')

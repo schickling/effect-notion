@@ -25,6 +25,7 @@ import {
   COMPOSITION_ROOT_SCHEMA_VERSION,
   CompositionGenerationManifestSchema,
   GeneratedCompositionFileSchema,
+  buckMemberRemoteCacheSections,
   decodeBuckMemberManifestJson,
   generateCompositionRoot,
   type BuckCacheSection,
@@ -1663,7 +1664,11 @@ const prepareComposition = async ({
         members: members.map(({ memberKey, manifest }) => ({ memberKey, manifest })),
         platformHubCell: hub.manifest.cell,
         isolationDir: options.compositionConfig.isolationDir,
-        cacheSections: options.cacheSections,
+        cacheSections:
+          options.cacheSections ??
+          (hub.manifest.remoteCache === undefined
+            ? []
+            : buckMemberRemoteCacheSections(hub.manifest.remoteCache)),
         additionalProjectIgnores: (options.compositionConfig.ignoredMembers ?? []).map(
           (member) => `repos/${member}`,
         ),

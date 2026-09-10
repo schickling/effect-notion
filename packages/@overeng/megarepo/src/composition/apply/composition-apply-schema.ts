@@ -46,7 +46,7 @@ export const CompositionApplyRequestSchema = Schema.Struct({
   ownedMemberKey: MemberKey,
   ownedMemberPath: AbsolutePath,
   compositionConfig: CompositionGeneratorConfig,
-  cacheSections: Schema.Array(BuckCacheSectionSchema),
+  cacheSections: Schema.optional(Schema.Array(BuckCacheSectionSchema)),
   lockedMembers: Schema.Array(CompositionApplyLockedMemberSchema),
   dryRun: Schema.Boolean,
   allowVerifiedDarwinAdvance: Schema.Boolean,

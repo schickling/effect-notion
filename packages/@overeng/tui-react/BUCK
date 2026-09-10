@@ -2,13 +2,14 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/tui-react/BUCK.genie.ts
-# Projection schema version: 1
+# Projection schema version: 3
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:d06701912253f46216334f9ffd268fb1ed2fc53f836b549c97be22e0d5cf2602
+# Semantic fingerprint: sha256:5c5078eb130b16a3dcaede2e248f993cfcfd70fc5a057a61cf537949b3e04aa9
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/tui-core/BUCK.genie.ts, packages/@overeng/tui-core/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/examples/**/*.cts, packages/@overeng/tui-react/examples/**/*.js, packages/@overeng/tui-react/examples/**/*.mts, packages/@overeng/tui-react/examples/**/*.ts, packages/@overeng/tui-react/examples/**/*.tsx, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/tui-react/src/**/*.cts, packages/@overeng/tui-react/src/**/*.js, packages/@overeng/tui-react/src/**/*.mts, packages/@overeng/tui-react/src/**/*.ts, packages/@overeng/tui-react/src/**/*.tsx, packages/@overeng/tui-react/test/**/*.cts, packages/@overeng/tui-react/test/**/*.js, packages/@overeng/tui-react/test/**/*.mts, packages/@overeng/tui-react/test/**/*.ts, packages/@overeng/tui-react/test/**/*.tsx, packages/@overeng/tui-react/tsconfig.buck.json.genie.ts, packages/@overeng/tui-react/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
-load("//buck2:materialization.bzl", "export_materialization_inputs", "package_tree")
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -126,7 +127,7 @@ export_materialization_inputs([
 
 alias(
     name = "node_modules",
-    actual = "//buck2/dependencies:importer_packages_overeng_tui_react_f20a858a9232",
+    actual = "//buck2/dependencies:view_packages_overeng_tui_react_f20a858a9232",
     visibility = ["PUBLIC"],
 )
 
@@ -136,9 +137,9 @@ alias(
     visibility = ["PUBLIC"],
 )
 
-package_tree(
+package_view(
     name = "package_tree",
-    node_modules = ":node_modules",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_tui_react_f20a858a9232",
     files = {
         "examples/01-basic/hello-world.stories.tsx": "examples/01-basic/hello-world.stories.tsx",
         "examples/01-basic/hello-world.tsx": "examples/01-basic/hello-world.tsx",
@@ -250,29 +251,13 @@ package_tree(
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
-    workspace_siblings = {
-        "@overeng/tui-core": {
-            "files": {
-                "dist": "//packages/@overeng/tui-core:dist",
-                "package.json": "//packages/@overeng/tui-core:package.json",
-            },
-            "links": ["@overeng/tui-core"],
-        },
-        "@overeng/utils": {
-            "files": {
-                "dist": "//packages/@overeng/utils:dist",
-                "package.json": "//packages/@overeng/utils:package.json",
-            },
-            "links": ["@overeng/utils"],
-        },
-        "@overeng/utils-dev": {
-            "files": {
-                "dist": "//packages/@overeng/utils-dev:dist",
-                "package.json": "//packages/@overeng/utils-dev:package.json",
-            },
-            "links": ["@overeng/utils-dev"],
-        },
-    },
+    visibility = ["PUBLIC"],
+)
+
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
     visibility = ["PUBLIC"],
 )
 
