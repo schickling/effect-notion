@@ -3,7 +3,7 @@
 
 # Generated file - DO NOT EDIT
 # Source: pnpm-lock.yaml
-# Store fingerprint: sha256:c51cdf6f8f0f45a1f6d200e53e61360a0f155145848573a248ae715f128fda6c
+# Store fingerprint: sha256:cae975ef582fb051d326c84c8c90512f57cec5b709a06a278b9ce4d60413fb6a
 
 load("//buck2:materialization.bzl", "export_materialization_inputs")
 
@@ -8649,9 +8649,9 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_stylexjs_unplugin_0_19_0_unplugin_3_3_0_esbuild_0_28_2_vite_8_2_2_types__48e1a3e8c7ce",
+    name = "entry_stylexjs_unplugin_0_19_0_unplugin_3_3_0_esbuild_0_28_2_rolldown_1_2_7_vi_f1e7378fcd91",
     package = ":package_stylexjs_unplugin_0_19_0_1a0b1820fb20",
-    store_key = "@stylexjs+unplugin@0.19.0_unplugin@3.3.0_esbuild@0.28.2_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0",
+    store_key = "@stylexjs+unplugin@0.19.0_unplugin@3.3.0_esbuild@0.28.2_rolldown@1.2.7_vite@8.2.2_@types+node@26.5.0_es_aed1f6ae5400bbc5",
     runtime = ":assemble-store.ts",
     dependencies = {
         "@babel/core": ":entry_babel_core_7_29_7_46a08ec2c1b0",
@@ -35310,7 +35310,7 @@ pnpm_store_view(
         "@storybook/addon-a11y": "@storybook+addon-a11y@10.5.10_storybook@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+rea_ca372a4559664564",
         "@storybook/addon-vitest": "@storybook+addon-vitest@10.5.10_@vitest+browser-playwright@4.1.9_@vitest+browser@4.1.9_vite@8.2.2_@type_c2f5c8944b00f88a",
         "@storybook/react-vite": "@storybook+react-vite@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_esbuild_59d007e1aba3c552",
-        "@stylexjs/unplugin": "@stylexjs+unplugin@0.19.0_unplugin@3.3.0_esbuild@0.28.2_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0",
+        "@stylexjs/unplugin": "@stylexjs+unplugin@0.19.0_unplugin@3.3.0_esbuild@0.28.2_rolldown@1.2.7_vite@8.2.2_@types+node@26.5.0_es_aed1f6ae5400bbc5",
         "@types/node": "@types+node@26.5.0",
         "@vitest/browser": "@vitest+browser@4.1.9_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9",
         "@vitest/browser-playwright": "@vitest+browser-playwright@4.1.9_playwright@1.61.0_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9",
@@ -35395,7 +35395,7 @@ pnpm_store_view(
             "@stylexjs+babel-plugin@0.19.0": ":entry_stylexjs_babel_plugin_0_19_0_749472a206a4",
             "@stylexjs+shared@0.19.0": ":entry_stylexjs_shared_0_19_0_cc10928d6623",
             "@stylexjs+stylex@0.19.0": ":entry_stylexjs_stylex_0_19_0_cda959b356f4",
-            "@stylexjs+unplugin@0.19.0_unplugin@3.3.0_esbuild@0.28.2_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0": ":entry_stylexjs_unplugin_0_19_0_unplugin_3_3_0_esbuild_0_28_2_vite_8_2_2_types__48e1a3e8c7ce",
+            "@stylexjs+unplugin@0.19.0_unplugin@3.3.0_esbuild@0.28.2_rolldown@1.2.7_vite@8.2.2_@types+node@26.5.0_es_aed1f6ae5400bbc5": ":entry_stylexjs_unplugin_0_19_0_unplugin_3_3_0_esbuild_0_28_2_rolldown_1_2_7_vi_f1e7378fcd91",
             "@testing-library+dom@10.4.1": ":entry_testing_library_dom_10_4_1_6157fd4c81de",
             "@testing-library+jest-dom@6.9.1": ":entry_testing_library_jest_dom_6_9_1_71e5d02913b2",
             "@testing-library+user-event@14.6.7_@testing-library+dom@10.4.1": ":entry_testing_library_user_event_14_6_7_testing_library_dom_10_4_1_2b37aa52f746",
@@ -35659,7 +35659,7 @@ pnpm_store_view(
             "@stylexjs+babel-plugin@0.19.0": ":entry_stylexjs_babel_plugin_0_19_0_749472a206a4",
             "@stylexjs+shared@0.19.0": ":entry_stylexjs_shared_0_19_0_cc10928d6623",
             "@stylexjs+stylex@0.19.0": ":entry_stylexjs_stylex_0_19_0_cda959b356f4",
-            "@stylexjs+unplugin@0.19.0_unplugin@3.3.0_esbuild@0.28.2_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0": ":entry_stylexjs_unplugin_0_19_0_unplugin_3_3_0_esbuild_0_28_2_vite_8_2_2_types__48e1a3e8c7ce",
+            "@stylexjs+unplugin@0.19.0_unplugin@3.3.0_esbuild@0.28.2_rolldown@1.2.7_vite@8.2.2_@types+node@26.5.0_es_aed1f6ae5400bbc5": ":entry_stylexjs_unplugin_0_19_0_unplugin_3_3_0_esbuild_0_28_2_rolldown_1_2_7_vi_f1e7378fcd91",
             "@testing-library+dom@10.4.1": ":entry_testing_library_dom_10_4_1_6157fd4c81de",
             "@testing-library+jest-dom@6.9.1": ":entry_testing_library_jest_dom_6_9_1_71e5d02913b2",
             "@testing-library+user-event@14.6.7_@testing-library+dom@10.4.1": ":entry_testing_library_user_event_14_6_7_testing_library_dom_10_4_1_2b37aa52f746",
@@ -35924,7 +35924,7 @@ pnpm_store_view(
             "@stylexjs+babel-plugin@0.19.0": ":entry_stylexjs_babel_plugin_0_19_0_749472a206a4",
             "@stylexjs+shared@0.19.0": ":entry_stylexjs_shared_0_19_0_cc10928d6623",
             "@stylexjs+stylex@0.19.0": ":entry_stylexjs_stylex_0_19_0_cda959b356f4",
-            "@stylexjs+unplugin@0.19.0_unplugin@3.3.0_esbuild@0.28.2_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0": ":entry_stylexjs_unplugin_0_19_0_unplugin_3_3_0_esbuild_0_28_2_vite_8_2_2_types__48e1a3e8c7ce",
+            "@stylexjs+unplugin@0.19.0_unplugin@3.3.0_esbuild@0.28.2_rolldown@1.2.7_vite@8.2.2_@types+node@26.5.0_es_aed1f6ae5400bbc5": ":entry_stylexjs_unplugin_0_19_0_unplugin_3_3_0_esbuild_0_28_2_rolldown_1_2_7_vi_f1e7378fcd91",
             "@testing-library+dom@10.4.1": ":entry_testing_library_dom_10_4_1_6157fd4c81de",
             "@testing-library+jest-dom@6.9.1": ":entry_testing_library_jest_dom_6_9_1_71e5d02913b2",
             "@testing-library+user-event@14.6.7_@testing-library+dom@10.4.1": ":entry_testing_library_user_event_14_6_7_testing_library_dom_10_4_1_2b37aa52f746",
@@ -36189,7 +36189,7 @@ pnpm_store_view(
             "@stylexjs+babel-plugin@0.19.0": ":entry_stylexjs_babel_plugin_0_19_0_749472a206a4",
             "@stylexjs+shared@0.19.0": ":entry_stylexjs_shared_0_19_0_cc10928d6623",
             "@stylexjs+stylex@0.19.0": ":entry_stylexjs_stylex_0_19_0_cda959b356f4",
-            "@stylexjs+unplugin@0.19.0_unplugin@3.3.0_esbuild@0.28.2_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0": ":entry_stylexjs_unplugin_0_19_0_unplugin_3_3_0_esbuild_0_28_2_vite_8_2_2_types__48e1a3e8c7ce",
+            "@stylexjs+unplugin@0.19.0_unplugin@3.3.0_esbuild@0.28.2_rolldown@1.2.7_vite@8.2.2_@types+node@26.5.0_es_aed1f6ae5400bbc5": ":entry_stylexjs_unplugin_0_19_0_unplugin_3_3_0_esbuild_0_28_2_rolldown_1_2_7_vi_f1e7378fcd91",
             "@testing-library+dom@10.4.1": ":entry_testing_library_dom_10_4_1_6157fd4c81de",
             "@testing-library+jest-dom@6.9.1": ":entry_testing_library_jest_dom_6_9_1_71e5d02913b2",
             "@testing-library+user-event@14.6.7_@testing-library+dom@10.4.1": ":entry_testing_library_user_event_14_6_7_testing_library_dom_10_4_1_2b37aa52f746",

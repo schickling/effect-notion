@@ -446,6 +446,48 @@ describe('defineCatalog', () => {
       })
     })
 
+    it('emits a path-based workspace specifier for a live same-repo link', () => {
+      // `injectWorkspacePackages: true` makes pnpm inject a same-repo dependency
+      // as a `file:` copy once the consumer's peer graph differs, and pnpm 12
+      // ignores `dependenciesMeta.<dep>.injected`. A path-based specifier keeps
+      // the workspace protocol while forcing pnpm's local link resolution.
+      const nested = createTempRepo('packages/utils', 'packages/app', 'packages/examples/basic')
+      const utils = packageJson(
+        { name: '@test/utils', version: '1.0.0' },
+        catalog.compose({
+          workspace: workspace({ repoName: nested.repoName, memberPath: 'packages/utils' }),
+        }),
+      )
+
+      const sibling = catalog.compose({
+        workspace: workspace({ repoName: nested.repoName, memberPath: 'packages/app' }),
+        devDependencies: {
+          workspace: [utils],
+          liveWorkspaceLinks: ['@test/utils'],
+        },
+      })
+      const deeper = catalog.compose({
+        workspace: workspace({
+          repoName: nested.repoName,
+          memberPath: 'packages/examples/basic',
+        }),
+        devDependencies: {
+          workspace: [utils],
+          liveWorkspaceLinks: ['@test/utils'],
+        },
+      })
+      const unlisted = catalog.compose({
+        workspace: workspace({ repoName: nested.repoName, memberPath: 'packages/app' }),
+        devDependencies: {
+          workspace: [utils],
+        },
+      })
+
+      expect(sibling.devDependencies).toEqual({ '@test/utils': 'workspace:../utils' })
+      expect(deeper.devDependencies).toEqual({ '@test/utils': 'workspace:../../utils' })
+      expect(unlisted.devDependencies).toEqual({ '@test/utils': 'workspace:^' })
+    })
+
     it('installs inherited peers explicitly in install mode', () => {
       const utilsComposition = catalog.compose({
         workspace: workspace({

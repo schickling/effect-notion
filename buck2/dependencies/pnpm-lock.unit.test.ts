@@ -184,12 +184,43 @@ describe('translatePnpmLock', () => {
     const second = translatePnpmLock(options)
 
     expect(second).toEqual(first)
-    expect(Object.keys(first.packages)).toHaveLength(652)
-    expect(Object.keys(first.snapshots)).toHaveLength(656)
+    expect(Object.keys(first.packages)).toHaveLength(648)
+    expect(Object.keys(first.snapshots)).toHaveLength(652)
     expect(Object.keys(first.importers)).toHaveLength(39)
     expect(first.packages['@myobie/pty@0.10.0']!.patch?.path).toBe(
       'packages/@overeng/utils/patches/@myobie__pty@0.10.0.patch',
     )
+  })
+
+  it('keeps every same-repo workspace dependency a live link in the real lock', () => {
+    // `injectWorkspacePackages: true` lets pnpm 12 resolve a workspace
+    // dependency as an injected `file:` snapshot whenever the consumer's peer
+    // graph differs from the dependency's own. That copy is materialised once at
+    // install time, so the consumer silently stops reading workspace source.
+    // Every workspace edge in this repo must therefore stay a `link:` edge; the
+    // one importer that needs an explicit opt-out declares a path-based
+    // `workspace:` specifier (see packages/@overeng/restate-effect).
+    const lockfileText = readFileSync('pnpm-lock.yaml', 'utf8')
+    const importersSection = lockfileText.slice(
+      lockfileText.indexOf('\nimporters:'),
+      lockfileText.indexOf('\npackages:'),
+    )
+
+    expect(importersSection.match(/^ +version: file:.*$/gm)).toBeNull()
+    expect(importersSection).toContain(
+      "      '@overeng/utils':\n        specifier: workspace:../utils\n        version: link:../utils\n",
+    )
+
+    // The projection still resolves that edge to the workspace tree, so the
+    // opt-out changes where pnpm reads the package from, not the Buck graph.
+    const metadata = translatePnpmLock({
+      lockfileText,
+      workspaceText: readFileSync('pnpm-workspace.yaml', 'utf8'),
+    })
+
+    expect(
+      metadata.importers['packages/@overeng/restate-effect']!.devDependencies['@overeng/utils'],
+    ).toEqual({ kind: 'workspace', path: 'packages/@overeng/utils' })
   })
 
   it('rejects malformed integrity and unsupported lifecycle builds', () => {

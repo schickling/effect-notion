@@ -263,6 +263,26 @@ All notable changes to this project will be documented in this file.
   lines are accepted. `packageImportMethod: auto` now prefers hardlinks over
   reflinks on Linux, a behavior change with no source change.
 
+  One pnpm 12 resolution change needed a source decision: with the repo's
+  load-bearing `injectWorkspacePackages: true`, pnpm 12 resolved
+  `packages/@overeng/restate-effect`'s `@overeng/utils` edge as an injected
+  `file:` copy instead of a workspace link, because that importer's peer graph
+  binds a `@overeng/utils` peer utils itself satisfies only through its own
+  `devDependencies`, which blocks `dedupeInjectedDeps` from collapsing the
+  injected instance. An injected copy is materialized once at install time, so
+  tsc and vitest in that package would have read a frozen snapshot of utils.
+  pnpm 12 ignores `dependenciesMeta.<dep>.injected: false` while the
+  workspace-wide setting is on (its resolver computes
+  `inject_workspace_packages || injected`), so the opt-out is expressed where
+  pnpm honors it: `catalog.compose` gained `liveWorkspaceLinks`, which emits a
+  path-based `workspace:../utils` specifier for a named same-repo dependency.
+  That keeps the workspace protocol (and its publish rewriting) while routing
+  the edge through pnpm's local link resolution. The lockfile now has no
+  injected importer edge at all — four synthetic `file:` package/snapshot
+  entries disappeared — and
+  `buck2/dependencies/pnpm-lock.unit.test.ts` guards both properties against
+  the real lock.
+
 - **deps**: update the compatible patch and minor dependency cohort, including
   React 19.2.8, OpenTelemetry SDK 2.11, Vite 8.2.2, current TanStack router
   packages, Tailwind CSS 4.3.3, and supporting type, test, formatting, crypto,

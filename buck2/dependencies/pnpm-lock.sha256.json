@@ -1,6 +1,6 @@
 {
   "schema": "effect-utils/buck2-pnpm-sha256/v1",
-  "lockfileFingerprint": "sha256:28a9c2fe8bdaf0988f36fe7b511d6c7d58eb010e0f0be01ba5ecc0156cd5600c",
+  "lockfileFingerprint": "sha256:31ae2d8d8b0c07a181c6e2e894ee8924b103151f36b2c056b1c7300b5d191168",
   "source": "pnpm-lock.yaml",
   "generator": "buck2/dependencies/pnpm-lock.sha256.json.genie.ts",
   "regenerate": "devenv tasks run genie:run",
@@ -3333,5 +3333,5 @@
       "sha256": "2c162e000f5fb5a816987d6f8ad7aad295203f777a5992d514ae4660778a51a4"
     }
   },
-  "fingerprint": "sha256:730f061932ecab7672cc274ff120a60d885c42b1f150d438ea452dcf899481ba"
+  "fingerprint": "sha256:cfa4e5c26ee6612e0bd825af7eea62e42f0957ed8ae1727e8fa085898103ee8f"
 }
