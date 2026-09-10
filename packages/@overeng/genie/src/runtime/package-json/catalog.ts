@@ -335,14 +335,9 @@ const relativeMemberPath = ({ from, to }: { from: string; to: string }): string 
   ) {
     shared += 1
   }
-  const segments = [
-    ...fromSegments.slice(shared).map(() => '..'),
-    ...toSegments.slice(shared),
-  ]
+  const segments = [...fromSegments.slice(shared).map(() => '..'), ...toSegments.slice(shared)]
   if (segments.length === 0) {
-    throw new Error(
-      `liveWorkspaceLinks cannot point a workspace member at itself: ${from}`,
-    )
+    throw new Error(`liveWorkspaceLinks cannot point a workspace member at itself: ${from}`)
   }
   const path = segments.join('/')
   return path.startsWith('..') === true ? path : `./${path}`
