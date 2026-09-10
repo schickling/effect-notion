@@ -64,9 +64,68 @@ echo ""
 
 [ -f "$CONFIG" ] || fail "config resolution" "missing generated config: $CONFIG"
 
+# ---------------------------------------------------------------------------
+# 0. the two oxlint pins move together, and the binary under test is that pin
+# ---------------------------------------------------------------------------
+# `nix/oxlint-npm.nix` says "keep in lockstep with the `oxlint` pin in
+# genie/external.ts", and nothing enforced it: this cohort found the npm build
+# on 1.39.0 while the workspace pin had already moved to 1.70.0, so the config
+# schema and JS-plugin rule API in use were two majors from the declared pin.
+# A comment is not a gate; this is.
+OXLINT_NPM_NIX="$ROOT/nix/oxlint-npm.nix"
+CATALOG_TS="$ROOT/genie/external.ts"
+
+oxlint_npm_pin() { sed -n 's/^  version = "\(.*\)";$/\1/p' "$1" | head -1; }
+oxlint_catalog_pin() { sed -n "s/^  oxlint: '\(.*\)',$/\1/p" "$1" | head -1; }
+
+# Pure: reads two files, prints nothing when the pins agree and a diagnostic
+# when they do not. Both extractions must hit, so a renamed field fails loudly
+# instead of comparing two empty strings.
+oxlint_pin_disagreement() {
+  local nix_version catalog_version
+  nix_version="$(oxlint_npm_pin "$1")"
+  catalog_version="$(oxlint_catalog_pin "$2")"
+
+  if [ -z "$nix_version" ]; then
+    echo "could not read the \`version\` pin from $1"
+    return
+  fi
+  if [ -z "$catalog_version" ]; then
+    echo "could not read the \`oxlint\` catalog pin from $2"
+    return
+  fi
+  if [ "$nix_version" != "$catalog_version" ]; then
+    echo "oxlint pins disagree: nix/oxlint-npm.nix has $nix_version, genie/external.ts has $catalog_version"
+  fi
+}
+
+disagreement="$(oxlint_pin_disagreement "$OXLINT_NPM_NIX" "$CATALOG_TS")"
+[ -z "$disagreement" ] || fail "oxlint pins are in lockstep" "$disagreement"
+echo "  ok: oxlint pins are in lockstep"
+
+# Negative control: the check is only worth its runtime if a real split trips
+# it, so mutate a copy of the Nix pin and require a diagnostic.
+drift_probe="$(mktemp)"
+sed 's/^  version = ".*";$/  version = "1.39.0";/' "$OXLINT_NPM_NIX" > "$drift_probe"
+grep -q '^  version = "1.39.0";$' "$drift_probe" ||
+  fail "drift fixture" "the mutated copy did not take: $drift_probe"
+drift_out="$(oxlint_pin_disagreement "$drift_probe" "$CATALOG_TS")"
+rm -f "$drift_probe"
+assert_contains "oxlint pins disagree" "$drift_out" \
+  "a split between the npm build and the workspace pin is reported"
+
+pinned_version="$(oxlint_npm_pin "$OXLINT_NPM_NIX")"
+
 # The npm/NAPI build is the linter this repo actually runs (only it executes the
 # @overeng/oxc-config JS plugin). Inside the devenv shell the wrapper is already
 # on PATH and realised, so the common path needs no build.
+#
+# An on-PATH `oxlint` is only accepted when it BOTH carries the plugin wiring
+# and reports the pinned version. Two ways it silently does not: devenv's task
+# guard, which prints "use the devenv task(s)" and lints nothing, and a
+# same-named wrapper from another profile built at a different oxlint. Either
+# would make every absence assertion in this file pass vacuously — the exact
+# failure mode the file exists to prevent — so both fall back to the flake.
 resolve_oxlint() {
   if [ -n "${OXLINT_WRAPPER_BIN:-}" ]; then
     printf '%s' "$OXLINT_WRAPPER_BIN"
@@ -75,7 +134,9 @@ resolve_oxlint() {
 
   local on_path
   on_path="$(command -v oxlint || true)"
-  if [ -n "$on_path" ]; then
+  if [ -n "$on_path" ] &&
+    grep -q 'OVERENG_OXC_CONFIG_PLUGIN' "$(readlink -f "$on_path")" 2>/dev/null &&
+    "$on_path" --version 2>&1 | grep -qF "$pinned_version"; then
     printf '%s' "$on_path"
     return
   fi
@@ -87,12 +148,21 @@ oxlint_bin="$(resolve_oxlint)"
 echo "Using oxlint: $oxlint_bin"
 [ -x "$oxlint_bin" ] || fail "oxlint resolution" "not executable: $oxlint_bin"
 
+assert_contains "$pinned_version" "$("$oxlint_bin" --version 2>&1)" \
+  "the oxlint under test reports the pinned version"
+
 workspace="$(mktemp -d)"
 trap 'rm -rf "$workspace"' EXIT
 
 lint() {
+  # `--format=agent` is the one-line `path:line:col: <severity> <plugin>(<rule>)`
+  # shape every assertion below matches on. Without it the format depends on
+  # which wrapper resolved (the devenv task wrapper passes it, a bare
+  # `oxlint-with-plugins` defaults to the graphical renderer), and the rule-id
+  # assertions would silently stop matching.
+  #
   # oxlint exits non-zero on findings, which is the normal case here.
-  "$oxlint_bin" --config "$CONFIG" "$@" 2>&1 || true
+  "$oxlint_bin" --format=agent --config "$CONFIG" "$@" 2>&1 || true
 }
 
 # ---------------------------------------------------------------------------

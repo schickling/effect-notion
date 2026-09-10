@@ -440,10 +440,10 @@ file`). Effect-TS `tsgo` remains the export type-proof compiler
     the mutation, `func-style` conversions, and `useOKeyboard` now returning its
     key handler instead of parking it on the hook function as an untyped
     `_handler` property that nothing read. Two were real defects: three
-    `Pw.Locator.waitFor(...)` calls in the rpc example named a function the
-    module never exported (`waitForVisible`), so they resolved to `undefined` at
-    runtime, and a write-only `_dataSourceId` binding hid that its `decode` was
-    validation-only.
+    `Pw.Locator.waitFor(...)` calls in the rpc example named a function that
+    module never exported — the locator wrapper's export is `waitForVisible` —
+    so they resolved to `undefined` at runtime, and a write-only
+    `_dataSourceId` binding hid that its `decode` was validation-only.
     Sixteen suppression comments in the tree were also dead: they used 1.39-era
     rule ids (`eslint-plugin-import(no-dynamic-require)`,
     `typescript-eslint(triple-slash-reference)`, `eslint(no-await-in-loop)`)
