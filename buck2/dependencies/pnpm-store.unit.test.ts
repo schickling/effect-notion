@@ -408,12 +408,11 @@ describe('normalized store projection of the real lockfile', () => {
         'eslint@10.5.0_jiti@2.7.0',
       ],
       [
-        '@storybook+builder-vite@10.5.10_esbuild@0.28.2_storybook@10.5.10_@types+react-dom@19.2.7_@types+react@1_eca29f02e19e22ed',
-        '@storybook+csf-plugin@10.5.10_esbuild@0.28.2_storybook@10.5.10_@types+react-dom@19.2.7_@types+react@19._82d57206c79ed577',
-        '@storybook+react-dom-shim@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_rea_2aeef0b478a8fae8',
-        '@storybook+react-vite@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_esbuild_be10b5a0aad866d7',
-        '@storybook+react@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_react-dom@19_7969ca0fdedc8460',
-        'storybook@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_prettier@3.9.6_reac_7702f1bfbfb8544e',
+        '@storybook+builder-vite@10.6.0_storybook@10.6.0_@types+react-dom@19.2.7_@types+react@19.2.18_@types+rea_27cb05be65527c5a',
+        '@storybook+react-dom-shim@10.6.0_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_reac_690867bbf0498919',
+        '@storybook+react-vite@10.6.0_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_react-do_9b5eccc39f239997',
+        '@storybook+react@10.6.0_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_react-dom@19._c8fa65d991fb5130',
+        'storybook@10.6.0_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_prettier@3.9.6_react_da9aab27e30e1021',
       ],
       [
         '@vitest+browser-playwright@4.1.9_playwright@1.63.0_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9',
@@ -466,12 +465,15 @@ describe('normalized store projection of the real lockfile', () => {
     const varying = platformVaryingEntries(projection).map((entry) => entry.storeKey)
 
     // Decision 0030 recorded nine such packages; `oxlint-tsgolint` became the
-    // tenth. TypeScript 7 itself is the eleventh: the compiler now ships as
-    // per-platform `@typescript/typescript-<platform>` optional packages, so
-    // `typescript` is platform-selected too. Playwright 1.63 no longer depends
-    // on Darwin-only `fsevents`, so it drops back out. The count is derived
-    // here so a new platform-selected dependency needs no edit to admit it.
+    // tenth, and pnpm 12 resolves `@opentui/core` against two TypeScript
+    // versions, so the same package contributes two platform-varying entries.
+    // TypeScript 7 is platform-selected because the compiler ships as
+    // per-platform `@typescript/typescript-<platform>` optional packages.
+    // Playwright 1.63 no longer depends on Darwin-only `fsevents`, so it drops
+    // out of this list. The count is derived here so a new platform-selected
+    // dependency needs no edit to admit it.
     expect(varying).toEqual([
+      '@opentui+core@0.4.1_typescript@5.9.3_web-tree-sitter@0.25.10',
       '@opentui+core@0.4.1_typescript@7.0.2_web-tree-sitter@0.25.10',
       'esbuild@0.28.2',
       'lightningcss@1.33.0',
@@ -486,8 +488,8 @@ describe('normalized store projection of the real lockfile', () => {
   })
 
   it('declares one entry per snapshot and one view per importer', () => {
-    expect(projection.entries).toHaveLength(668)
-    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(668)
+    expect(projection.entries).toHaveLength(670)
+    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(670)
     expect(projection.views).toHaveLength(Object.keys(metadata.importers).length)
     expect(computeStoreSccs({ metadata })).toEqual(projection.sccs.map((scc) => scc.members))
   })
