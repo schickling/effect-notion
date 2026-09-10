@@ -229,6 +229,7 @@ let
           // `.package-map.json` is pnpm's exact locator-to-package-target map,
           // including peer-context variants, so it extends the same selector
           // without falling back to a package-name or virtual-dir scan.
+          const injectedTargets = new Set();
           const packageMapPath = path.join(entryPath, ".package-map.json");
           const packageMap = fs.existsSync(packageMapPath)
             ? JSON.parse(fs.readFileSync(packageMapPath, "utf8"))
@@ -275,13 +276,15 @@ let
               }
 
               registerRelink(relinkedTargets, packageDir, sourceProjectDir, sourceProjectId);
+              injectedTargets.add(packageDir);
             }
           }
 
           for (const [packageDir, sourceProjectDir] of relinkedTargets) {
-            // Filtered installs can retain injectedDeps entries for packages outside
-            // the selected closure. Only relink targets that pnpm materialized.
-            if (!fs.existsSync(packageDir)) continue;
+            if (!fs.existsSync(packageDir)) {
+              if (injectedTargets.has(packageDir)) continue;
+              throw new Error(`selected local dependency target is missing: ''${packageDir}`);
+            }
             if (fs.realpathSync(packageDir) === sourceProjectDir) {
               continue;
             }
@@ -325,6 +328,7 @@ in
       sourceRoot,
       pnpmDepsHash,
       preInstall ? "",
+      postPnpmInstall ? "",
       frozenLockfile ? true,
       lockfilePaths ? [ "pnpm-lock.yaml" ],
       pnpmFilters ? [ ],
@@ -620,6 +624,7 @@ in
                   log_prep_event "install" "$installDuration" "install_root=$install_root"
                   log_path_stats "install-root:$install_root-node_modules" "$install_root/node_modules"
                 done < .pnpm-install-roots.txt
+                ${postPnpmInstall}
 
                 relinkStartedAt=$(timer_now)
                 ${pnpmNodejs}/bin/node ${lib.escapeShellArg rewritePreparedWorkspaceScript}

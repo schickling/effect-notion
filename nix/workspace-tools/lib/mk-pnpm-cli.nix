@@ -350,10 +350,23 @@ let
       process.exit(1);
     }
     const sourceInputSegment = ".devenv/pnpm-source-inputs/current/";
+    const workspaceRoot = process.cwd();
+    const isWithin = (parentPath, childPath) => {
+      const relativePath = path.relative(parentPath, childPath);
+      return (
+        relativePath === "" ||
+        (!relativePath.startsWith(`..''${path.sep}`) && relativePath !== ".." && !path.isAbsolute(relativePath))
+      );
+    };
     const dependencySections = ["dependencies", "devDependencies", "optionalDependencies"];
 
     for (const [importerPath, importer] of Object.entries(importers)) {
-      const manifestPath = path.join(importerPath === "." ? "." : importerPath, "package.json");
+      const manifestPath = path.resolve(
+        importerPath === "." ? "package.json" : path.join(importerPath, "package.json")
+      );
+      if (!isWithin(workspaceRoot, manifestPath)) {
+        throw new Error(`lockfile importer escaped staged workspace: ''${importerPath}`);
+      }
       if (!fs.existsSync(manifestPath)) continue;
 
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
@@ -369,8 +382,7 @@ let
           if (
             typeof specifier === "string" &&
             specifier.includes(sourceInputSegment) &&
-            typeof manifestSpecifier === "string" &&
-            (manifestSpecifier.startsWith("file:") || manifestSpecifier.startsWith("link:"))
+            typeof manifestSpecifier === "string"
           ) {
             manifestDependencies[dependencyName] = specifier;
             changed = true;
@@ -1321,8 +1333,17 @@ let
       frozenLockfile = true;
       preInstall = ''
         chmod -R +w .
+        find . -name package.json -print0 \
+          | ${pkgs.gnutar}/bin/tar --null --files-from=- -cf "$NIX_BUILD_TOP/aggregate-manifests.tar"
+        cp pnpm-workspace.yaml "$NIX_BUILD_TOP/aggregate-pnpm-workspace.yaml"
+        cp pnpm-lock.yaml "$NIX_BUILD_TOP/aggregate-pnpm-lock.yaml"
         ${pkgs.yq-go}/bin/yq -o=json '.importers' pnpm-lock.yaml \
           | ${pkgs.nodejs}/bin/node ${alignAggregateManifestSpecifiersScript} pnpm-workspace.yaml pnpm-lock.yaml
+      '';
+      postPnpmInstall = ''
+        ${pkgs.gnutar}/bin/tar -xf "$NIX_BUILD_TOP/aggregate-manifests.tar"
+        cp "$NIX_BUILD_TOP/aggregate-pnpm-workspace.yaml" pnpm-workspace.yaml
+        cp "$NIX_BUILD_TOP/aggregate-pnpm-lock.yaml" pnpm-lock.yaml
       '';
     };
   };
