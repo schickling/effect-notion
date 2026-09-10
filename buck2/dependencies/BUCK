@@ -3,7 +3,7 @@
 
 # Generated file - DO NOT EDIT
 # Source: pnpm-lock.yaml
-# Store fingerprint: sha256:d8d6a2bd63eb962d6627954f2b3c2e4fcf139cd4450487f40873cbdbd717a74b
+# Store fingerprint: sha256:68b96db43ee85113e540a0807409e3de37805a00a7954db042cc346f9e5d9f17
 
 load("//buck2:materialization.bzl", "export_materialization_inputs")
 
@@ -891,7 +891,7 @@ pnpm_package(
     bins = {
         "pty": "bin/pty",
     },
-    patches = ["//:packages/@overeng/utils/patches/@myobie__pty@0.10.0.patch"],
+    patches = ["//:patches/@myobie__pty@0.10.0.patch"],
 )
 
 pnpm_package(
@@ -17040,6 +17040,7 @@ pnpm_store_view(
     direct = {
         "@storybook/react": "@storybook+react@10.6.0_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_react-dom@19._c8fa65d991fb5130",
         "@storybook/react-vite": "@storybook+react-vite@10.6.0_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_react-do_9b5eccc39f239997",
+        "@types/node": "@types+node@26.5.0",
         "@types/react": "@types+react@19.2.18",
         "@types/react-dom": "@types+react-dom@19.2.7_@types+react@19.2.18",
         "@vitejs/plugin-react": "@vitejs+plugin-react@6.1.1_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0",

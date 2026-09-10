@@ -10,6 +10,8 @@ import {
   mkdtemp,
   readdir,
   readlink,
+  readFile,
+  realpath,
   rm,
   symlink,
   writeFile,
@@ -333,6 +335,95 @@ const prepareStagedOutput = async (options: {
   await symlink(resolve(output), stagedOutput)
 }
 
+/**
+ * Rebinds the copied package tree to its declared dependency view.
+ *
+ * The package tree uses a relative `node_modules` symlink because Buck artifacts
+ * relocate together. Emit stages package sources under the system temp
+ * directory, where copying that relative link verbatim would point nowhere.
+ */
+export const relinkStagedDependencyView = async (options: {
+  readonly packageTree: string
+  readonly stagedPackageRoot: string
+}): Promise<void> => {
+  const sourceNodeModules = join(options.packageTree, 'node_modules')
+  if ((await lstat(sourceNodeModules)).isSymbolicLink() === false) return
+
+  const stagedNodeModules = join(options.stagedPackageRoot, 'node_modules')
+  const dependencyView = await realpath(sourceNodeModules)
+  await rm(stagedNodeModules, { force: true, recursive: true })
+  await symlink(dependencyView, stagedNodeModules)
+}
+
+const packageTreeArtifactDirectory = (root: string): string | undefined =>
+  basename(root) === 'package_tree' && basename(dirname(root)) === '__package_tree__'
+    ? dirname(dirname(root))
+    : undefined
+
+/**
+ * Recreates the relative workspace topology around an emit staging directory.
+ *
+ * Generated TypeScript project references preserve source-relative paths such
+ * as `../effect-path`. Each declared sibling is copied into that position so
+ * its generated config can opt into declaration emit locally; the immutable
+ * Buck input remains untouched.
+ */
+export const linkStagedWorkspaceProjects = async (options: {
+  readonly packageTree: string
+  readonly readRoots: readonly string[]
+  readonly stagedPackageRoot: string
+  readonly stagingRoot: string
+}): Promise<void> => {
+  const packageArtifactDirectory = packageTreeArtifactDirectory(options.packageTree)
+  if (packageArtifactDirectory === undefined) return
+
+  await forEachSequential({
+    iterator: options.readRoots.values(),
+    visit: async (readRoot) => {
+      const siblingArtifactDirectory = packageTreeArtifactDirectory(readRoot)
+      if (
+        siblingArtifactDirectory === undefined ||
+        resolve(readRoot) === resolve(options.packageTree)
+      )
+        return
+
+      const projectPath = relative(packageArtifactDirectory, siblingArtifactDirectory)
+      const destination = resolve(options.stagedPackageRoot, projectPath)
+      const fromStagingRoot = relative(options.stagingRoot, destination)
+      if (
+        isAbsolute(fromStagingRoot) === true ||
+        fromStagingRoot === '..' ||
+        fromStagingRoot.startsWith(`..${sep}`) === true
+      ) {
+        fail(`workspace project escapes emit staging root: ${projectPath}`)
+      }
+      await mkdir(dirname(destination), { recursive: true })
+      await cp(readRoot, destination, {
+        dereference: false,
+        preserveTimestamps: true,
+        recursive: true,
+        verbatimSymlinks: true,
+      })
+      await relinkStagedDependencyView({
+        packageTree: readRoot,
+        stagedPackageRoot: destination,
+      })
+      const configPath = join(destination, 'tsconfig.json')
+      if ((await pathExists(configPath)) === false) return
+
+      const config = Bun.JSONC.parse(await readFile(configPath, 'utf8')) as {
+        compilerOptions?: Record<string, unknown>
+      }
+      if (config.compilerOptions === undefined || config.compilerOptions.noEmit !== true) return
+
+      const metadata = await lstat(configPath)
+      await chmod(configPath, metadata.mode | 0o200)
+      config.compilerOptions.noEmit = false
+      await writeFile(configPath, `${JSON.stringify(config, undefined, 2)}\n`)
+    },
+  })
+}
+
 /** Copies only the explicitly action-keyed declaration sources into an emitted dist. */
 export const copyDeclarationSources = async (options: {
   readonly declarationSources: readonly string[]
@@ -484,6 +575,13 @@ const runEmit = async (options: EmitOptions): Promise<number> => {
       recursive: true,
       verbatimSymlinks: true,
     })
+    await relinkStagedDependencyView({ packageTree, stagedPackageRoot: packageRoot })
+    await linkStagedWorkspaceProjects({
+      packageTree,
+      readRoots,
+      stagedPackageRoot: packageRoot,
+      stagingRoot,
+    })
     await prepareStagedOutput({ outDir: options.outDir, output, packageRoot })
     await makeTreeReadOnly(packageRoot)
     status = await runTsgo({
@@ -495,6 +593,14 @@ const runEmit = async (options: EmitOptions): Promise<number> => {
         join(packageRoot, options.outDir),
         '--noEmit',
         'false',
+        '--composite',
+        'false',
+        '--incremental',
+        'false',
+        '--declaration',
+        'true',
+        '--emitDeclarationOnly',
+        'true',
         '--pretty',
         'false',
       ],

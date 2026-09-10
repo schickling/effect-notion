@@ -45,7 +45,7 @@ overrides:
   '@effect/platform-node-shared': 4.0.0-rc.112
 
 patchedDependencies:
-  '@myobie/pty@0.10.0': packages/@overeng/utils/patches/@myobie__pty@0.10.0.patch
+  '@myobie/pty@0.10.0': patches/@myobie__pty@0.10.0.patch
 
 allowUnusedPatches: true
 

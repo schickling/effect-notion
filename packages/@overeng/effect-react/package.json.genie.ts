@@ -24,6 +24,7 @@ const workspaceDeps = catalog.compose({
         '@storybook/react',
         '@storybook/react-vite',
         '@types/react',
+        '@types/node',
         '@types/react-dom',
         '@vitejs/plugin-react',
         'typescript',

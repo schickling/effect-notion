@@ -4,8 +4,8 @@
 # Projection source: packages/@overeng/restate-effect/BUCK.genie.ts
 # Projection schema version: 4
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:5ba672b9ab5076adadd7c4817a726a171ff8f6ab92ad9efae4ff35953b36951b
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/package.json.genie.ts, packages/@overeng/restate-effect/src/**/*.cts, packages/@overeng/restate-effect/src/**/*.js, packages/@overeng/restate-effect/src/**/*.mts, packages/@overeng/restate-effect/src/**/*.ts, packages/@overeng/restate-effect/src/**/*.tsx, packages/@overeng/restate-effect/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:3314a4e4ee1137268179b91c868eff8c745317aadf23645cb7dc98e93b73bdfd
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/examples/**/*.cts, packages/@overeng/restate-effect/examples/**/*.js, packages/@overeng/restate-effect/examples/**/*.mts, packages/@overeng/restate-effect/examples/**/*.ts, packages/@overeng/restate-effect/examples/**/*.tsx, packages/@overeng/restate-effect/package.json.genie.ts, packages/@overeng/restate-effect/src/**/*.cts, packages/@overeng/restate-effect/src/**/*.js, packages/@overeng/restate-effect/src/**/*.mts, packages/@overeng/restate-effect/src/**/*.ts, packages/@overeng/restate-effect/src/**/*.tsx, packages/@overeng/restate-effect/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
@@ -20,6 +20,20 @@ export_file(
 )
 
 export_materialization_inputs([
+    "examples/01-service.ts",
+    "examples/02-virtual-object.ts",
+    "examples/03-workflow.ts",
+    "examples/04-endpoint.ts",
+    "examples/05-determinism.ts",
+    "examples/06-ingress-client.ts",
+    "examples/07-clients-idempotency-awakeables.ts",
+    "examples/08-annotations.ts",
+    "examples/09-otel.ts",
+    "examples/10-cancellation.ts",
+    "examples/11-testing.ts",
+    "examples/12-self-reschedule.ts",
+    "examples/13-admin-operations.ts",
+    "examples/14-http-error-classification.ts",
     "src/admin/AdminApi.ts",
     "src/admin/admin.integration.test.ts",
     "src/admin/admin.test.ts",
@@ -98,6 +112,20 @@ package_view(
     name = "package_tree",
     dependency_view = "//buck2/dependencies:view_packages_overeng_restate_effect_1d9088e92885",
     files = {
+        "examples/01-service.ts": "examples/01-service.ts",
+        "examples/02-virtual-object.ts": "examples/02-virtual-object.ts",
+        "examples/03-workflow.ts": "examples/03-workflow.ts",
+        "examples/04-endpoint.ts": "examples/04-endpoint.ts",
+        "examples/05-determinism.ts": "examples/05-determinism.ts",
+        "examples/06-ingress-client.ts": "examples/06-ingress-client.ts",
+        "examples/07-clients-idempotency-awakeables.ts": "examples/07-clients-idempotency-awakeables.ts",
+        "examples/08-annotations.ts": "examples/08-annotations.ts",
+        "examples/09-otel.ts": "examples/09-otel.ts",
+        "examples/10-cancellation.ts": "examples/10-cancellation.ts",
+        "examples/11-testing.ts": "examples/11-testing.ts",
+        "examples/12-self-reschedule.ts": "examples/12-self-reschedule.ts",
+        "examples/13-admin-operations.ts": "examples/13-admin-operations.ts",
+        "examples/14-http-error-classification.ts": "examples/14-http-error-classification.ts",
         "package.json": "package.json",
         "src/admin/AdminApi.ts": "src/admin/AdminApi.ts",
         "src/admin/admin.integration.test.ts": "src/admin/admin.integration.test.ts",

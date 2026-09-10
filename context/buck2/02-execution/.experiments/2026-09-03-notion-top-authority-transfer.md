@@ -75,6 +75,7 @@ follow-up"). No `package.json` sources were touched.
 ### Deletion ledger — notion top layer (16 deleted)
 
 Top→base edges (12), all targets Buck-authoritative since the base commit:
+
 - `notion-md`: `../notion-core`, `../notion-effect-client`,
   `../notion-effect-schema`, `../notion-property-write` (4; refs now `[]`)
 - `notion-react`: `../notion-effect-client`, `../notion-effect-schema`
@@ -86,6 +87,7 @@ Top→base edges (12), all targets Buck-authoritative since the base commit:
   (2; keeps `../effect-path`, `../notion-datasource-sync`, `../notion-md`)
 
 Intra-base edges (4), completing the base layer's exclusivity:
+
 - `notion-effect-schema`: `../notion-core` (1; refs now `[]`)
 - `notion-property-write`: `../notion-effect-schema` (1; refs now `[]`)
 - `notion-effect-client`: `../notion-core`, `../notion-effect-schema`
