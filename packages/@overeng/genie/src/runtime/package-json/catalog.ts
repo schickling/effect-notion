@@ -345,7 +345,7 @@ const relativeMemberPath = ({ from, to }: { from: string; to: string }): string 
     )
   }
   const path = segments.join('/')
-  return path.startsWith('..') ? path : `./${path}`
+  return path.startsWith('..') === true ? path : `./${path}`
 }
 
 /** Creates a composition helper for a catalog object */
