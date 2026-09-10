@@ -581,14 +581,16 @@ tsconfig.check.json`, but oxlint 1.39 cannot speak the tsgolint 7 protocol, so
   (9.6.1, last published for the ESLint 9 API in 2024) is dead weight because
   `eslint/package.json` declares `types`, so TypeScript never consults
   DefinitelyTyped for it — the rule sources typecheck with it absent, and the
-  `@types/estree` and `@types/json-schema` it dragged along still arrive via
-  `eslint` and `@typescript-eslint/rule-tester`; and `typescript-eslint` (the
-  flat-config meta-package) had no consumer in this repo or in any megarepo
-  member. `pnpm-lock.yaml` and `buck2/dependencies/` are regenerated, and all
-  eight root CLI dependency-closure hashes are remeasured locally against the
-  regenerated lockfile (`evergreen fod refresh`, x86_64-linux): every one moved,
-  because eslint 10.10.0 replaces keyv 4 with the cacheable/keyv v5 chain in the
-  workspace-wide store.
+  `@types/estree` and `@types/json-schema` it dragged along are still in the
+  lock on their own account: `@types/estree` as a direct dependency of `eslint`
+  itself (and of `eslint-scope`, `@rollup/pluginutils`, `estree-walker`), and
+  `@types/json-schema` through its single dependent `@eslint/core`; and
+  `typescript-eslint` (the flat-config meta-package) had no consumer in this
+  repo or in any megarepo member. `pnpm-lock.yaml` and `buck2/dependencies/`
+  are regenerated, and all eight root CLI dependency-closure hashes are
+  remeasured locally against the regenerated lockfile (`evergreen fod refresh`,
+  x86_64-linux): every one moved, because eslint 10.10.0 replaces keyv 4 with
+  the cacheable/keyv v5 chain in the workspace-wide store.
 
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for
