@@ -478,7 +478,7 @@ describe('normalized store projection of the real lockfile', () => {
       'msgpackr-extract@3.0.4',
       'oxc-parser@0.127.0',
       'oxc-resolver@11.21.2',
-      'oxlint-tsgolint@0.23.0',
+      'oxlint-tsgolint@7.0.2001',
       'rolldown@1.2.7',
       'typescript@7.0.2',
       'vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0',

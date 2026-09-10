@@ -3,7 +3,7 @@
 
 # Generated file - DO NOT EDIT
 # Source: pnpm-lock.yaml
-# Store fingerprint: sha256:f1ca353c7e79d115a39530b8624eabcc0979800dd358ba13dcec850fc5b1061c
+# Store fingerprint: sha256:8332c34a39bc13a6ec44a13acc8f20f03e21d8be97b22b5d99b82940902f6ec6
 
 load("//buck2:materialization.bzl", "export_materialization_inputs")
 
@@ -1480,55 +1480,55 @@ pnpm_package(
 )
 
 pnpm_package(
-    name = "package_oxlint_tsgolint_darwin_arm64_0_23_0_99aeb31a8cad",
+    name = "package_oxlint_tsgolint_darwin_arm64_7_0_2001_b88d246c4f3c",
     package_name = "@oxlint-tsgolint/darwin-arm64",
-    url = "https://registry.npmjs.org/@oxlint-tsgolint/darwin-arm64/-/darwin-arm64-0.23.0.tgz",
-    sha256 = "06a2d376ac4c94d20982ed3b2f4cb01eea690e7125fdd4dedbedff4955bf9141",
+    url = "https://registry.npmjs.org/@oxlint-tsgolint/darwin-arm64/-/darwin-arm64-7.0.2001.tgz",
+    sha256 = "c342a82add72186c061afcd53ba6160f1be15bdd860d038dd5f7237ff31ad9c2",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_oxlint_tsgolint_darwin_x64_0_23_0_051df2ae4d76",
+    name = "package_oxlint_tsgolint_darwin_x64_7_0_2001_bb4a26bf5778",
     package_name = "@oxlint-tsgolint/darwin-x64",
-    url = "https://registry.npmjs.org/@oxlint-tsgolint/darwin-x64/-/darwin-x64-0.23.0.tgz",
-    sha256 = "c6c6b9473e39515e5781bf8dfd456d89631efcaa648776d66616142ec7a20dec",
+    url = "https://registry.npmjs.org/@oxlint-tsgolint/darwin-x64/-/darwin-x64-7.0.2001.tgz",
+    sha256 = "6ca9d95490397dd973c158eedaf7983ee80391585ccb4cb35dc1decceb54ee58",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_oxlint_tsgolint_linux_arm64_0_23_0_908971f24d11",
+    name = "package_oxlint_tsgolint_linux_arm64_7_0_2001_edffccc99dea",
     package_name = "@oxlint-tsgolint/linux-arm64",
-    url = "https://registry.npmjs.org/@oxlint-tsgolint/linux-arm64/-/linux-arm64-0.23.0.tgz",
-    sha256 = "1e50cf872a26dd0973dddbb6a1eab1cc090e5fc95784465e06cde518f0f67fc9",
+    url = "https://registry.npmjs.org/@oxlint-tsgolint/linux-arm64/-/linux-arm64-7.0.2001.tgz",
+    sha256 = "212cfb55ee752ff86e408cfcd33479f291ee628caf6872eb85e7472d55232539",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_oxlint_tsgolint_linux_x64_0_23_0_a1a70729be03",
+    name = "package_oxlint_tsgolint_linux_x64_7_0_2001_bc3b288436e4",
     package_name = "@oxlint-tsgolint/linux-x64",
-    url = "https://registry.npmjs.org/@oxlint-tsgolint/linux-x64/-/linux-x64-0.23.0.tgz",
-    sha256 = "d0a98da903594f986f9a0bb08d50540825b28e40d6af3dcfeec2c970574d2799",
+    url = "https://registry.npmjs.org/@oxlint-tsgolint/linux-x64/-/linux-x64-7.0.2001.tgz",
+    sha256 = "d5cf3db918c245700ae91fe993bfa6b78e93ce1ea7165447978113cc87a6ae06",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_oxlint_tsgolint_win32_arm64_0_23_0_dd7a7ce265a6",
+    name = "package_oxlint_tsgolint_win32_arm64_7_0_2001_13e4afc64c3a",
     package_name = "@oxlint-tsgolint/win32-arm64",
-    url = "https://registry.npmjs.org/@oxlint-tsgolint/win32-arm64/-/win32-arm64-0.23.0.tgz",
-    sha256 = "8c5e2605307cffdbc3b6aee33a8e8eb6753b8bf2eb3f906cb5c51a16465ff1c7",
+    url = "https://registry.npmjs.org/@oxlint-tsgolint/win32-arm64/-/win32-arm64-7.0.2001.tgz",
+    sha256 = "39e0f23aa7b45bbf9afb0694dff15d45268a7ea39e368db3b008a3fb3878f92c",
     bins = {
     },
 )
 
 pnpm_package(
-    name = "package_oxlint_tsgolint_win32_x64_0_23_0_2152b6208f2e",
+    name = "package_oxlint_tsgolint_win32_x64_7_0_2001_448011f72ac4",
     package_name = "@oxlint-tsgolint/win32-x64",
-    url = "https://registry.npmjs.org/@oxlint-tsgolint/win32-x64/-/win32-x64-0.23.0.tgz",
-    sha256 = "1671c11dabe05cb2a93eefdd7129e9f50f1b19adf4d665f6fcd972e9b7a702b0",
+    url = "https://registry.npmjs.org/@oxlint-tsgolint/win32-x64/-/win32-x64-7.0.2001.tgz",
+    sha256 = "a678257b5233ccc1cc50911f1d25d559e8a045d665639ab5b4a8d61596439351",
     bins = {
     },
 )
@@ -4898,10 +4898,10 @@ pnpm_package(
 )
 
 pnpm_package(
-    name = "package_oxlint_tsgolint_0_23_0_d4f0c5b5f89e",
+    name = "package_oxlint_tsgolint_7_0_2001_3cf6222963f7",
     package_name = "oxlint-tsgolint",
-    url = "https://registry.npmjs.org/oxlint-tsgolint/-/oxlint-tsgolint-0.23.0.tgz",
-    sha256 = "de815303c57207892109666955cda988d3d2e3059bc6c587d50b644f0e6f145a",
+    url = "https://registry.npmjs.org/oxlint-tsgolint/-/oxlint-tsgolint-7.0.2001.tgz",
+    sha256 = "39df25aa7ce8f7a62b9257a1d4b0bf86af6c827fb3bc2003f659d4bf39ee6179",
     bins = {
         "tsgolint": "bin/tsgolint.js",
     },
@@ -5745,10 +5745,10 @@ pnpm_package(
 )
 
 pnpm_package(
-    name = "package_typescript_6_0_3_e500ed061b70",
+    name = "package_typescript_5_9_3_44bd9e04e2c2",
     package_name = "typescript",
-    url = "https://registry.npmjs.org/typescript/-/typescript-6.0.3.tgz",
-    sha256 = "33cd0ee1beaa8c9e9d15a9da836c62ddea4c34a42d7c2d349dbc80d94165d22a",
+    url = "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
+    sha256 = "10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3",
     bins = {
         "tsc": "bin/tsc",
         "tsserver": "bin/tsserver",
@@ -7625,6 +7625,51 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
+    name = "entry_opentui_core_0_5_11_typescript_5_9_3_web_tree_sitter_0_25_10_a10e00595b07",
+    package = ":package_opentui_core_0_5_11_520f91ec2257",
+    store_key = "@opentui+core@0.5.11_typescript@5.9.3_web-tree-sitter@0.25.10",
+    runtime = ":assemble-store.ts",
+    dependencies_by_platform = {
+        "javascript_portable": {
+            "bun-ffi-structs": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
+            "diff": ":entry_diff_9_0_0_5a9cf482041d",
+            "marked": ":entry_marked_17_0_1_ff2a6dda0662",
+            "string-width": ":entry_string_width_7_2_0_dd9742ed9e8e",
+            "strip-ansi": ":entry_strip_ansi_7_1_2_9d924b927a03",
+            "web-tree-sitter": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
+        },
+        "linux_aarch64": {
+            "@opentui/core-linux-arm64": ":entry_opentui_core_linux_arm64_0_5_11_c1c63b0c0df3",
+            "bun-ffi-structs": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
+            "diff": ":entry_diff_9_0_0_5a9cf482041d",
+            "marked": ":entry_marked_17_0_1_ff2a6dda0662",
+            "string-width": ":entry_string_width_7_2_0_dd9742ed9e8e",
+            "strip-ansi": ":entry_strip_ansi_7_1_2_9d924b927a03",
+            "web-tree-sitter": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
+        },
+        "linux_x86_64": {
+            "@opentui/core-linux-x64": ":entry_opentui_core_linux_x64_0_5_11_7bd266afe6f5",
+            "bun-ffi-structs": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
+            "diff": ":entry_diff_9_0_0_5a9cf482041d",
+            "marked": ":entry_marked_17_0_1_ff2a6dda0662",
+            "string-width": ":entry_string_width_7_2_0_dd9742ed9e8e",
+            "strip-ansi": ":entry_strip_ansi_7_1_2_9d924b927a03",
+            "web-tree-sitter": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
+        },
+        "macos_aarch64": {
+            "@opentui/core-darwin-arm64": ":entry_opentui_core_darwin_arm64_0_5_11_b33ab39400ed",
+            "bun-ffi-structs": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
+            "diff": ":entry_diff_9_0_0_5a9cf482041d",
+            "marked": ":entry_marked_17_0_1_ff2a6dda0662",
+            "string-width": ":entry_string_width_7_2_0_dd9742ed9e8e",
+            "strip-ansi": ":entry_strip_ansi_7_1_2_9d924b927a03",
+            "web-tree-sitter": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
+        },
+    },
+    visibility = ["PUBLIC"],
+)
+
+pnpm_store_entry(
     name = "entry_opentui_core_0_5_11_typescript_7_0_2_web_tree_sitter_0_25_10_8aedbdcd6736",
     package = ":package_opentui_core_0_5_11_520f91ec2257",
     store_key = "@opentui+core@0.5.11_typescript@7.0.2_web-tree-sitter@0.25.10",
@@ -7665,6 +7710,23 @@ pnpm_store_entry(
             "strip-ansi": ":entry_strip_ansi_7_1_2_9d924b927a03",
             "web-tree-sitter": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
         },
+    },
+    visibility = ["PUBLIC"],
+)
+
+pnpm_store_entry(
+    name = "entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_5_aca50de0a7c2",
+    package = ":package_opentui_react_0_5_11_f97ba836b99a",
+    store_key = "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@5.9.3_web-tree-sitter@0.25.10_ws@8.21.3",
+    runtime = ":assemble-store.ts",
+    dependencies = {
+        "@opentui/core": ":entry_opentui_core_0_5_11_typescript_5_9_3_web_tree_sitter_0_25_10_a10e00595b07",
+        "@types/react": ":entry_types_react_19_2_18_231c43c28c72",
+        "@types/ws": ":entry_types_ws_8_18_1_ee1128304b54",
+        "react": ":entry_react_19_2_8_f0ed5178d6d7",
+        "react-devtools-core": ":entry_react_devtools_core_7_0_1_ac60f63532b4",
+        "react-reconciler": ":entry_react_reconciler_0_33_0_react_19_2_8_00837bbcd720",
+        "ws": ":entry_ws_8_21_3_d250ffc75a80",
     },
     visibility = ["PUBLIC"],
 )
@@ -8097,9 +8159,9 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_oxlint_tsgolint_darwin_arm64_0_23_0_99aeb31a8cad",
-    package = ":package_oxlint_tsgolint_darwin_arm64_0_23_0_99aeb31a8cad",
-    store_key = "@oxlint-tsgolint+darwin-arm64@0.23.0",
+    name = "entry_oxlint_tsgolint_darwin_arm64_7_0_2001_b88d246c4f3c",
+    package = ":package_oxlint_tsgolint_darwin_arm64_7_0_2001_b88d246c4f3c",
+    store_key = "@oxlint-tsgolint+darwin-arm64@7.0.2001",
     runtime = ":assemble-store.ts",
     dependencies = {
     },
@@ -8107,9 +8169,9 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_oxlint_tsgolint_darwin_x64_0_23_0_051df2ae4d76",
-    package = ":package_oxlint_tsgolint_darwin_x64_0_23_0_051df2ae4d76",
-    store_key = "@oxlint-tsgolint+darwin-x64@0.23.0",
+    name = "entry_oxlint_tsgolint_darwin_x64_7_0_2001_bb4a26bf5778",
+    package = ":package_oxlint_tsgolint_darwin_x64_7_0_2001_bb4a26bf5778",
+    store_key = "@oxlint-tsgolint+darwin-x64@7.0.2001",
     runtime = ":assemble-store.ts",
     dependencies = {
     },
@@ -8117,9 +8179,9 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_oxlint_tsgolint_linux_arm64_0_23_0_908971f24d11",
-    package = ":package_oxlint_tsgolint_linux_arm64_0_23_0_908971f24d11",
-    store_key = "@oxlint-tsgolint+linux-arm64@0.23.0",
+    name = "entry_oxlint_tsgolint_linux_arm64_7_0_2001_edffccc99dea",
+    package = ":package_oxlint_tsgolint_linux_arm64_7_0_2001_edffccc99dea",
+    store_key = "@oxlint-tsgolint+linux-arm64@7.0.2001",
     runtime = ":assemble-store.ts",
     dependencies = {
     },
@@ -8127,9 +8189,9 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_oxlint_tsgolint_linux_x64_0_23_0_a1a70729be03",
-    package = ":package_oxlint_tsgolint_linux_x64_0_23_0_a1a70729be03",
-    store_key = "@oxlint-tsgolint+linux-x64@0.23.0",
+    name = "entry_oxlint_tsgolint_linux_x64_7_0_2001_bc3b288436e4",
+    package = ":package_oxlint_tsgolint_linux_x64_7_0_2001_bc3b288436e4",
+    store_key = "@oxlint-tsgolint+linux-x64@7.0.2001",
     runtime = ":assemble-store.ts",
     dependencies = {
     },
@@ -8137,9 +8199,9 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_oxlint_tsgolint_win32_arm64_0_23_0_dd7a7ce265a6",
-    package = ":package_oxlint_tsgolint_win32_arm64_0_23_0_dd7a7ce265a6",
-    store_key = "@oxlint-tsgolint+win32-arm64@0.23.0",
+    name = "entry_oxlint_tsgolint_win32_arm64_7_0_2001_13e4afc64c3a",
+    package = ":package_oxlint_tsgolint_win32_arm64_7_0_2001_13e4afc64c3a",
+    store_key = "@oxlint-tsgolint+win32-arm64@7.0.2001",
     runtime = ":assemble-store.ts",
     dependencies = {
     },
@@ -8147,9 +8209,9 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_oxlint_tsgolint_win32_x64_0_23_0_2152b6208f2e",
-    package = ":package_oxlint_tsgolint_win32_x64_0_23_0_2152b6208f2e",
-    store_key = "@oxlint-tsgolint+win32-x64@0.23.0",
+    name = "entry_oxlint_tsgolint_win32_x64_7_0_2001_448011f72ac4",
+    package = ":package_oxlint_tsgolint_win32_x64_7_0_2001_448011f72ac4",
+    store_key = "@oxlint-tsgolint+win32-x64@7.0.2001",
     runtime = ":assemble-store.ts",
     dependencies = {
     },
@@ -9399,53 +9461,53 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_typescript_eslint_parser_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_6_0__db8c32cbed6b",
+    name = "entry_typescript_eslint_parser_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_5_9__db10cd9d22ed",
     package = ":package_typescript_eslint_parser_8_61_1_b500a9b1fcc2",
-    store_key = "@typescript-eslint+parser@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3",
+    store_key = "@typescript-eslint+parser@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3",
     runtime = ":assemble-store.ts",
     dependencies = {
         "@types/eslint": ":entry_types_eslint_9_6_1_5064d03d8c70",
         "@typescript-eslint/scope-manager": ":entry_typescript_eslint_scope_manager_8_61_1_377564d41d32",
         "@typescript-eslint/types": ":entry_typescript_eslint_types_8_61_1_a114619f393d",
-        "@typescript-eslint/typescript-estree": ":entry_typescript_eslint_typescript_estree_8_61_1_typescript_6_0_3_baaefcf2982f",
+        "@typescript-eslint/typescript-estree": ":entry_typescript_eslint_typescript_estree_8_61_1_typescript_5_9_3_8637d48df218",
         "@typescript-eslint/visitor-keys": ":entry_typescript_eslint_visitor_keys_8_61_1_8533254a16ad",
         "debug": ":entry_debug_4_4_3_6390bf853aed",
         "eslint": ":entry_eslint_10_5_0_jiti_2_7_0_cb3b30c8d310",
-        "typescript": ":entry_typescript_6_0_3_e500ed061b70",
+        "typescript": ":entry_typescript_5_9_3_44bd9e04e2c2",
     },
     visibility = ["PUBLIC"],
 )
 
 pnpm_store_entry(
-    name = "entry_typescript_eslint_project_service_8_61_1_typescript_6_0_3_6db64c3a31dd",
+    name = "entry_typescript_eslint_project_service_8_61_1_typescript_5_9_3_2e7be0af28e9",
     package = ":package_typescript_eslint_project_service_8_61_1_cd6e6899a5f4",
-    store_key = "@typescript-eslint+project-service@8.61.1_typescript@6.0.3",
+    store_key = "@typescript-eslint+project-service@8.61.1_typescript@5.9.3",
     runtime = ":assemble-store.ts",
     dependencies = {
-        "@typescript-eslint/tsconfig-utils": ":entry_typescript_eslint_tsconfig_utils_8_61_1_typescript_6_0_3_3e7d263ea750",
+        "@typescript-eslint/tsconfig-utils": ":entry_typescript_eslint_tsconfig_utils_8_61_1_typescript_5_9_3_3082d785c130",
         "@typescript-eslint/types": ":entry_typescript_eslint_types_8_61_1_a114619f393d",
         "debug": ":entry_debug_4_4_3_6390bf853aed",
-        "typescript": ":entry_typescript_6_0_3_e500ed061b70",
+        "typescript": ":entry_typescript_5_9_3_44bd9e04e2c2",
     },
     visibility = ["PUBLIC"],
 )
 
 pnpm_store_entry(
-    name = "entry_typescript_eslint_rule_tester_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_1ec3e9e61b73",
+    name = "entry_typescript_eslint_rule_tester_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_fd314d3a9ba4",
     package = ":package_typescript_eslint_rule_tester_8_61_1_5e59a9491378",
-    store_key = "@typescript-eslint+rule-tester@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3",
+    store_key = "@typescript-eslint+rule-tester@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3",
     runtime = ":assemble-store.ts",
     dependencies = {
         "@types/eslint": ":entry_types_eslint_9_6_1_5064d03d8c70",
-        "@typescript-eslint/parser": ":entry_typescript_eslint_parser_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_6_0__db8c32cbed6b",
-        "@typescript-eslint/typescript-estree": ":entry_typescript_eslint_typescript_estree_8_61_1_typescript_6_0_3_baaefcf2982f",
-        "@typescript-eslint/utils": ":entry_typescript_eslint_utils_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_6_0_3_51c3610eeb85",
+        "@typescript-eslint/parser": ":entry_typescript_eslint_parser_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_5_9__db10cd9d22ed",
+        "@typescript-eslint/typescript-estree": ":entry_typescript_eslint_typescript_estree_8_61_1_typescript_5_9_3_8637d48df218",
+        "@typescript-eslint/utils": ":entry_typescript_eslint_utils_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_5_9_3_db1f20e6f2e0",
         "ajv": ":entry_ajv_6_15_0_ad437bedcb08",
         "eslint": ":entry_eslint_10_5_0_jiti_2_7_0_cb3b30c8d310",
         "json-stable-stringify-without-jsonify": ":entry_json_stable_stringify_without_jsonify_1_0_1_0e74de0204bb",
         "lodash.merge": ":entry_lodash_merge_4_6_2_996e40d63a94",
         "semver": ":entry_semver_7_8_5_82a86616e50d",
-        "typescript": ":entry_typescript_6_0_3_e500ed061b70",
+        "typescript": ":entry_typescript_5_9_3_44bd9e04e2c2",
     },
     visibility = ["PUBLIC"],
 )
@@ -9463,12 +9525,12 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_typescript_eslint_tsconfig_utils_8_61_1_typescript_6_0_3_3e7d263ea750",
+    name = "entry_typescript_eslint_tsconfig_utils_8_61_1_typescript_5_9_3_3082d785c130",
     package = ":package_typescript_eslint_tsconfig_utils_8_61_1_d3d1d656eb33",
-    store_key = "@typescript-eslint+tsconfig-utils@8.61.1_typescript@6.0.3",
+    store_key = "@typescript-eslint+tsconfig-utils@8.61.1_typescript@5.9.3",
     runtime = ":assemble-store.ts",
     dependencies = {
-        "typescript": ":entry_typescript_6_0_3_e500ed061b70",
+        "typescript": ":entry_typescript_5_9_3_44bd9e04e2c2",
     },
     visibility = ["PUBLIC"],
 )
@@ -9484,38 +9546,38 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_typescript_eslint_typescript_estree_8_61_1_typescript_6_0_3_baaefcf2982f",
+    name = "entry_typescript_eslint_typescript_estree_8_61_1_typescript_5_9_3_8637d48df218",
     package = ":package_typescript_eslint_typescript_estree_8_61_1_3234ed579ea5",
-    store_key = "@typescript-eslint+typescript-estree@8.61.1_typescript@6.0.3",
+    store_key = "@typescript-eslint+typescript-estree@8.61.1_typescript@5.9.3",
     runtime = ":assemble-store.ts",
     dependencies = {
-        "@typescript-eslint/project-service": ":entry_typescript_eslint_project_service_8_61_1_typescript_6_0_3_6db64c3a31dd",
-        "@typescript-eslint/tsconfig-utils": ":entry_typescript_eslint_tsconfig_utils_8_61_1_typescript_6_0_3_3e7d263ea750",
+        "@typescript-eslint/project-service": ":entry_typescript_eslint_project_service_8_61_1_typescript_5_9_3_2e7be0af28e9",
+        "@typescript-eslint/tsconfig-utils": ":entry_typescript_eslint_tsconfig_utils_8_61_1_typescript_5_9_3_3082d785c130",
         "@typescript-eslint/types": ":entry_typescript_eslint_types_8_61_1_a114619f393d",
         "@typescript-eslint/visitor-keys": ":entry_typescript_eslint_visitor_keys_8_61_1_8533254a16ad",
         "debug": ":entry_debug_4_4_3_6390bf853aed",
         "minimatch": ":entry_minimatch_10_2_6_7dfd90b95b04",
         "semver": ":entry_semver_7_8_5_82a86616e50d",
         "tinyglobby": ":entry_tinyglobby_0_2_17_b066f6a62871",
-        "ts-api-utils": ":entry_ts_api_utils_2_5_0_typescript_6_0_3_085239728a9a",
-        "typescript": ":entry_typescript_6_0_3_e500ed061b70",
+        "ts-api-utils": ":entry_ts_api_utils_2_5_0_typescript_5_9_3_dd0b711a42d4",
+        "typescript": ":entry_typescript_5_9_3_44bd9e04e2c2",
     },
     visibility = ["PUBLIC"],
 )
 
 pnpm_store_entry(
-    name = "entry_typescript_eslint_utils_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_6_0_3_51c3610eeb85",
+    name = "entry_typescript_eslint_utils_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_5_9_3_db1f20e6f2e0",
     package = ":package_typescript_eslint_utils_8_61_1_0cff09d7fc88",
-    store_key = "@typescript-eslint+utils@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3",
+    store_key = "@typescript-eslint+utils@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3",
     runtime = ":assemble-store.ts",
     dependencies = {
         "@eslint-community/eslint-utils": ":entry_eslint_community_eslint_utils_4_10_1_eslint_10_5_0_jiti_2_7_0_f722ea313427",
         "@types/eslint": ":entry_types_eslint_9_6_1_5064d03d8c70",
         "@typescript-eslint/scope-manager": ":entry_typescript_eslint_scope_manager_8_61_1_377564d41d32",
         "@typescript-eslint/types": ":entry_typescript_eslint_types_8_61_1_a114619f393d",
-        "@typescript-eslint/typescript-estree": ":entry_typescript_eslint_typescript_estree_8_61_1_typescript_6_0_3_baaefcf2982f",
+        "@typescript-eslint/typescript-estree": ":entry_typescript_eslint_typescript_estree_8_61_1_typescript_5_9_3_8637d48df218",
         "eslint": ":entry_eslint_10_5_0_jiti_2_7_0_cb3b30c8d310",
-        "typescript": ":entry_typescript_6_0_3_e500ed061b70",
+        "typescript": ":entry_typescript_5_9_3_44bd9e04e2c2",
     },
     visibility = ["PUBLIC"],
 )
@@ -10212,6 +10274,17 @@ pnpm_store_entry(
     runtime = ":assemble-store.ts",
     dependencies = {
         "@types/node": ":entry_types_node_26_5_0_a0142d056efc",
+    },
+    visibility = ["PUBLIC"],
+)
+
+pnpm_store_entry(
+    name = "entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
+    package = ":package_bun_ffi_structs_0_3_1_b795c25b36d8",
+    store_key = "bun-ffi-structs@0.3.1_typescript@5.9.3",
+    runtime = ":assemble-store.ts",
+    dependencies = {
+        "typescript": ":entry_typescript_5_9_3_44bd9e04e2c2",
     },
     visibility = ["PUBLIC"],
 )
@@ -12481,21 +12554,21 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_oxlint_tsgolint_0_23_0_d4f0c5b5f89e",
-    package = ":package_oxlint_tsgolint_0_23_0_d4f0c5b5f89e",
-    store_key = "oxlint-tsgolint@0.23.0",
+    name = "entry_oxlint_tsgolint_7_0_2001_3cf6222963f7",
+    package = ":package_oxlint_tsgolint_7_0_2001_3cf6222963f7",
+    store_key = "oxlint-tsgolint@7.0.2001",
     runtime = ":assemble-store.ts",
     dependencies_by_platform = {
         "javascript_portable": {
         },
         "linux_aarch64": {
-            "@oxlint-tsgolint/linux-arm64": ":entry_oxlint_tsgolint_linux_arm64_0_23_0_908971f24d11",
+            "@oxlint-tsgolint/linux-arm64": ":entry_oxlint_tsgolint_linux_arm64_7_0_2001_edffccc99dea",
         },
         "linux_x86_64": {
-            "@oxlint-tsgolint/linux-x64": ":entry_oxlint_tsgolint_linux_x64_0_23_0_a1a70729be03",
+            "@oxlint-tsgolint/linux-x64": ":entry_oxlint_tsgolint_linux_x64_7_0_2001_bc3b288436e4",
         },
         "macos_aarch64": {
-            "@oxlint-tsgolint/darwin-arm64": ":entry_oxlint_tsgolint_darwin_arm64_0_23_0_99aeb31a8cad",
+            "@oxlint-tsgolint/darwin-arm64": ":entry_oxlint_tsgolint_darwin_arm64_7_0_2001_b88d246c4f3c",
         },
     },
     visibility = ["PUBLIC"],
@@ -13505,12 +13578,12 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_ts_api_utils_2_5_0_typescript_6_0_3_085239728a9a",
+    name = "entry_ts_api_utils_2_5_0_typescript_5_9_3_dd0b711a42d4",
     package = ":package_ts_api_utils_2_5_0_3b8eb31d252a",
-    store_key = "ts-api-utils@2.5.0_typescript@6.0.3",
+    store_key = "ts-api-utils@2.5.0_typescript@5.9.3",
     runtime = ":assemble-store.ts",
     dependencies = {
-        "typescript": ":entry_typescript_6_0_3_e500ed061b70",
+        "typescript": ":entry_typescript_5_9_3_44bd9e04e2c2",
     },
     visibility = ["PUBLIC"],
 )
@@ -13560,9 +13633,9 @@ pnpm_store_entry(
 )
 
 pnpm_store_entry(
-    name = "entry_typescript_6_0_3_e500ed061b70",
-    package = ":package_typescript_6_0_3_e500ed061b70",
-    store_key = "typescript@6.0.3",
+    name = "entry_typescript_5_9_3_44bd9e04e2c2",
+    package = ":package_typescript_5_9_3_44bd9e04e2c2",
+    store_key = "typescript@5.9.3",
     runtime = ":assemble-store.ts",
     dependencies = {
     },
@@ -14143,25 +14216,24 @@ pnpm_store_view(
     runtime = ":assemble-store.ts",
     direct = {
         "@effect/atom-react": "@effect+atom-react@4.0.0-rc.111_effect@4.0.0-rc.111_react@19.2.8_scheduler@0.27.0",
-        "@opentui/core": "@opentui+core@0.5.11_typescript@7.0.2_web-tree-sitter@0.25.10",
-        "@opentui/react": "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@7.0.2_web-tree-sitter@0.25.10_ws@8.21.3",
+        "@opentui/core": "@opentui+core@0.5.11_typescript@5.9.3_web-tree-sitter@0.25.10",
+        "@opentui/react": "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@5.9.3_web-tree-sitter@0.25.10_ws@8.21.3",
         "@types/node": "@types+node@26.5.0",
         "@types/react": "@types+react@19.2.18",
         "effect": "effect@4.0.0-rc.111",
         "react": "react@19.2.8",
-        "typescript": "typescript@7.0.2",
     },
     closure_by_platform = {
         "javascript_portable": {
             "@effect+atom-react@4.0.0-rc.111_effect@4.0.0-rc.111_react@19.2.8_scheduler@0.27.0": ":entry_effect_atom_react_4_0_0_rc_111_effect_4_0_0_rc_111_react_19_2_8_schedule_879f75095f22",
-            "@opentui+core@0.5.11_typescript@7.0.2_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_7_0_2_web_tree_sitter_0_25_10_8aedbdcd6736",
-            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@7.0.2_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_7_cb7918c1f170",
+            "@opentui+core@0.5.11_typescript@5.9.3_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_5_9_3_web_tree_sitter_0_25_10_a10e00595b07",
+            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@5.9.3_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_5_aca50de0a7c2",
             "@standard-schema+spec@1.1.0": ":entry_standard_schema_spec_1_1_0_9bfb5ac2eb33",
             "@types+node@26.5.0": ":entry_types_node_26_5_0_a0142d056efc",
             "@types+react@19.2.18": ":entry_types_react_19_2_18_231c43c28c72",
             "@types+ws@8.18.1": ":entry_types_ws_8_18_1_ee1128304b54",
             "ansi-regex@6.3.0": ":entry_ansi_regex_6_3_0_87b6edc6ebb4",
-            "bun-ffi-structs@0.3.1_typescript@7.0.2": ":entry_bun_ffi_structs_0_3_1_typescript_7_0_2_051e106cc9bb",
+            "bun-ffi-structs@0.3.1_typescript@5.9.3": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
             "csstype@3.2.3": ":entry_csstype_3_2_3_d75166202534",
             "detect-libc@2.1.2": ":entry_detect_libc_2_1_2_a7155eec83d1",
             "diff@9.0.0": ":entry_diff_9_0_0_5a9cf482041d",
@@ -14182,7 +14254,7 @@ pnpm_store_view(
             "string-width@7.2.0": ":entry_string_width_7_2_0_dd9742ed9e8e",
             "strip-ansi@7.1.2": ":entry_strip_ansi_7_1_2_9d924b927a03",
             "strip-ansi@7.2.0": ":entry_strip_ansi_7_2_0_c04be5885def",
-            "typescript@7.0.2": ":entry_typescript_7_0_2_a7cefd323dc7",
+            "typescript@5.9.3": ":entry_typescript_5_9_3_44bd9e04e2c2",
             "undici-types@8.9.0": ":entry_undici_types_8_9_0_53cb0487b88b",
             "web-tree-sitter@0.25.10": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
             "ws@7.5.13": ":entry_ws_7_5_13_ccf43b94a1cd",
@@ -14192,15 +14264,14 @@ pnpm_store_view(
             "@effect+atom-react@4.0.0-rc.111_effect@4.0.0-rc.111_react@19.2.8_scheduler@0.27.0": ":entry_effect_atom_react_4_0_0_rc_111_effect_4_0_0_rc_111_react_19_2_8_schedule_879f75095f22",
             "@msgpackr-extract+msgpackr-extract-linux-arm64@3.0.4": ":entry_msgpackr_extract_msgpackr_extract_linux_arm64_3_0_4_cf31bccf54bd",
             "@opentui+core-linux-arm64@0.5.11": ":entry_opentui_core_linux_arm64_0_5_11_c1c63b0c0df3",
-            "@opentui+core@0.5.11_typescript@7.0.2_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_7_0_2_web_tree_sitter_0_25_10_8aedbdcd6736",
-            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@7.0.2_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_7_cb7918c1f170",
+            "@opentui+core@0.5.11_typescript@5.9.3_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_5_9_3_web_tree_sitter_0_25_10_a10e00595b07",
+            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@5.9.3_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_5_aca50de0a7c2",
             "@standard-schema+spec@1.1.0": ":entry_standard_schema_spec_1_1_0_9bfb5ac2eb33",
             "@types+node@26.5.0": ":entry_types_node_26_5_0_a0142d056efc",
             "@types+react@19.2.18": ":entry_types_react_19_2_18_231c43c28c72",
             "@types+ws@8.18.1": ":entry_types_ws_8_18_1_ee1128304b54",
-            "@typescript+typescript-linux-arm64@7.0.2": ":entry_typescript_typescript_linux_arm64_7_0_2_dbe899afde8f",
             "ansi-regex@6.3.0": ":entry_ansi_regex_6_3_0_87b6edc6ebb4",
-            "bun-ffi-structs@0.3.1_typescript@7.0.2": ":entry_bun_ffi_structs_0_3_1_typescript_7_0_2_051e106cc9bb",
+            "bun-ffi-structs@0.3.1_typescript@5.9.3": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
             "csstype@3.2.3": ":entry_csstype_3_2_3_d75166202534",
             "detect-libc@2.1.2": ":entry_detect_libc_2_1_2_a7155eec83d1",
             "diff@9.0.0": ":entry_diff_9_0_0_5a9cf482041d",
@@ -14221,7 +14292,7 @@ pnpm_store_view(
             "string-width@7.2.0": ":entry_string_width_7_2_0_dd9742ed9e8e",
             "strip-ansi@7.1.2": ":entry_strip_ansi_7_1_2_9d924b927a03",
             "strip-ansi@7.2.0": ":entry_strip_ansi_7_2_0_c04be5885def",
-            "typescript@7.0.2": ":entry_typescript_7_0_2_a7cefd323dc7",
+            "typescript@5.9.3": ":entry_typescript_5_9_3_44bd9e04e2c2",
             "undici-types@8.9.0": ":entry_undici_types_8_9_0_53cb0487b88b",
             "web-tree-sitter@0.25.10": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
             "ws@7.5.13": ":entry_ws_7_5_13_ccf43b94a1cd",
@@ -14231,15 +14302,14 @@ pnpm_store_view(
             "@effect+atom-react@4.0.0-rc.111_effect@4.0.0-rc.111_react@19.2.8_scheduler@0.27.0": ":entry_effect_atom_react_4_0_0_rc_111_effect_4_0_0_rc_111_react_19_2_8_schedule_879f75095f22",
             "@msgpackr-extract+msgpackr-extract-linux-x64@3.0.4": ":entry_msgpackr_extract_msgpackr_extract_linux_x64_3_0_4_d261ffc94c45",
             "@opentui+core-linux-x64@0.5.11": ":entry_opentui_core_linux_x64_0_5_11_7bd266afe6f5",
-            "@opentui+core@0.5.11_typescript@7.0.2_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_7_0_2_web_tree_sitter_0_25_10_8aedbdcd6736",
-            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@7.0.2_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_7_cb7918c1f170",
+            "@opentui+core@0.5.11_typescript@5.9.3_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_5_9_3_web_tree_sitter_0_25_10_a10e00595b07",
+            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@5.9.3_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_5_aca50de0a7c2",
             "@standard-schema+spec@1.1.0": ":entry_standard_schema_spec_1_1_0_9bfb5ac2eb33",
             "@types+node@26.5.0": ":entry_types_node_26_5_0_a0142d056efc",
             "@types+react@19.2.18": ":entry_types_react_19_2_18_231c43c28c72",
             "@types+ws@8.18.1": ":entry_types_ws_8_18_1_ee1128304b54",
-            "@typescript+typescript-linux-x64@7.0.2": ":entry_typescript_typescript_linux_x64_7_0_2_f03df44f666b",
             "ansi-regex@6.3.0": ":entry_ansi_regex_6_3_0_87b6edc6ebb4",
-            "bun-ffi-structs@0.3.1_typescript@7.0.2": ":entry_bun_ffi_structs_0_3_1_typescript_7_0_2_051e106cc9bb",
+            "bun-ffi-structs@0.3.1_typescript@5.9.3": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
             "csstype@3.2.3": ":entry_csstype_3_2_3_d75166202534",
             "detect-libc@2.1.2": ":entry_detect_libc_2_1_2_a7155eec83d1",
             "diff@9.0.0": ":entry_diff_9_0_0_5a9cf482041d",
@@ -14260,7 +14330,7 @@ pnpm_store_view(
             "string-width@7.2.0": ":entry_string_width_7_2_0_dd9742ed9e8e",
             "strip-ansi@7.1.2": ":entry_strip_ansi_7_1_2_9d924b927a03",
             "strip-ansi@7.2.0": ":entry_strip_ansi_7_2_0_c04be5885def",
-            "typescript@7.0.2": ":entry_typescript_7_0_2_a7cefd323dc7",
+            "typescript@5.9.3": ":entry_typescript_5_9_3_44bd9e04e2c2",
             "undici-types@8.9.0": ":entry_undici_types_8_9_0_53cb0487b88b",
             "web-tree-sitter@0.25.10": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
             "ws@7.5.13": ":entry_ws_7_5_13_ccf43b94a1cd",
@@ -14270,15 +14340,14 @@ pnpm_store_view(
             "@effect+atom-react@4.0.0-rc.111_effect@4.0.0-rc.111_react@19.2.8_scheduler@0.27.0": ":entry_effect_atom_react_4_0_0_rc_111_effect_4_0_0_rc_111_react_19_2_8_schedule_879f75095f22",
             "@msgpackr-extract+msgpackr-extract-darwin-arm64@3.0.4": ":entry_msgpackr_extract_msgpackr_extract_darwin_arm64_3_0_4_fa8bce50cc94",
             "@opentui+core-darwin-arm64@0.5.11": ":entry_opentui_core_darwin_arm64_0_5_11_b33ab39400ed",
-            "@opentui+core@0.5.11_typescript@7.0.2_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_7_0_2_web_tree_sitter_0_25_10_8aedbdcd6736",
-            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@7.0.2_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_7_cb7918c1f170",
+            "@opentui+core@0.5.11_typescript@5.9.3_web-tree-sitter@0.25.10": ":entry_opentui_core_0_5_11_typescript_5_9_3_web_tree_sitter_0_25_10_a10e00595b07",
+            "@opentui+react@0.5.11_react-devtools-core@7.0.1_react@19.2.8_typescript@5.9.3_web-tree-sitter@0.25.10_ws@8.21.3": ":entry_opentui_react_0_5_11_react_devtools_core_7_0_1_react_19_2_8_typescript_5_aca50de0a7c2",
             "@standard-schema+spec@1.1.0": ":entry_standard_schema_spec_1_1_0_9bfb5ac2eb33",
             "@types+node@26.5.0": ":entry_types_node_26_5_0_a0142d056efc",
             "@types+react@19.2.18": ":entry_types_react_19_2_18_231c43c28c72",
             "@types+ws@8.18.1": ":entry_types_ws_8_18_1_ee1128304b54",
-            "@typescript+typescript-darwin-arm64@7.0.2": ":entry_typescript_typescript_darwin_arm64_7_0_2_38ca3d6d9939",
             "ansi-regex@6.3.0": ":entry_ansi_regex_6_3_0_87b6edc6ebb4",
-            "bun-ffi-structs@0.3.1_typescript@7.0.2": ":entry_bun_ffi_structs_0_3_1_typescript_7_0_2_051e106cc9bb",
+            "bun-ffi-structs@0.3.1_typescript@5.9.3": ":entry_bun_ffi_structs_0_3_1_typescript_5_9_3_6c9acefa6d69",
             "csstype@3.2.3": ":entry_csstype_3_2_3_d75166202534",
             "detect-libc@2.1.2": ":entry_detect_libc_2_1_2_a7155eec83d1",
             "diff@9.0.0": ":entry_diff_9_0_0_5a9cf482041d",
@@ -14299,7 +14368,7 @@ pnpm_store_view(
             "string-width@7.2.0": ":entry_string_width_7_2_0_dd9742ed9e8e",
             "strip-ansi@7.1.2": ":entry_strip_ansi_7_1_2_9d924b927a03",
             "strip-ansi@7.2.0": ":entry_strip_ansi_7_2_0_c04be5885def",
-            "typescript@7.0.2": ":entry_typescript_7_0_2_a7cefd323dc7",
+            "typescript@5.9.3": ":entry_typescript_5_9_3_44bd9e04e2c2",
             "undici-types@8.9.0": ":entry_undici_types_8_9_0_53cb0487b88b",
             "web-tree-sitter@0.25.10": ":entry_web_tree_sitter_0_25_10_634644d3bdf9",
             "ws@7.5.13": ":entry_ws_7_5_13_ccf43b94a1cd",
@@ -14307,7 +14376,6 @@ pnpm_store_view(
         },
     },
     bins = {
-        "tsc": "typescript@7.0.2\tbin/tsc",
     },
     workspace_trees = {
     },
@@ -30410,12 +30478,12 @@ pnpm_store_view(
     direct = {
         "@stylexjs/eslint-plugin": "@stylexjs+eslint-plugin@0.19.0",
         "@types/eslint": "@types+eslint@9.6.1",
-        "@typescript-eslint/parser": "@typescript-eslint+parser@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3",
-        "@typescript-eslint/rule-tester": "@typescript-eslint+rule-tester@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3",
-        "@typescript-eslint/utils": "@typescript-eslint+utils@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3",
+        "@typescript-eslint/parser": "@typescript-eslint+parser@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3",
+        "@typescript-eslint/rule-tester": "@typescript-eslint+rule-tester@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3",
+        "@typescript-eslint/utils": "@typescript-eslint+utils@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3",
         "eslint": "eslint@10.5.0_jiti@2.7.0",
-        "oxlint-tsgolint": "oxlint-tsgolint@0.23.0",
-        "typescript": "typescript@6.0.3",
+        "oxlint-tsgolint": "oxlint-tsgolint@7.0.2001",
+        "typescript": "typescript@5.9.3",
         "vitest": "vitest@4.1.9_@opentelemetry+api@1.9.1_@types+node@26.5.0_@vitest+browser-playwright@4.1.9_happy-dom@20._f830263be88a0e28",
     },
     closure_by_platform = {
@@ -30451,14 +30519,14 @@ pnpm_store_view(
             "@types+node@26.5.0": ":entry_types_node_26_5_0_a0142d056efc",
             "@types+whatwg-mimetype@3.0.2": ":entry_types_whatwg_mimetype_3_0_2_462b750ec991",
             "@types+ws@8.18.1": ":entry_types_ws_8_18_1_ee1128304b54",
-            "@typescript-eslint+parser@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3": ":entry_typescript_eslint_parser_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_6_0__db8c32cbed6b",
-            "@typescript-eslint+project-service@8.61.1_typescript@6.0.3": ":entry_typescript_eslint_project_service_8_61_1_typescript_6_0_3_6db64c3a31dd",
-            "@typescript-eslint+rule-tester@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3": ":entry_typescript_eslint_rule_tester_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_1ec3e9e61b73",
+            "@typescript-eslint+parser@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3": ":entry_typescript_eslint_parser_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_5_9__db10cd9d22ed",
+            "@typescript-eslint+project-service@8.61.1_typescript@5.9.3": ":entry_typescript_eslint_project_service_8_61_1_typescript_5_9_3_2e7be0af28e9",
+            "@typescript-eslint+rule-tester@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3": ":entry_typescript_eslint_rule_tester_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_fd314d3a9ba4",
             "@typescript-eslint+scope-manager@8.61.1": ":entry_typescript_eslint_scope_manager_8_61_1_377564d41d32",
-            "@typescript-eslint+tsconfig-utils@8.61.1_typescript@6.0.3": ":entry_typescript_eslint_tsconfig_utils_8_61_1_typescript_6_0_3_3e7d263ea750",
+            "@typescript-eslint+tsconfig-utils@8.61.1_typescript@5.9.3": ":entry_typescript_eslint_tsconfig_utils_8_61_1_typescript_5_9_3_3082d785c130",
             "@typescript-eslint+types@8.61.1": ":entry_typescript_eslint_types_8_61_1_a114619f393d",
-            "@typescript-eslint+typescript-estree@8.61.1_typescript@6.0.3": ":entry_typescript_eslint_typescript_estree_8_61_1_typescript_6_0_3_baaefcf2982f",
-            "@typescript-eslint+utils@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3": ":entry_typescript_eslint_utils_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_6_0_3_51c3610eeb85",
+            "@typescript-eslint+typescript-estree@8.61.1_typescript@5.9.3": ":entry_typescript_eslint_typescript_estree_8_61_1_typescript_5_9_3_8637d48df218",
+            "@typescript-eslint+utils@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3": ":entry_typescript_eslint_utils_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_5_9_3_db1f20e6f2e0",
             "@typescript-eslint+visitor-keys@8.61.1": ":entry_typescript_eslint_visitor_keys_8_61_1_8533254a16ad",
             "@vitest+browser-playwright@4.1.9_playwright@1.63.0_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9": ":entry_vitest_browser_playwright_4_1_9_playwright_1_63_0_vite_8_2_2_types_node__93bedb6b746a",
             "@vitest+browser@4.1.9_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9": ":entry_vitest_browser_4_1_9_vite_8_2_2_types_node_26_5_0_esbuild_0_28_2_jiti_2__b24a5721e00f",
@@ -30533,7 +30601,7 @@ pnpm_store_view(
             "natural-compare@1.4.0": ":entry_natural_compare_1_4_0_de1347ea1b99",
             "obug@2.1.4": ":entry_obug_2_1_4_8a8c83bb5f2a",
             "optionator@0.9.4": ":entry_optionator_0_9_4_b028d685c41c",
-            "oxlint-tsgolint@0.23.0": ":entry_oxlint_tsgolint_0_23_0_d4f0c5b5f89e",
+            "oxlint-tsgolint@7.0.2001": ":entry_oxlint_tsgolint_7_0_2001_3cf6222963f7",
             "p-limit@3.1.0": ":entry_p_limit_3_1_0_c16cf2138c21",
             "p-locate@5.0.0": ":entry_p_locate_5_0_0_6dd2208f9e4c",
             "path-exists@4.0.0": ":entry_path_exists_4_0_0_3ae48f237e1a",
@@ -30564,9 +30632,9 @@ pnpm_store_view(
             "tinyrainbow@3.1.1": ":entry_tinyrainbow_3_1_1_6d7c54831543",
             "to-regex-range@5.0.1": ":entry_to_regex_range_5_0_1_94d9608b52e4",
             "totalist@3.0.1": ":entry_totalist_3_0_1_bf205b0e9be4",
-            "ts-api-utils@2.5.0_typescript@6.0.3": ":entry_ts_api_utils_2_5_0_typescript_6_0_3_085239728a9a",
+            "ts-api-utils@2.5.0_typescript@5.9.3": ":entry_ts_api_utils_2_5_0_typescript_5_9_3_dd0b711a42d4",
             "type-check@0.4.0": ":entry_type_check_0_4_0_ad4a2682392e",
-            "typescript@6.0.3": ":entry_typescript_6_0_3_e500ed061b70",
+            "typescript@5.9.3": ":entry_typescript_5_9_3_44bd9e04e2c2",
             "undici-types@8.9.0": ":entry_undici_types_8_9_0_53cb0487b88b",
             "uri-js@4.4.1": ":entry_uri_js_4_4_1_9cc71211156a",
             "vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0": ":entry_vite_8_2_2_types_node_26_5_0_esbuild_0_28_2_jiti_2_7_0_d58a93b60214",
@@ -30597,7 +30665,7 @@ pnpm_store_view(
             "@jridgewell+sourcemap-codec@1.6.0": ":entry_jridgewell_sourcemap_codec_1_6_0_c92d70f5295d",
             "@opentelemetry+api@1.9.1": ":entry_opentelemetry_api_1_9_1_65aff18a9fc4",
             "@oxc-project+types@0.148.0": ":entry_oxc_project_types_0_148_0_25bb4dfc3213",
-            "@oxlint-tsgolint+linux-arm64@0.23.0": ":entry_oxlint_tsgolint_linux_arm64_0_23_0_908971f24d11",
+            "@oxlint-tsgolint+linux-arm64@7.0.2001": ":entry_oxlint_tsgolint_linux_arm64_7_0_2001_edffccc99dea",
             "@polka+url@1.0.0-next.29": ":entry_polka_url_1_0_0_next_29_d5677997de50",
             "@rolldown+binding-linux-arm64-gnu@1.2.7": ":entry_rolldown_binding_linux_arm64_gnu_1_2_7_b564cdf057d1",
             "@rolldown+pluginutils@1.0.1": ":entry_rolldown_pluginutils_1_0_1_3f649c36a41c",
@@ -30613,14 +30681,14 @@ pnpm_store_view(
             "@types+node@26.5.0": ":entry_types_node_26_5_0_a0142d056efc",
             "@types+whatwg-mimetype@3.0.2": ":entry_types_whatwg_mimetype_3_0_2_462b750ec991",
             "@types+ws@8.18.1": ":entry_types_ws_8_18_1_ee1128304b54",
-            "@typescript-eslint+parser@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3": ":entry_typescript_eslint_parser_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_6_0__db8c32cbed6b",
-            "@typescript-eslint+project-service@8.61.1_typescript@6.0.3": ":entry_typescript_eslint_project_service_8_61_1_typescript_6_0_3_6db64c3a31dd",
-            "@typescript-eslint+rule-tester@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3": ":entry_typescript_eslint_rule_tester_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_1ec3e9e61b73",
+            "@typescript-eslint+parser@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3": ":entry_typescript_eslint_parser_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_5_9__db10cd9d22ed",
+            "@typescript-eslint+project-service@8.61.1_typescript@5.9.3": ":entry_typescript_eslint_project_service_8_61_1_typescript_5_9_3_2e7be0af28e9",
+            "@typescript-eslint+rule-tester@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3": ":entry_typescript_eslint_rule_tester_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_fd314d3a9ba4",
             "@typescript-eslint+scope-manager@8.61.1": ":entry_typescript_eslint_scope_manager_8_61_1_377564d41d32",
-            "@typescript-eslint+tsconfig-utils@8.61.1_typescript@6.0.3": ":entry_typescript_eslint_tsconfig_utils_8_61_1_typescript_6_0_3_3e7d263ea750",
+            "@typescript-eslint+tsconfig-utils@8.61.1_typescript@5.9.3": ":entry_typescript_eslint_tsconfig_utils_8_61_1_typescript_5_9_3_3082d785c130",
             "@typescript-eslint+types@8.61.1": ":entry_typescript_eslint_types_8_61_1_a114619f393d",
-            "@typescript-eslint+typescript-estree@8.61.1_typescript@6.0.3": ":entry_typescript_eslint_typescript_estree_8_61_1_typescript_6_0_3_baaefcf2982f",
-            "@typescript-eslint+utils@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3": ":entry_typescript_eslint_utils_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_6_0_3_51c3610eeb85",
+            "@typescript-eslint+typescript-estree@8.61.1_typescript@5.9.3": ":entry_typescript_eslint_typescript_estree_8_61_1_typescript_5_9_3_8637d48df218",
+            "@typescript-eslint+utils@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3": ":entry_typescript_eslint_utils_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_5_9_3_db1f20e6f2e0",
             "@typescript-eslint+visitor-keys@8.61.1": ":entry_typescript_eslint_visitor_keys_8_61_1_8533254a16ad",
             "@vitest+browser-playwright@4.1.9_playwright@1.63.0_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9": ":entry_vitest_browser_playwright_4_1_9_playwright_1_63_0_vite_8_2_2_types_node__93bedb6b746a",
             "@vitest+browser@4.1.9_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9": ":entry_vitest_browser_4_1_9_vite_8_2_2_types_node_26_5_0_esbuild_0_28_2_jiti_2__b24a5721e00f",
@@ -30696,7 +30764,7 @@ pnpm_store_view(
             "natural-compare@1.4.0": ":entry_natural_compare_1_4_0_de1347ea1b99",
             "obug@2.1.4": ":entry_obug_2_1_4_8a8c83bb5f2a",
             "optionator@0.9.4": ":entry_optionator_0_9_4_b028d685c41c",
-            "oxlint-tsgolint@0.23.0": ":entry_oxlint_tsgolint_0_23_0_d4f0c5b5f89e",
+            "oxlint-tsgolint@7.0.2001": ":entry_oxlint_tsgolint_7_0_2001_3cf6222963f7",
             "p-limit@3.1.0": ":entry_p_limit_3_1_0_c16cf2138c21",
             "p-locate@5.0.0": ":entry_p_locate_5_0_0_6dd2208f9e4c",
             "path-exists@4.0.0": ":entry_path_exists_4_0_0_3ae48f237e1a",
@@ -30727,9 +30795,9 @@ pnpm_store_view(
             "tinyrainbow@3.1.1": ":entry_tinyrainbow_3_1_1_6d7c54831543",
             "to-regex-range@5.0.1": ":entry_to_regex_range_5_0_1_94d9608b52e4",
             "totalist@3.0.1": ":entry_totalist_3_0_1_bf205b0e9be4",
-            "ts-api-utils@2.5.0_typescript@6.0.3": ":entry_ts_api_utils_2_5_0_typescript_6_0_3_085239728a9a",
+            "ts-api-utils@2.5.0_typescript@5.9.3": ":entry_ts_api_utils_2_5_0_typescript_5_9_3_dd0b711a42d4",
             "type-check@0.4.0": ":entry_type_check_0_4_0_ad4a2682392e",
-            "typescript@6.0.3": ":entry_typescript_6_0_3_e500ed061b70",
+            "typescript@5.9.3": ":entry_typescript_5_9_3_44bd9e04e2c2",
             "undici-types@8.9.0": ":entry_undici_types_8_9_0_53cb0487b88b",
             "uri-js@4.4.1": ":entry_uri_js_4_4_1_9cc71211156a",
             "vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0": ":entry_vite_8_2_2_types_node_26_5_0_esbuild_0_28_2_jiti_2_7_0_d58a93b60214",
@@ -30760,7 +30828,7 @@ pnpm_store_view(
             "@jridgewell+sourcemap-codec@1.6.0": ":entry_jridgewell_sourcemap_codec_1_6_0_c92d70f5295d",
             "@opentelemetry+api@1.9.1": ":entry_opentelemetry_api_1_9_1_65aff18a9fc4",
             "@oxc-project+types@0.148.0": ":entry_oxc_project_types_0_148_0_25bb4dfc3213",
-            "@oxlint-tsgolint+linux-x64@0.23.0": ":entry_oxlint_tsgolint_linux_x64_0_23_0_a1a70729be03",
+            "@oxlint-tsgolint+linux-x64@7.0.2001": ":entry_oxlint_tsgolint_linux_x64_7_0_2001_bc3b288436e4",
             "@polka+url@1.0.0-next.29": ":entry_polka_url_1_0_0_next_29_d5677997de50",
             "@rolldown+binding-linux-x64-gnu@1.2.7": ":entry_rolldown_binding_linux_x64_gnu_1_2_7_2b8bc0885731",
             "@rolldown+pluginutils@1.0.1": ":entry_rolldown_pluginutils_1_0_1_3f649c36a41c",
@@ -30776,14 +30844,14 @@ pnpm_store_view(
             "@types+node@26.5.0": ":entry_types_node_26_5_0_a0142d056efc",
             "@types+whatwg-mimetype@3.0.2": ":entry_types_whatwg_mimetype_3_0_2_462b750ec991",
             "@types+ws@8.18.1": ":entry_types_ws_8_18_1_ee1128304b54",
-            "@typescript-eslint+parser@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3": ":entry_typescript_eslint_parser_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_6_0__db8c32cbed6b",
-            "@typescript-eslint+project-service@8.61.1_typescript@6.0.3": ":entry_typescript_eslint_project_service_8_61_1_typescript_6_0_3_6db64c3a31dd",
-            "@typescript-eslint+rule-tester@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3": ":entry_typescript_eslint_rule_tester_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_1ec3e9e61b73",
+            "@typescript-eslint+parser@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3": ":entry_typescript_eslint_parser_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_5_9__db10cd9d22ed",
+            "@typescript-eslint+project-service@8.61.1_typescript@5.9.3": ":entry_typescript_eslint_project_service_8_61_1_typescript_5_9_3_2e7be0af28e9",
+            "@typescript-eslint+rule-tester@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3": ":entry_typescript_eslint_rule_tester_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_fd314d3a9ba4",
             "@typescript-eslint+scope-manager@8.61.1": ":entry_typescript_eslint_scope_manager_8_61_1_377564d41d32",
-            "@typescript-eslint+tsconfig-utils@8.61.1_typescript@6.0.3": ":entry_typescript_eslint_tsconfig_utils_8_61_1_typescript_6_0_3_3e7d263ea750",
+            "@typescript-eslint+tsconfig-utils@8.61.1_typescript@5.9.3": ":entry_typescript_eslint_tsconfig_utils_8_61_1_typescript_5_9_3_3082d785c130",
             "@typescript-eslint+types@8.61.1": ":entry_typescript_eslint_types_8_61_1_a114619f393d",
-            "@typescript-eslint+typescript-estree@8.61.1_typescript@6.0.3": ":entry_typescript_eslint_typescript_estree_8_61_1_typescript_6_0_3_baaefcf2982f",
-            "@typescript-eslint+utils@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3": ":entry_typescript_eslint_utils_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_6_0_3_51c3610eeb85",
+            "@typescript-eslint+typescript-estree@8.61.1_typescript@5.9.3": ":entry_typescript_eslint_typescript_estree_8_61_1_typescript_5_9_3_8637d48df218",
+            "@typescript-eslint+utils@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3": ":entry_typescript_eslint_utils_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_5_9_3_db1f20e6f2e0",
             "@typescript-eslint+visitor-keys@8.61.1": ":entry_typescript_eslint_visitor_keys_8_61_1_8533254a16ad",
             "@vitest+browser-playwright@4.1.9_playwright@1.63.0_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9": ":entry_vitest_browser_playwright_4_1_9_playwright_1_63_0_vite_8_2_2_types_node__93bedb6b746a",
             "@vitest+browser@4.1.9_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9": ":entry_vitest_browser_4_1_9_vite_8_2_2_types_node_26_5_0_esbuild_0_28_2_jiti_2__b24a5721e00f",
@@ -30859,7 +30927,7 @@ pnpm_store_view(
             "natural-compare@1.4.0": ":entry_natural_compare_1_4_0_de1347ea1b99",
             "obug@2.1.4": ":entry_obug_2_1_4_8a8c83bb5f2a",
             "optionator@0.9.4": ":entry_optionator_0_9_4_b028d685c41c",
-            "oxlint-tsgolint@0.23.0": ":entry_oxlint_tsgolint_0_23_0_d4f0c5b5f89e",
+            "oxlint-tsgolint@7.0.2001": ":entry_oxlint_tsgolint_7_0_2001_3cf6222963f7",
             "p-limit@3.1.0": ":entry_p_limit_3_1_0_c16cf2138c21",
             "p-locate@5.0.0": ":entry_p_locate_5_0_0_6dd2208f9e4c",
             "path-exists@4.0.0": ":entry_path_exists_4_0_0_3ae48f237e1a",
@@ -30890,9 +30958,9 @@ pnpm_store_view(
             "tinyrainbow@3.1.1": ":entry_tinyrainbow_3_1_1_6d7c54831543",
             "to-regex-range@5.0.1": ":entry_to_regex_range_5_0_1_94d9608b52e4",
             "totalist@3.0.1": ":entry_totalist_3_0_1_bf205b0e9be4",
-            "ts-api-utils@2.5.0_typescript@6.0.3": ":entry_ts_api_utils_2_5_0_typescript_6_0_3_085239728a9a",
+            "ts-api-utils@2.5.0_typescript@5.9.3": ":entry_ts_api_utils_2_5_0_typescript_5_9_3_dd0b711a42d4",
             "type-check@0.4.0": ":entry_type_check_0_4_0_ad4a2682392e",
-            "typescript@6.0.3": ":entry_typescript_6_0_3_e500ed061b70",
+            "typescript@5.9.3": ":entry_typescript_5_9_3_44bd9e04e2c2",
             "undici-types@8.9.0": ":entry_undici_types_8_9_0_53cb0487b88b",
             "uri-js@4.4.1": ":entry_uri_js_4_4_1_9cc71211156a",
             "vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0": ":entry_vite_8_2_2_types_node_26_5_0_esbuild_0_28_2_jiti_2_7_0_d58a93b60214",
@@ -30923,7 +30991,7 @@ pnpm_store_view(
             "@jridgewell+sourcemap-codec@1.6.0": ":entry_jridgewell_sourcemap_codec_1_6_0_c92d70f5295d",
             "@opentelemetry+api@1.9.1": ":entry_opentelemetry_api_1_9_1_65aff18a9fc4",
             "@oxc-project+types@0.148.0": ":entry_oxc_project_types_0_148_0_25bb4dfc3213",
-            "@oxlint-tsgolint+darwin-arm64@0.23.0": ":entry_oxlint_tsgolint_darwin_arm64_0_23_0_99aeb31a8cad",
+            "@oxlint-tsgolint+darwin-arm64@7.0.2001": ":entry_oxlint_tsgolint_darwin_arm64_7_0_2001_b88d246c4f3c",
             "@polka+url@1.0.0-next.29": ":entry_polka_url_1_0_0_next_29_d5677997de50",
             "@rolldown+binding-darwin-arm64@1.2.7": ":entry_rolldown_binding_darwin_arm64_1_2_7_c213ca2a9ab4",
             "@rolldown+pluginutils@1.0.1": ":entry_rolldown_pluginutils_1_0_1_3f649c36a41c",
@@ -30939,14 +31007,14 @@ pnpm_store_view(
             "@types+node@26.5.0": ":entry_types_node_26_5_0_a0142d056efc",
             "@types+whatwg-mimetype@3.0.2": ":entry_types_whatwg_mimetype_3_0_2_462b750ec991",
             "@types+ws@8.18.1": ":entry_types_ws_8_18_1_ee1128304b54",
-            "@typescript-eslint+parser@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3": ":entry_typescript_eslint_parser_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_6_0__db8c32cbed6b",
-            "@typescript-eslint+project-service@8.61.1_typescript@6.0.3": ":entry_typescript_eslint_project_service_8_61_1_typescript_6_0_3_6db64c3a31dd",
-            "@typescript-eslint+rule-tester@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3": ":entry_typescript_eslint_rule_tester_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_1ec3e9e61b73",
+            "@typescript-eslint+parser@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3": ":entry_typescript_eslint_parser_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_5_9__db10cd9d22ed",
+            "@typescript-eslint+project-service@8.61.1_typescript@5.9.3": ":entry_typescript_eslint_project_service_8_61_1_typescript_5_9_3_2e7be0af28e9",
+            "@typescript-eslint+rule-tester@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3": ":entry_typescript_eslint_rule_tester_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_fd314d3a9ba4",
             "@typescript-eslint+scope-manager@8.61.1": ":entry_typescript_eslint_scope_manager_8_61_1_377564d41d32",
-            "@typescript-eslint+tsconfig-utils@8.61.1_typescript@6.0.3": ":entry_typescript_eslint_tsconfig_utils_8_61_1_typescript_6_0_3_3e7d263ea750",
+            "@typescript-eslint+tsconfig-utils@8.61.1_typescript@5.9.3": ":entry_typescript_eslint_tsconfig_utils_8_61_1_typescript_5_9_3_3082d785c130",
             "@typescript-eslint+types@8.61.1": ":entry_typescript_eslint_types_8_61_1_a114619f393d",
-            "@typescript-eslint+typescript-estree@8.61.1_typescript@6.0.3": ":entry_typescript_eslint_typescript_estree_8_61_1_typescript_6_0_3_baaefcf2982f",
-            "@typescript-eslint+utils@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@6.0.3": ":entry_typescript_eslint_utils_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_6_0_3_51c3610eeb85",
+            "@typescript-eslint+typescript-estree@8.61.1_typescript@5.9.3": ":entry_typescript_eslint_typescript_estree_8_61_1_typescript_5_9_3_8637d48df218",
+            "@typescript-eslint+utils@8.61.1_eslint@10.5.0_jiti@2.7.0_typescript@5.9.3": ":entry_typescript_eslint_utils_8_61_1_eslint_10_5_0_jiti_2_7_0_typescript_5_9_3_db1f20e6f2e0",
             "@typescript-eslint+visitor-keys@8.61.1": ":entry_typescript_eslint_visitor_keys_8_61_1_8533254a16ad",
             "@vitest+browser-playwright@4.1.9_playwright@1.63.0_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9": ":entry_vitest_browser_playwright_4_1_9_playwright_1_63_0_vite_8_2_2_types_node__93bedb6b746a",
             "@vitest+browser@4.1.9_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9": ":entry_vitest_browser_4_1_9_vite_8_2_2_types_node_26_5_0_esbuild_0_28_2_jiti_2__b24a5721e00f",
@@ -31023,7 +31091,7 @@ pnpm_store_view(
             "natural-compare@1.4.0": ":entry_natural_compare_1_4_0_de1347ea1b99",
             "obug@2.1.4": ":entry_obug_2_1_4_8a8c83bb5f2a",
             "optionator@0.9.4": ":entry_optionator_0_9_4_b028d685c41c",
-            "oxlint-tsgolint@0.23.0": ":entry_oxlint_tsgolint_0_23_0_d4f0c5b5f89e",
+            "oxlint-tsgolint@7.0.2001": ":entry_oxlint_tsgolint_7_0_2001_3cf6222963f7",
             "p-limit@3.1.0": ":entry_p_limit_3_1_0_c16cf2138c21",
             "p-locate@5.0.0": ":entry_p_locate_5_0_0_6dd2208f9e4c",
             "path-exists@4.0.0": ":entry_path_exists_4_0_0_3ae48f237e1a",
@@ -31054,9 +31122,9 @@ pnpm_store_view(
             "tinyrainbow@3.1.1": ":entry_tinyrainbow_3_1_1_6d7c54831543",
             "to-regex-range@5.0.1": ":entry_to_regex_range_5_0_1_94d9608b52e4",
             "totalist@3.0.1": ":entry_totalist_3_0_1_bf205b0e9be4",
-            "ts-api-utils@2.5.0_typescript@6.0.3": ":entry_ts_api_utils_2_5_0_typescript_6_0_3_085239728a9a",
+            "ts-api-utils@2.5.0_typescript@5.9.3": ":entry_ts_api_utils_2_5_0_typescript_5_9_3_dd0b711a42d4",
             "type-check@0.4.0": ":entry_type_check_0_4_0_ad4a2682392e",
-            "typescript@6.0.3": ":entry_typescript_6_0_3_e500ed061b70",
+            "typescript@5.9.3": ":entry_typescript_5_9_3_44bd9e04e2c2",
             "undici-types@8.9.0": ":entry_undici_types_8_9_0_53cb0487b88b",
             "uri-js@4.4.1": ":entry_uri_js_4_4_1_9cc71211156a",
             "vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0": ":entry_vite_8_2_2_types_node_26_5_0_esbuild_0_28_2_jiti_2_7_0_d58a93b60214",
@@ -31071,9 +31139,9 @@ pnpm_store_view(
     },
     bins = {
         "eslint": "eslint@10.5.0_jiti@2.7.0\tbin/eslint.js",
-        "tsc": "typescript@6.0.3\tbin/tsc",
-        "tsgolint": "oxlint-tsgolint@0.23.0\tbin/tsgolint.js",
-        "tsserver": "typescript@6.0.3\tbin/tsserver",
+        "tsc": "typescript@5.9.3\tbin/tsc",
+        "tsgolint": "oxlint-tsgolint@7.0.2001\tbin/tsgolint.js",
+        "tsserver": "typescript@5.9.3\tbin/tsserver",
         "vitest": "vitest@4.1.9_@opentelemetry+api@1.9.1_@types+node@26.5.0_@vitest+browser-playwright@4.1.9_happy-dom@20._f830263be88a0e28\tvitest.mjs",
     },
     workspace_trees = {
