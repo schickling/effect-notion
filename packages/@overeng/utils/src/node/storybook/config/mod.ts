@@ -11,6 +11,9 @@
 import type { StorybookConfig } from '@storybook/react-vite'
 import type { InlineConfig } from 'vite'
 
+/** Browser-rendered Storybook config returned by `createDomStorybookConfig`. */
+export type DomStorybookConfig = StorybookConfig
+
 type StorybookViteFinal<TConfig extends object> = (config: TConfig) => TConfig | Promise<TConfig>
 
 /** Options for `createDomStorybookConfig`. */
