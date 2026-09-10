@@ -302,6 +302,7 @@ package_bin_artifact(
     output = "genie.js",
     package_tree = ":package_tree",
     target = "bun",
+    tree_shaking = False,
     visibility = ["PUBLIC"],
 )
 
