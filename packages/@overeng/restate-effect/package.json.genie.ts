@@ -45,6 +45,15 @@ const workspaceDeps = catalog.compose({
      * dependency-light core; listed as a dev workspace dep too so it builds + tests
      * locally. */
     workspace: [utilsDevPkg, utilsPkg],
+    /* This is the only importer whose peer graph binds a `@overeng/utils` peer
+     * that utils itself satisfies through its own devDependencies, so the
+     * repo-wide `injectWorkspacePackages: true` makes pnpm 12 resolve the edge
+     * as an injected `file:` snapshot instead of workspace source — freezing
+     * this package's view of utils for tsc and vitest. pnpm 12 ignores
+     * `dependenciesMeta.injected: false` while the workspace-wide setting is on
+     * (`inject_workspace_packages || injected` in its resolver), so the
+     * supported opt-out is a path-based workspace specifier. */
+    liveWorkspaceLinks: ['@overeng/utils'],
     external: {
       ...catalog.pick(
         ...peerDepNames,

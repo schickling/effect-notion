@@ -19,6 +19,7 @@ import {
   platformVaryingEntries,
   pnpmPlatforms,
   portablePnpmPlatform,
+  workspaceKey,
 } from './pnpm-store.ts'
 
 const archive = new TextEncoder().encode('archive bytes')
@@ -311,6 +312,48 @@ describe('normalized store projection', () => {
     }
   })
 
+  it('keeps an injected workspace package as an importer workspace edge', async () => {
+    // pnpm 12 injects workspace packages by default, so a direct workspace
+    // dependency arrives as a `file:<dir>` snapshot instead of a `link:`
+    // reference. Both spellings denote the same edge, so the importer must
+    // still name the workspace tree instead of dropping the dependency or
+    // materialising a tree nothing points at.
+    const projection = await projectionOf(
+      lock({
+        importers: `  packages/app:
+    dependencies:
+      workspace-lib:
+        specifier: workspace:*
+        version: file:packages/lib
+    dependenciesMeta:
+      workspace-lib:
+        injected: true
+  packages/lib:
+    dependencies:
+      bar:
+        specifier: 2.0.0
+        version: 2.0.0`,
+        packages: `  bar@2.0.0:
+    resolution: {integrity: ${archiveIntegrity}}
+  workspace-lib@file:packages/lib:
+    resolution: {directory: packages/lib, type: directory}`,
+        snapshots: `  bar@2.0.0: {}
+  workspace-lib@file:packages/lib:
+    dependencies:
+      bar: 2.0.0`,
+      }),
+    )
+    const view = projection.views.find((candidate) => candidate.importer === 'packages/app')!
+    const expectedKey = workspaceKey('packages/lib')
+
+    expect(view.variants[0]!.direct['workspace-lib']).toEqual({
+      kind: 'workspace',
+      workspaceKey: expectedKey,
+      workspacePath: 'packages/lib',
+    })
+    expect(view.workspaceTrees[expectedKey]).toBe('//packages/lib:package_tree')
+  })
+
   it("links a peer's type companion into the entry that declares the peer", async () => {
     const projection = await projectionOf(peerTypesLock)
     const widget = projection.entries.find((entry) => entry.storeKey === 'widget@1.0.0_react@19.0.0')!
@@ -365,17 +408,17 @@ describe('normalized store projection of the real lockfile', () => {
         'eslint@10.5.0_jiti@2.7.0',
       ],
       [
-        '@storybook+builder-vite@10.5.10_esbuild@0.28.2_storybook@10.5.10_@types+react-dom@19.2.3_@types+react@1_be259843c9e6e986',
-        '@storybook+csf-plugin@10.5.10_esbuild@0.28.2_storybook@10.5.10_@types+react-dom@19.2.3_@types+react@19._a10ea3ebbc5052fa',
-        '@storybook+react-dom-shim@10.5.10_@types+react-dom@19.2.3_@types+react@19.2.17_@types+react@19.2.17_rea_1bfba32abb8ba7c0',
-        '@storybook+react-vite@10.5.10_@types+react-dom@19.2.3_@types+react@19.2.17_@types+react@19.2.17_esbuild_b9b22ca8b11f579c',
-        '@storybook+react@10.5.10_@types+react-dom@19.2.3_@types+react@19.2.17_@types+react@19.2.17_react-dom@19_438c9d31d7c851a7',
-        'storybook@10.5.10_@types+react-dom@19.2.3_@types+react@19.2.17_@types+react@19.2.17_prettier@3.8.4_reac_b427aecd21e7a036',
+        '@storybook+builder-vite@10.5.10_esbuild@0.28.2_storybook@10.5.10_@types+react-dom@19.2.7_@types+react@1_8f3a049df5e2e14f',
+        '@storybook+csf-plugin@10.5.10_esbuild@0.28.2_storybook@10.5.10_@types+react-dom@19.2.7_@types+react@19._ae2ff0465f1148c9',
+        '@storybook+react-dom-shim@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_rea_10292ccbfa8b078d',
+        '@storybook+react-vite@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_esbuild_59d007e1aba3c552',
+        '@storybook+react@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_react-dom@19_d74d5c5cec4f359a',
+        'storybook@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_prettier@3.9.6_reac_4f0491fa4743bd62',
       ],
       [
-        '@vitest+browser-playwright@4.1.9_playwright@1.61.0_vite@8.0.16_@types+node@26.0.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9',
-        '@vitest+browser@4.1.9_vite@8.0.16_@types+node@26.0.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9',
-        'vitest@4.1.9_@opentelemetry+api@1.9.1_@types+node@26.0.0_@vitest+browser-playwright@4.1.9_happy-dom@20._d770e4cf2367778e',
+        '@vitest+browser-playwright@4.1.9_playwright@1.61.0_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9',
+        '@vitest+browser@4.1.9_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9',
+        'vitest@4.1.9_@opentelemetry+api@1.9.1_@types+node@26.5.0_@vitest+browser-playwright@4.1.9_happy-dom@20._f830263be88a0e28',
       ],
       ['browserslist@4.28.8', 'update-browserslist-db@1.3.2_browserslist@4.28.8'],
     ])
@@ -425,9 +468,12 @@ describe('normalized store projection of the real lockfile', () => {
     const varying = platformVaryingEntries(projection).map((entry) => entry.storeKey)
 
     // Decision 0030 recorded nine such packages; `oxlint-tsgolint` became the
-    // tenth. The count is derived here so a new platform-selected dependency
-    // needs no edit to admit it.
+    // tenth, and pnpm 12 resolves `@opentui/core` against two TypeScript
+    // versions, so the same package contributes two platform-varying entries.
+    // The count is derived here so a new platform-selected dependency needs no
+    // edit to admit it.
     expect(varying).toEqual([
+      '@opentui+core@0.4.1_typescript@5.9.3_web-tree-sitter@0.25.10',
       '@opentui+core@0.4.1_typescript@6.0.3_web-tree-sitter@0.25.10',
       'esbuild@0.28.2',
       'lightningcss@1.33.0',
@@ -436,14 +482,14 @@ describe('normalized store projection of the real lockfile', () => {
       'oxc-resolver@11.21.2',
       'oxlint-tsgolint@0.23.0',
       'playwright@1.61.0',
-      'rolldown@1.0.3',
-      'vite@8.0.16_@types+node@26.0.0_esbuild@0.28.2_jiti@2.7.0',
+      'rolldown@1.2.7',
+      'vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0',
     ])
   })
 
   it('declares one entry per snapshot and one view per importer', () => {
-    expect(projection.entries).toHaveLength(650)
-    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(650)
+    expect(projection.entries).toHaveLength(652)
+    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(652)
     expect(projection.views).toHaveLength(Object.keys(metadata.importers).length)
     expect(computeStoreSccs({ metadata })).toEqual(projection.sccs.map((scc) => scc.members))
   })

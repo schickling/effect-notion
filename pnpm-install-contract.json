@@ -10,6 +10,9 @@
       "sharp": false,
       "unix-dgram": false
     },
+    "overrides": {
+      "@effect/platform-node-shared": "4.0.0-rc.111"
+    },
     "packageExtensions": {
       "storybook": {
         "dependencies": {
@@ -19,7 +22,7 @@
     },
     "packageManager": {
       "name": "pnpm",
-      "version": "11.8.0"
+      "version": "12.3.4"
     }
   },
   "installPolicy": {
@@ -81,7 +84,7 @@
   },
   "packageManager": {
     "name": "pnpm",
-    "version": "11.8.0"
+    "version": "12.3.4"
   },
   "schemaVersion": 2,
   "storeContract": {

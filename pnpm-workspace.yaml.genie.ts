@@ -9,6 +9,14 @@ export default pnpmWorkspaceYaml.root({
   catalogVersions: catalog,
   catalogDuplicateExceptions: [
     {
+      package: 'typescript',
+      // @opentui/core's bun-ffi-structs dependency peers on TypeScript ^5, so
+      // pnpm must retain 5.9.3 alongside the catalog compiler. See #821.
+      reason:
+        '@opentui/core@0.4.1 depends on bun-ffi-structs@0.2.3, whose TypeScript ^5 peer resolves to 5.9.3 alongside the catalog compiler',
+      issue: '#821',
+    },
+    {
       package: 'string-width',
       // @opentui/core@0.4.1 (latest) pins string-width@7.2.0 exactly, so pnpm
       // dedupe cannot collapse it onto the catalog 8.x. We deliberately do NOT
@@ -36,4 +44,9 @@ export default pnpmWorkspaceYaml.root({
     },
   ],
   ...commonPnpmWorkspaceData,
+  overrides: {
+    // A caret prerelease range selects newer RCs. Pin the transitive package so
+    // the intentionally frozen Effect RC cohort remains on one release.
+    '@effect/platform-node-shared': catalog.effect,
+  },
 })

@@ -286,6 +286,14 @@ run_downstream_pure_eval_regression() {
     echo "error: prepared deps derivation still uses --no-frozen-lockfile: $drv" >&2
     exit 1
   fi
+  if [[ "$install_phase" != *'--pm-on-fail=ignore'* ]]; then
+    echo "error: prepared deps derivation does not disable pnpm package-manager self-resolution: $drv" >&2
+    exit 1
+  fi
+  if [[ "$install_phase" != *'--config.dedupe-injected-deps=false'* ]]; then
+    echo "error: prepared deps derivation may traverse injected packages outside the staged workspace: $drv" >&2
+    exit 1
+  fi
   if [[ "$install_phase" != *'--no-optional'* ]]; then
     echo "error: prepared deps derivation does not skip optional dependencies: $drv" >&2
     exit 1

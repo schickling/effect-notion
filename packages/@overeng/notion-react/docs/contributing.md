@@ -10,7 +10,7 @@ devenv shell         # drops into the pinned Node + pnpm + tooling
 pnpm install         # installs the full workspace
 ```
 
-The devenv provides Node 20, pnpm 11, TypeScript, oxlint, oxfmt, and
+The devenv provides Node 20, pnpm 12, TypeScript, oxlint, oxfmt, and
 the other tools the workspace expects. If you don't use devenv, match
 those versions manually — lockfile and scripts assume them.
 

@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
   injectWorkspacePackages: true
 
+overrides:
+  '@effect/platform-node-shared': 4.0.0-rc.111
+
 packageExtensionsChecksum: sha256-j8zemF9+HeOVeSpDf2SmNmE0/pG8wFiUQSG+mvW7+ds=
 
 patchedDependencies:
@@ -34,10 +37,10 @@ importers:
         version: 4.0.0-rc.111(effect@4.0.0-rc.111)(react@19.2.8)(scheduler@0.27.0)
       '@opentui/core':
         specifier: 0.4.1
-        version: 0.4.1(typescript@6.0.3)(web-tree-sitter@0.25.10)
+        version: 0.4.1(typescript@5.9.3)(web-tree-sitter@0.25.10)
       '@opentui/react':
         specifier: 0.4.1
-        version: 0.4.1(react-devtools-core@7.0.1)(react@19.2.8)(typescript@6.0.3)(web-tree-sitter@0.25.10)(ws@8.21.3)
+        version: 0.4.1(react-devtools-core@7.0.1)(react@19.2.8)(typescript@5.9.3)(web-tree-sitter@0.25.10)(ws@8.21.3)
       effect:
         specifier: 4.0.0-rc.111
         version: 4.0.0-rc.111
@@ -1413,7 +1416,7 @@ importers:
         specifier: 1.43.0
         version: 1.43.0
       '@overeng/utils':
-        specifier: workspace:^
+        specifier: workspace:../utils
         version: link:../utils
       '@overeng/utils-dev':
         specifier: workspace:^
@@ -1903,11 +1906,11 @@ packages:
       '@opentelemetry/sdk-trace-web':
         optional: true
 
-  '@effect/platform-node-shared@4.0.0-rc.112':
-    resolution: {integrity: sha512-ttjz0xKamFN7vL8pNDYVwddJLjZvqKePc05djlz2VcdaKbLsnYbtMnL1rbOfHgEnIUSHGh7FkjaN4DM1Ov81sQ==}
+  '@effect/platform-node-shared@4.0.0-rc.111':
+    resolution: {integrity: sha512-iES0Q9vmjhaUKqeW9ceonuD45MUg/Ouk08LzRSptZ+B5qB0w9WlRjDmUz5TJmY2betNop5FRI5k4AD4mtQt3Bw==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-rc.112
+      effect: ^4.0.0-rc.111
 
   '@effect/platform-node@4.0.0-rc.111':
     resolution: {integrity: sha512-oy1i7HsOGg/5r+DuBe5+ddmnUhnXmyZFPFPXZCBdO/RQpHK3PIFe1/2UMGxZE+ngDymrSksuQTSgQLF6P+MLqw==}
@@ -4564,6 +4567,11 @@ packages:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
 
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
@@ -4978,7 +4986,7 @@ snapshots:
       '@opentelemetry/sdk-trace-node': 2.11.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-web': 2.11.0(@opentelemetry/api@1.9.1)
 
-  '@effect/platform-node-shared@4.0.0-rc.112(effect@4.0.0-rc.111)':
+  '@effect/platform-node-shared@4.0.0-rc.111(effect@4.0.0-rc.111)':
     dependencies:
       '@types/ws': 8.18.1
       effect: 4.0.0-rc.111
@@ -4989,7 +4997,7 @@ snapshots:
 
   '@effect/platform-node@4.0.0-rc.111(effect@4.0.0-rc.111)(redis@6.2.1(@opentelemetry/api@1.9.1))':
     dependencies:
-      '@effect/platform-node-shared': 4.0.0-rc.112(effect@4.0.0-rc.111)
+      '@effect/platform-node-shared': 4.0.0-rc.111(effect@4.0.0-rc.111)
       effect: 4.0.0-rc.111
       mime: 4.1.0
       redis: 6.2.1(@opentelemetry/api@1.9.1)
@@ -5346,6 +5354,26 @@ snapshots:
   '@opentui/core-win32-x64@0.4.1':
     optional: true
 
+  '@opentui/core@0.4.1(typescript@5.9.3)(web-tree-sitter@0.25.10)':
+    dependencies:
+      bun-ffi-structs: 0.2.3(typescript@5.9.3)
+      diff: 9.0.0
+      marked: 17.0.1
+      string-width: 7.2.0
+      strip-ansi: 7.1.2
+      web-tree-sitter: 0.25.10
+    optionalDependencies:
+      '@opentui/core-darwin-arm64': 0.4.1
+      '@opentui/core-darwin-x64': 0.4.1
+      '@opentui/core-linux-arm64': 0.4.1
+      '@opentui/core-linux-arm64-musl': 0.4.1
+      '@opentui/core-linux-x64': 0.4.1
+      '@opentui/core-linux-x64-musl': 0.4.1
+      '@opentui/core-win32-arm64': 0.4.1
+      '@opentui/core-win32-x64': 0.4.1
+    transitivePeerDependencies:
+      - typescript
+
   '@opentui/core@0.4.1(typescript@6.0.3)(web-tree-sitter@0.25.10)':
     dependencies:
       bun-ffi-structs: 0.2.3(typescript@6.0.3)
@@ -5365,6 +5393,17 @@ snapshots:
       '@opentui/core-win32-x64': 0.4.1
     transitivePeerDependencies:
       - typescript
+
+  '@opentui/react@0.4.1(react-devtools-core@7.0.1)(react@19.2.8)(typescript@5.9.3)(web-tree-sitter@0.25.10)(ws@8.21.3)':
+    dependencies:
+      '@opentui/core': 0.4.1(typescript@5.9.3)(web-tree-sitter@0.25.10)
+      react: 19.2.8
+      react-devtools-core: 7.0.1
+      react-reconciler: 0.33.0(react@19.2.8)
+      ws: 8.21.3
+    transitivePeerDependencies:
+      - typescript
+      - web-tree-sitter
 
   '@opentui/react@0.4.1(react-devtools-core@7.0.1)(react@19.2.8)(typescript@6.0.3)(web-tree-sitter@0.25.10)(ws@8.21.3)':
     dependencies:
@@ -6420,6 +6459,10 @@ snapshots:
   buffer-image-size@0.6.4:
     dependencies:
       '@types/node': 26.5.0
+
+  bun-ffi-structs@0.2.3(typescript@5.9.3):
+    dependencies:
+      typescript: 5.9.3
 
   bun-ffi-structs@0.2.3(typescript@6.0.3):
     dependencies:
@@ -7694,6 +7737,8 @@ snapshots:
   type-check@0.4.0:
     dependencies:
       prelude-ls: 1.2.1
+
+  typescript@5.9.3: {}
 
   typescript@6.0.3: {}
 

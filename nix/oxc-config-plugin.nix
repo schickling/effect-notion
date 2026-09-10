@@ -182,6 +182,7 @@ let
     src = depsSrc;
     sourceRoot = ".";
     inherit pnpmDepsHash;
+    pnpmFilters = [ "@overeng/oxc-config..." ];
     preInstall = ''
       chmod +w pnpm-workspace.yaml
       cp ${filteredRootPnpmWorkspaceYamlFile} pnpm-workspace.yaml

@@ -533,7 +533,7 @@ in
                   exit 1
                 fi
 
-                # pnpm 11 rejects `pnpm config set --global` for keys it considers
+                # pnpm rejects `pnpm config set --global` for keys it considers
                 # workspace-only. Use env vars and .npmrc instead. Strip
                 # live-worktree store/layout policy first so the prepared
                 # artifact does not preserve caller-local paths.
@@ -597,7 +597,7 @@ in
                   ''}
                   pnpm_install_log=$(mktemp "$NIX_BUILD_TOP/pnpm-install.XXXXXX.log")
                   set +e
-                  ${pnpmNodejs}/bin/node "$PNPM_MJS" install ${pnpmLockfileModeArg} ${pnpmOptionalModeArg} --ignore-scripts --config.manage-package-manager-versions=false ${pnpmFilterArgs} 2>&1 | tee "$pnpm_install_log"
+                  ${pnpmNodejs}/bin/node "$PNPM_MJS" install ${pnpmLockfileModeArg} ${pnpmOptionalModeArg} --ignore-scripts --config.manage-package-manager-versions=false --pm-on-fail=ignore --config.dedupe-injected-deps=false ${pnpmFilterArgs} 2>&1 | tee "$pnpm_install_log"
                   pnpm_install_status=''${PIPESTATUS[0]}
                   set -e
                   if [ "$pnpm_install_status" -ne 0 ]; then

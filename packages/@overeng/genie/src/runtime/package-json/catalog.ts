@@ -15,6 +15,7 @@ export type CatalogInput = Record<string, string>
 type WorkspaceDependencyMap<TWorkspace extends readonly WorkspacePackageLike[]> = {
   [TPkg in TWorkspace[number] as Extract<TPkg['data']['name'], string>]:
     | 'workspace:^'
+    | `workspace:${string}`
     | `link:repos/${string}`
     | `file:repos/${string}`
 }
@@ -33,6 +34,20 @@ type DependencyBucket<
   crossRepoProtocols?: Partial<
     Record<Extract<TWorkspace[number]['data']['name'], string>, 'link' | 'file'>
   >
+  /**
+   * Same-repo dependencies that must resolve as live workspace links.
+   *
+   * `injectWorkspacePackages: true` makes pnpm materialize a same-repo
+   * dependency as an injected `file:` copy whenever the consumer's peer graph
+   * binds a peer the dependency itself satisfies only through its
+   * `devDependencies`, and pnpm 12 ignores `dependenciesMeta.<dep>.injected`
+   * while the workspace-wide setting is on. Listing the dependency here emits a
+   * path-based `workspace:<relative-path>` specifier, which keeps the workspace
+   * protocol while routing the edge through pnpm's local link resolution, so
+   * the consumer keeps reading workspace source instead of an install-time
+   * snapshot.
+   */
+  liveWorkspaceLinks?: readonly Extract<TWorkspace[number]['data']['name'], string>[]
   /** Already-picked external dependencies, typically from `catalog.pick(...)`. */
   external?: TExternal
 }
@@ -298,6 +313,36 @@ const resolvePeerDependencies = <
     ].toSorted(([nameA], [nameB]) => nameA.localeCompare(nameB)),
   ) as CatalogInput
 
+/**
+ * Relative path from one workspace member directory to another, in the shape
+ * pnpm's `workspace:` protocol accepts.
+ *
+ * Both inputs are repository-relative member paths. pnpm resolves the result
+ * against the consumer's own directory and rejects a bare relative body
+ * (`workspace:examples/basic` is an "Invalid workspace: spec"), so a descendant
+ * target is prefixed with `./` while an ancestor or sibling target keeps its
+ * leading `..` segments. A package cannot depend on itself, so an empty
+ * relative path is a generator bug rather than a specifier.
+ */
+const relativeMemberPath = ({ from, to }: { from: string; to: string }): string => {
+  const fromSegments = from.split('/')
+  const toSegments = to.split('/')
+  let shared = 0
+  while (
+    shared < fromSegments.length &&
+    shared < toSegments.length &&
+    fromSegments[shared] === toSegments[shared]
+  ) {
+    shared += 1
+  }
+  const segments = [...fromSegments.slice(shared).map(() => '..'), ...toSegments.slice(shared)]
+  if (segments.length === 0) {
+    throw new Error(`liveWorkspaceLinks cannot point a workspace member at itself: ${from}`)
+  }
+  const path = segments.join('/')
+  return path.startsWith('..') === true ? path : `./${path}`
+}
+
 /** Creates a composition helper for a catalog object */
 const createComposeFn =
   <T extends CatalogInput>(catalog: T) =>
@@ -340,11 +385,20 @@ const createComposeFn =
     const workspaceDepVersion = ({
       pkg,
       crossRepoProtocols,
+      liveWorkspaceLinks,
     }: {
       pkg: WorkspacePackageLike
       crossRepoProtocols: Partial<Record<string, 'link' | 'file'>> | undefined
+      liveWorkspaceLinks: readonly string[] | undefined
     }): string => {
-      if (pkg.meta.workspace.repoName === workspace.repoName) return 'workspace:^'
+      if (pkg.meta.workspace.repoName === workspace.repoName) {
+        if (pkg.data.name === undefined) return 'workspace:^'
+        if (liveWorkspaceLinks?.includes(pkg.data.name) !== true) return 'workspace:^'
+        return `workspace:${relativeMemberPath({
+          from: workspace.memberPath,
+          to: pkg.meta.workspace.memberPath,
+        })}`
+      }
 
       const protocol =
         pkg.data.name === undefined ? 'link' : (crossRepoProtocols?.[pkg.data.name] ?? 'link')
@@ -360,6 +414,7 @@ const createComposeFn =
                 workspaceDepVersion({
                   pkg,
                   crossRepoProtocols: dependencies?.crossRepoProtocols,
+                  liveWorkspaceLinks: dependencies?.liveWorkspaceLinks,
                 }),
               ] as const,
             ],
@@ -375,6 +430,7 @@ const createComposeFn =
                 workspaceDepVersion({
                   pkg,
                   crossRepoProtocols: devDependencies?.crossRepoProtocols,
+                  liveWorkspaceLinks: devDependencies?.liveWorkspaceLinks,
                 }),
               ] as const,
             ],

@@ -446,6 +446,94 @@ describe('defineCatalog', () => {
       })
     })
 
+    it('emits a path-based workspace specifier for a live same-repo link', () => {
+      // `injectWorkspacePackages: true` makes pnpm inject a same-repo dependency
+      // as a `file:` copy once the consumer's peer graph differs, and pnpm 12
+      // ignores `dependenciesMeta.<dep>.injected`. A path-based specifier keeps
+      // the workspace protocol while forcing pnpm's local link resolution.
+      const nested = createTempRepo(
+        'packages/utils',
+        'packages/app',
+        'packages/app/nested/lib',
+        'packages/examples/basic',
+      )
+      const utils = packageJson(
+        { name: '@test/utils', version: '1.0.0' },
+        catalog.compose({
+          workspace: workspace({ repoName: nested.repoName, memberPath: 'packages/utils' }),
+        }),
+      )
+
+      const sibling = catalog.compose({
+        workspace: workspace({ repoName: nested.repoName, memberPath: 'packages/app' }),
+        devDependencies: {
+          workspace: [utils],
+          liveWorkspaceLinks: ['@test/utils'],
+        },
+      })
+      const deeper = catalog.compose({
+        workspace: workspace({
+          repoName: nested.repoName,
+          memberPath: 'packages/examples/basic',
+        }),
+        devDependencies: {
+          workspace: [utils],
+          liveWorkspaceLinks: ['@test/utils'],
+        },
+      })
+      const unlisted = catalog.compose({
+        workspace: workspace({ repoName: nested.repoName, memberPath: 'packages/app' }),
+        devDependencies: {
+          workspace: [utils],
+        },
+      })
+      const nestedLib = packageJson(
+        { name: '@test/nested-lib', version: '1.0.0' },
+        catalog.compose({
+          workspace: workspace({
+            repoName: nested.repoName,
+            memberPath: 'packages/app/nested/lib',
+          }),
+        }),
+      )
+      // pnpm rejects a bare relative body ("Invalid workspace: spec"), so a
+      // descendant target must carry an explicit `./`.
+      const descendant = catalog.compose({
+        workspace: workspace({ repoName: nested.repoName, memberPath: 'packages/app' }),
+        devDependencies: {
+          workspace: [nestedLib],
+          liveWorkspaceLinks: ['@test/nested-lib'],
+        },
+      })
+
+      expect(sibling.devDependencies).toEqual({ '@test/utils': 'workspace:../utils' })
+      expect(deeper.devDependencies).toEqual({ '@test/utils': 'workspace:../../utils' })
+      expect(unlisted.devDependencies).toEqual({ '@test/utils': 'workspace:^' })
+      expect(descendant.devDependencies).toEqual({
+        '@test/nested-lib': 'workspace:./nested/lib',
+      })
+    })
+
+    it('rejects a live workspace link that points a member at itself', () => {
+      const selfRepo = createTempRepo('packages/utils')
+      const utils = packageJson(
+        { name: '@test/utils', version: '1.0.0' },
+        catalog.compose({
+          workspace: workspace({ repoName: selfRepo.repoName, memberPath: 'packages/utils' }),
+        }),
+      )
+
+      expect(() =>
+        catalog.compose({
+          workspace: workspace({ repoName: selfRepo.repoName, memberPath: 'packages/utils' }),
+          devDependencies: {
+            workspace: [utils],
+            liveWorkspaceLinks: ['@test/utils'],
+          },
+        }),
+      ).toThrow(/cannot point a workspace member at itself/)
+    })
+
     it('installs inherited peers explicitly in install mode', () => {
       const utilsComposition = catalog.compose({
         workspace: workspace({

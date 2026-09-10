@@ -1,6 +1,6 @@
 {
   "schema": "effect-utils/buck2-pnpm-sha256/v1",
-  "lockfileFingerprint": "sha256:8d034246cf6c2267b48968fe5a85c557f83b524a6f1eaa37990b6cd15ad87d37",
+  "lockfileFingerprint": "sha256:31ae2d8d8b0c07a181c6e2e894ee8924b103151f36b2c056b1c7300b5d191168",
   "source": "pnpm-lock.yaml",
   "generator": "buck2/dependencies/pnpm-lock.sha256.json.genie.ts",
   "regenerate": "devenv tasks run genie:run",
@@ -147,10 +147,10 @@
       "integrity": "sha512-bztAYpWoipn/a4tFjECMNvtWLkf2TS+Qn23PBI+f4q5DP9cBKfV00uhX8cwEVcfAtZd+lflSbGURHa4xlSewOA==",
       "sha256": "483616bab9f507262f01137a8c5d88d7d0c95e46f45036dece81ee304e95d829"
     },
-    "@effect/platform-node-shared@4.0.0-rc.112": {
+    "@effect/platform-node-shared@4.0.0-rc.111": {
       "bins": {},
-      "integrity": "sha512-ttjz0xKamFN7vL8pNDYVwddJLjZvqKePc05djlz2VcdaKbLsnYbtMnL1rbOfHgEnIUSHGh7FkjaN4DM1Ov81sQ==",
-      "sha256": "723e9184a24adc29ecc6e0a2306192af5aeea57a6a73bf4243dde9af7d215295"
+      "integrity": "sha512-iES0Q9vmjhaUKqeW9ceonuD45MUg/Ouk08LzRSptZ+B5qB0w9WlRjDmUz5TJmY2betNop5FRI5k4AD4mtQt3Bw==",
+      "sha256": "f153a242ca71616c8693e32bef22d0c59cd0c2832e3cdebfceea09d00e108740"
     },
     "@effect/platform-node@4.0.0-rc.111": {
       "bins": {},
@@ -3136,6 +3136,14 @@
       "integrity": "sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==",
       "sha256": "8035d10cc48e2692358ac06cbadfa795279aaf6b3c04f29bd322f6df09513f8e"
     },
+    "typescript@5.9.3": {
+      "bins": {
+        "tsc": "bin/tsc",
+        "tsserver": "bin/tsserver"
+      },
+      "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
+      "sha256": "10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3"
+    },
     "typescript@6.0.3": {
       "bins": {
         "tsc": "bin/tsc",
@@ -3325,5 +3333,5 @@
       "sha256": "2c162e000f5fb5a816987d6f8ad7aad295203f777a5992d514ae4660778a51a4"
     }
   },
-  "fingerprint": "sha256:0e2f99a810a59fdf3442db732a8d1d4999980aeb2dfd8a1484cd301c6ce925c3"
+  "fingerprint": "sha256:cfa4e5c26ee6612e0bd825af7eea62e42f0957ed8ae1727e8fa085898103ee8f"
 }

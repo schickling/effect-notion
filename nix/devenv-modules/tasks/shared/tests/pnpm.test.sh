@@ -342,6 +342,25 @@ assert_eq \
   "$(classify_pnpm_contract_change node "$contract_policy_old" "$contract_graph_new")" \
   "packageExtensions changes are dependency-graph changes"
 
+echo "Test 11b: overrides changes classify as dependency-graph drift"
+contract_override_new="$test_dir/contract-override-new.json"
+cat > "$contract_override_new" <<'EOF'
+{
+  "schemaVersion": 1,
+  "packageManager": {"name": "pnpm", "version": "11.8.0"},
+  "dependencyGraphContract": {"allowBuilds": {"esbuild": false}, "overrides": {"effect": "4.0.0-rc.111"}, "packageExtensions": {}},
+  "installPolicy": {"verifyStoreIntegrity": true},
+  "storeContract": {"storeDir": ".devenv/pnpm-store-pure-v1"},
+  "workspaceManifestContract": {"packages": ["packages/app"]},
+  "nixIntegration": {"liveVirtualStoreScope": "materialization-root"},
+  "buck2Integration": {"consumeContractArtifact": true}
+}
+EOF
+assert_eq \
+  "dependency_graph" \
+  "$(classify_pnpm_contract_change node "$contract_policy_old" "$contract_override_new")" \
+  "overrides changes are dependency-graph changes"
+
 echo "Test 12: unchanged classified sections report an unknown miss reason"
 contract_unknown_new="$test_dir/contract-unknown-new.json"
 cat > "$contract_unknown_new" <<'EOF'
