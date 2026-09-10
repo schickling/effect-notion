@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/restate-effect/BUCK.genie.ts
-# Projection schema version: 3
+# Projection schema version: 4
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:b5d62bd1ab35e015c4e8964eebf0d87dc9c8ad39284609442dd0b49e6de1e657
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/package.json.genie.ts, packages/@overeng/restate-effect/src/**/*.cts, packages/@overeng/restate-effect/src/**/*.js, packages/@overeng/restate-effect/src/**/*.mts, packages/@overeng/restate-effect/src/**/*.ts, packages/@overeng/restate-effect/src/**/*.tsx, packages/@overeng/restate-effect/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:5ba672b9ab5076adadd7c4817a726a171ff8f6ab92ad9efae4ff35953b36951b
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/package.json.genie.ts, packages/@overeng/restate-effect/src/**/*.cts, packages/@overeng/restate-effect/src/**/*.js, packages/@overeng/restate-effect/src/**/*.mts, packages/@overeng/restate-effect/src/**/*.ts, packages/@overeng/restate-effect/src/**/*.tsx, packages/@overeng/restate-effect/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:javascript.bzl", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -159,6 +160,7 @@ package_view(
         "src/testing/test-env.integration.test.ts": "src/testing/test-env.integration.test.ts",
         "src/testing/testing.ts": "src/testing/testing.ts",
         "tsconfig.json": "tsconfig.json",
+        "vitest.config.ts": "vitest.config.ts",
     },
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
@@ -184,5 +186,36 @@ tsgo_emit(
     declaration_sources = {
     },
     declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":package_tree",
+    excludes = [
+        "src/admin/admin.integration.test.ts",
+        "src/authoring/awakeable.integration.test.ts",
+        "src/authoring/concurrency.integration.test.ts",
+        "src/authoring/object.integration.test.ts",
+        "src/authoring/peek.integration.test.ts",
+        "src/authoring/workflow.integration.test.ts",
+        "src/clients/contract-policy.integration.test.ts",
+        "src/clients/in-handler-call.integration.test.ts",
+        "src/endpoint/examples.integration.test.ts",
+        "src/endpoint/multi-deployment.integration.test.ts",
+        "src/endpoint/restate-effect.integration.test.ts",
+        "src/error/http-error-classification.integration.test.ts",
+        "src/error/retry-policy.integration.test.ts",
+        "src/error/saga.integration.test.ts",
+        "src/error/suspension.integration.test.ts",
+        "src/observability/otel-replay.integration.test.ts",
+        "src/runtime/cancellation.integration.test.ts",
+        "src/scheduling/scheduled-compose.integration.test.ts",
+        "src/scheduling/scheduled-durability.integration.test.ts",
+        "src/scheduling/scheduled.integration.test.ts",
+        "src/schema/redaction.integration.test.ts",
+        "src/testing/harness.integration.test.ts",
+        "src/testing/test-env.integration.test.ts",
+    ],
     visibility = ["PUBLIC"],
 )

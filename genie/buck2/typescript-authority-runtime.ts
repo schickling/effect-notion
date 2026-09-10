@@ -3,6 +3,7 @@ import process from 'node:process'
 
 import {
   authoritativeBuck2TypeScriptAdmissions,
+  buck2TypeScriptTestTargets,
   type AuthoritativeBuck2TypeScriptAdmission,
 } from './typescript-admissions.ts'
 
@@ -58,19 +59,26 @@ export const planTypeScriptDistMaterialization = ({
     ],
   )
 
-/** Plans the single Buck build used by buck2:check, preserving target order. */
+/**
+ * Plans the single Buck build used by buck2:check, preserving target order.
+ *
+ * Test targets are built, not run: building proves the lane's rule, staged
+ * package tree, and attested tools still analyse, which is what keeps a
+ * declared suite from rotting while its execution is source-owned.
+ */
 export const planBuck2TypeScriptBuild = ({
   admissions = authoritativeBuck2TypeScriptAdmissions,
   buck2Bin,
+  testTargets = buck2TypeScriptTestTargets,
 }: {
   readonly admissions?: readonly AuthoritativeBuck2TypeScriptAdmission[]
   readonly buck2Bin: string
+  readonly testTargets?: readonly `//${string}`[]
 }): CommandArgv => [
   buck2Bin,
   'build',
-  ...admissions.map(({ typecheckTarget }) =>
-    qualifyEffectUtilsLabel(typecheckTarget),
-  ),
+  ...admissions.map(({ typecheckTarget }) => qualifyEffectUtilsLabel(typecheckTarget)),
+  ...testTargets.map(qualifyEffectUtilsLabel),
   'effect_utils//buck2/toolchains:archive_tool',
   'effect_utils//buck2/toolchains:product_tool',
   '--local-only',

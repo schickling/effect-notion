@@ -29,6 +29,20 @@ export const buck2TypeScriptAdmission = {
     declarationEntrypoint: 'src/isomorphic/mod.d.ts',
     projectFile: 'tsconfig.json',
   },
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+      // The otel identity and telemetry suites spawn the `otelite` binary and the `cmd` suite
+      // runs real children while writing under the repository root, so all three stay
+      // unbounded (decision 0026) under the devenv `test:utils` task.
+      excludes: [
+        'src/node/cmd.unit.test.ts',
+        'src/node/otel-identity.test.ts',
+        'src/node/otel-telemetry.test.ts',
+      ],
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)

@@ -46,6 +46,12 @@ export const buck2StagedRuntimes = [
     staging: 'filegroup',
   },
   {
+    label: '//:javascript_action_runtime',
+    entry: runnerSource('javascript-runner.ts'),
+    modules: [runnerSource('javascript-runner.ts'), runnerSource('typescript-runner.ts')],
+    staging: 'filegroup',
+  },
+  {
     label: '//:packages/@overeng/buck2-tools/src/typescript-runner.ts',
     entry: runnerSource('typescript-runner.ts'),
     modules: [runnerSource('typescript-runner.ts')],
@@ -61,6 +67,9 @@ export const buck2StagedRuntimes = [
 
 /** The package-tree runner, which the generated package projections point at. */
 export const packageTreeRuntime = buck2StagedRuntimes[0]
+
+/** The JavaScript command and test runner, which the generated test targets point at. */
+export const javaScriptActionRuntime = buck2StagedRuntimes[2]
 
 /** Staged name of a module inside its runtime tree, which is flat by construction. */
 export const stagedModuleName = (module: string): string => {

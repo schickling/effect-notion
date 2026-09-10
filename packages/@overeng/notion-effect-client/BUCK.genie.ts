@@ -45,6 +45,18 @@ export const buck2TypeScriptAdmission = {
     declarationEntrypoint: 'src/mod.d.ts',
     projectFile: 'tsconfig.json',
   },
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+      // The rate-limit e2e suite and the otelite span-shape suite spawn live services and the
+      // `otelite` binary, so they stay unbounded (decision 0026).
+      excludes: [
+        'src/internal/rate-limit-signals.e2e.test.ts',
+        'src/test/otelite-span-shape.test.ts',
+      ],
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)

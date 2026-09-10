@@ -1,7 +1,13 @@
 # Bootstrap-safe import-closure gate (issue #884; SCOPED TO BOOTSTRAP-PHASE, ZERO-TOLERANCE)
 #
 # Usage in devenv.nix:
-#   imports = [ (inputs.effect-utils.devenvModules.tasks.bootstrap-closure {}) ];
+#   imports = [
+#     (inputs.effect-utils.devenvModules.tasks.bootstrap-closure {
+#       checkerBin = "${
+#         inputs.effect-utils.packages.${pkgs.system}.genie-bootstrap-closure-check
+#       }/bin/genie-bootstrap-closure-check";
+#     })
+#   ];
 #
 # Older consumers may still pass `entry = ...`; the packaged checker now ignores
 # it and always checks the importing repo root via `--root`.
@@ -22,29 +28,25 @@
 # feedback (R30); the empirical authority is `bootstrap:cold-proof` (R32), which runs the
 # bootstrap-phase generators in a no-`node_modules` checkout before install (decision 0004).
 #
-# The gate is a checker, not a bootstrap-phase generator. The task runs a Nix
-# checker package so `typescript` and the walker implementation are explicit
-# package inputs, not ambient Bun auto-install or downstream `node_modules`
-# state.
+# The gate is a checker, not a bootstrap-phase generator. The task runs the
+# wrapped `genie-bootstrap-closure-check` Buck product so `typescript` and the
+# walker implementation are explicit package inputs, not ambient Bun
+# auto-install or downstream `node_modules` state.
 {
   # Deprecated compatibility parameter. Older downstream repos passed a repo-local
   # Bun entry; this module now runs effect-utils' packaged checker instead.
   entry ? null,
+  # Absolute path to the wrapped `genie-bootstrap-closure-check` product.
+  # Required: the caller owns which realization the gate runs, so the module
+  # never falls back to a source build or an ambient PATH lookup.
+  checkerBin,
   # Optional task prerequisites for repos that want local ordering. The checker itself is packaged
   # and does not require package-manager install state.
   after ? [ ],
 }:
-{ lib, pkgs, ... }:
+{ lib, ... }:
 let
   trace = import ../lib/trace.nix { inherit lib; };
-  effectUtilsSrc = builtins.path {
-    path = ../../../..;
-    name = "effect-utils-source";
-  };
-  checkerPkg = import (effectUtilsSrc + "/packages/@overeng/genie/nix/bootstrap-closure-check.nix") {
-    inherit pkgs;
-    src = effectUtilsSrc;
-  };
   legacyEntryDescriptionSuffix =
     if entry == null then "" else " (legacy entry argument ignored; packaged checker is used)";
 in
@@ -58,7 +60,7 @@ in
       exec = trace.exec "bootstrap-closure:check" ''
         set -uo pipefail
         root="''${DEVENV_ROOT:-$PWD}"
-        ${checkerPkg}/bin/genie-bootstrap-closure-check --root "$root"
+        ${checkerBin} --root "$root"
       '';
     };
   };

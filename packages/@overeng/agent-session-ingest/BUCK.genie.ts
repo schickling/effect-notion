@@ -25,6 +25,20 @@ export const buck2TypeScriptAdmission = {
     declarationEntrypoint: 'src/mod.d.ts',
     projectFile: 'tsconfig.json',
   },
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+      // The adapter suites drive real session stores on disk and are unbounded by policy
+      // (decision 0026); the devenv `test:agent-session-ingest` task still runs them.
+      excludes: [
+        'src/claude.integration.test.ts',
+        'src/codex.integration.test.ts',
+        'src/opencode.integration.test.ts',
+        'src/services.integration.test.ts',
+      ],
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)
