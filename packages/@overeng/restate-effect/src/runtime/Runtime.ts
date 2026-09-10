@@ -207,14 +207,15 @@ export const withAttemptInterruption = <A, E, R>({
 /**
  * Cancel ANOTHER invocation from inside a handler (cooperative cancel — the
  * target surfaces an Effect interruption at its next await point, so its
- * finalizers/compensations run; docs/vrs/04-error-boundary/spec.md §2). Backed by `ctx.cancel`. The
+ * finalizers/compensations run; docs/vrs/04-error-boundary/spec.md §2). Backed by
+ * the SDK's invocation reference. The
  * invocation id is the opaque handle returned by a prior `send` / submission.
  * Requires `RestateContext` (legal in any handler kind).
  */
 export const cancel = (invocationId: string): Effect.Effect<void, never, RestateContext> =>
   Effect.gen(function* () {
     const ctx = yield* RestateContext
-    ctx.cancel(restate.InvocationIdParser.fromString(invocationId))
+    ctx.invocation(restate.InvocationIdParser.fromString(invocationId)).cancel()
   }).pipe(withRestateOperation({ name: 'restate.cancel', label: invocationId }))
 
 /**
