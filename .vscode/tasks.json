@@ -153,6 +153,20 @@
         "clear": true
       }
     },
+    {
+      "label": "test:watch",
+      "type": "shell",
+      "command": "devenv tasks run test:watch",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "focus": true,
+        "panel": "shared",
+        "group": "test",
+        "showReuseMessage": false,
+        "clear": true
+      }
+    },
 
     // ============================================================
     // misc
