@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
+import * as packageCommandRunner from './package-command-runner.ts'
 import {
   assemblePortableFarm,
   assertNoUnboundRequireMain,
@@ -979,6 +980,39 @@ describe('package command runner', () => {
         '0.0.0.0',
       ])
       expect(plan.output).toBeUndefined()
+    })
+  })
+
+  // The stage entry points are exported through one forward `export { ... }`
+  // list at the top of the module instead of an `export` modifier per
+  // declaration, so the public surface reads first without reordering the
+  // pipeline. That list is hand-maintained: dropping a name from it, or
+  // renaming a declaration without updating it, silently removes a Buck-facing
+  // entry point, and only a consumer's import would notice. Pin the surface.
+  describe('the module surface Buck consumers import', () => {
+    it('exports every stage entry point through the forward export list', () => {
+      expect(
+        Object.keys(packageCommandRunner)
+          .filter((name) => name !== 'default')
+          .sort(),
+      ).toStrictEqual([
+        'PORTABLE_PRODUCT_PLATFORM',
+        'RUNTIME_ARGV_DELIMITER',
+        'assemblePortableFarm',
+        'assertNoUnboundRequireMain',
+        'assertPortableModuleComments',
+        'bareSpecifierPackage',
+        'bundleImportSpecifiers',
+        'createEntryOverridePlugin',
+        'normalizePortableCommonJsGlobals',
+        'parsePackageCommand',
+        'parseProductDescriptorCommand',
+        'planPackageLaunch',
+        'projectProductDescriptor',
+        'readPlatformGatedManifest',
+        'requireNormalizedRelativePath',
+        'verifyExternalSurface',
+      ])
     })
   })
 })
