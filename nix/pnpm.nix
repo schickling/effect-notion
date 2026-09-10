@@ -27,20 +27,14 @@ let
   unsupportedPlatform =
     throw "nix/pnpm.nix: pnpm ${version} ships no native binary for ${platform.system}";
   target =
-    if platform.isDarwin then
-      if platform.isAarch64 then
-        "darwin-arm64"
-      else if platform.isx86_64 then
-        "darwin-x64"
-      else
-        unsupportedPlatform
-    else if platform.isLinux then
-      if platform.isAarch64 then
-        if platform.isMusl then "linux-arm64-musl" else "linux-arm64"
-      else if platform.isx86_64 then
-        if platform.isMusl then "linux-x64-musl" else "linux-x64"
-      else
-        unsupportedPlatform
+    if platform.system == "aarch64-darwin" then
+      "darwin-arm64"
+    else if platform.system == "x86_64-darwin" then
+      "darwin-x64"
+    else if platform.system == "aarch64-linux" then
+      if platform.isMusl then "linux-arm64-musl" else "linux-arm64"
+    else if platform.system == "x86_64-linux" then
+      if platform.isMusl then "linux-x64-musl" else "linux-x64"
     else
       unsupportedPlatform;
 

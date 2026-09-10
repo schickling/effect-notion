@@ -207,6 +207,13 @@ mkdir -p "$workspace/.devenv/task-cache" "$workspace/.pnpm-home-a/store/v11" "$w
 echo "Preflight: pnpmPkg is exec-only guard backing, not a profile package"
 assert_eq 1 "$(eval_pnpm_package_count)" "pnpm module packages should contain the pnpm guard only"
 
+echo "Preflight: generated dependency graph contract classifies workspace overrides"
+assert_json_field \
+  "4.0.0-rc.111" \
+  "$ROOT/pnpm-install-contract.json" \
+  '(value) => value.dependencyGraphContract.overrides["@effect/platform-node-shared"]' \
+  "dependency graph contract should include the active Effect cohort override"
+
 cat > "$workspace/package.json" <<'EOF'
 {"name":"smoke-workspace","private":true}
 EOF
@@ -223,7 +230,7 @@ cat > "$workspace/pnpm-install-contract.json" <<'EOF'
 {
   "schemaVersion": 1,
   "packageManager": {"name": "pnpm", "version": "11.3.0"},
-  "dependencyGraphContract": {"allowBuilds": {}, "packageExtensions": {}, "packageManager": {"name": "pnpm", "version": "11.3.0"}, "virtualStore": {"scope": "materialization-root", "path": "node_modules/.pnpm"}},
+  "dependencyGraphContract": {"allowBuilds": {}, "overrides": {"fixture-dependency": "1.0.0"}, "packageExtensions": {}, "packageManager": {"name": "pnpm", "version": "11.3.0"}, "virtualStore": {"scope": "materialization-root", "path": "node_modules/.pnpm"}},
   "installPolicy": {"ignoreScripts": true},
   "storeContract": {"layoutVersion": "v11", "owner": "pnpm", "storeDir": ".devenv/pnpm-store-pure-v1"},
   "workspaceManifestContract": {"packages": []}
@@ -581,6 +588,29 @@ echo "Test 3: status hits after install with the same root-local virtual topolog
   exit_code=$?
   set -e
   assert_exit_code 0 "$exit_code" "status should hit after install"
+)
+
+echo "Test 3a: an override-only dependency graph change invalidates install status"
+(
+  cd "$workspace"
+  export HOME="$tmpdir/home"
+  export PNPM_HOME="$workspace/.pnpm-home-a"
+  original_contract="$tmpdir/pnpm-install-contract.original.json"
+  cp pnpm-install-contract.json "$original_contract"
+  trap 'cp "$original_contract" pnpm-install-contract.json; chmod 444 pnpm-install-contract.json' EXIT
+  chmod u+w pnpm-install-contract.json
+  node -e '
+    const fs = require("node:fs")
+    const path = process.argv[1]
+    const contract = JSON.parse(fs.readFileSync(path, "utf8"))
+    contract.dependencyGraphContract.overrides["fixture-dependency"] = "2.0.0"
+    fs.writeFileSync(path, `${JSON.stringify(contract, undefined, 2)}\n`)
+  ' pnpm-install-contract.json
+  set +e
+  bash "$tmpdir/pnpm-install.status.sh"
+  exit_code=$?
+  set -e
+  assert_exit_code 1 "$exit_code" "override-only graph drift should invalidate install status"
 )
 
 echo "Test 3b: cached status rejects a nested dependency edge outside the root-local topology"

@@ -10,6 +10,9 @@
       "sharp": false,
       "unix-dgram": false
     },
+    "overrides": {
+      "@effect/platform-node-shared": "4.0.0-rc.111"
+    },
     "packageExtensions": {
       "storybook": {
         "dependencies": {

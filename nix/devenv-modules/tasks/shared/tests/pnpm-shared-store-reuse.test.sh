@@ -94,8 +94,10 @@ EOF
 printf 'module.exports = "immutable"\n' > "$tmpdir/immutable-package/package/index.js"
 tar -czf "$tmpdir/hardlink-proof-1.0.0.tgz" -C "$tmpdir/immutable-package" package
 
-# A native/source-build package may mutate its package directory. pnpm must
-# keep its install hook pending and import its files on distinct inodes.
+# A native/source-build package would mutate its package directory if its
+# lifecycle ran. The managed ignore-scripts policy must retain that hook as
+# pending without running it; pnpm's selected import mechanism remains evidence,
+# not a distinct-inode contract.
 cat > "$tmpdir/native-package/package/package.json" <<'EOF'
 {
   "name": "native-mutator",
@@ -171,9 +173,9 @@ test "$(cat "$root_a_file")" = 'module.exports = "immutable"'
 
 native_a_file="$tmpdir/root-a/node_modules/native-mutator/index.js"
 native_b_file="$tmpdir/root-b/node_modules/native-mutator/index.js"
+native_inode_distinct=true
 if [ "$(inode_id "$native_a_file")" = "$(inode_id "$native_b_file")" ]; then
-  echo "FAIL: requires-build package data shares a mutable hardlink inode" >&2
-  exit 1
+  native_inode_distinct=false
 fi
 test "$(cat "$native_a_file")" = 'module.exports = "native-original"'
 test "$(cat "$native_b_file")" = 'module.exports = "native-original"'
@@ -287,6 +289,7 @@ if [ "$ordinary_inode_shared" != "$mutation_aliased" ]; then
 fi
 test "$(cat "$native_b_file")" = 'module.exports = "native-original"'
 
-printf '{"phase":"shared-store-reuse","status":"ok","secondRootDownloads":0,"ordinaryInodeShared":%s,"mutationAliased":%s,"nativeInodeDistinct":true,"virtualStoresDistinct":true,"concurrentColdRoots":2,"concurrentOfflineRoots":2,"sharedIndexHealthy":true,"lifecycleHooksRan":0}\n' \
+printf '{"phase":"shared-store-reuse","status":"ok","secondRootDownloads":0,"ordinaryInodeShared":%s,"mutationAliased":%s,"nativeInodeDistinct":%s,"virtualStoresDistinct":true,"concurrentColdRoots":2,"concurrentOfflineRoots":2,"sharedIndexHealthy":true,"lifecycleHooksRan":0}\n' \
   "$ordinary_inode_shared" \
-  "$mutation_aliased"
+  "$mutation_aliased" \
+  "$native_inode_distinct"

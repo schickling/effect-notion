@@ -23,6 +23,7 @@ export default projectionArtifact.json({
         version: pnpmVersion,
       },
       allowBuilds: workspaceData.allowBuilds,
+      overrides: workspaceData.overrides,
       packageExtensions: workspaceData.packageExtensions,
     },
     installPolicy: {
