@@ -7,7 +7,7 @@ load("//buck2/products:defs.bzl", "javascript_product")
 # Projection source: packages/@overeng/megarepo/BUCK.genie.ts
 # Projection schema version: 3
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:a666e466c2f16edfccbd03bcb266573ee8dd4041e00fc40951d747e3914de9c3
+# Semantic fingerprint: sha256:6ae7c61354990a8b73390c0e9341210bfdb009a0b6ed4754bc178bec5f2529d8
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/effect-path/BUCK.genie.ts, packages/@overeng/effect-path/package.json.genie.ts, packages/@overeng/kdl-effect/BUCK.genie.ts, packages/@overeng/kdl-effect/package.json.genie.ts, packages/@overeng/kdl/BUCK.genie.ts, packages/@overeng/kdl/package.json.genie.ts, packages/@overeng/megarepo/BUCK.genie.ts, packages/@overeng/megarepo/BUCK.genie.ts, packages/@overeng/megarepo/bin/**/*.cts, packages/@overeng/megarepo/bin/**/*.js, packages/@overeng/megarepo/bin/**/*.mts, packages/@overeng/megarepo/bin/**/*.ts, packages/@overeng/megarepo/bin/**/*.tsx, packages/@overeng/megarepo/package.json.genie.ts, packages/@overeng/megarepo/src/**/*.cts, packages/@overeng/megarepo/src/**/*.js, packages/@overeng/megarepo/src/**/*.mts, packages/@overeng/megarepo/src/**/*.ts, packages/@overeng/megarepo/src/**/*.tsx, packages/@overeng/megarepo/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-core/BUCK.genie.ts, packages/@overeng/tui-core/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
@@ -47,6 +47,7 @@ export_materialization_inputs([
     "src/cli/commands/pin.ts",
     "src/cli/commands/root.ts",
     "src/cli/commands/status.ts",
+    "src/cli/commands/store/composed-worktrees.integration.test.ts",
     "src/cli/commands/store/mod.ts",
     "src/cli/components/Header.stories.tsx",
     "src/cli/components/Header.tsx",
@@ -182,7 +183,6 @@ export_materialization_inputs([
     "src/cli/store.integration.test.ts",
     "src/cli/sync.integration.test.ts",
     "src/composition/acquisition/owned-worktree-acquisition-schema.ts",
-    "src/composition/acquisition/owned-worktree-acquisition-schema.unit.test.ts",
     "src/composition/acquisition/owned-worktree-acquisition.integration.test.ts",
     "src/composition/acquisition/owned-worktree-acquisition.ts",
     "src/composition/apply/composition-apply-schema.ts",
@@ -344,6 +344,7 @@ package_view(
         "src/cli/commands/pin.ts": "src/cli/commands/pin.ts",
         "src/cli/commands/root.ts": "src/cli/commands/root.ts",
         "src/cli/commands/status.ts": "src/cli/commands/status.ts",
+        "src/cli/commands/store/composed-worktrees.integration.test.ts": "src/cli/commands/store/composed-worktrees.integration.test.ts",
         "src/cli/commands/store/mod.ts": "src/cli/commands/store/mod.ts",
         "src/cli/components/Header.stories.tsx": "src/cli/components/Header.stories.tsx",
         "src/cli/components/Header.tsx": "src/cli/components/Header.tsx",
@@ -479,7 +480,6 @@ package_view(
         "src/cli/store.integration.test.ts": "src/cli/store.integration.test.ts",
         "src/cli/sync.integration.test.ts": "src/cli/sync.integration.test.ts",
         "src/composition/acquisition/owned-worktree-acquisition-schema.ts": "src/composition/acquisition/owned-worktree-acquisition-schema.ts",
-        "src/composition/acquisition/owned-worktree-acquisition-schema.unit.test.ts": "src/composition/acquisition/owned-worktree-acquisition-schema.unit.test.ts",
         "src/composition/acquisition/owned-worktree-acquisition.integration.test.ts": "src/composition/acquisition/owned-worktree-acquisition.integration.test.ts",
         "src/composition/acquisition/owned-worktree-acquisition.ts": "src/composition/acquisition/owned-worktree-acquisition.ts",
         "src/composition/apply/composition-apply-schema.ts": "src/composition/apply/composition-apply-schema.ts",
