@@ -24,8 +24,9 @@ import coreManifest from './Cargo.toml' with { type: 'toml' }
  * repository: `bootstrap:cold-proof` runs the Buck-built Genie product, whose working
  * directory is the composed workspace root while the tree under generation is a separate
  * install-free export. The repo context anchors reads at the repository that owns this
- * module — recovering the original path when the compiled product stages its import graph
- * into a temporary mirror — so the census is identical from any working directory.
+ * module — the compiled product pins each staged module's `import.meta` to its original
+ * source location, so this identity survives import staging — and the census is therefore
+ * identical from any working directory.
  */
 const repo = defineRepoContext({ name: 'effect-utils', importMetaUrl: import.meta.url })
 

@@ -9,6 +9,10 @@ echo ""
 
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
+# Genie reports realpath-resolved module locations, so the identity assertions below must compare
+# against a canonical prefix (`mktemp -d` hands out `/var/...` on macOS, a symlink to
+# `/private/var/...`, and `TMPDIR` itself is commonly a symlinked path).
+tmpdir="$(cd "$tmpdir" && pwd -P)"
 
 workspace="$tmpdir/workspace"
 tmp_root="$tmpdir/os-tmp"
@@ -102,6 +106,49 @@ env -u OTEL_EXPORTER_OTLP_ENDPOINT \
   timeout 20s "$compiled_genie" --cwd "$strict_workspace" --output json >/dev/null
 
 grep -q -- '--project' "$compiler_log"
+
+echo "Test 4: compiled Genie keeps each generator's own module identity"
+# Staged modules are bundled into one temporary entry before import, so a bundle-wide
+# `import.meta` would report the bundle path to every generator. Generators that derive
+# their repository and package identity from `import.meta.url` — the Cargo Buck projections
+# do — must still see their own source location.
+identity_repo="$tmpdir/identity-repo"
+mkdir -p "$identity_repo/.git" "$identity_repo/generators"
+
+cat > "$identity_repo/generators/identity.json.genie.ts" <<EOF
+import {
+  defineRepoContext,
+  modulePathFromUrl,
+} from '$ROOT/packages/@overeng/genie/src/runtime/repo-context/mod.ts'
+
+// This comment mentions import.meta.url and must not be rewritten.
+const repo = defineRepoContext({ name: 'identity-fixture', importMetaUrl: import.meta.url })
+const emittedLiteral = 'import.meta.url' // trailing comment: import.meta.filename
+const spacedIdentity = modulePathFromUrl(import
+  . meta
+  . url)
+const payload = {
+  root: repo.rootPath,
+  source: modulePathFromUrl(import.meta.url),
+  spacedSource: spacedIdentity,
+  emittedLiteral,
+}
+
+export default { data: payload, stringify: () => JSON.stringify(payload, null, 2) }
+EOF
+
+env -u OTEL_EXPORTER_OTLP_ENDPOINT \
+  TMPDIR="$tmp_root" \
+  timeout 20s "$compiled_genie" --cwd "$identity_repo" --output json >/dev/null
+
+grep -q "\"root\": \"$identity_repo\"" "$identity_repo/generators/identity.json"
+grep -q "\"source\": \"$identity_repo/generators/identity.json.genie.ts\"" \
+  "$identity_repo/generators/identity.json"
+# The pin is syntax-aware: a string literal a generator emits keeps its bytes even though it spells
+# the pinned property access, and whitespace-split accesses are still pinned.
+grep -q "\"spacedSource\": \"$identity_repo/generators/identity.json.genie.ts\"" \
+  "$identity_repo/generators/identity.json"
+grep -q '"emittedLiteral": "import.meta.url"' "$identity_repo/generators/identity.json"
 
 echo ""
 echo "Genie compiled import staging cleanup tests passed."

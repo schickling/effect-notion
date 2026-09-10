@@ -5,10 +5,10 @@ load("//buck2:package_tools.bzl", "package_bin_artifact")
 load("//buck2/products:defs.bzl", "javascript_product")
 
 # Projection source: packages/@overeng/notion-md/BUCK.genie.ts
-# Projection schema version: 4
+# Projection schema version: 6
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:d15fcd796c02521d8b930c5814d38064da33712e63d7cf2d6b8915a6d07f8b63
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/content-address/BUCK.genie.ts, packages/@overeng/content-address/package.json.genie.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/demo/**/*.nmd, packages/@overeng/notion-md/package.json.genie.ts, packages/@overeng/notion-md/src/**/*.cts, packages/@overeng/notion-md/src/**/*.js, packages/@overeng/notion-md/src/**/*.mts, packages/@overeng/notion-md/src/**/*.ts, packages/@overeng/notion-md/src/**/*.tsx, packages/@overeng/notion-md/tsconfig.json.genie.ts, packages/@overeng/notion-property-write/BUCK.genie.ts, packages/@overeng/notion-property-write/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:fcc9cca3cfbfd57dd3d1653c494f1462b777647faee50ccb429590a476ddc176
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/content-address/BUCK.genie.ts, packages/@overeng/content-address/package.json.genie.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/demo/**/*.nmd, packages/@overeng/notion-md/package.json.genie.ts, packages/@overeng/notion-md/src/**/*.cts, packages/@overeng/notion-md/src/**/*.js, packages/@overeng/notion-md/src/**/*.mts, packages/@overeng/notion-md/src/**/*.spec.cjs, packages/@overeng/notion-md/src/**/*.spec.jsx, packages/@overeng/notion-md/src/**/*.spec.mjs, packages/@overeng/notion-md/src/**/*.test.cjs, packages/@overeng/notion-md/src/**/*.test.jsx, packages/@overeng/notion-md/src/**/*.test.mjs, packages/@overeng/notion-md/src/**/*.ts, packages/@overeng/notion-md/src/**/*.tsx, packages/@overeng/notion-md/src/**/__snapshots__/*.snap, packages/@overeng/notion-md/tsconfig.json.genie.ts, packages/@overeng/notion-property-write/BUCK.genie.ts, packages/@overeng/notion-property-write/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
@@ -111,6 +111,90 @@ alias(
 
 package_view(
     name = "package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_notion_md_42a8cb2f2027",
+    files = {
+        "package.json": "package.json",
+        "src/adversarial-footgun.unit.test.ts": "src/adversarial-footgun.unit.test.ts",
+        "src/batch-common-ancestor.unit.test.ts": "src/batch-common-ancestor.unit.test.ts",
+        "src/batch.ts": "src/batch.ts",
+        "src/body-facade.ts": "src/body-facade.ts",
+        "src/body-facade.unit.test.ts": "src/body-facade.unit.test.ts",
+        "src/canonical-markdown.test.ts": "src/canonical-markdown.test.ts",
+        "src/canonical-markdown.ts": "src/canonical-markdown.ts",
+        "src/canonicalizer.ts": "src/canonicalizer.ts",
+        "src/canonicalizer.unit.test.ts": "src/canonicalizer.unit.test.ts",
+        "src/cli-program.ts": "src/cli-program.ts",
+        "src/cli.e2e.test.ts": "src/cli.e2e.test.ts",
+        "src/cli.ts": "src/cli.ts",
+        "src/comment-boundary.ts": "src/comment-boundary.ts",
+        "src/comment-boundary.unit.test.ts": "src/comment-boundary.unit.test.ts",
+        "src/corpus-live.integration.test.ts": "src/corpus-live.integration.test.ts",
+        "src/corpus.ts": "src/corpus.ts",
+        "src/corpus.unit.test.ts": "src/corpus.unit.test.ts",
+        "src/corpus/fidelity-corpus.ts": "src/corpus/fidelity-corpus.ts",
+        "src/cross-refs.ts": "src/cross-refs.ts",
+        "src/editor-commands.ts": "src/editor-commands.ts",
+        "src/editor-commands.unit.test.ts": "src/editor-commands.unit.test.ts",
+        "src/editor-edit.e2e.test.ts": "src/editor-edit.e2e.test.ts",
+        "src/editor-observability.unit.test.ts": "src/editor-observability.unit.test.ts",
+        "src/editor-surface.ts": "src/editor-surface.ts",
+        "src/editor-surface.unit.test.ts": "src/editor-surface.unit.test.ts",
+        "src/editor-test-harness.ts": "src/editor-test-harness.ts",
+        "src/errors.ts": "src/errors.ts",
+        "src/exit-codes.ts": "src/exit-codes.ts",
+        "src/frontmatter.test.ts": "src/frontmatter.test.ts",
+        "src/frontmatter.ts": "src/frontmatter.ts",
+        "src/gateway-token-fingerprint.unit.test.ts": "src/gateway-token-fingerprint.unit.test.ts",
+        "src/hash.ts": "src/hash.ts",
+        "src/hash.unit.test.ts": "src/hash.unit.test.ts",
+        "src/live.integration.test.ts": "src/live.integration.test.ts",
+        "src/live.ts": "src/live.ts",
+        "src/live.unit.test.ts": "src/live.unit.test.ts",
+        "src/media-boundary.ts": "src/media-boundary.ts",
+        "src/media-boundary.unit.test.ts": "src/media-boundary.unit.test.ts",
+        "src/merge.test.ts": "src/merge.test.ts",
+        "src/merge.ts": "src/merge.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/model.ts": "src/model.ts",
+        "src/non-body-guards.ts": "src/non-body-guards.ts",
+        "src/notion-md.contract.ts": "src/notion-md.contract.ts",
+        "src/observability.ts": "src/observability.ts",
+        "src/path.ts": "src/path.ts",
+        "src/progress.ts": "src/progress.ts",
+        "src/progress.unit.test.ts": "src/progress.unit.test.ts",
+        "src/property-proof.ts": "src/property-proof.ts",
+        "src/property-proof.unit.test.ts": "src/property-proof.unit.test.ts",
+        "src/reconcile-core.ts": "src/reconcile-core.ts",
+        "src/reconcile-core.unit.test.ts": "src/reconcile-core.unit.test.ts",
+        "src/reconcile-live.integration.test.ts": "src/reconcile-live.integration.test.ts",
+        "src/reconcile-shared.ts": "src/reconcile-shared.ts",
+        "src/reconcile.e2e.test.ts": "src/reconcile.e2e.test.ts",
+        "src/reconcile.ts": "src/reconcile.ts",
+        "src/schema-snapshot.ts": "src/schema-snapshot.ts",
+        "src/schema-snapshot.unit.test.ts": "src/schema-snapshot.unit.test.ts",
+        "src/state-store.test.ts": "src/state-store.test.ts",
+        "src/state-store.ts": "src/state-store.ts",
+        "src/storage-policy.test.ts": "src/storage-policy.test.ts",
+        "src/storage-policy.ts": "src/storage-policy.ts",
+        "src/stories/CliOutput.stories.tsx": "src/stories/CliOutput.stories.tsx",
+        "src/stories/_fixtures.ts": "src/stories/_fixtures.ts",
+        "src/sync.e2e.test.ts": "src/sync.e2e.test.ts",
+        "src/sync.ts": "src/sync.ts",
+        "src/tree-index.ts": "src/tree-index.ts",
+        "src/tree.ts": "src/tree.ts",
+        "src/tree.unit.test.ts": "src/tree.unit.test.ts",
+        "src/version.ts": "src/version.ts",
+        "src/webhook.ts": "src/webhook.ts",
+        "src/webhook.unit.test.ts": "src/webhook.unit.test.ts",
+        "tsconfig.json": "tsconfig.json",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "test_package_tree",
     dependency_view = "//buck2/dependencies:view_packages_overeng_notion_md_42a8cb2f2027",
     files = {
         "demo/showcase.nmd": "demo/showcase.nmd",
@@ -219,7 +303,7 @@ tsgo_emit(
 
 vitest_test(
     name = "test",
-    package_tree = ":package_tree",
+    package_tree = ":test_package_tree",
     excludes = [
         "src/cli.e2e.test.ts",
         "src/editor-edit.e2e.test.ts",

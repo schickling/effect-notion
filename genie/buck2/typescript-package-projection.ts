@@ -22,6 +22,54 @@ const sourceExtensionSet: Readonly<Record<string, true>> = {
   '.ts': true,
   '.tsx': true,
 }
+
+/**
+ * Extensions the JavaScript runners collect test modules from. Vitest and Bun both select
+ * `*.{test,spec}.?(c|m)[jt]s?(x)` by default, so a declared lane can collect modules the
+ * TypeScript census never admits — `.jsx` above all. The projection derives those from the
+ * same lane declaration instead of asking each package to re-list its own test files.
+ */
+const collectableTestExtensions = [
+  '.cjs',
+  '.cts',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.mts',
+  '.ts',
+  '.tsx',
+] as const
+const collectableTestExtensionSet: Readonly<Record<string, true>> = Object.fromEntries(
+  collectableTestExtensions.map((extension) => [extension, true as const]),
+)
+/** Collectable test extensions the TypeScript source census does not already admit. */
+const nonSourceCollectableTestExtensions = collectableTestExtensions.filter(
+  (extension) => sourceExtensionSet[extension] !== true,
+)
+const collectableTestStemPattern = /\.(?:spec|test)$/
+const snapshotDirectoryName = '__snapshots__'
+const snapshotExtension = '.snap'
+
+/** True for a package-relative file a declared lane can collect as a test module. */
+const isCollectableTestModule = (relativePath: string): boolean => {
+  const extension = path.posix.extname(relativePath)
+  return (
+    collectableTestExtensionSet[extension] === true &&
+    collectableTestStemPattern.test(path.posix.basename(relativePath, extension))
+  )
+}
+
+/**
+ * Snapshot baseline Vitest resolves for one test module. The runner pins `CI=true`, so a
+ * missing baseline is a failing lane rather than a file the run writes for itself.
+ */
+const snapshotBaselineFor = (testModule: string): string =>
+  path.posix.join(
+    path.posix.dirname(testModule),
+    snapshotDirectoryName,
+    `${path.posix.basename(testModule)}${snapshotExtension}`,
+  )
+
 const commonSemanticInputs = [
   'buck2/dependencies/BUCK.genie.ts',
   'buck2/dependencies/pnpm-lock.sha256.json.genie.ts',
@@ -49,16 +97,18 @@ const safeSourceSegment = (segment: string): boolean =>
 
 const discoverPackageFiles = ({
   packagePath,
+  repoRoot = process.cwd(),
   sourceRoots,
-  extensionSet,
+  admit,
   emptyCensusMessage,
 }: {
   packagePath: string
+  repoRoot?: string
   sourceRoots: readonly string[]
-  extensionSet: Readonly<Record<string, true>>
-  emptyCensusMessage: string
+  admit: (relativePath: string) => boolean
+  emptyCensusMessage?: string | undefined
 }): readonly string[] => {
-  const absoluteRoot = path.join(process.cwd(), packagePath)
+  const absoluteRoot = path.join(repoRoot, packagePath)
   const sources: string[] = []
 
   const walk = (relativeDirectory: string): void => {
@@ -75,7 +125,7 @@ const discoverPackageFiles = ({
       }
       if (entry.isDirectory() === true) {
         walk(relativePath)
-      } else if (entry.isFile() === true && extensionSet[path.extname(entry.name)] === true) {
+      } else if (entry.isFile() === true && admit(relativePath) === true) {
         sources.push(relativePath)
       }
     }
@@ -87,23 +137,57 @@ const discoverPackageFiles = ({
     }
     walk(sourceRoot)
   }
-  if (sources.length === 0) throw new Error(emptyCensusMessage)
+  if (sources.length === 0 && emptyCensusMessage !== undefined) {
+    throw new Error(emptyCensusMessage)
+  }
   return sources.toSorted((left, right) => compareStrings({ left, right }))
 }
 
+const admitSourceExtension = (relativePath: string): boolean =>
+  sourceExtensionSet[path.posix.extname(relativePath)] === true
+
 const discoverPackageSources = ({
   packagePath,
+  repoRoot,
   sourceRoots,
 }: {
   packagePath: string
+  repoRoot?: string
   sourceRoots: readonly string[]
 }): readonly string[] =>
   discoverPackageFiles({
     packagePath,
+    ...(repoRoot === undefined ? {} : { repoRoot }),
     sourceRoots,
-    extensionSet: sourceExtensionSet,
+    admit: admitSourceExtension,
     emptyCensusMessage: 'Package source census found no TypeScript inputs',
   })
+
+/** The one rule for which declarations are published verbatim instead of compiled. */
+const isHandwrittenDeclaration = (relativePath: string): boolean => relativePath.endsWith('.d.ts')
+
+/**
+ * Handwritten declarations a package publishes verbatim into its `dist`.
+ *
+ * The emit action copies these instead of compiling them, so the detached
+ * materializer has to stage the identical set before it compares a published
+ * `dist`. Both the projection and that materializer derive the set here;
+ * restating the rule is how every copied declaration used to read as staleness.
+ */
+export const buck2TypeScriptDeclarationSources = ({
+  packagePath,
+  repoRoot,
+  sourceRoots,
+}: {
+  readonly packagePath: string
+  readonly repoRoot?: string
+  readonly sourceRoots: readonly string[]
+}): readonly string[] =>
+  discoverPackageSources({
+    packagePath,
+    ...(repoRoot === undefined ? {} : { repoRoot }),
+    sourceRoots,
+  }).filter(isHandwrittenDeclaration)
 
 const starlarkString = (value: string): string => JSON.stringify(value)
 
@@ -484,7 +568,7 @@ const projectTestTarget = ({
     lines: [
       `${rule}(`,
       `    name = ${starlarkString(target.name)},`,
-      '    package_tree = ":package_tree",',
+      '    package_tree = ":test_package_tree",',
       ...optionalAttributes
         .toSorted(([left], [right]) => compareStrings({ left, right }))
         .flatMap(([, lines]) => lines ?? []),
@@ -551,8 +635,24 @@ export const buck2TypeScriptPackageProjection = ({
   if (safeSourceSegment(projectFile) === false) {
     throw new Error(`Unsafe package project file: ${projectFile}`)
   }
-  const packageSources = discoverPackageSources({ packagePath, sourceRoots })
-  const declarationSources = packageSources.filter((source) => source.endsWith('.d.ts'))
+  // One walk, two trees: the compile tree takes the TypeScript sources that emit,
+  // typecheck and materialization own, while the test tree also takes the modules the
+  // runners collect (`.jsx` specs) and the snapshot baselines those modules read back.
+  const censusFiles = discoverPackageFiles({
+    packagePath,
+    sourceRoots,
+    admit: (relativePath) =>
+      admitSourceExtension(relativePath) === true || isCollectableTestModule(relativePath) === true,
+  })
+  const packageSources = censusFiles.filter(admitSourceExtension)
+  if (packageSources.length === 0) {
+    throw new Error('Package source census found no TypeScript inputs')
+  }
+  const collectableTestModules = censusFiles.filter(isCollectableTestModule)
+  const snapshotBaselines = collectableTestModules
+    .map(snapshotBaselineFor)
+    .filter((baseline) => existsSync(path.join(process.cwd(), packagePath, baseline)))
+  const declarationSources = packageSources.filter(isHandwrittenDeclaration)
   const buckPackagePaths = new Set(
     [packagePath, ...workspaceSiblings.map((sibling) => sibling.packagePath)].filter((candidate) =>
       existsSync(path.join(process.cwd(), candidate, 'BUCK.genie.ts')),
@@ -590,9 +690,9 @@ export const buck2TypeScriptPackageProjection = ({
       throw new Error(`Duplicate test target names for ${packageName}: ${names.join(', ')}`)
     }
   }
-  // Every lane runs inside the package tree, so the config it loads and the files that config
-  // loads have to be staged: they live beside `package.json`, outside every source root.
-  const testFileEntries = [
+  // Every lane runs inside the test package tree, so the config it loads and the files that
+  // config loads have to be staged: they live beside `package.json`, outside every source root.
+  const testConfigEntries = [
     ...new Set(
       (tests ?? []).flatMap((target) => [
         ...(target.runner === 'vitest' ? [target.config ?? defaultVitestConfig] : []),
@@ -611,25 +711,46 @@ export const buck2TypeScriptPackageProjection = ({
     if (dataRoot.extensions.length === 0) {
       throw new Error(`Test data root ${dataRoot.root} declares no extensions`)
     }
+    const dataExtensionSet: Readonly<Record<string, true>> = Object.fromEntries(
+      dataRoot.extensions.map((extension) => [extension, true as const]),
+    )
     return discoverPackageFiles({
       packagePath,
       sourceRoots: [dataRoot.root],
-      extensionSet: Object.fromEntries(
-        dataRoot.extensions.map((extension) => [extension, true as const]),
-      ),
+      admit: (relativePath) => dataExtensionSet[path.posix.extname(relativePath)] === true,
       emptyCensusMessage: `Test data census found no ${dataRoot.extensions.join(', ')} inputs under ${packagePath}/${dataRoot.root}`,
     })
   })
   const projectFileEntries: readonly (readonly [string, string])[] =
     projectFile === 'tsconfig.json' ? [] : [[projectFile, projectFile]]
+  const identityEntries = (files: readonly string[]): readonly (readonly [string, string])[] =>
+    files.map((file) => [file, file] as const)
+  // The compile tree: typecheck, emit and the editor read it, so it carries the TypeScript
+  // census and nothing a runner alone collects. A `.jsx` spec, a snapshot baseline, a Vitest
+  // config or a committed fixture in here would widen every compile action's identity for
+  // inputs no compiler ever opens.
   const packageFileEntries = [
-    ...packageSources.map((source): readonly [string, string] => [source, source]),
+    ...identityEntries(packageSources),
     ['package.json', 'package.json'] as const,
     ['tsconfig.json', 'tsconfig.json'] as const,
     ...projectFileEntries,
-    ...testFileEntries,
-    ...testDataFiles.map((file): readonly [string, string] => [file, file]),
   ].toSorted(([left], [right]) => compareStrings({ left, right }))
+  // The test tree: the compile tree plus everything only a runner reads — the collectable
+  // modules the TypeScript census rejects, the baselines those modules compare against under
+  // `CI=true`, the declared config with its own inputs, and the committed fixture data. The
+  // deduplicating map is load-bearing: a `.test.ts` module is both a source and collectable.
+  const testPackageFileEntries: readonly (readonly [string, string])[] =
+    testTargets.length === 0
+      ? []
+      : [
+          ...new Map<string, string>([
+            ...packageFileEntries,
+            ...identityEntries(collectableTestModules),
+            ...identityEntries(snapshotBaselines),
+            ...testConfigEntries,
+            ...identityEntries(testDataFiles),
+          ]),
+        ].toSorted(([left], [right]) => compareStrings({ left, right }))
   const workspaceSiblingProjections = workspaceSiblings.map((sibling) => {
     const hasDist = sibling.distTarget !== undefined
     const hasSources = sibling.sourceRoots !== undefined
@@ -669,6 +790,15 @@ export const buck2TypeScriptPackageProjection = ({
     ...sourceRoots.flatMap((sourceRoot) =>
       sourceExtensions.map((extension) => `${packagePath}/${sourceRoot}/**/*${extension}`),
     ),
+    // The same source roots also carry the collectable modules and snapshot baselines the
+    // package tree stages, so their globs belong in the projection's input set.
+    ...sourceRoots.flatMap((sourceRoot) => [
+      `${packagePath}/${sourceRoot}/**/${snapshotDirectoryName}/*${snapshotExtension}`,
+      ...nonSourceCollectableTestExtensions.flatMap((extension) => [
+        `${packagePath}/${sourceRoot}/**/*.spec${extension}`,
+        `${packagePath}/${sourceRoot}/**/*.test${extension}`,
+      ]),
+    ]),
     ...testDataRoots.flatMap((dataRoot) =>
       dataRoot.extensions.map(
         (extension) => `${packagePath}/${dataRoot.root}/**/*${extension}`,
@@ -693,6 +823,8 @@ export const buck2TypeScriptPackageProjection = ({
     packageName,
     packagePath,
     packageSources,
+    collectableTestModules,
+    snapshotBaselines,
     declarationSources,
     packageTreeRuntime: packageTreeRuntime.label,
     packageTreeRuntimeEntry: runtimeEntry,
@@ -700,20 +832,21 @@ export const buck2TypeScriptPackageProjection = ({
     sourceRoots,
     testDataFiles,
     testDataRoots,
+    testPackageFiles: testPackageFileEntries.map(([destination]) => destination),
     testTargets: testTargets.map((target) => target.semanticData),
     visibility,
     workspaceSiblingProjections,
   }
   const fingerprint = buck2SemanticFingerprint({
     generator: 'effect-utils/genie/buck2-typescript-package-projection',
-    schemaVersion: 4,
+    schemaVersion: 6,
     semanticData: data,
   })
 
   const stringify = (): string => {
     const lines = [
       `# Projection source: ${projectionSource}`,
-      '# Projection schema version: 4',
+      '# Projection schema version: 6',
       '# Projection generator: effect-utils/genie/buck2-typescript-package-projection',
       `# Semantic fingerprint: ${fingerprint}`,
       `# Semantic inputs: ${semanticInputs.join(', ')}`,
@@ -762,6 +895,19 @@ export const buck2TypeScriptPackageProjection = ({
       renderBuck2Visibility({ visibility }),
       ')',
       '',
+      ...(testPackageFileEntries.length === 0
+        ? []
+        : [
+            'package_view(',
+            '    name = "test_package_tree",',
+            `    dependency_view = ${starlarkString(dependencyView)},`,
+            ...renderMap({ name: 'files', entries: testPackageFileEntries }),
+            `    runtime = ${starlarkString(packageTreeRuntime.label)},`,
+            `    runtime_entry = ${starlarkString(runtimeEntry)},`,
+            renderBuck2Visibility({ visibility }),
+            ')',
+            '',
+          ]),
       'editor_view_inputs(',
       '    name = "editor_view_inputs",',
       '    editor_inputs = ":editor_inputs",',

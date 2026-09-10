@@ -5,10 +5,10 @@ load("//buck2:package_tools.bzl", "package_bin_artifact")
 load("//buck2/products:defs.bzl", "javascript_product")
 
 # Projection source: packages/@overeng/notion-cli/BUCK.genie.ts
-# Projection schema version: 4
+# Projection schema version: 6
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:95dcb154422e0201fc5093afe6e0b3ccb22b70e2797206a5e00fade1133ad312
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-path/BUCK.genie.ts, packages/@overeng/effect-path/package.json.genie.ts, packages/@overeng/notion-cli/BUCK.genie.ts, packages/@overeng/notion-cli/BUCK.genie.ts, packages/@overeng/notion-cli/package.json.genie.ts, packages/@overeng/notion-cli/src/**/*.cts, packages/@overeng/notion-cli/src/**/*.js, packages/@overeng/notion-cli/src/**/*.mts, packages/@overeng/notion-cli/src/**/*.ts, packages/@overeng/notion-cli/src/**/*.tsx, packages/@overeng/notion-cli/tsconfig.json.genie.ts, packages/@overeng/notion-datasource-sync/BUCK.genie.ts, packages/@overeng/notion-datasource-sync/package.json.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-core/BUCK.genie.ts, packages/@overeng/tui-core/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:593d8608475b0e6a8f8cd1c337a29f401c0c7c89010dc96addc8856183658eb0
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-path/BUCK.genie.ts, packages/@overeng/effect-path/package.json.genie.ts, packages/@overeng/notion-cli/BUCK.genie.ts, packages/@overeng/notion-cli/BUCK.genie.ts, packages/@overeng/notion-cli/package.json.genie.ts, packages/@overeng/notion-cli/src/**/*.cts, packages/@overeng/notion-cli/src/**/*.js, packages/@overeng/notion-cli/src/**/*.mts, packages/@overeng/notion-cli/src/**/*.spec.cjs, packages/@overeng/notion-cli/src/**/*.spec.jsx, packages/@overeng/notion-cli/src/**/*.spec.mjs, packages/@overeng/notion-cli/src/**/*.test.cjs, packages/@overeng/notion-cli/src/**/*.test.jsx, packages/@overeng/notion-cli/src/**/*.test.mjs, packages/@overeng/notion-cli/src/**/*.ts, packages/@overeng/notion-cli/src/**/*.tsx, packages/@overeng/notion-cli/src/**/__snapshots__/*.snap, packages/@overeng/notion-cli/tsconfig.json.genie.ts, packages/@overeng/notion-datasource-sync/BUCK.genie.ts, packages/@overeng/notion-datasource-sync/package.json.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-core/BUCK.genie.ts, packages/@overeng/tui-core/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
@@ -141,6 +141,68 @@ package_view(
         "src/renderers/shared/PropertyList.tsx": "src/renderers/shared/PropertyList.tsx",
         "src/renderers/shared/mod.ts": "src/renderers/shared/mod.ts",
         "tsconfig.json": "tsconfig.json",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "test_package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_notion_cli_b91b1e6ae4c6",
+    files = {
+        "package.json": "package.json",
+        "src/__snapshots__/cli.contract.test.ts.snap": "src/__snapshots__/cli.contract.test.ts.snap",
+        "src/cli-command.unit.test.ts": "src/cli-command.unit.test.ts",
+        "src/cli.contract.test.ts": "src/cli.contract.test.ts",
+        "src/cli.ts": "src/cli.ts",
+        "src/codegen.ts": "src/codegen.ts",
+        "src/codegen.unit.test.ts": "src/codegen.unit.test.ts",
+        "src/commands/db/mod.ts": "src/commands/db/mod.ts",
+        "src/commands/schema/mod.ts": "src/commands/schema/mod.ts",
+        "src/commands/schema/mod.unit.test.ts": "src/commands/schema/mod.unit.test.ts",
+        "src/commands/shared.ts": "src/commands/shared.ts",
+        "src/concurrent-import.fixture.ts": "src/concurrent-import.fixture.ts",
+        "src/concurrent-import.unit.test.ts": "src/concurrent-import.unit.test.ts",
+        "src/config-def.ts": "src/config-def.ts",
+        "src/config.ts": "src/config.ts",
+        "src/diff.ts": "src/diff.ts",
+        "src/diff.unit.test.ts": "src/diff.unit.test.ts",
+        "src/exit-codes.unit.test.ts": "src/exit-codes.unit.test.ts",
+        "src/integration.integration.test.ts": "src/integration.integration.test.ts",
+        "src/introspect.ts": "src/introspect.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/output.ts": "src/output.ts",
+        "src/output.unit.test.ts": "src/output.unit.test.ts",
+        "src/renderers/DiffOutput.stories.tsx": "src/renderers/DiffOutput.stories.tsx",
+        "src/renderers/DiffOutput/app.ts": "src/renderers/DiffOutput/app.ts",
+        "src/renderers/DiffOutput/mod.ts": "src/renderers/DiffOutput/mod.ts",
+        "src/renderers/DiffOutput/schema.ts": "src/renderers/DiffOutput/schema.ts",
+        "src/renderers/DiffOutput/view.tsx": "src/renderers/DiffOutput/view.tsx",
+        "src/renderers/GenerateConfigOutput.stories.tsx": "src/renderers/GenerateConfigOutput.stories.tsx",
+        "src/renderers/GenerateConfigOutput/app.ts": "src/renderers/GenerateConfigOutput/app.ts",
+        "src/renderers/GenerateConfigOutput/mod.ts": "src/renderers/GenerateConfigOutput/mod.ts",
+        "src/renderers/GenerateConfigOutput/schema.ts": "src/renderers/GenerateConfigOutput/schema.ts",
+        "src/renderers/GenerateConfigOutput/view.tsx": "src/renderers/GenerateConfigOutput/view.tsx",
+        "src/renderers/GenerateOutput.stories.tsx": "src/renderers/GenerateOutput.stories.tsx",
+        "src/renderers/GenerateOutput/app.ts": "src/renderers/GenerateOutput/app.ts",
+        "src/renderers/GenerateOutput/mod.ts": "src/renderers/GenerateOutput/mod.ts",
+        "src/renderers/GenerateOutput/schema.ts": "src/renderers/GenerateOutput/schema.ts",
+        "src/renderers/GenerateOutput/view.tsx": "src/renderers/GenerateOutput/view.tsx",
+        "src/renderers/InfoOutput.stories.tsx": "src/renderers/InfoOutput.stories.tsx",
+        "src/renderers/InfoOutput/app.ts": "src/renderers/InfoOutput/app.ts",
+        "src/renderers/InfoOutput/mod.ts": "src/renderers/InfoOutput/mod.ts",
+        "src/renderers/InfoOutput/schema.ts": "src/renderers/InfoOutput/schema.ts",
+        "src/renderers/InfoOutput/view.tsx": "src/renderers/InfoOutput/view.tsx",
+        "src/renderers/IntrospectOutput.stories.tsx": "src/renderers/IntrospectOutput.stories.tsx",
+        "src/renderers/IntrospectOutput/app.ts": "src/renderers/IntrospectOutput/app.ts",
+        "src/renderers/IntrospectOutput/mod.ts": "src/renderers/IntrospectOutput/mod.ts",
+        "src/renderers/IntrospectOutput/schema.ts": "src/renderers/IntrospectOutput/schema.ts",
+        "src/renderers/IntrospectOutput/view.tsx": "src/renderers/IntrospectOutput/view.tsx",
+        "src/renderers/shared/DatabaseHeader.tsx": "src/renderers/shared/DatabaseHeader.tsx",
+        "src/renderers/shared/PropertyList.tsx": "src/renderers/shared/PropertyList.tsx",
+        "src/renderers/shared/mod.ts": "src/renderers/shared/mod.ts",
+        "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
     runtime = "//:package_tree_runtime",
@@ -172,7 +234,7 @@ tsgo_emit(
 
 vitest_test(
     name = "test",
-    package_tree = ":package_tree",
+    package_tree = ":test_package_tree",
     tools = {
         "BUN_BIN": "//buck2/toolchains:tool_bun",
     },

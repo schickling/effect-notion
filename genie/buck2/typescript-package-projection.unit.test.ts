@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import path from 'node:path'
 import process from 'node:process'
 
 import { describe, expect, it } from 'vitest'
@@ -91,6 +92,73 @@ const admittedPackages = Object.entries(buck2TypeScriptAdmissions).map(([key, ad
   dependencyView: admission.dependencyImporter.replace(':importer_', ':view_'),
   packagePath: admission.packagePath,
 }))
+
+// Deliberately re-derived from the working tree with the runners' own default selection
+// (`*.{test,spec}.?(c|m)[jt]s?(x)`) instead of any projection helper: the point is to fail
+// when the projection and the collectable set disagree, which a shared helper would hide.
+const collectableTestSelection = /\.(?:spec|test)\.[cm]?[jt]sx?$/
+
+const collectableTestModulesOf = ({
+  packagePath,
+  sourceRoots,
+}: {
+  readonly packagePath: string
+  readonly sourceRoots: readonly string[]
+}): readonly string[] => {
+  const packageRoot = path.join(process.cwd(), packagePath)
+  return sourceRoots
+    .flatMap((sourceRoot) =>
+      readdirSync(path.join(packageRoot, sourceRoot), { recursive: true, withFileTypes: true })
+        .filter((entry) => entry.isFile() === true)
+        .map((entry) =>
+          path.relative(packageRoot, path.join(entry.parentPath, entry.name)),
+        ),
+    )
+    .filter((file) => collectableTestSelection.test(file) === true)
+    .toSorted()
+}
+
+const snapshotBaselineOf = (testModule: string): string =>
+  path.posix.join(
+    path.posix.dirname(testModule),
+    '__snapshots__',
+    `${path.posix.basename(testModule)}.snap`,
+  )
+
+/** Extensions the TypeScript source census admits; everything else is runner-only. */
+const typeScriptSourceSelection = /\.(?:cts|js|mts|ts|tsx)$/
+
+/**
+ * Destinations one rendered `package_view` stages. Parsed out of the emitted Starlark rather
+ * than read off the projection's semantic data: the file a lane actually runs in is the one
+ * Buck reads, so the assertions have to be made against that text.
+ */
+const stagedFilesOf = ({
+  output,
+  tree,
+}: {
+  readonly output: string
+  readonly tree: string
+}): readonly string[] => {
+  const target = output.split(`package_view(\n    name = "${tree}",\n`)[1]
+  if (target === undefined) return []
+  const files = target.split('    files = {\n')[1]?.split('\n    },')[0]
+  if (files === undefined) throw new Error(`package_view ${tree} renders no files map`)
+  return [...files.matchAll(/^ {8}"([^"]+)": /gmu)].map(([, destination]) => destination ?? '')
+}
+
+const admittedTestLanes = Object.entries(buck2TypeScriptAdmissions).flatMap(
+  ([key, admission]) =>
+    admission.tests === undefined
+      ? []
+      : [
+          {
+            output: outputsByAdmission[key as keyof typeof outputsByAdmission],
+            packagePath: admission.packagePath,
+            sourceRoots: admission.sourceRoots,
+          },
+        ],
+)
 
 const editorViewTarget = `editor_view_inputs(
     name = "editor_view_inputs",
@@ -227,7 +295,7 @@ describe('declared test lanes', () => {
     sourceRoots: buck2TypeScriptAdmissions.kdl.sourceRoots,
   }
 
-  it('emits no test target and no test rule load for a package without lanes', () => {
+  it('emits no test target, test rule load or test tree for a package without lanes', () => {
     const output = buck2TypeScriptPackageProjection(kdlAdmissionWithoutTests).stringify(
       genieContext,
     )
@@ -235,33 +303,47 @@ describe('declared test lanes', () => {
     expect(output).not.toContain('load("//buck2:javascript.bzl"')
     expect(output).not.toContain('vitest_test(')
     expect(output).not.toContain('    name = "test",')
+    expect(output).not.toContain('test_package_tree')
+    expect(stagedFilesOf({ output, tree: 'test_package_tree' })).toEqual([])
   })
 
-  it('emits the default lane and stages the config it loads into the package tree', () => {
+  it('emits the default lane against the test tree that carries the config it loads', () => {
     expect(outputsByAdmission.kdl).toContain('load("//buck2:javascript.bzl", "vitest_test")')
     expect(outputsByAdmission.kdl).toContain(
-      ['vitest_test(', '    name = "test",', '    package_tree = ":package_tree",'].join('\n'),
+      ['vitest_test(', '    name = "test",', '    package_tree = ":test_package_tree",'].join('\n'),
     )
-    expect(outputsByAdmission.kdl).toContain(
-      '        "vitest.config.ts": "vitest.config.ts",',
+    expect(stagedFilesOf({ output: outputsByAdmission.kdl, tree: 'test_package_tree' })).toContain(
+      'vitest.config.ts',
     )
+    // The compile tree is what typecheck, emit and the editor read; a runner-only config in
+    // there would rebuild every compile action for a file no compiler opens.
+    expect(
+      stagedFilesOf({ output: outputsByAdmission.kdl, tree: 'package_tree' }),
+    ).not.toContain('vitest.config.ts')
     // The default config and timeouts are the rule's own defaults and stay unstated.
     expect(outputsByAdmission.kdl).not.toContain('    config = "vitest.config.ts",')
     expect(outputsByAdmission.kdl).not.toContain('    timeout_ms =')
   })
 
-  it('stages the package-root files the declared config loads', () => {
-    expect(outputsByAdmission.reactInspector).toContain(
-      '        "vitest.setup.ts": "vitest.setup.ts",',
-    )
+  it('stages the package-root files the declared config loads into the test tree only', () => {
+    expect(
+      stagedFilesOf({ output: outputsByAdmission.reactInspector, tree: 'test_package_tree' }),
+    ).toContain('vitest.setup.ts')
+    expect(
+      stagedFilesOf({ output: outputsByAdmission.reactInspector, tree: 'package_tree' }),
+    ).not.toContain('vitest.setup.ts')
   })
 
   it('stages the declared non-TypeScript test data the census cannot see', () => {
-    expect(outputsByAdmission.kdl).toContain(
-      '        "test-fixtures/expected_kdl/all_escapes.kdl": "test-fixtures/expected_kdl/all_escapes.kdl",',
+    expect(stagedFilesOf({ output: outputsByAdmission.kdl, tree: 'test_package_tree' })).toContain(
+      'test-fixtures/expected_kdl/all_escapes.kdl',
     )
-    expect(outputsByAdmission.notionMd).toContain(
-      '        "demo/showcase.nmd": "demo/showcase.nmd",',
+    expect(
+      stagedFilesOf({ output: outputsByAdmission.notionMd, tree: 'test_package_tree' }),
+    ).toContain('demo/showcase.nmd')
+    // Fixture data is runner-only input; the compile tree never carries it.
+    expect(stagedFilesOf({ output: outputsByAdmission.kdl, tree: 'package_tree' })).not.toContain(
+      'test-fixtures/expected_kdl/all_escapes.kdl',
     )
 
     expect(() =>
@@ -270,6 +352,110 @@ describe('declared test lanes', () => {
         testDataRoots: [{ root: 'test-fixtures', extensions: ['.nmd'] }],
       }).stringify(genieContext),
     ).toThrow('Test data census found no .nmd inputs')
+  })
+
+  it('stages every collectable test module of every admitted lane in its test tree', () => {
+    expect(admittedTestLanes.length).toBeGreaterThan(1)
+
+    for (const lane of admittedTestLanes) {
+      const modules = collectableTestModulesOf(lane)
+      expect(
+        modules.length,
+        `//${lane.packagePath} declares a test lane but no source root holds a collectable module`,
+      ).toBeGreaterThan(0)
+      const testTree = stagedFilesOf({ output: lane.output, tree: 'test_package_tree' })
+      const compileTree = stagedFilesOf({ output: lane.output, tree: 'package_tree' })
+      for (const testModule of modules) {
+        expect(
+          testTree,
+          `//${lane.packagePath}:test cannot collect ${testModule}: the test package tree omits it`,
+        ).toContain(testModule)
+        // A module the TypeScript census rejects is runner-only and stays out of compile.
+        if (typeScriptSourceSelection.test(testModule) === false) {
+          expect(
+            compileTree,
+            `//${lane.packagePath} compile tree carries the runner-only module ${testModule}`,
+          ).not.toContain(testModule)
+        }
+      }
+    }
+  })
+
+  it('stages the snapshot baseline of every staged test module in its test tree', () => {
+    const stagedBaselines = admittedTestLanes.flatMap((lane) => {
+      const testTree = stagedFilesOf({ output: lane.output, tree: 'test_package_tree' })
+      const compileTree = stagedFilesOf({ output: lane.output, tree: 'package_tree' })
+      return collectableTestModulesOf(lane)
+        .map(snapshotBaselineOf)
+        .filter((baseline) =>
+          existsSync(path.join(process.cwd(), lane.packagePath, baseline)),
+        )
+        .map((baseline) => {
+          expect(
+            testTree,
+            `//${lane.packagePath}:test runs under CI=true and cannot write ${baseline}: the test package tree omits it`,
+          ).toContain(baseline)
+          expect(
+            compileTree,
+            `//${lane.packagePath} compile tree carries the baseline ${baseline}`,
+          ).not.toContain(baseline)
+          return `${lane.packagePath}/${baseline}`
+        })
+    })
+
+    // The registry-wide sweep only proves an inclusion; these name the baselines the two
+    // reported lanes lost, so a narrowing of the census cannot pass unnoticed.
+    expect(stagedBaselines).toContain(
+      'packages/@overeng/ci-tools/src/__snapshots__/cli.contract.test.ts.snap',
+    )
+    expect(stagedBaselines).toContain(
+      'packages/@overeng/react-inspector/src/object/__snapshots__/ObjectName.spec.jsx.snap',
+    )
+  })
+
+  it('splits the React Inspector JSX specs and live baselines out of its compile tree', () => {
+    const testTree = stagedFilesOf({
+      output: outputsByAdmission.reactInspector,
+      tree: 'test_package_tree',
+    })
+    const compileTree = stagedFilesOf({
+      output: outputsByAdmission.reactInspector,
+      tree: 'package_tree',
+    })
+    const jsxSpecs = [
+      'src/object-inspector/ObjectInspector.spec.jsx',
+      'src/object/ObjectName.spec.jsx',
+      'src/object/ObjectValue.spec.jsx',
+      'src/table-inspector/getHeaders.spec.jsx',
+      'src/tree-view/pathUtils.spec.jsx',
+    ]
+
+    expect(testTree.filter((file) => file.endsWith('.spec.jsx'))).toEqual(jsxSpecs)
+    for (const specModule of jsxSpecs) {
+      expect(compileTree).not.toContain(specModule)
+    }
+    // Exactly the baselines whose `.spec.jsx` module still exists; the three retired
+    // `.spec.js` baselines were collected by nothing and are deleted, not staged.
+    expect(testTree.filter((file) => file.endsWith('.snap'))).toEqual([
+      'src/object-inspector/__snapshots__/ObjectInspector.spec.jsx.snap',
+      'src/object/__snapshots__/ObjectName.spec.jsx.snap',
+      'src/object/__snapshots__/ObjectValue.spec.jsx.snap',
+    ])
+    expect(outputsByAdmission.reactInspector).not.toContain('.spec.js.snap')
+    for (const orphan of [
+      'src/object-inspector/__snapshots__/ObjectInspector.spec.js.snap',
+      'src/object/__snapshots__/ObjectName.spec.js.snap',
+      'src/object/__snapshots__/ObjectValue.spec.js.snap',
+    ]) {
+      expect(
+        existsSync(path.join(process.cwd(), 'packages/@overeng/react-inspector', orphan)),
+        `${orphan} has no collecting module and must not be committed`,
+      ).toBe(false)
+    }
+    // A `.jsx` spec is a test module, not a TypeScript source: it must not reach emit inputs.
+    expect(outputsByAdmission.reactInspector).not.toContain(
+      '    "src/object/ObjectName.spec.jsx",',
+    )
   })
 
   it('reads a task-supplied host path from a derived config key', () => {
@@ -339,7 +525,7 @@ describe('declared test lanes', () => {
       [
         'vitest_test(',
         '    name = "test_upstream",',
-        '    package_tree = ":package_tree",',
+        '    package_tree = ":test_package_tree",',
         '    test_files = [',
         '        "src/upstream.test.ts",',
         '    ],',
@@ -371,7 +557,7 @@ describe('declared test lanes', () => {
       tests: [{ name: 'test', runner: 'vitest', timeoutMs: 60_000 }],
     }).stringify(genieContext)
 
-    expect(outputsByAdmission.kdl).toContain('# Projection schema version: 4')
+    expect(outputsByAdmission.kdl).toContain('# Projection schema version: 6')
     expect(fingerprintOf(outputsByAdmission.kdl)).not.toBe(fingerprintOf(withoutTests))
     expect(fingerprintOf(outputsByAdmission.kdl)).not.toBe(fingerprintOf(withLongerTimeout))
   })
