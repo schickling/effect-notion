@@ -403,8 +403,8 @@ describe('normalized store projection of the real lockfile', () => {
     expect(projection.sccs.map((scc) => scc.members)).toEqual([
       ['@babel+core@7.29.7', '@babel+helper-module-transforms@7.29.7_@babel+core@7.29.7'],
       [
-        '@eslint-community+eslint-utils@4.10.1_eslint@10.5.0_jiti@2.7.0',
-        'eslint@10.5.0_jiti@2.7.0',
+        '@eslint-community+eslint-utils@4.10.1_eslint@10.10.0_jiti@2.7.0',
+        'eslint@10.10.0_jiti@2.7.0',
       ],
       [
         '@storybook+builder-vite@10.6.0_storybook@10.6.0_@types+react-dom@19.2.7_@types+react@19.2.18_@types+rea_27cb05be65527c5a',
@@ -486,8 +486,8 @@ describe('normalized store projection of the real lockfile', () => {
   })
 
   it('declares one entry per snapshot and one view per importer', () => {
-    expect(projection.entries).toHaveLength(666)
-    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(666)
+    expect(projection.entries).toHaveLength(673)
+    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(673)
     expect(projection.views).toHaveLength(Object.keys(metadata.importers).length)
     expect(computeStoreSccs({ metadata })).toEqual(projection.sccs.map((scc) => scc.members))
   })
