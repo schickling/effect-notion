@@ -1,4 +1,14 @@
 # Nix derivation that builds the standalone bootstrap-closure checker.
+#
+# It also OWNS the repository's npm TypeScript 7 pins: the `typescript` package and the matching
+# `@typescript/typescript-<platform>` optional package that carries the native compiler. TypeScript 7
+# versions the API client's JSON-RPC protocol together with that binary, so the API server must be the
+# executable published with the very same `typescript` release — the Effect-TS `tsgo` fork is a
+# different revision and answers `updateSnapshot` with zero projects (`no project found for file`).
+#
+# `passthru.typescriptApiServerBin` publishes that executable so other packages (notably the Genie CLI
+# wrapper in ./build.nix) reuse this one platform table and its hashes. Reading the passthru string
+# only pulls in the platform package, never a build of the checker itself.
 {
   pkgs,
   src,
@@ -11,6 +21,7 @@ let
   lib = pkgs.lib;
   srcPath = if builtins.isAttrs src && builtins.hasAttr "outPath" src then src.outPath else src;
 
+  # Managed together with `dependencies.typescript`: bumping the version means refreshing every hash.
   geniePackageJson = builtins.fromJSON (
     builtins.readFile (srcPath + "/packages/@overeng/genie/package.json")
   );
@@ -37,7 +48,8 @@ let
       };
     }
     .${pkgs.stdenv.hostPlatform.system}
-      or (throw "genie-bootstrap-closure-check does not support ${pkgs.stdenv.hostPlatform.system}");
+      or (throw "npm TypeScript ${typescriptVersion} is not pinned for ${pkgs.stdenv.hostPlatform.system}");
+
   unpackNpmPackage =
     {
       name,
@@ -54,6 +66,7 @@ let
         mkdir -p "$out"
         tar -xzf ${tarball} -C "$out" --strip-components=1
       '';
+
   typescriptNodeModule = unpackNpmPackage {
     name = "typescript-${typescriptVersion}-node-module";
     tarball = pkgs.fetchurl {
@@ -61,6 +74,7 @@ let
       hash = "sha256-2iUT9LlRdtbd6LUaq3r+ipJ2VsnSdzaXk/d/flk3HAg=";
     };
   };
+
   typescriptPlatformNodeModule = unpackNpmPackage {
     name = "${typescriptPlatformPackage.name}-${typescriptVersion}-node-module";
     tarball = pkgs.fetchurl {
@@ -68,6 +82,9 @@ let
       inherit (typescriptPlatformPackage) hash;
     };
   };
+
+  # The official native compiler/API server executable for the host platform.
+  typescriptApiServerBin = "${typescriptPlatformNodeModule}/lib/tsc";
 
   firstPartySources = [
     "packages/@overeng/genie/bin/bootstrap-closure-check.ts"
@@ -96,15 +113,38 @@ pkgs.stdenvNoCC.mkDerivation {
     ${lib.concatMapStringsSep "\n" (sourcePath: ''
       install -Dm0644 ${srcPath + "/${sourcePath}"} "$workspace/${sourcePath}"
     '') firstPartySources}
-    mkdir -p "$workspace/node_modules/@typescript"
     ln -s ${typescriptNodeModule} "$workspace/node_modules/typescript"
-    ln -s ${typescriptPlatformNodeModule} \
-      "$workspace/node_modules/@typescript/${typescriptPlatformPackage.name}"
 
+    # The API server is wired explicitly instead of being discovered by the `typescript` client:
+    # the client resolves `@typescript/${typescriptPlatformPackage.name}` next to its OWN realpath,
+    # which in the Nix store is an immutable directory we cannot place the platform package into.
     makeWrapper ${pkgs.bun}/bin/bun \
       "$out/bin/genie-bootstrap-closure-check" \
-      --add-flags "$workspace/packages/@overeng/genie/bin/bootstrap-closure-check.ts"
-    "$out/bin/genie-bootstrap-closure-check" --help >/dev/null
+      --add-flags "$workspace/packages/@overeng/genie/bin/bootstrap-closure-check.ts" \
+      --set GENIE_TYPESCRIPT_API_SERVER ${typescriptApiServerBin}
+
+    # Build smoke: analyze a real bootstrap `.genie.ts` closure rather than only printing `--help`.
+    # The negative fixture is the load-bearing half — an API server that cannot open projects reports
+    # zero violations, so requiring the transitive `effect` edge to be REPORTED (through a relative
+    # `./barrel.ts` hop the compiler must resolve) makes a broken session fail the build.
+    smokeRoot="$(mktemp -d)"
+    printf "export { Effect } from 'effect'\n" > "$smokeRoot/barrel.ts"
+    printf '// @genie-bootstrap\nexport { Effect } from "./barrel.ts"\n' \
+      > "$smokeRoot/reaching.genie.ts"
+    if (cd "$smokeRoot" && "$out/bin/genie-bootstrap-closure-check" --root "$smokeRoot" >"$smokeRoot/log" 2>&1); then
+      echo "bootstrap-closure smoke: expected the runtime-only 'effect' edge to be reported" >&2
+      cat "$smokeRoot/log" >&2
+      exit 1
+    fi
+    grep -q "reaching.genie.ts" "$smokeRoot/log"
+    grep -q "barrel.ts" "$smokeRoot/log"
+
+    # Positive fixture: the same closure is clean once the runtime-only re-export is gone.
+    rm "$smokeRoot/log"
+    printf 'export const value = 1\n' > "$smokeRoot/barrel.ts"
+    (cd "$smokeRoot" && "$out/bin/genie-bootstrap-closure-check" --root "$smokeRoot" >"$smokeRoot/log" 2>&1)
+    grep -q "bootstrap-closure: OK — 1 bootstrap-phase .genie.ts checked" "$smokeRoot/log"
+    rm -rf "$smokeRoot"
 
     runHook postInstall
   '';
@@ -116,8 +156,8 @@ pkgs.stdenvNoCC.mkDerivation {
       gitRev
       commitTs
       dirty
-      typescriptVersion
       ;
+    inherit typescriptVersion typescriptApiServerBin;
     # This package intentionally has no pnpm fixed-output dependency roots.
     # Keep the metadata shape present so generic CI/FOD scanners do not need a
     # special case for the checker.

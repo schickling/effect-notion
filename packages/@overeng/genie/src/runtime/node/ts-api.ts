@@ -20,8 +20,8 @@
  * Both own the session lifetime: the `tsgo` child process is always closed, including on throw.
  */
 
-import { existsSync } from 'node:fs'
 import path from 'node:path'
+
 import type { SourceFile, StringLiteral } from 'typescript/unstable/ast'
 import type { Diagnostic } from 'typescript/unstable/async'
 import { API } from 'typescript/unstable/async'
@@ -37,23 +37,21 @@ const analyzableSourceExtensions: Record<string, true> = {
   '.cjs': true,
 }
 
-const resolveTsserverPath = (): string | undefined => {
-  const configured = process.env.GENIE_TYPESCRIPT_API_SERVER
-  if (configured !== undefined && configured !== '') return configured
-
-  const pathEnv = process.env.PATH
-  if (pathEnv === undefined) return undefined
-  for (const directory of pathEnv.split(path.delimiter)) {
-    if (directory === '') continue
-    const candidate = path.join(directory, 'tsgo')
-    if (existsSync(candidate) === true) return candidate
-  }
-  return undefined
-}
-
+/**
+ * The server the session spawns.
+ *
+ * The API client's JSON-RPC protocol is versioned with the compiler binary, so the ONLY server
+ * guaranteed to speak it is the `@typescript/typescript-<platform>` executable published alongside the
+ * `typescript` package we import — which the client resolves itself when no path is configured. A
+ * `tsgo` on `PATH` is deliberately NOT considered: the dev shell exposes the Effect-TS fork, whose
+ * revision differs from the npm client and answers `updateSnapshot` with zero projects (surfacing as
+ * `no project found for file`). `GENIE_TYPESCRIPT_API_SERVER` remains the explicit override, and the
+ * Nix packages set it: a `bun build --compile` bundle resolves the client's own files inside `/$bunfs`
+ * and therefore cannot find the platform package on disk at all.
+ */
 const apiSpawnOptions = (cwd: string) => {
-  const tsserverPath = resolveTsserverPath()
-  return tsserverPath === undefined ? { cwd } : { cwd, tsserverPath }
+  const configured = process.env.GENIE_TYPESCRIPT_API_SERVER
+  return configured === undefined || configured === '' ? { cwd } : { cwd, tsserverPath: configured }
 }
 
 /** A file opened for analysis: its AST plus the module resolution of the project that owns it. */
@@ -93,8 +91,13 @@ export const runTsFileAnalysis = async <A>({
       // The unstable API does not infer a ScriptKind for assets such as CSS and panics if they are opened.
       if (analyzableSourceExtensions[path.extname(file)] !== true) return undefined
       if (opened.has(file) === false) {
-        opened.add(file)
+        const superseded = snapshot
+        // A snapshot pins its server-side projects, programs and ASTs until it is disposed, so every
+        // superseded one is released — but only AFTER its replacement exists, so a failed open leaves
+        // the current snapshot (and the files already opened in it) intact and usable.
         snapshot = await api.updateSnapshot({ openFiles: [file] })
+        opened.add(file)
+        await superseded.dispose()
       }
       const project = await snapshot.getDefaultProjectForFile(file)
       if (project === undefined) return undefined
@@ -189,4 +192,3 @@ export const formatDiagnostic = (diagnostic: Diagnostic): string =>
     diagnostic.text,
     ...(diagnostic.messageChain ?? []).map((nested) => formatDiagnostic(nested)),
   ].join('\n')
-

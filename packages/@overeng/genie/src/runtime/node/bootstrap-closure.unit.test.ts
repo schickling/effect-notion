@@ -8,6 +8,7 @@ import { discoverGenieFiles } from './bootstrap-closure-check-cli.ts'
 import { checkBootstrapClosure, formatViolationChain } from './bootstrap-closure.ts'
 
 const GENIE_MEMBER_OVERRIDE_MAP_ENV = 'GENIE_MEMBER_OVERRIDE_MAP'
+const GENIE_TYPESCRIPT_API_SERVER_ENV = 'GENIE_TYPESCRIPT_API_SERVER'
 
 const createdDirs: string[] = []
 
@@ -214,6 +215,35 @@ describe('checkBootstrapClosure', () => {
     expect(violations).toHaveLength(1)
     expect(violations[0]!.specifier).toBe('@scope/pkg')
     expect(violations[0]!.chain).toEqual([source])
+  })
+
+  // Regression: the API client's protocol is versioned with its compiler binary, so the session must
+  // use the `typescript` package's OWN matching platform executable. A `tsgo` on `PATH` (the dev shell
+  // exposes the Effect-TS fork, a different revision) must never be picked up: older forks answer
+  // `updateSnapshot` with zero projects, which would silently turn every closure into "no violations".
+  it('ignores a foreign `tsgo` on PATH and analyzes with the bundled matching API server', async () => {
+    const dir = makeDir()
+    const foreignBinDir = path.join(dir, 'foreign-bin')
+    mkdirSync(foreignBinDir, { recursive: true })
+    const foreignServer = path.join(foreignBinDir, 'tsgo')
+    writeFileSync(foreignServer, '#!/bin/sh\nexit 1\n', { encoding: 'utf8', mode: 0o755 })
+    const source = write(dir, 'path-foreign.genie.ts', `import 'effect'\nexport const ok = true`)
+
+    const previousPath = process.env.PATH
+    const previousServer = process.env[GENIE_TYPESCRIPT_API_SERVER_ENV]
+    process.env.PATH = `${foreignBinDir}${path.delimiter}${previousPath ?? ''}`
+    delete process.env[GENIE_TYPESCRIPT_API_SERVER_ENV]
+    try {
+      const { violations } = await checkBootstrapClosure({ genieFiles: [source] })
+
+      expect(violations).toHaveLength(1)
+      expect(violations[0]!.specifier).toBe('effect')
+    } finally {
+      if (previousPath === undefined) delete process.env.PATH
+      else process.env.PATH = previousPath
+      if (previousServer !== undefined)
+        process.env[GENIE_TYPESCRIPT_API_SERVER_ENV] = previousServer
+    }
   })
 })
 

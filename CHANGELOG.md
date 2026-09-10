@@ -266,7 +266,7 @@ All notable changes to this project will be documented in this file.
   refresh the Effect-TS `tsgo` flake input. The existing nixpkgs
   `tsgolint` 7.0.2001 pin is already the latest release built against
   TypeScript 7.0.2. The five classic compiler-API consumers now use TypeScript
-  7's process-backed `typescript/unstable/sync` project snapshots and
+  7's process-backed `typescript/unstable/async` project snapshots and
   `typescript/unstable/ast` nodes: Genie import-closure resolution,
   export-environment syntax scans, and generated-constant type proofs share an
   explicitly closed native compiler session; the OTEL boundary uses the new
@@ -292,6 +292,23 @@ All notable changes to this project will be documented in this file.
   entries disappeared — and
   `buck2/dependencies/pnpm-lock.unit.test.ts` guards both properties against
   the real lock.
+
+  The API server is now wired separately from the type-proof compiler. The npm
+  client's JSON-RPC protocol is versioned with its compiler binary, so the
+  session server is the official `@typescript/typescript-<platform>` executable
+  of the same 7.0.2 release — resolved by the client itself in source mode, and
+  pinned explicitly by the Nix wrappers (`GENIE_TYPESCRIPT_API_SERVER`) for the
+  packaged CLI and the standalone bootstrap-closure checker, whose closures
+  cannot resolve the optional package on disk. `tsgo` is no longer discovered
+  from `PATH` for the API: the dev shell exposes the Effect-TS fork, whose
+  revision answers `updateSnapshot` with zero projects (`no project found for
+  file`). Effect-TS `tsgo` remains the export type-proof compiler
+  (`GENIE_EXPORT_TYPE_PROOF_COMPILER`). The checker derivation
+  (`packages/@overeng/genie/nix/bootstrap-closure-check.nix`) owns the pinned
+  platform packages and hashes and publishes the server path through its
+  passthru, so the CLI wrapper reuses that single table without building the
+  checker; its build smoke now analyzes a real bootstrap `.genie.ts` closure
+  instead of only printing `--help`.
 
 - **deps**: update the compatible patch and minor dependency cohort, including
   React 19.2.8, OpenTelemetry SDK 2.11, Vite 8.2.2, current TanStack router

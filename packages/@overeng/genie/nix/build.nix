@@ -18,6 +18,11 @@ let
   pnpm = import ../../../../nix/pnpm.nix { inherit pkgs; };
   mkPnpmCli = import ../../../../nix/workspace-tools/lib/mk-pnpm-cli.nix { inherit pkgs pnpm; };
   opentuiCoreNative = import ../../../../nix/opentui-core-native.nix { inherit pkgs; };
+  # The TypeScript API server MUST be the official binary whose protocol matches the npm client; the
+  # Effect-TS `tsgo` fork stays the export type-proof compiler only. The checker package owns that pin
+  # (one platform table, one hash set); taking its passthru string pulls in the platform package alone,
+  # so the checker itself is never built for the CLI.
+  bootstrapClosureCheck = import ./bootstrap-closure-check.nix { inherit pkgs src; };
   unwrapped = mkPnpmCli {
     name = "genie-unwrapped";
     entry = "packages/@overeng/genie/bin/genie.tsx";
@@ -52,7 +57,7 @@ pkgs.runCommand "genie"
       --suffix PATH : ${pkgs.oxfmt}/bin \
       --set GENIE_ACTIONLINT_BIN ${pkgs.actionlint}/bin/actionlint \
       --set GENIE_EXPORT_TYPE_PROOF_COMPILER ${typeProofCompilerBin} \
-      --set GENIE_TYPESCRIPT_API_SERVER ${typeProofCompilerBin}
+      --set GENIE_TYPESCRIPT_API_SERVER ${bootstrapClosureCheck.passthru.typescriptApiServerBin}
 
     # Propagate shell completions from the unwrapped derivation
     for dir in share/fish/vendor_completions.d share/bash-completion/completions share/zsh/site-functions; do
