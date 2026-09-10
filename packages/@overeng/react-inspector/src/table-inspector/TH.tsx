@@ -3,6 +3,8 @@ import type { FC, ReactNode } from 'react'
 
 import { useStyles } from '../styles/index.tsx'
 
+const EMPTY_BORDER_STYLE: React.CSSProperties = Object.freeze({})
+
 const SortIconContainer: FC<{ children: ReactNode }> = (props) => (
   <div
     style={{
@@ -34,7 +36,7 @@ export const TH: FC<{
   sortAscending = false,
   sorted = false,
   onClick = undefined,
-  borderStyle = {},
+  borderStyle = EMPTY_BORDER_STYLE,
   children,
 }) => {
   const styles = useStyles('TableInspectorTH')

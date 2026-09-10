@@ -313,7 +313,7 @@ const parseNonStringValue = (ctx: ParserCtx): Value | undefined => {
   return result
 }
 
-const _parseString = (ctx: ParserCtx): [string, string, Token] | undefined => {
+const parseString = (ctx: ParserCtx): [string, string, Token] | undefined => {
   if (ctx.current.done) {
     return undefined
   }
@@ -394,7 +394,7 @@ const _parseString = (ctx: ParserCtx): [string, string, Token] | undefined => {
 }
 
 export const parseIdentifier = (ctx: ParserCtx): Identifier | undefined => {
-  const name = _parseString(ctx)
+  const name = parseString(ctx)
   if (!name) {
     return undefined
   }
@@ -411,7 +411,7 @@ export const parseValue = (ctx: ParserCtx): Value | undefined => {
     return value
   }
 
-  const string = _parseString(ctx)
+  const string = parseString(ctx)
   if (!string) {
     return undefined
   }
@@ -497,14 +497,14 @@ export const parseTag = (ctx: ParserCtx): Tag | undefined => {
 
   const leading = parseNodeSpace(ctx)
 
-  let name: [string, string, ...unknown[]] | undefined = _parseString(ctx)
+  let name: [string, string, ...unknown[]] | undefined = parseString(ctx)
 
   if (!name && ctx.current.value) {
     const location = ctx.current.value
     if (parseLineSpace(ctx)) {
       ctx.errors.push(mkError(location, 'This type of whitespace is not allowed inside a tag'))
     }
-    name = _parseString(ctx)
+    name = parseString(ctx)
   }
 
   if (!name) {
@@ -555,7 +555,7 @@ export const parseNodeChildren = (ctx: ParserCtx): Document | undefined => {
     return undefined
   }
 
-  const document = _parseDocument(ctx)
+  const document = parseDocumentBody(ctx)
 
   if (!consume(ctx, 'close-brace')) {
     throw mkError(ctx, 'Invalid node children')
@@ -628,7 +628,7 @@ export const parseNodePropOrArg = (ctx: ParserCtx): [Entry, string | undefined] 
     }
   }
 
-  const nameOrValue = _parseString(ctx)
+  const nameOrValue = parseString(ctx)
   if (!nameOrValue) {
     return undefined
   }
@@ -698,12 +698,12 @@ export const parseNodePropOrArgWithSpace = (ctx: ParserCtx): Entry | undefined =
     leading = leading + tmp + ctx.text.slice(start.offset, ctx.lastToken.end.offset)
   }
 
-  const _entry = parseNodePropOrArg(ctx)
-  if (!_entry) {
+  const firstEntry = parseNodePropOrArg(ctx)
+  if (!firstEntry) {
     return undefined
   }
 
-  let trailing = _entry[1] ?? parseNodeSpace(ctx) ?? ''
+  let trailing = firstEntry[1] ?? parseNodeSpace(ctx) ?? ''
 
   while ((tmp = parseSlashdash(ctx))) {
     const start = ctx.lastToken.end
@@ -720,7 +720,7 @@ export const parseNodePropOrArgWithSpace = (ctx: ParserCtx): Entry | undefined =
     trailing = trailing + tmp + ctx.text.slice(start.offset, ctx.lastToken.end.offset)
   }
 
-  const entry = _entry[0]
+  const entry = firstEntry[0]
 
   entry.leading = leading
   entry.trailing = trailing
@@ -760,22 +760,22 @@ export const parseBaseNode = (ctx: ParserCtx): Node | undefined => {
   while (endsOnWhitespace || slashdash) {
     const start = ctx.lastToken.end
 
-    const _entry = parseNodePropOrArg(ctx)
-    if (!_entry) {
+    const nextEntry = parseNodePropOrArg(ctx)
+    if (!nextEntry) {
       break
     }
 
     if (slashdash) {
-      endsOnWhitespace = (_entry[1] || parseNodeSpace(ctx)) != null
+      endsOnWhitespace = (nextEntry[1] || parseNodeSpace(ctx)) != null
       space = concatenate(space, slashdash, ctx.text.slice(start.offset, ctx.lastToken.end.offset))
 
       slashdash = parseSlashdash(ctx)
     } else {
-      const entry = _entry[0]
+      const entry = nextEntry[0]
       entry.leading = space
       entries.push(entry)
 
-      space = _entry[1] || parseNodeSpace(ctx)
+      space = nextEntry[1] || parseNodeSpace(ctx)
       endsOnWhitespace = space != null
       slashdash = parseSlashdash(ctx)
     }
@@ -841,7 +841,7 @@ export const parseNodeWithSpace = (ctx: ParserCtx): Node | undefined => {
 export const parseDocument = (ctx: ParserCtx): Document => {
   const bom = consume(ctx, 'bom')?.text
 
-  const document = _parseDocument(ctx)
+  const document = parseDocumentBody(ctx)
 
   if (!bom) {
     return document
@@ -856,7 +856,7 @@ export const parseDocument = (ctx: ParserCtx): Document => {
   return document
 }
 
-const _parseDocument = (ctx: ParserCtx): Document => {
+const parseDocumentBody = (ctx: ParserCtx): Document => {
   const startOfDocument = ctx.current.value as Token
 
   const nodes: Node[] = []

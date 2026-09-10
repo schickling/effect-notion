@@ -200,6 +200,37 @@ export const baseOxlintRules = {
   // retry/poll loops are exempted by override or inline disable.
   'no-await-in-loop': 'error',
 
+  // oxlint 1.82 introduced `no-underscore-dangle` in the `suspicious` category
+  // (1.39 did not implement it), which reports ~1.8k sites here — nearly all of
+  // them `_tag`, Effect's tagged-union discriminant. The rule keeps its value
+  // for names we DO own, so it stays enabled with an explicit allow list for the
+  // identifiers whose spelling belongs to someone else:
+  //   - `_tag`: Effect's discriminant, present on every tagged struct/error.
+  //   - `_page_id`, `_nds_outbox`: Notion API and NDS outbox wire names.
+  //   - `_idleTimeout`, `_getActiveHandles`, `_getActiveRequests`: undocumented
+  //     Node internals the active-handle debugger reads.
+  //   - `try_`, `expect_`, `PtySpec_`: trailing underscore because `try`/`expect`
+  //     are reserved/shadowing and `PtySpec` is the type of the same name.
+  // The repo's OTHER underscore idiom — `_x` for an intentionally unused binding,
+  // which `no-unused-vars` requires — is relaxed per file class in the overrides
+  // below, not globally, so a new dangling name in `src` is still reported.
+  'no-underscore-dangle': [
+    'warn',
+    {
+      allow: [
+        '_tag',
+        '_page_id',
+        '_nds_outbox',
+        '_idleTimeout',
+        '_getActiveHandles',
+        '_getActiveRequests',
+        'try_',
+        'expect_',
+        'PtySpec_',
+      ],
+    },
+  ],
+
   // Prefer function expressions over declarations. Enforced (error).
   'func-style': ['error', 'expression', { allowArrowFunctions: true }],
 
@@ -292,6 +323,16 @@ export const baseOxlintRules = {
   'react/purity': 'off',
   'react/refs': 'off',
   'react/set-state-in-effect': 'off',
+  // The rest of the same family, enabled by category in oxlint 1.82. The first
+  // two are also strict supersets of the classic hooks rules kept below, so
+  // leaving them on reports every rules-of-hooks / exhaustive-deps defect twice
+  // under two different rule ids. `capitalized-calls` and `memo-dependencies`
+  // read plain capitalized helpers (Effect `Schema.Struct`, TUI `Text`) and
+  // hand-written memo dependency lists as compiler inputs, which they are not.
+  'react/hooks': 'off',
+  'react/exhaustive-effect-dependencies': 'off',
+  'react/memo-dependencies': 'off',
+  'react/capitalized-calls': 'off',
 
   // Warn on missing/extra hook dependencies
   'react/exhaustive-deps': 'warn',
@@ -342,6 +383,9 @@ export const baseOxlintOverrides = [
     rules: {
       'overeng/exports-first': 'off',
       'overeng/jsdoc-require-exports': 'off',
+      // Story fixtures bind renderer output they only need for its type or for
+      // one assertion, and mark the unused halves with the repo's `_x` prefix.
+      'no-underscore-dangle': 'off',
     },
   },
   // Storybook config files (.storybook/*) - not story files
@@ -371,6 +415,13 @@ export const baseOxlintOverrides = [
       // are idiomatic and correct in tests; parallelizing them is pointless or
       // wrong. Tests are not throughput-critical, so the advisory is relaxed here.
       'no-await-in-loop': 'off',
+      // Test files carry the two underscore/shadow idioms this repo relies on:
+      // `_x` for a binding kept for shape but intentionally unused (which
+      // `no-unused-vars` requires), and harnesses that hand a scoped `it` (or
+      // `resolve`, `provider`) back into a callback, deliberately shadowing the
+      // imported one. Both are reported by rules new to oxlint 1.82.
+      'no-underscore-dangle': 'off',
+      'no-shadow': 'off',
     },
   },
   // Declaration files can use inline import() type annotations

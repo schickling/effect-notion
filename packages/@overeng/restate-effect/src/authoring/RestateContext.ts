@@ -816,8 +816,8 @@ export const makeAwakeable = <T, I>(
      * the deterministic combinators like any other descriptor — issued in source
      * order, awaited once (decision 0005, #2). It is created ONCE (at `make`), so
      * `issue` just hands the existing promise to the combinator. */
-    const descriptor: Descriptor<T> = { _tag: 'awakeable', issue: () => aw.promise }
-    return { id: aw.id as AwakeableId<T>, promise, descriptor }
+    const awakeableDescriptor: Descriptor<T> = { _tag: 'awakeable', issue: () => aw.promise }
+    return { id: aw.id as AwakeableId<T>, promise, descriptor: awakeableDescriptor }
   }).pipe(withRestateOperation({ name: 'restate.awakeable.make', label: 'make' }))
 
 /** Resolve an awakeable in-handler with a typed payload (encoded via `schema`). */

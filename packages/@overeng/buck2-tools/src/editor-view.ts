@@ -1223,14 +1223,11 @@ const prepareSnapshotRetention = ({
 }
 
 const makeDirectoriesWritable = (root: string): void => {
-  const visit = (directory: string): void => {
-    chmodSync(directory, (statSync(directory).mode & 0o777) | 0o700)
-    for (const name of readdirSync(directory)) {
-      const path = join(directory, name)
-      if (lstatSync(path).isDirectory() === true) visit(path)
-    }
+  chmodSync(root, (statSync(root).mode & 0o777) | 0o700)
+  for (const name of readdirSync(root)) {
+    const path = join(root, name)
+    if (lstatSync(path).isDirectory() === true) makeDirectoriesWritable(path)
   }
-  visit(root)
 }
 
 const renameReadOnlySnapshot = ({

@@ -460,43 +460,45 @@ const persistPhase = ({
     return next
   })
 
+const protectEntryTree = async (path: string): Promise<void> => {
+  const info = await lstat(path)
+  if (info.isSymbolicLink() === true) return
+  if (info.isDirectory() === true) {
+    await Promise.all(
+      (await readdir(path)).map((child) => protectEntryTree(NodePath.join(path, child))),
+    )
+    await chmod(path, 0o555)
+    return
+  }
+  if (info.isFile() === true) {
+    await chmod(path, (info.mode & 0o111) === 0 ? 0o444 : 0o555)
+    return
+  }
+  throw new Error(`Unsupported filesystem entry in overlay candidate '${path}'`)
+}
+
 const protectTree = (root: string): Effect.Effect<void, DistOverlayError> =>
   io({
     path: root,
     message: `Cannot protect overlay candidate '${root}'`,
     reason: 'ArtifactInvalid',
-    try: async () => {
-      const visit = async (path: string): Promise<void> => {
-        const info = await lstat(path)
-        if (info.isSymbolicLink() === true) return
-        if (info.isDirectory() === true) {
-          await Promise.all((await readdir(path)).map((child) => visit(NodePath.join(path, child))))
-          await chmod(path, 0o555)
-          return
-        }
-        if (info.isFile() === true) {
-          await chmod(path, (info.mode & 0o111) === 0 ? 0o444 : 0o555)
-          return
-        }
-        throw new Error(`Unsupported filesystem entry in overlay candidate '${path}'`)
-      }
-      await visit(root)
-    },
+    try: () => protectEntryTree(root),
   })
+
+const unprotectDirectoryTree = async (directory: string): Promise<void> => {
+  await chmod(directory, 0o755)
+  const children = await readdir(directory, { withFileTypes: true })
+  await Promise.all(
+    children
+      .filter((entry) => entry.isDirectory() === true)
+      .map((entry) => unprotectDirectoryTree(NodePath.join(directory, entry.name))),
+  )
+}
 
 const unprotectDirectories = async (root: string): Promise<void> => {
   const info = await lstat(root)
   if (info.isDirectory() === false) throw new Error(`Expected owned overlay directory '${root}'`)
-  const visit = async (directory: string): Promise<void> => {
-    await chmod(directory, 0o755)
-    const children = await readdir(directory, { withFileTypes: true })
-    await Promise.all(
-      children
-        .filter((entry) => entry.isDirectory() === true)
-        .map((entry) => visit(NodePath.join(directory, entry.name))),
-    )
-  }
-  await visit(root)
+  await unprotectDirectoryTree(root)
 }
 
 const teardownDirectory = ({

@@ -580,6 +580,7 @@ const scanGeneratedArtifact = ({ path }: { path: string }) =>
         const fingerprints = new Map<string, string>()
         let count = 0
         let newestMtimeMs = 0
+        // oxlint-disable-next-line eslint/no-unmodified-loop-condition -- `settled` is flipped by `finish`, called from the timeout callback and the interrupt finalizer while this loop awaits
         while (pending.length > 0 && settled === false) {
           const current = pending.pop()!
           // Sequential traversal is intentional: it bounds filesystem pressure.
@@ -606,6 +607,7 @@ const scanGeneratedArtifact = ({ path }: { path: string }) =>
             // eslint-disable-next-line no-await-in-loop
             const directory = await opendir(current)
             openDirectories.add(directory)
+            // oxlint-disable-next-line eslint/no-unmodified-loop-condition -- `settled` is flipped by `finish`, called from the timeout callback and the interrupt finalizer while this loop awaits
             while (settled === false) {
               // eslint-disable-next-line no-await-in-loop
               const entry = await directory.read()

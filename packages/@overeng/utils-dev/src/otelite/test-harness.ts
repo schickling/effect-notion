@@ -326,11 +326,15 @@ export class OteliteTestHarness extends Context.Service<
               ...allSignalsOptions?.logsInspect,
             })
 
-            const trace = expectTrace(spans)
+            const capturedTrace = expectTrace(spans)
             if ((traceOptions?.spanLabelPolicy ?? 'required') === 'required') {
-              trace.expectSpanLabels()
+              capturedTrace.expectSpanLabels()
             }
-            return { trace, metrics: expectMetrics(metricRows), logs: expectLogs(logRows) }
+            return {
+              trace: capturedTrace,
+              metrics: expectMetrics(metricRows),
+              logs: expectLogs(logRows),
+            }
           })
 
         const withEnvTrace = <A, E, R>(

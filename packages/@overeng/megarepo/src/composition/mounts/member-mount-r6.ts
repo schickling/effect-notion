@@ -393,8 +393,8 @@ const scanError = ({
 })
 
 class WalkFailure extends Error {
-  constructor(readonly scanError: R6ScanError) {
-    super(scanError.message)
+  constructor(readonly error: R6ScanError) {
+    super(error.message)
   }
 }
 
@@ -787,7 +787,7 @@ const scanMount = ({
     },
     catch: (cause): R6ScanError =>
       cause instanceof WalkFailure
-        ? cause.scanError
+        ? cause.error
         : scanError({
             reason: 'IoFailure',
             path: NodePath.resolve(root),
@@ -813,7 +813,7 @@ export const scanR6BuildArtifactTree = ({
       ).scan,
     catch: (cause): R6ScanError =>
       cause instanceof WalkFailure
-        ? cause.scanError
+        ? cause.error
         : scanError({
             reason: 'IoFailure',
             path: NodePath.resolve(root),
@@ -839,7 +839,7 @@ export const scanR6SourceTree = ({
       ).scan,
     catch: (cause): R6ScanError =>
       cause instanceof WalkFailure
-        ? cause.scanError
+        ? cause.error
         : scanError({
             reason: 'IoFailure',
             path: NodePath.resolve(root),
@@ -865,7 +865,7 @@ export const scanR6ProtectedTree = ({
       ).scan,
     catch: (cause): R6ScanError =>
       cause instanceof WalkFailure
-        ? cause.scanError
+        ? cause.error
         : scanError({
             reason: 'IoFailure',
             path: NodePath.resolve(root),

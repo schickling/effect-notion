@@ -102,10 +102,9 @@ export const endSyncOutput = (): string => `${CSI}?2026l`
  * - Charset selection (e.g. `\x1b(B`)
  * - Keypad modes (`\x1b=`, `\x1b>`)
  */
-// oxlint-disable eslint(no-control-regex) -- ANSI escape sequences require control characters
 const STRIP_ANSI_REGEX =
+  // oxlint-disable-next-line eslint/no-control-regex -- ANSI escape sequences are literally C0 control characters (ESC, BEL); matching them is the purpose
   /\x1b\[[0-9;]*[a-zA-Z]|\x1b\[\?[0-9;]*[a-zA-Z]|\x1b\][^\x07]*\x07|\x1b[()][AB012]|\x1b[=>]/g
-// oxlint-enable eslint(no-control-regex)
 
 /**
  * Strip ANSI escape codes from a string.

@@ -895,7 +895,7 @@ const checkCompositionCapabilityProjectionInternal = async ({
     }),
   )
   const manifests = checked.map(({ manifest }) => manifest)
-  const files = checked.flatMap(({ files }) => files)
+  const files = checked.flatMap(({ files: toolFiles }) => toolFiles)
   if (
     computeGeneration(files) !== generation ||
     defs !== renderDefs({ generation, platform, manifests })

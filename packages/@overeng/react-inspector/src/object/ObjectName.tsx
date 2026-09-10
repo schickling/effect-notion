@@ -3,6 +3,8 @@ import type { FC } from 'react'
 
 import { useStyles } from '../styles/index.tsx'
 
+const EMPTY_STYLES: React.CSSProperties = Object.freeze({})
+
 /**
  * A view for object property names.
  *
@@ -12,7 +14,7 @@ import { useStyles } from '../styles/index.tsx'
  * If the property name is not enumerable (`Object.prototype.propertyIsEnumerable()`),
  * the property name will be dimmed to show the difference.
  */
-export const ObjectName: FC<any> = ({ name, dimmed = false, styles = {} }) => {
+export const ObjectName: FC<any> = ({ name, dimmed = false, styles = EMPTY_STYLES }) => {
   const themeStyles = useStyles('ObjectName')
   const appliedStyles = {
     ...themeStyles.base,

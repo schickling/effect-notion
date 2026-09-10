@@ -152,7 +152,7 @@ const normalizeTransforms = (
 /** Load TypeScript config file using dynamic import */
 const loadTsConfig = Effect.fnUntraced(function* (configPath: string) {
   const module = yield* Effect.tryPromise({
-    // oxlint-disable-next-line eslint-plugin-import(no-dynamic-require) -- runtime config file loading requires dynamic import
+    // oxlint-disable-next-line import/no-dynamic-require -- runtime config file loading requires dynamic import
     try: () => import(configPath),
     catch: (cause) =>
       new ConfigReadError({

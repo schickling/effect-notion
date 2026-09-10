@@ -218,6 +218,96 @@ const resolveRelativeImport = ({
   return undefined
 }
 
+const addBindingNames = ({ target, name }: { target: Set<string>; name: BindingName }): void => {
+  if (isIdentifier(name) === true) {
+    target.add(name.text)
+    return
+  }
+  for (const element of name.elements) {
+    if (isBindingElement(element) === true && element.name !== undefined) {
+      addBindingNames({ target, name: element.name })
+    }
+  }
+}
+
+const isScopeBoundary = (node: Node): boolean =>
+  isSourceFile(node) === true ||
+  isBlock(node) === true ||
+  isModuleBlock(node) === true ||
+  isCaseBlock(node) === true ||
+  isCatchClause(node) === true ||
+  isFunctionLikeDeclaration(node) === true
+
+const collectScopeDeclarations = (node: Node): Set<string> => {
+  const declarations = new Set<string>()
+  if (isFunctionLikeDeclaration(node) === true) {
+    for (const parameter of node.parameters) {
+      addBindingNames({ target: declarations, name: parameter.name })
+    }
+  }
+  if (isCatchClause(node) === true && node.variableDeclaration !== undefined) {
+    addBindingNames({ target: declarations, name: node.variableDeclaration.name })
+  }
+
+  const visitDeclaration = (child: Node): void => {
+    if (child !== node && isScopeBoundary(child) === true) return
+    if (isImportSpecifier(child) === true) declarations.add(child.name.text)
+    if (isImportClause(child) === true && child.name !== undefined)
+      declarations.add(child.name.text)
+    if (isNamespaceImport(child) === true) declarations.add(child.name.text)
+    if (isVariableDeclaration(child) === true)
+      addBindingNames({ target: declarations, name: child.name })
+    if (
+      (isFunctionDeclaration(child) === true ||
+        isClassDeclaration(child) === true ||
+        isInterfaceDeclaration(child) === true ||
+        isTypeAliasDeclaration(child) === true) &&
+      child.name !== undefined
+    ) {
+      declarations.add(child.name.text)
+    }
+    child.forEachChild((grandChild) => {
+      visitDeclaration(grandChild)
+      return undefined
+    })
+  }
+
+  node.forEachChild((child) => {
+    visitDeclaration(child)
+    return undefined
+  })
+  return declarations
+}
+
+const isDeclarationName = (node: Identifier): boolean => {
+  const parent = node.parent
+  return (
+    parent !== undefined &&
+    ((isBindingElement(parent) === true && parent.name === node) ||
+      (isImportSpecifier(parent) === true && parent.name === node) ||
+      (isImportClause(parent) === true && parent.name === node) ||
+      (isNamespaceImport(parent) === true && parent.name === node) ||
+      (isVariableDeclaration(parent) === true && parent.name === node) ||
+      (isFunctionDeclaration(parent) === true && parent.name === node) ||
+      (isParameterDeclaration(parent) === true && parent.name === node) ||
+      (isClassDeclaration(parent) === true && parent.name === node) ||
+      (isInterfaceDeclaration(parent) === true && parent.name === node) ||
+      (isTypeAliasDeclaration(parent) === true && parent.name === node))
+  )
+}
+
+const isPropertyName = (node: Identifier): boolean => {
+  const parent = node.parent
+  return (
+    parent !== undefined &&
+    ((isPropertyAccessExpression(parent) === true && parent.name === node) ||
+      (isPropertyAssignment(parent) === true && parent.name === node) ||
+      (isPropertyDeclaration(parent) === true && parent.name === node) ||
+      (isMethodDeclaration(parent) === true && parent.name === node) ||
+      (isExportSpecifier(parent) === true && parent.name === node))
+  )
+}
+
 const findForbiddenGlobals = ({
   file,
   sourceFile,
@@ -235,96 +325,6 @@ const findForbiddenGlobals = ({
 
   const issues: ValidationIssue[] = []
   const forbiddenGlobals = new Set(profile.forbiddenGlobals)
-
-  const addBindingNames = ({ target, name }: { target: Set<string>; name: BindingName }): void => {
-    if (isIdentifier(name) === true) {
-      target.add(name.text)
-      return
-    }
-    for (const element of name.elements) {
-      if (isBindingElement(element) === true && element.name !== undefined) {
-        addBindingNames({ target, name: element.name })
-      }
-    }
-  }
-
-  const isScopeBoundary = (node: Node): boolean =>
-    isSourceFile(node) === true ||
-    isBlock(node) === true ||
-    isModuleBlock(node) === true ||
-    isCaseBlock(node) === true ||
-    isCatchClause(node) === true ||
-    isFunctionLikeDeclaration(node) === true
-
-  const collectScopeDeclarations = (node: Node): Set<string> => {
-    const declarations = new Set<string>()
-    if (isFunctionLikeDeclaration(node) === true) {
-      for (const parameter of node.parameters) {
-        addBindingNames({ target: declarations, name: parameter.name })
-      }
-    }
-    if (isCatchClause(node) === true && node.variableDeclaration !== undefined) {
-      addBindingNames({ target: declarations, name: node.variableDeclaration.name })
-    }
-
-    const visitDeclaration = (child: Node): void => {
-      if (child !== node && isScopeBoundary(child) === true) return
-      if (isImportSpecifier(child) === true) declarations.add(child.name.text)
-      if (isImportClause(child) === true && child.name !== undefined)
-        declarations.add(child.name.text)
-      if (isNamespaceImport(child) === true) declarations.add(child.name.text)
-      if (isVariableDeclaration(child) === true)
-        addBindingNames({ target: declarations, name: child.name })
-      if (
-        (isFunctionDeclaration(child) === true ||
-          isClassDeclaration(child) === true ||
-          isInterfaceDeclaration(child) === true ||
-          isTypeAliasDeclaration(child) === true) &&
-        child.name !== undefined
-      ) {
-        declarations.add(child.name.text)
-      }
-      child.forEachChild((grandChild) => {
-        visitDeclaration(grandChild)
-        return undefined
-      })
-    }
-
-    node.forEachChild((child) => {
-      visitDeclaration(child)
-      return undefined
-    })
-    return declarations
-  }
-
-  const isDeclarationName = (node: Identifier): boolean => {
-    const parent = node.parent
-    return (
-      parent !== undefined &&
-      ((isBindingElement(parent) === true && parent.name === node) ||
-        (isImportSpecifier(parent) === true && parent.name === node) ||
-        (isImportClause(parent) === true && parent.name === node) ||
-        (isNamespaceImport(parent) === true && parent.name === node) ||
-        (isVariableDeclaration(parent) === true && parent.name === node) ||
-        (isFunctionDeclaration(parent) === true && parent.name === node) ||
-        (isParameterDeclaration(parent) === true && parent.name === node) ||
-        (isClassDeclaration(parent) === true && parent.name === node) ||
-        (isInterfaceDeclaration(parent) === true && parent.name === node) ||
-        (isTypeAliasDeclaration(parent) === true && parent.name === node))
-    )
-  }
-
-  const isPropertyName = (node: Identifier): boolean => {
-    const parent = node.parent
-    return (
-      parent !== undefined &&
-      ((isPropertyAccessExpression(parent) === true && parent.name === node) ||
-        (isPropertyAssignment(parent) === true && parent.name === node) ||
-        (isPropertyDeclaration(parent) === true && parent.name === node) ||
-        (isMethodDeclaration(parent) === true && parent.name === node) ||
-        (isExportSpecifier(parent) === true && parent.name === node))
-    )
-  }
 
   const visit = ({ node, scopes }: { node: Node; scopes: readonly Set<string>[] }): void => {
     const nextScopes =

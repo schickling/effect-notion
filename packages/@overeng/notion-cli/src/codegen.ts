@@ -699,8 +699,7 @@ const generateConfigComment = (options: {
 // -----------------------------------------------------------------------------
 
 /** Generates TypeScript code for an Effect schema from database info */
-// oxlint-disable-next-line eslint(func-style) -- public API
-export function generateSchemaCode(opts: GenerateSchemaCodeOptions): string {
+export const generateSchemaCode = (opts: GenerateSchemaCodeOptions): string => {
   const { dbInfo, schemaName, options } = opts
   const {
     includeWrite,
@@ -926,8 +925,7 @@ export const isReadOnlyProperty = (propertyType: string): boolean =>
 // -----------------------------------------------------------------------------
 
 /** Generates TypeScript code for a typed database API wrapper */
-// oxlint-disable-next-line eslint(func-style) -- public API
-export function generateApiCode(opts: GenerateApiCodeOptions): string {
+export const generateApiCode = (opts: GenerateApiCodeOptions): string => {
   const { dbInfo, schemaName, schemaFileName, options } = opts
   const {
     includeWrite,

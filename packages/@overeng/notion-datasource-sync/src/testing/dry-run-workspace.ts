@@ -290,27 +290,27 @@ export const writePageNmd = async ({
   )
 }
 
+/** Recursive name+sha256 listing of `base`, entry paths prefixed with `prefix`. */
+const walkDigest = ({
+  base,
+  prefix,
+}: {
+  readonly base: string
+  readonly prefix: string
+}): Array<readonly [string, string]> =>
+  readdirSync(base)
+    .toSorted()
+    .flatMap((entry) => {
+      const abs = join(base, entry)
+      const rel = prefix === '' ? entry : `${prefix}/${entry}`
+      return statSync(abs).isDirectory() === true
+        ? walkDigest({ base: abs, prefix: rel })
+        : [[rel, createHash('sha256').update(readFileSync(abs)).digest('hex')] as const]
+    })
+
 /** Stable per-entry name+sha256 listing of a directory tree, or `undefined` when absent. */
-const dirDigest = (dir: string): ReadonlyArray<readonly [string, string]> | undefined => {
-  if (existsSync(dir) === false) return undefined
-  const walk = ({
-    base,
-    prefix,
-  }: {
-    readonly base: string
-    readonly prefix: string
-  }): Array<readonly [string, string]> =>
-    readdirSync(base)
-      .toSorted()
-      .flatMap((entry) => {
-        const abs = join(base, entry)
-        const rel = prefix === '' ? entry : `${prefix}/${entry}`
-        return statSync(abs).isDirectory() === true
-          ? walk({ base: abs, prefix: rel })
-          : [[rel, createHash('sha256').update(readFileSync(abs)).digest('hex')] as const]
-      })
-  return walk({ base: dir, prefix: '' })
-}
+const dirDigest = (dir: string): ReadonlyArray<readonly [string, string]> | undefined =>
+  existsSync(dir) === false ? undefined : walkDigest({ base: dir, prefix: '' })
 
 /** Snapshot of every durable workspace surface (CLI-R02). */
 export type WorkspaceSurfaceSnapshot = {

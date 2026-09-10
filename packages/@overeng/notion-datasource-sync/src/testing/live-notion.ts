@@ -1210,7 +1210,7 @@ const propertyFamilies = (properties: Record<string, unknown>): ReadonlyArray<st
         : Object.keys(property as Record<string, unknown>),
     )
     .filter((family, index, families) => families.indexOf(family) === index)
-    .sort()
+    .toSorted()
 
 const titlePropertyNameForSpec = (spec: DemoDataSourceSpec): string => {
   const titleEntry = Object.entries(spec.properties).find(
@@ -1636,15 +1636,13 @@ export const makeLiveNotionFixtureLifecycleClient = ({
     return resolveTitlePropertyName(dataSource.properties)
   })
 
-  const retrievePage = (pageId: string) => NotionPages.retrieve({ pageId })
-
   const verifyPageState = (input: {
     readonly pageId: string
     readonly expectedTitle: string
     readonly expectedInTrash: boolean
   }) =>
     Effect.gen(function* () {
-      const page = yield* retrievePage(input.pageId)
+      const page = yield* NotionPages.retrieve({ pageId: input.pageId })
       const titleName = yield* titlePropertyName
       const actualTitle = propertyPlainText(page.properties[titleName])
 
@@ -1703,7 +1701,7 @@ export const makeLiveNotionFixtureLifecycleClient = ({
       run(
         Effect.gen(function* () {
           yield* NotionPages.update({ pageId: fixture.objectId, in_trash: true })
-          const page = yield* retrievePage(fixture.objectId)
+          const page = yield* NotionPages.retrieve({ pageId: fixture.objectId })
           if (page.in_trash !== true) {
             throw new Error(`live Notion fixture ${fixture.objectId} trash verification failed`)
           }

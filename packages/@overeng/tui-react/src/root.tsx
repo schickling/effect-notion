@@ -94,6 +94,22 @@ export interface Root {
 // Implementation
 // =============================================================================
 
+/** Depth-first search for the first Static element in a rendered tree. */
+const findStaticElement = (
+  node: TuiStaticElement | { children?: unknown[] },
+): TuiStaticElement | null => {
+  if (isStaticElement(node as TuiStaticElement) === true) {
+    return node as TuiStaticElement
+  }
+  if ('children' in node && Array.isArray(node.children) === true) {
+    for (const child of node.children) {
+      const found = findStaticElement(child as { children?: unknown[] })
+      if (found !== null) return found
+    }
+  }
+  return null
+}
+
 /**
  * Create a root for rendering React elements to the terminal.
  *
@@ -228,23 +244,7 @@ export const createRoot = ({
   const resetStaticCommittedCount = (): void => {
     if (container.root === null) return
 
-    // Walk the tree to find Static element
-    const findStatic = (
-      node: TuiStaticElement | { children?: unknown[] },
-    ): TuiStaticElement | null => {
-      if (isStaticElement(node as TuiStaticElement) === true) {
-        return node as TuiStaticElement
-      }
-      if ('children' in node && Array.isArray(node.children) === true) {
-        for (const child of node.children) {
-          const found = findStatic(child as { children?: unknown[] })
-          if (found !== null) return found
-        }
-      }
-      return null
-    }
-
-    const staticEl = findStatic(container.root as unknown as { children?: unknown[] })
+    const staticEl = findStaticElement(container.root as unknown as { children?: unknown[] })
     if (staticEl !== null) {
       staticEl.committedCount = 0
     }

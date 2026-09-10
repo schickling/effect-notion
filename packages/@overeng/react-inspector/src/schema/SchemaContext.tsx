@@ -230,10 +230,12 @@ const createContextValue = (
   return ctx
 }
 
+const EMPTY_SCHEMAS: ReadonlyArray<SchemaView> = Object.freeze([])
+
 export const SchemaProvider: FC<SchemaProviderProps> = ({
   children,
   schema,
-  schemas = [],
+  schemas = EMPTY_SCHEMAS,
   rootData,
 }) => {
   const hasData = rootData !== undefined

@@ -4,6 +4,8 @@ import type { FC } from 'react'
 import { useStyles } from '../styles/index.tsx'
 import { TH } from './TH.tsx'
 
+const EMPTY_COLUMNS: string[] = []
+
 export const HeaderContainer: FC<{
   indexColumnText?: string
   columns?: string[]
@@ -15,7 +17,7 @@ export const HeaderContainer: FC<{
   onIndexTHClick: () => void
 }> = ({
   indexColumnText = '(index)',
-  columns = [],
+  columns = EMPTY_COLUMNS,
   sorted,
   sortIndexColumn,
   sortColumn,

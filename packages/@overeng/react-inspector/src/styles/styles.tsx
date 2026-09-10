@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useMemo } from 'react'
 
 import { createTheme } from './base.tsx'
-import * as themes from './themes/index.tsx'
+import { themes } from './themes/index.tsx'
 
 const DEFAULT_THEME_NAME = 'chromeLight'
 

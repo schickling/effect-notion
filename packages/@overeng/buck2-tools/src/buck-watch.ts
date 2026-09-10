@@ -323,6 +323,7 @@ export const runBuckWatchLoop = async ({
     }),
   }
   try {
+    // oxlint-disable-next-line eslint/no-underscore-dangle -- the tick binding is unused and must keep the `_` prefix to stay ignored by `no-unused-vars`
     for await (const _tick of ticks) {
       const running = signal.aborted === false && sourceEnded === false
       if (running === false) break

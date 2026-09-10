@@ -198,6 +198,17 @@ export interface OteliteService {
 }
 
 /**
+ * Collect a child-process byte stream (stdout/stderr) into a single decoded
+ * string. Captures nothing from its call site, so it lives at module scope.
+ */
+const collectStream = <E, R>(
+  stream: Stream.Stream<Uint8Array, E, R>,
+): Effect.Effect<string, E, R> =>
+  Stream.runCollect(Stream.decodeText(stream)).pipe(
+    Effect.map((chunks) => Array.from(chunks).join('')),
+  )
+
+/**
  * Effect-native wrapper around the `otelite` CLI. Shells out via the Effect
  * `ChildProcessSpawner` (never `node:child_process`), decodes the CLI's JSON
  * contract with `Schema`, and surfaces otelite's `sysexits.h` taxonomy as
@@ -227,12 +238,8 @@ export class Otelite extends Context.Service<Otelite, OteliteService>()(
             const process = yield* spawner.spawn(
               ChildProcess.make(binary, [...args], { stdout: 'pipe', stderr: 'pipe' }),
             )
-            const collect = (stream: typeof process.stdout) =>
-              Stream.runCollect(Stream.decodeText(stream)).pipe(
-                Effect.map((chunks) => Array.from(chunks).join('')),
-              )
             const [exitCode, stdout, stderr] = yield* Effect.all(
-              [process.exitCode, collect(process.stdout), collect(process.stderr)],
+              [process.exitCode, collectStream(process.stdout), collectStream(process.stderr)],
               { concurrency: 'unbounded' },
             )
             return { exitCode, stdout, stderr }

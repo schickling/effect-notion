@@ -16,7 +16,7 @@ export const blockKey = (business: string): string => `b:${business}`
  */
 export const NodeKey = {
   /** Key for an element that carries an explicit `blockKey` prop. */
-  keyed: (blockKey: string): string => `k:${blockKey}`,
+  keyed: (key: string): string => `k:${key}`,
   /** Positional fallback key for an element without a `blockKey`, by sibling index. */
   positional: (index: number): string => `p:${index}`,
 }

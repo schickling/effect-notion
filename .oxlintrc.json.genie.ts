@@ -19,8 +19,7 @@ const OXC_PLUGIN_PATH = './packages/@overeng/oxc-config/src/mod.ts'
  * only resolves from the root `node_modules`, which this aggregate root cannot
  * carry a dependency in. See that file's header.
  */
-const STYLEX_UPSTREAM_PLUGIN_PATH =
-  './packages/@overeng/oxc-config/src/stylex-upstream-plugin.ts'
+const STYLEX_UPSTREAM_PLUGIN_PATH = './packages/@overeng/oxc-config/src/stylex-upstream-plugin.ts'
 
 export default oxlintConfig({
   plugins: baseOxlintPlugins,
@@ -83,6 +82,17 @@ export default oxlintConfig({
     {
       files: ['packages/@overeng/genie/src/**'],
       rules: { 'overeng/jsdoc-require-exports': 'warn' },
+    },
+    // oxlint 1.82's `no-underscore-dangle` reports the repo's `_x` marker for a
+    // binding that exists for its shape but is intentionally unused — which
+    // `no-unused-vars` requires to be underscore-prefixed. Two surfaces are
+    // built almost entirely out of such bindings: `*.types.ts` files, whose
+    // whole content is type-level inference assertions (`const _runOk: Expect<...>`),
+    // and `examples/`, where a binding illustrates a shape it never uses. The
+    // base config relaxes the same rule for tests and story fixtures.
+    {
+      files: ['**/*.types.ts', '**/examples/**'],
+      rules: { 'no-underscore-dangle': 'off' },
     },
     // The otelite test-assertion harness is a fluent matcher DSL
     // (`attr.predicate('label', pred)`, `expectTrace(...).expectOne(...)`) where

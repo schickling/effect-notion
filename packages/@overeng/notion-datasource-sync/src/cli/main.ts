@@ -2243,7 +2243,7 @@ const readSelfContainedBinding = ({
  */
 const validateSelfContainedSqlite = ({
   storePath,
-  dataFilePath,
+  dataFilePath: dataFileSqlitePath,
 }: {
   readonly storePath: string
   readonly dataFilePath: string
@@ -2304,9 +2304,9 @@ const validateSelfContainedSqlite = ({
     }
   }
   assertObjects({ path: storePath, objects: controlPlaneObjects })
-  assertObjects({ path: dataFilePath, objects: dataFileObjects })
+  assertObjects({ path: dataFileSqlitePath, objects: dataFileObjects })
   // The CDC trigger floor is on the data file (where write-intent triggers live).
-  const db = new DatabaseSync(dataFilePath, { readOnly: true })
+  const db = new DatabaseSync(dataFileSqlitePath, { readOnly: true })
   try {
     const triggerCount = db
       .prepare(`SELECT count(*) AS count FROM sqlite_master WHERE type = 'trigger'`)
@@ -2316,7 +2316,7 @@ const validateSelfContainedSqlite = ({
     // trips this fail-closed guard.
     if (typeof triggerCount?.count !== 'number' || triggerCount.count < 34) {
       throw new CliArgumentError({
-        message: `SQLite file ${dataFilePath} is missing required datasource-sync triggers; refusing to open`,
+        message: `SQLite file ${dataFileSqlitePath} is missing required datasource-sync triggers; refusing to open`,
       })
     }
   } finally {
@@ -2425,7 +2425,7 @@ const discoverSelfContainedStore = (workspaceRoot: AbsolutePath): DiscoveredSelf
   }
 
   const source = sources[0]!
-  const dataFilePath = join(workspaceRoot, source.data_file)
+  const dataFileAbsolutePath = join(workspaceRoot, source.data_file)
   const rootId = rootIdForDataSource(source.data_source_id)
   // The control plane lives in the hidden `.notion/v1/state.sqlite`; the public
   // data file holds only the projection. The binding moved with the control
@@ -2449,7 +2449,7 @@ const discoverSelfContainedStore = (workspaceRoot: AbsolutePath): DiscoveredSelf
   }
   return {
     storePath: decode({ schema: AbsolutePath, value: storePath }),
-    dataFilePath: decode({ schema: AbsolutePath, value: dataFilePath }),
+    dataFilePath: decode({ schema: AbsolutePath, value: dataFileAbsolutePath }),
     rootId,
     dataSourceId: binding.dataSourceId,
     workspaceRoot,

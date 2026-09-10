@@ -5074,10 +5074,11 @@ export const replicaChangesToPlannerIntents = ({
         continue
       }
       let pageId: PageId
-      let _dataSourceId: DataSourceId
       try {
         pageId = decode({ schema: PageId, value: change.pageId })
-        _dataSourceId = decode({ schema: DataSourceId, value: change.dataSourceId })
+        /* Validation only: a malformed `data_source_id` rejects the change below;
+         * the decoded id itself is not needed on this path. */
+        decode({ schema: DataSourceId, value: change.dataSourceId })
       } catch {
         markChange({
           replicaPath,

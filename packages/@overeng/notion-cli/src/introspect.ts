@@ -88,7 +88,7 @@ export type PropertyTransformConfig = Record<string, string>
 // -----------------------------------------------------------------------------
 
 const sortByName = <TItem extends { name: string }>(items: readonly TItem[]): TItem[] =>
-  items.slice().sort((a, b) => a.name.localeCompare(b.name))
+  items.toSorted((a, b) => a.name.localeCompare(b.name))
 
 /** Convert PropertySchema to PropertyInfo */
 const toPropertyInfo = (prop: PropertySchema): PropertyInfo => {

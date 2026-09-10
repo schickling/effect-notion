@@ -267,12 +267,12 @@ const maybeGcObjects = (opts: {
       Effect.succeed(undefined)
 
 const withObjectGc = <R extends ReconcileResult>({
-  result,
+  result: reconciled,
   objectGc,
 }: {
   readonly result: R
   readonly objectGc: NmdObjectGcResult | undefined
-}): R => (objectGc === undefined ? result : ({ ...result, objectGc } as R))
+}): R => (objectGc === undefined ? reconciled : ({ ...reconciled, objectGc } as R))
 
 const remoteBodyFor = (pageId: string) =>
   Effect.gen(function* () {

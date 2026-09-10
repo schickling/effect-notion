@@ -247,25 +247,25 @@ export class NmdStateStore extends Context.Service<NmdStateStore, NmdStateStoreS
   'NmdStateStore',
 ) {}
 
+const makeFileSystemError = (opts: {
+  readonly operation: string
+  readonly path: string
+  readonly cause: unknown
+  readonly message: string
+}): NmdFileSystemError =>
+  new NmdFileSystemError({
+    operation: opts.operation,
+    path: opts.path,
+    cause: opts.cause,
+    message: opts.message,
+  })
+
 /** Live state-store implementation backed by `@effect/platform` filesystem services. */
 export const NmdStateStoreLive = Layer.effect(
   NmdStateStore,
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-
-    const makeFileSystemError = (opts: {
-      readonly operation: string
-      readonly path: string
-      readonly cause: unknown
-      readonly message: string
-    }): NmdFileSystemError =>
-      new NmdFileSystemError({
-        operation: opts.operation,
-        path: opts.path,
-        cause: opts.cause,
-        message: opts.message,
-      })
 
     const fullObjectPath = (opts: { readonly nmdPath: string; readonly object: NmdObjectRef }) =>
       Effect.try({

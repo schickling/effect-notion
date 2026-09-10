@@ -51,7 +51,7 @@ const globFiles = ({
 const importStoryFile = (filePath: string): Effect.Effect<ParsedStoryModule | undefined, never> =>
   Effect.tryPromise({
     try: async () => {
-      // oxlint-disable-next-line eslint-plugin-import(no-dynamic-require)
+      // oxlint-disable-next-line import/no-dynamic-require -- story discovery loads modules by globbed path; the specifier is computed by design
       const moduleExports = (await import(filePath)) as RawStoryModuleExports
       return parseStoryModule({ exports: moduleExports, filePath })
     },

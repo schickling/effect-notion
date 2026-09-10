@@ -134,6 +134,8 @@ const assertUpdateLockOwned = async (workspaceRoot: string) => {
   }
 }
 
+const nonce = (): string => randomBytes(16).toString('hex')
+
 /**
  * Construct the complete production composition runtime from Nix-wrapper injected identities.
  * No command path or platform value falls back to PATH or host inference.
@@ -176,7 +178,6 @@ export const compositionApplyRuntimeFromEnv = ({
   }
 
   const check = (memberRoot: string) => checkProjection({ memberRoot })
-  const nonce = () => randomBytes(16).toString('hex')
   return {
     ownedCapabilityProjection: {
       plan: planOwnedCapabilityProjection,

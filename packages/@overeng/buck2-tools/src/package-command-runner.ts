@@ -362,24 +362,24 @@ const imageDirectory = ({
     // platform dispatch, so leaving it out of the farm is what keeps a
     // host-native binding from being inlined into a portable product.
     if (gated !== undefined && farm.gated.has(gated) === true) continue
-    const child = join(source, entry)
+    const entryPath = join(source, entry)
     const target = join(destination, entry)
     // Link identity comes from `lstat` alone. Comparing a path against its
     // realpath would misread an already-canonical path on a host whose
     // temporary directory is itself a symlink (Darwin's `/tmp`).
-    const metadata = lstatSync(child)
+    const metadata = lstatSync(entryPath)
     if (metadata.isSymbolicLink() === true) {
-      imageSymlink({ destination: target, farm, source: child })
+      imageSymlink({ destination: target, farm, source: entryPath })
       continue
     }
     if (metadata.isDirectory() === true) {
-      imageDirectory({ destination: target, farm, source: child })
+      imageDirectory({ destination: target, farm, source: entryPath })
       continue
     }
     if (metadata.isFile() === false) {
-      fail(`portable farm does not support filesystem entry: ${child}`)
+      fail(`portable farm does not support filesystem entry: ${entryPath}`)
     }
-    hardlink({ destination: target, source: child })
+    hardlink({ destination: target, source: entryPath })
   }
 }
 

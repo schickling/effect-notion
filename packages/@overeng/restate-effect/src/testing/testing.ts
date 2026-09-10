@@ -412,6 +412,7 @@ const startServer = async (opts: {
       if (exited === undefined) {
         child.kill('SIGTERM')
         const killDeadline = Date.now() + 5_000
+        // oxlint-disable-next-line eslint/no-unmodified-loop-condition -- `exited` is set from the child's `exit` event handler (line ~340), a closure mutation the rule cannot see; the loop awaits that async transition.
         while (exited === undefined && Date.now() < killDeadline) await sleep(50)
         if (exited === undefined) child.kill('SIGKILL')
       }

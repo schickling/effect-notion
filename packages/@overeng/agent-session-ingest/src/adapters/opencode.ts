@@ -209,7 +209,7 @@ interface BunSqliteModule {
 
 const hasBunRuntime = () => 'Bun' in globalThis
 
-// oxlint-disable-next-line eslint-plugin-import(no-dynamic-require) -- dynamic import needed to avoid bundler resolution of bun:sqlite
+// oxlint-disable-next-line import/no-dynamic-require -- dynamic import needed to avoid bundler resolution of bun:sqlite
 const loadBunSqliteModule = () => import('bun:sqlite' as string) as Promise<BunSqliteModule>
 
 const openReadonlySqliteDatabase = Effect.fn(

@@ -271,19 +271,19 @@ export const parseWhitespaceInNode = (ctx: ParserCtx): WhitespaceInNode => {
  * This requires the tokenize function to be available. We import it lazily
  * to avoid circular dependency issues.
  */
-let _tokenize:
+let registeredTokenize:
   | ((text: string, options: { flags: ParserCtx['flags'] }) => Iterable<Token>)
   | undefined
 
 export const setTokenizeForWhitespace = (
   fn: (text: string, options: { flags: ParserCtx['flags'] }) => Iterable<Token>,
 ): void => {
-  _tokenize = fn
+  registeredTokenize = fn
 }
 
 const tokenizeForWhitespace = (text: string, ctx: ParserCtx): Iterable<Token> => {
-  if (!_tokenize) {
+  if (!registeredTokenize) {
     throw new Error('tokenize function not registered for whitespace parser')
   }
-  return _tokenize(text, { flags: ctx.flags })
+  return registeredTokenize(text, { flags: ctx.flags })
 }

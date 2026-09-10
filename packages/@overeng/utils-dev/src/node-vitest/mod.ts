@@ -1,4 +1,4 @@
-// oxlint-disable-next-line eslint-plugin-import(no-unassigned-import) -- side-effect import for TTY setup
+// oxlint-disable-next-line import/no-unassigned-import -- side-effect-only module: forces `process.stdout.isTTY` for consistent test output
 import './global.ts'
 import * as EffectVitest from '@effect/vitest'
 

@@ -11,7 +11,7 @@ import {
   DeployProviderOperation as DeployProviderOperationContract,
   DeployVerifyOperation as DeployVerifyOperationContract,
 } from './deploy-domain.contract.ts'
-import type { WorkflowReportRecord } from './mod.ts'
+import type { WorkflowReportRecord } from './workflow-report.ts'
 
 /** Non-empty trimmed string (shared `@overeng/utils` definition). */
 export const NonEmptyTrimmedString = nonEmptyTrimmedString

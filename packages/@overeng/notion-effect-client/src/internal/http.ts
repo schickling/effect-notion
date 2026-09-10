@@ -435,6 +435,13 @@ const mapHttpClientError = (opts: {
   })
 }
 
+/* The rate-limit snapshot a retried 429 carries: only a server-advised
+ * `Retry-After` gives a trustworthy reset window. */
+const retryRateLimit = (error: NotionApiError): Option.Option<RateLimitInfo> =>
+  error.status === 429 && Option.isSome(error.retryAfterSeconds) === true
+    ? Option.some({ remaining: 0, resetAfterSeconds: error.retryAfterSeconds.value })
+    : Option.none()
+
 /**
  * Execute a Notion API request with error handling and automatic retry.
  *
@@ -548,11 +555,6 @@ export const executeRequest = <A, I, R>({
       const retryAfterMs = Option.getOrElse(opts.error.retryAfterMillis, () => 0)
       return Math.max(backoffMs, retryAfterMs)
     }
-
-    const retryRateLimit = (error: NotionApiError): Option.Option<RateLimitInfo> =>
-      error.status === 429 && Option.isSome(error.retryAfterSeconds) === true
-        ? Option.some({ remaining: 0, resetAfterSeconds: error.retryAfterSeconds.value })
-        : Option.none()
 
     /**
      * Retry schedule whose input is the failing `NotionApiError`. Stock
