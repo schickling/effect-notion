@@ -1243,7 +1243,7 @@ describe('effect-utils CI composition workspace', () => {
         'if [ "$1" = "--cwd" ]; then',
         '  workspace="$2"; shift 2',
         '  test "$*" = "apply --worktree-mode tracking --lock-sync off --output ci"',
-        '  bare="$(git -C "$workspace" rev-parse --git-common-dir)"',
+        '  bare="$(git -C "$workspace" rev-parse --path-format=absolute --git-common-dir)"',
         '  stage="${workspace}.member-stage"',
         '  git --git-dir="$bare" worktree move "$workspace" "$stage"',
         '  mkdir -p "$workspace/repos" "$workspace/.megarepo/bin"',
@@ -1418,8 +1418,7 @@ describe('effect-utils CI composition workspace', () => {
         store,
         'github.com/overengineeringstudio/effect-utils/refs/heads/ci-100-2-unit_job',
       )
-      const member = join(workspace, 'repos/effect-utils')
-      expect(git(member, 'symbolic-ref', 'HEAD')).toBe('refs/heads/ci-100-2-unit_job')
+      expect(git(workspace, 'symbolic-ref', 'HEAD')).toBe('refs/heads/ci-100-2-unit_job')
 
       const cleanup = await cleanupComposition(fixture)
       expect(cleanup.status, cleanup.stderr).toBe(0)
@@ -1434,10 +1433,9 @@ describe('effect-utils CI composition workspace', () => {
     try {
       const result = await runComposition(fixture, { FAKE_MR_FAIL: '1' })
       expect(result.status).toBe(37)
-      const store = fixture.env.MEGAREPO_STORE!
       const member = join(
         store,
-        'github.com/overengineeringstudio/effect-utils/refs/heads/ci-100-2-unit_job/repos/effect-utils',
+        'github.com/overengineeringstudio/effect-utils/refs/heads/ci-100-2-unit_job',
       )
       git(member, 'switch', '-c', 'unrelated')
 
