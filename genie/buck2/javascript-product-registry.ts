@@ -28,6 +28,7 @@ export const javaScriptProductRegistry = {
       runtime: 'bun',
       smokeArgs: ['--dry-run'],
       targetName: 'genie-candidate',
+      treeShaking: false,
     },
     {
       entrypoint: 'bin/bootstrap-closure-check.ts',

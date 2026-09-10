@@ -77,6 +77,7 @@ export type PackageCommand = {
   readonly targetIdentity: string | undefined
   readonly target: 'bun' | 'node'
   readonly kind: 'cli' | 'module'
+  readonly treeShaking: boolean
 }
 
 const fail: (message: string) => never = (message) => {
@@ -172,6 +173,7 @@ export const parsePackageCommand = (argv: readonly string[]): PackageCommand => 
   let runtimeContractVersion = 'v1'
   let target: 'bun' | 'node' = 'bun'
   let kind: 'cli' | 'module' = 'module'
+  let treeShaking = true
   for (let index = 0; index < flags.length; index += 2) {
     const flag = flags[index]
     // `RUNTIME_ARGV_DELIMITER` ends the launcher's own encoded configuration:
@@ -205,6 +207,9 @@ export const parsePackageCommand = (argv: readonly string[]): PackageCommand => 
     else if (flag === '--descriptor') descriptor = value
     else if (flag === '--target' && (value === 'bun' || value === 'node')) target = value
     else if (flag === '--kind' && (value === 'cli' || value === 'module')) kind = value
+    else if (flag === '--tree-shaking' && (value === 'true' || value === 'false')) {
+      treeShaking = value === 'true'
+    }
     else fail(`unknown argument: ${flag ?? '<missing>'}`)
   }
   if (rawMode === 'build-dir' && args.filter((arg) => arg === '{OUT}').length !== 1) {
@@ -241,6 +246,7 @@ export const parsePackageCommand = (argv: readonly string[]): PackageCommand => 
     platformGatedManifest,
     runtimeContract,
     runtimeContractVersion,
+    treeShaking,
     targetIdentity,
   }
 }
@@ -1010,6 +1016,7 @@ const runBundle = async (command: PackageCommand): Promise<void> => {
     root: farm,
     sourcemap: 'none',
     target: command.target,
+    treeShaking: command.treeShaking,
   })
   if (result.success === false) fail(result.logs.map(String).join('\n'))
   if (command.kind === 'cli' && overrides !== 1) {

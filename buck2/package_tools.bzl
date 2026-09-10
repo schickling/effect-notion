@@ -246,6 +246,8 @@ def _package_bundle_impl(ctx):
         "--platform-gated-manifest",
         gated.manifest,
     ])
+    args.add("--tree-shaking")
+    args.add("true" if ctx.attrs.tree_shaking else "false")
     for external in ctx.attrs.external:
         args.add("--external", external)
     for capability in ctx.attrs.external_capabilities:
@@ -288,6 +290,7 @@ _package_bin_artifact = rule(
         "kind": attrs.enum(["cli", "module"], default = "module"),
         "external": attrs.list(attrs.string(), default = []),
         "external_capabilities": attrs.list(attrs.string(), default = []),
+        "tree_shaking": attrs.bool(default = True),
         "_bun": attrs.default_only(attrs.exec_dep(
             default = "//buck2/toolchains:bun",
             providers = [BunToolchainInfo],
