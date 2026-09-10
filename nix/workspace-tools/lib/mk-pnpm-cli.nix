@@ -1258,6 +1258,11 @@ let
       frozenLockfile = true;
       preInstall = ''
         chmod -R +w .
+        ${builtins.concatStringsSep "\n" (
+          map (
+            dir: "${pkgs.yq-go}/bin/yq -i ${lib.escapeShellArg "del(.importers[\"${dir}\"])"} pnpm-lock.yaml"
+          ) allExternallyOwnedDirs
+        )}
       '';
     };
   };

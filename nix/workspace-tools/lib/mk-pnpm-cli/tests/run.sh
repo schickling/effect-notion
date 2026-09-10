@@ -278,6 +278,10 @@ run_downstream_pure_eval_regression() {
   )"
   local install_phase
   install_phase="$(nix derivation show "$drv" | jq -r '.derivations | to_entries[0].value.env.installPhase')"
+  if [[ "$install_phase" != *'del(.importers["repos/effect-utils"])'* ]]; then
+    echo "error: aggregate prepared deps lockfile still validates nested install-root importers: $drv" >&2
+    exit 1
+  fi
   if [[ "$install_phase" != *'install --frozen-lockfile --no-optional --ignore-scripts'* ]]; then
     echo "error: prepared deps derivation does not use --frozen-lockfile: $drv" >&2
     exit 1
