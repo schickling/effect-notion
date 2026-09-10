@@ -337,6 +337,43 @@ let
         inheritedEntries.map((entry) => entry.key).join(",")
     );
   '';
+  alignAggregateManifestSpecifiersScript = pkgs.writeText "align-aggregate-manifest-specifiers.cjs" ''
+    const fs = require("node:fs");
+    const path = require("node:path");
+
+    const importers = JSON.parse(fs.readFileSync(0, "utf8"));
+    const sourceInputPrefix = "file:.devenv/pnpm-source-inputs/current/";
+    const dependencySections = ["dependencies", "devDependencies", "optionalDependencies"];
+
+    for (const [importerPath, importer] of Object.entries(importers)) {
+      const manifestPath = path.join(importerPath === "." ? "." : importerPath, "package.json");
+      if (!fs.existsSync(manifestPath)) continue;
+
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      let changed = false;
+      for (const section of dependencySections) {
+        const lockedDependencies = importer[section];
+        const manifestDependencies = manifest[section];
+        if (lockedDependencies === undefined || manifestDependencies === undefined) continue;
+
+        for (const [dependencyName, lockedDependency] of Object.entries(lockedDependencies)) {
+          const specifier = lockedDependency?.specifier;
+          const manifestSpecifier = manifestDependencies[dependencyName];
+          if (
+            typeof specifier === "string" &&
+            specifier.includes(sourceInputPrefix) &&
+            typeof manifestSpecifier === "string" &&
+            (manifestSpecifier.startsWith("file:") || manifestSpecifier.startsWith("link:"))
+          ) {
+            manifestDependencies[dependencyName] = specifier;
+            changed = true;
+          }
+        }
+      }
+
+      if (changed) fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+    }
+  '';
 
   isDerivationOutput =
     sourceRoot: builtins.isAttrs sourceRoot && sourceRoot ? outPath && sourceRoot ? drvPath;
@@ -1247,6 +1284,10 @@ let
       src = rootDepsSrc;
       sourceRoot = ".";
       lockfilePaths = [ "pnpm-lock.yaml" ];
+      # The staged root workspace is already narrowed to `$genie.workspaceClosureDirs`.
+      # Ask pnpm to materialize the target package's dependency closure, not every
+      # importer visible in that staged workspace.
+      pnpmFilters = [ "${packageJson.name}..." ];
       includeOptionalDependencies = includeOptionalDependenciesForInstallRoot ".";
       # Fixed-output dependency preparation must be a pure materialization of
       # the staged manifests and lockfile. Unfrozen installs can rewrite the
@@ -1254,6 +1295,11 @@ let
       frozenLockfile = true;
       preInstall = ''
         chmod -R +w .
+        ${pkgs.yq-go}/bin/yq -o=json '.importers' pnpm-lock.yaml \
+          | ${pkgs.nodejs}/bin/node ${alignAggregateManifestSpecifiersScript}
+        ${pkgs.yq-go}/bin/yq -i \
+          '.overrides |= with_entries(select(.value | startswith("file:.devenv/pnpm-source-inputs/current/") | not))' \
+          pnpm-workspace.yaml
       '';
     };
   };
