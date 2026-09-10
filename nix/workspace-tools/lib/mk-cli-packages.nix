@@ -7,6 +7,7 @@
   pkgs,
   products,
   typeProofCompilerBin,
+  oxfmtPkg ? pkgs.oxfmt,
   gitRev ? "unknown",
   commitTs ? 0,
   dirty ? false,
@@ -17,6 +18,7 @@ let
       pkgs
       products
       typeProofCompilerBin
+      oxfmtPkg
       gitRev
       commitTs
       dirty

@@ -9,6 +9,7 @@
   pkgs,
   products,
   typeProofCompilerBin,
+  oxfmtPkg ? pkgs.oxfmt,
   gitRev ? "unknown",
   commitTs ? 0,
   dirty ? false,
@@ -59,7 +60,7 @@ let
       "oxfmt"
     ];
     expectedProductKind = "cli";
-    pathPackages = [ pkgs.oxfmt ];
+    pathPackages = [ oxfmtPkg ];
     smokeTestArgs = [ "--dry-run" ];
   };
   genie-bootstrap-closure-check = mk "genie-bootstrap-closure-check" {
