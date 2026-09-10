@@ -3,7 +3,7 @@
 
 # Generated file - DO NOT EDIT
 # Source: pnpm-lock.yaml
-# Store fingerprint: sha256:889e1572a894d624c2e8046d83cf59f3a7e36d3ff04578b342b724e6d596ada5
+# Store fingerprint: sha256:ca7cade507a51c5e4bc934350ba63a1502e7329159a6e9a2636038bd07c7a959
 
 load("//buck2:materialization.bzl", "export_materialization_inputs")
 
@@ -35799,7 +35799,7 @@ pnpm_store_view(
         "@storybook/addon-a11y": "@storybook+addon-a11y@10.5.10_storybook@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+rea_02c2d2847fa420c6",
         "@storybook/addon-vitest": "@storybook+addon-vitest@10.5.10_@vitest+browser-playwright@4.1.9_@vitest+browser@4.1.9_vite@8.2.2_@type_88ea5521dea03a1f",
         "@storybook/react-vite": "@storybook+react-vite@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_esbuild_be10b5a0aad866d7",
-        "@stylexjs/unplugin": "@stylexjs+unplugin@0.19.0_unplugin@3.3.0_esbuild@0.28.2_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0",
+        "@stylexjs/unplugin": "@stylexjs+unplugin@0.19.0_unplugin@3.3.0_esbuild@0.28.2_rolldown@1.2.7_vite@8.2.2_@types+node@26.5.0_es_aed1f6ae5400bbc5",
         "@types/node": "@types+node@26.5.0",
         "@vitest/browser": "@vitest+browser@4.1.9_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9",
         "@vitest/browser-playwright": "@vitest+browser-playwright@4.1.9_playwright@1.61.0_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9",
