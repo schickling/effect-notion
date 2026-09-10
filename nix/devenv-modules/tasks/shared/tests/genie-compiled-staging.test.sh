@@ -15,6 +15,7 @@ tmp_root="$tmpdir/os-tmp"
 compiled_genie="$tmpdir/genie-compiled"
 
 mkdir -p "$workspace/lib" "$tmp_root"
+ln -s "$ROOT/packages/@overeng/genie/node_modules" "$workspace/node_modules"
 
 cat > "$workspace/lib/payload.ts" <<'EOF'
 import { Schema } from 'effect'

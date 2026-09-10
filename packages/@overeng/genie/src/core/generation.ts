@@ -109,6 +109,52 @@ const collectRelativeImportPaths = async ({
   )
 }
 
+const hasFileSystemErrorCode = (error: unknown, code: string): boolean =>
+  typeof error === 'object' && error !== null && 'code' in error && error.code === code
+
+const mirrorNodeModulesSearchPaths = async ({
+  sourcePath,
+  tempRoot,
+}: {
+  sourcePath: string
+  tempRoot: string
+}): Promise<void> => {
+  const sourceRoot = path.parse(sourcePath).root
+  let sourceDir = path.dirname(sourcePath)
+
+  while (true) {
+    const sourceNodeModules = path.join(sourceDir, 'node_modules')
+    try {
+      const stat = await nodeFs.lstat(sourceNodeModules)
+      if (stat.isDirectory() === true || stat.isSymbolicLink() === true) {
+        const stagedDir = path.join(tempRoot, path.relative(sourceRoot, sourceDir))
+        const stagedNodeModules = path.join(stagedDir, 'node_modules')
+        await nodeFs.mkdir(stagedDir, { recursive: true })
+        try {
+          await nodeFs.symlink(
+            sourceNodeModules,
+            stagedNodeModules,
+            process.platform === 'win32' ? 'junction' : 'dir',
+          )
+        } catch (error) {
+          if (hasFileSystemErrorCode(error, 'EEXIST') === false) {
+            throw error
+          }
+        }
+      }
+    } catch (error) {
+      if (hasFileSystemErrorCode(error, 'ENOENT') === false) {
+        throw error
+      }
+    }
+
+    if (sourceDir === sourceRoot) {
+      break
+    }
+    sourceDir = path.dirname(sourceDir)
+  }
+}
+
 const stageCompiledBinaryImportGraph = ({
   entryPath,
 }: {
@@ -182,11 +228,12 @@ const stageCompiledBinaryImportGraph = ({
           try: async () => {
             await nodeFs.mkdir(path.dirname(stagePath), { recursive: true })
             await nodeFs.writeFile(stagePath, transformedSource)
+            await mirrorNodeModulesSearchPaths({ sourcePath, tempRoot })
           },
           catch: (error) =>
             new GenieImportError({
               genieFilePath: entryPath,
-              message: `Failed to write staged module ${stagePath}: ${safeErrorString(error)}`,
+              message: `Failed to stage module ${sourcePath}: ${safeErrorString(error)}`,
               cause: error,
             }),
         })
@@ -198,8 +245,43 @@ const stageCompiledBinaryImportGraph = ({
         return stagePath
       })
 
-    const stagePath = yield* stageModule(entryPath)
-    return { stagePath, tempRoot }
+    const stagedEntryPath = yield* stageModule(entryPath)
+    const bundleResult = yield* Effect.tryPromise({
+      try: () =>
+        Bun.build({
+          entrypoints: [stagedEntryPath],
+          naming: 'genie-entry.js',
+          outdir: path.join(tempRoot, 'bundle'),
+          root: tempRoot,
+          target: 'bun',
+          throw: false,
+          treeShaking: false,
+        }),
+      catch: (error) =>
+        new GenieImportError({
+          genieFilePath: entryPath,
+          message: `Failed to bundle staged import graph for ${entryPath}: ${safeErrorString(error)}`,
+          cause: error,
+        }),
+    })
+    if (bundleResult.success === false) {
+      return yield* new GenieImportError({
+        genieFilePath: entryPath,
+        message: `Failed to bundle staged import graph for ${entryPath}: ${bundleResult.logs.map(safeErrorString).join('\n')}`,
+        cause: bundleResult.logs,
+      })
+    }
+
+    const bundledEntryPath = bundleResult.outputs[0]?.path
+    if (bundledEntryPath === undefined) {
+      return yield* new GenieImportError({
+        genieFilePath: entryPath,
+        message: `Failed to bundle staged import graph for ${entryPath}: Bun produced no output`,
+        cause: new Error('Bun produced no output'),
+      })
+    }
+
+    return { stagePath: bundledEntryPath, tempRoot }
   })
 
 const removeStagedCompiledBinaryImportGraph = ({

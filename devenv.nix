@@ -622,6 +622,7 @@ in
   # pnpm's package links.
   tasks."genie:run".after = [ "pnpm:install" ];
   tasks."genie:check".after = [ "pnpm:install" ];
+  tasks."lint:check:genie".after = [ "pnpm:install" ];
 
   # Non-`.genie.ts` sources share one list with the lint freshness scheduler.
   effectUtils.genie.extraInputGlobs = genieExtraInputGlobs;
