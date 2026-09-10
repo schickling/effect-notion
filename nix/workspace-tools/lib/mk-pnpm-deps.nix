@@ -114,6 +114,7 @@ let
     const { execFileSync } = require("child_process");
 
     const workspaceRoot = process.cwd();
+    const allowMissingFilteredTargets = process.argv.includes("--allow-missing-filtered-targets");
     const sourceInputLocatorPrefix = "file:.devenv/pnpm-source-inputs/current/";
 
     const sortedDirEntries = (dirPath) =>
@@ -282,7 +283,7 @@ let
 
           for (const [packageDir, sourceProjectDir] of relinkedTargets) {
             if (!fs.existsSync(packageDir)) {
-              if (injectedTargets.has(packageDir)) continue;
+              if (injectedTargets.has(packageDir) || allowMissingFilteredTargets) continue;
               throw new Error(`selected local dependency target is missing: ''${packageDir}`);
             }
             if (fs.realpathSync(packageDir) === sourceProjectDir) {
@@ -627,7 +628,8 @@ in
                 ${postPnpmInstall}
 
                 relinkStartedAt=$(timer_now)
-                ${pnpmNodejs}/bin/node ${lib.escapeShellArg rewritePreparedWorkspaceScript}
+                ${pnpmNodejs}/bin/node ${lib.escapeShellArg rewritePreparedWorkspaceScript} \
+                  ${lib.optionalString (pnpmFilters != [ ]) "--allow-missing-filtered-targets"}
                 relinkDuration=$(timer_elapsed "$relinkStartedAt")
                 log_prep_phase "relink-local-sources" "duration=''${relinkDuration}s"
                 log_prep_event "relink-local-sources" "$relinkDuration" "kind=prepared-workspace"
