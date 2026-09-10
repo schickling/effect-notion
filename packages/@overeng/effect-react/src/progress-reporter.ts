@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, SubscriptionRef } from 'effect'
 import type { Stream } from 'effect'
 
-// oxlint-disable eslint-plugin-react-hooks(rules-of-hooks) -- Context.Service `.use` accessors are Effect v4 service requests, not React hooks
+// oxlint-disable react/rules-of-hooks -- Context.Service `.use` accessors are Effect v4 service requests, not React hooks
 
 /**
  * Generic progress state for tracking completion of multi-step operations.

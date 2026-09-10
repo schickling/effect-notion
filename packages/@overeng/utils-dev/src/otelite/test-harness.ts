@@ -379,7 +379,7 @@ export const captureTest = (
   OteliteSpawnError | OteliteCliError | OteliteDecodeError,
   Scope.Scope
 > =>
-  // oxlint-disable-next-line react-hooks(rules-of-hooks) -- `use` is a Context.Service combinator, not a React hook
+  // oxlint-disable-next-line react/rules-of-hooks -- `use` is a Context.Service combinator, not a React hook
   OteliteTestHarness.use((harness) => harness.capture(options)).pipe(
     Effect.provide(OteliteTestHarness.layer),
   )

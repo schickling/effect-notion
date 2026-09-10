@@ -286,6 +286,13 @@ export const baseOxlintRules = {
   // Enforce rules of hooks — promote from pedantic (off) to error
   'react/rules-of-hooks': 'error',
 
+  // React Compiler rules require compiler-compatible component idioms that this codebase has not adopted.
+  'react/globals': 'off',
+  'react/immutability': 'off',
+  'react/purity': 'off',
+  'react/refs': 'off',
+  'react/set-state-in-effect': 'off',
+
   // Warn on missing/extra hook dependencies
   'react/exhaustive-deps': 'warn',
 } as const satisfies OxlintConfigArgs['rules']

@@ -702,7 +702,7 @@ export const writeBaseSnapshot = (opts: {
   readonly pageId: string
   readonly body: string
 }): Effect.Effect<NmdObjectRef, NmdFileSystemError, NmdStateStore> =>
-  // oxlint-disable-next-line react-hooks(rules-of-hooks) -- `use` is a Context.Service combinator, not a React hook
+  // oxlint-disable-next-line react/rules-of-hooks -- `use` is a Context.Service combinator, not a React hook
   NmdStateStore.use((store) => store.writeBaseSnapshot(opts))
 
 /** Load and validate the last clean body snapshot for conflict handling. */
@@ -710,7 +710,7 @@ export const readBaseSnapshot = (opts: {
   readonly path: string
   readonly syncState: NmdSyncStateV1
 }): Effect.Effect<NmdBaseSnapshotV2, NmdObjectStoreError, NmdStateStore> =>
-  // oxlint-disable-next-line react-hooks(rules-of-hooks) -- `use` is a Context.Service combinator, not a React hook
+  // oxlint-disable-next-line react/rules-of-hooks -- `use` is a Context.Service combinator, not a React hook
   NmdStateStore.use((store) => store.readBaseSnapshot(opts))
 
 /** Write a storage overflow payload and return the strict frontmatter reference. */
@@ -720,7 +720,7 @@ export const writeStorageObject = (opts: {
   readonly reason: 'too_large' | 'volatile_url'
   readonly storage: NmdStorage
 }): Effect.Effect<NmdObjectRef, NmdFileSystemError, NmdStateStore> =>
-  // oxlint-disable-next-line react-hooks(rules-of-hooks) -- `use` is a Context.Service combinator, not a React hook
+  // oxlint-disable-next-line react/rules-of-hooks -- `use` is a Context.Service combinator, not a React hook
   NmdStateStore.use((store) => store.writeStorageObject(opts))
 
 /** Load and validate object-store storage referenced by the sync state, if present. */
@@ -728,7 +728,7 @@ export const validateReferencedObjects = (opts: {
   readonly path: string
   readonly syncState: NmdSyncStateV1
 }): Effect.Effect<NmdStorageObjectV2 | undefined, NmdObjectStoreError, NmdStateStore> =>
-  // oxlint-disable-next-line react-hooks(rules-of-hooks) -- `use` is a Context.Service combinator, not a React hook
+  // oxlint-disable-next-line react/rules-of-hooks -- `use` is a Context.Service combinator, not a React hook
   NmdStateStore.use((store) => store.validateReferencedObjects(opts))
 
 /** Remove unreachable content-addressed objects for an explicit local state root. */
@@ -737,7 +737,7 @@ export const garbageCollectObjects = (opts: {
   readonly syncStates: readonly NmdSyncStateV1[]
   readonly dryRun?: boolean
 }): Effect.Effect<NmdObjectGcResult, NmdFileSystemError | NmdObjectStoreError, NmdStateStore> =>
-  // oxlint-disable-next-line react-hooks(rules-of-hooks) -- `use` is a Context.Service combinator, not a React hook
+  // oxlint-disable-next-line react/rules-of-hooks -- `use` is a Context.Service combinator, not a React hook
   NmdStateStore.use((store) => store.garbageCollectObjects(opts))
 
 /** Write the sidecar sync state at `.notion-md/sync/{page_id}.json`. */
@@ -745,7 +745,7 @@ export const writeSyncState = (opts: {
   readonly path: string
   readonly syncState: NmdSyncStateV1
 }): Effect.Effect<void, NmdFileSystemError, NmdStateStore> =>
-  // oxlint-disable-next-line react-hooks(rules-of-hooks) -- `use` is a Context.Service combinator, not a React hook
+  // oxlint-disable-next-line react/rules-of-hooks -- `use` is a Context.Service combinator, not a React hook
   NmdStateStore.use((store) => store.writeSyncState(opts))
 
 /** Read the sidecar sync state for a known page id; fails if missing. */
@@ -753,7 +753,7 @@ export const readSyncState = (opts: {
   readonly path: string
   readonly pageId: string
 }): Effect.Effect<NmdSyncStateV1, NmdObjectStoreError, NmdStateStore> =>
-  // oxlint-disable-next-line react-hooks(rules-of-hooks) -- `use` is a Context.Service combinator, not a React hook
+  // oxlint-disable-next-line react/rules-of-hooks -- `use` is a Context.Service combinator, not a React hook
   NmdStateStore.use((store) => store.readSyncState(opts))
 
 /** Read the sidecar sync state if it exists, else undefined (pre-first-sync). */
@@ -761,5 +761,5 @@ export const readSyncStateOptional = (opts: {
   readonly path: string
   readonly pageId: string
 }): Effect.Effect<NmdSyncStateV1 | undefined, NmdObjectStoreError, NmdStateStore> =>
-  // oxlint-disable-next-line react-hooks(rules-of-hooks) -- `use` is a Context.Service combinator, not a React hook
+  // oxlint-disable-next-line react/rules-of-hooks -- `use` is a Context.Service combinator, not a React hook
   NmdStateStore.use((store) => store.readSyncStateOptional(opts))

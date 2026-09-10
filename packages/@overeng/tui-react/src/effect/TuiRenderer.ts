@@ -33,7 +33,7 @@ import type { Terminal, TerminalLike } from '@overeng/tui-core'
 
 import { createRoot, type Root } from '../root.tsx'
 
-// oxlint-disable eslint-plugin-react-hooks(rules-of-hooks) -- Context.Service `.use` accessors are Effect v4 service requests, not React hooks
+// oxlint-disable react/rules-of-hooks -- Context.Service `.use` accessors are Effect v4 service requests, not React hooks
 
 // =============================================================================
 // Service Interface
