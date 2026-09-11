@@ -105,7 +105,7 @@ package_bin_check = rule(
             providers = [BunToolchainInfo],
         )),
         "_runner": attrs.default_only(attrs.dep(
-            default = "//:package_command_runtime",
+            default = "//packages/@overeng/buck2-tools:package_command_runtime",
             providers = [DefaultInfo],
         )),
     },
@@ -138,7 +138,7 @@ package_bin_build = rule(
             providers = [BunToolchainInfo],
         )),
         "_runner": attrs.default_only(attrs.dep(
-            default = "//:package_command_runtime",
+            default = "//packages/@overeng/buck2-tools:package_command_runtime",
             providers = [DefaultInfo],
         )),
     },
@@ -195,7 +195,7 @@ package_bin = rule(
             providers = [BunToolchainInfo],
         )),
         "_runner": attrs.default_only(attrs.dep(
-            default = "//:package_command_runtime",
+            default = "//packages/@overeng/buck2-tools:package_command_runtime",
             providers = [DefaultInfo],
         )),
     },
@@ -300,7 +300,7 @@ _package_bin_artifact = rule(
             providers = [PnpmPlatformGatedPackagesInfo],
         )),
         "_runner": attrs.default_only(attrs.dep(
-            default = "//:package_command_runtime",
+            default = "//packages/@overeng/buck2-tools:package_command_runtime",
             providers = [DefaultInfo],
         )),
     },

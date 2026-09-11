@@ -10,6 +10,7 @@ export default tsconfigJson({
     ...baseTsconfigCompilerOptions,
     ...packageTsconfigCompilerOptions,
     ...nodeTypes,
+    noEmit: true,
   },
   include: ['src/**/*'],
 } satisfies TSConfigArgs)

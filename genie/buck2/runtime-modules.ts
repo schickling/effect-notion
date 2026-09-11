@@ -1,3 +1,8 @@
+import {
+  createGenieOutput,
+  type GenieOutput,
+} from '../../packages/@overeng/genie/src/runtime/core.ts'
+
 /**
  * Declared module sets for the TypeScript sources Buck stages into actions.
  *
@@ -17,26 +22,24 @@ export type Buck2StagedRuntime = {
   readonly entry: string
   /** Complete relative-import closure of `entry`, repository-relative. */
   readonly modules: readonly string[]
-  /**
-   * How the label stages the modules. `filegroup` co-locates a closure of more
-   * than one module; `export_file` stages exactly one file on its own and can
-   * therefore only carry a runner with no relative imports.
-   */
+  /** Multi-file closures use a filegroup; standalone modules use export_file. */
   readonly staging: 'export_file' | 'filegroup'
 }
 
-const runnerSource = (name: string): string => `packages/@overeng/buck2-tools/src/${name}`
+const buck2ToolsPackagePath = 'packages/@overeng/buck2-tools'
+const buck2ToolsLabel = (name: string): string => `//${buck2ToolsPackagePath}:${name}`
+const runnerSource = (name: string): string => `${buck2ToolsPackagePath}/src/${name}`
 
-/** Every TypeScript runner Buck executes, and the sources staged with it. */
+/** Every TypeScript runner Buck executes, owned by the package containing its source. */
 export const buck2StagedRuntimes = [
   {
-    label: '//:package_tree_runtime',
+    label: buck2ToolsLabel('package_tree_runtime'),
     entry: runnerSource('package-tree.ts'),
     modules: [runnerSource('package-tree.ts'), runnerSource('real-path.ts')],
     staging: 'filegroup',
   },
   {
-    label: '//:package_command_runtime',
+    label: buck2ToolsLabel('package_command_runtime'),
     entry: runnerSource('package-command-runner.ts'),
     modules: [
       runnerSource('package-command-runner.ts'),
@@ -46,21 +49,15 @@ export const buck2StagedRuntimes = [
     staging: 'filegroup',
   },
   {
-    label: '//:javascript_action_runtime',
+    label: buck2ToolsLabel('javascript_action_runtime'),
     entry: runnerSource('javascript-runner.ts'),
     modules: [runnerSource('javascript-runner.ts'), runnerSource('typescript-runner.ts')],
     staging: 'filegroup',
   },
   {
-    label: '//:packages/@overeng/buck2-tools/src/typescript-runner.ts',
+    label: buck2ToolsLabel('typescript-runner.ts'),
     entry: runnerSource('typescript-runner.ts'),
     modules: [runnerSource('typescript-runner.ts')],
-    staging: 'export_file',
-  },
-  {
-    label: '//:packages/@overeng/buck2-tools/src/owned-files.ts',
-    entry: runnerSource('owned-files.ts'),
-    modules: [runnerSource('owned-files.ts')],
     staging: 'export_file',
   },
 ] as const satisfies readonly Buck2StagedRuntime[]
@@ -77,3 +74,43 @@ export const stagedModuleName = (module: string): string => {
   if (name === '') throw new Error(`Runtime module has no file name: ${module}`)
   return name
 }
+
+const packageRelativeSource = (module: string): string => {
+  const prefix = `${buck2ToolsPackagePath}/`
+  if (module.startsWith(prefix) === false) {
+    throw new Error(`Buck2 tools runtime source is outside its package: ${module}`)
+  }
+  return module.slice(prefix.length)
+}
+
+const renderRuntime = (runtime: Buck2StagedRuntime): string => {
+  const name = runtime.label.slice(runtime.label.lastIndexOf(':') + 1)
+  if (runtime.staging === 'export_file') {
+    return `export_file(
+    name = ${JSON.stringify(name)},
+    src = ${JSON.stringify(packageRelativeSource(runtime.entry))},
+    visibility = ["PUBLIC"],
+)`
+  }
+  const sources = runtime.modules
+    .map(
+      (module) =>
+        `        ${JSON.stringify(stagedModuleName(module))}: ${JSON.stringify(packageRelativeSource(module))},`,
+    )
+    .join('\n')
+  return `filegroup(
+    name = ${JSON.stringify(name)},
+    srcs = {
+${sources}
+    },
+    visibility = ["PUBLIC"],
+)`
+}
+
+/** Appends the package-owned staged runner targets to its TypeScript projection. */
+export const withBuck2ToolsRuntimes = <TData>(projection: GenieOutput<TData>): GenieOutput<TData> =>
+  createGenieOutput({
+    ...projection,
+    stringify: (context) =>
+      `${projection.stringify(context)}\n${buck2StagedRuntimes.map(renderRuntime).join('\n\n')}\n`,
+  })

@@ -12,7 +12,7 @@ export default tsconfigJson({
     ...packageTsconfigCompilerOptions,
     ...nodeTypes,
     ...reactJsx,
+    noEmit: true,
   },
   include: ['src/**/*', 'test/**/*', 'bin/**/*.ts', 'bin/**/*.tsx'],
-  references: [{ path: '../megarepo' }],
 } satisfies TSConfigArgs)

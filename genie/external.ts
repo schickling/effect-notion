@@ -335,7 +335,7 @@ export const catalog = defineCatalog({
   '@types/katex': '0.16.8',
 
   // Build tools
-  // npm TypeScript is kept for JS compiler API consumers; ts:check uses Nix-managed tsgo.
+  // npm TypeScript remains for JavaScript compiler-API consumers; Buck supplies effect-tsgo.
   typescript: '6.0.3',
   '@playwright/test': '1.61.0',
   vite: '8.2.2',
@@ -778,9 +778,8 @@ export const createPatchPostinstall = (args: { basePath: string }) => {
  * `false`. This switch is the gate: both fields are `true`, so Effect warnings
  * AND suggestions fail the build exit code (errors always gate regardless).
  *
- * The gate runs through the existing `tsgo --build` over the project graph — no
- * extra compiler pass — so it is enforced by `ts:check` / `ts:check:strict`
- * (hence `devenv tasks run check:quick` / `devenv tasks run check:all` and the CI `typecheck` lane).
+ * The gate runs inside every Buck `tsgo_typecheck` target, so `buck2:check`
+ * enforces it across all 39 projects and the CI `typecheck` lane.
  *
  * This is the SHARED base consumed by peer repos: enabling it gates Effect
  * diagnostics fleet-wide. A repo that is not yet clean can locally override its

@@ -140,19 +140,20 @@ devenv shell
 ### Install Dependencies
 
 ```bash
-devenv tasks run bun:install
+devenv tasks run pnpm:install
 ```
 
-### Build All Packages
+### Check All TypeScript Projects
 
 ```bash
-devenv tasks run ts:build
+devenv tasks run buck2:check
 ```
 
-Fast emit-only build (skips full type checking):
+Publish Buck-produced declarations to package `dist` directories for source-side
+consumers such as type-aware lint:
 
 ```bash
-devenv tasks run ts:emit
+devenv tasks run buck2:typescript:materialize-dist
 ```
 
 ### Run Tests
@@ -174,16 +175,10 @@ devenv tasks run test:watch
 
 ### Type Checking
 
-Continuous type checking across the entire monorepo (project references):
+Buck is the only repository-wide TypeScript check authority:
 
 ```bash
-devenv tasks run ts:build-watch
-```
-
-Or one-off type check:
-
-```bash
-devenv tasks run ts:check
+devenv tasks run buck2:check
 ```
 
 ### Linting

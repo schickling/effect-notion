@@ -5,9 +5,9 @@ load("//buck2:package_tools.bzl", "package_bin_artifact")
 load("//buck2/products:defs.bzl", "javascript_product")
 
 # Projection source: packages/@overeng/megarepo/BUCK.genie.ts
-# Projection schema version: 8
+# Projection schema version: 9
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:65af1992751d7dc4d9072594be4fbaa3e0c88c15c0f788012272cb447c7336a9
+# Semantic fingerprint: sha256:7a161a65611b61a27fc1dfc602318bb8c59e8de8972a2fdf10ef3d7966bc90c8
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-path/BUCK.genie.ts, packages/@overeng/effect-path/package.json.genie.ts, packages/@overeng/kdl-effect/BUCK.genie.ts, packages/@overeng/kdl-effect/package.json.genie.ts, packages/@overeng/kdl/BUCK.genie.ts, packages/@overeng/kdl/package.json.genie.ts, packages/@overeng/megarepo/BUCK.genie.ts, packages/@overeng/megarepo/BUCK.genie.ts, packages/@overeng/megarepo/bin/**/*.cts, packages/@overeng/megarepo/bin/**/*.js, packages/@overeng/megarepo/bin/**/*.mts, packages/@overeng/megarepo/bin/**/*.spec.cjs, packages/@overeng/megarepo/bin/**/*.spec.jsx, packages/@overeng/megarepo/bin/**/*.spec.mjs, packages/@overeng/megarepo/bin/**/*.test.cjs, packages/@overeng/megarepo/bin/**/*.test.jsx, packages/@overeng/megarepo/bin/**/*.test.mjs, packages/@overeng/megarepo/bin/**/*.ts, packages/@overeng/megarepo/bin/**/*.tsx, packages/@overeng/megarepo/bin/**/__snapshots__/*.snap, packages/@overeng/megarepo/package.json.genie.ts, packages/@overeng/megarepo/src/**/*.cts, packages/@overeng/megarepo/src/**/*.js, packages/@overeng/megarepo/src/**/*.mts, packages/@overeng/megarepo/src/**/*.spec.cjs, packages/@overeng/megarepo/src/**/*.spec.jsx, packages/@overeng/megarepo/src/**/*.spec.mjs, packages/@overeng/megarepo/src/**/*.test.cjs, packages/@overeng/megarepo/src/**/*.test.jsx, packages/@overeng/megarepo/src/**/*.test.mjs, packages/@overeng/megarepo/src/**/*.ts, packages/@overeng/megarepo/src/**/*.tsx, packages/@overeng/megarepo/src/**/__snapshots__/*.snap, packages/@overeng/megarepo/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-core/BUCK.genie.ts, packages/@overeng/tui-core/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
@@ -600,7 +600,7 @@ package_view(
         "src/test-utils/temp-root.ts": "src/test-utils/temp-root.ts",
         "tsconfig.json": "tsconfig.json",
     },
-    runtime = "//:package_tree_runtime",
+    runtime = "//packages/@overeng/buck2-tools:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
 )
@@ -895,7 +895,7 @@ package_view(
         "vitest.config.ts": "vitest.config.ts",
     },
     strip_project_references = True,
-    runtime = "//:package_tree_runtime",
+    runtime = "//packages/@overeng/buck2-tools:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
 )
@@ -918,6 +918,7 @@ tsgo_emit(
     package_tree = ":package_tree",
     declaration_sources = {
     },
+    declaration_entrypoint = "src/mod.d.ts",
     visibility = ["PUBLIC"],
 )
 

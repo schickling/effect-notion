@@ -432,15 +432,11 @@ const nativeDepPolicyAuditStep = {
 
 // Core product jobs keyed by the shared Genie CI source of truth.
 const jobs: Record<CoreCIJobName, ReturnType<typeof job> | ReturnType<typeof multiPlatformJob>> = {
-  // Typecheck authority is split after the Buck cutover, so this lane gates on both halves:
-  //   - `buck2:check` owns typecheck and dist for every package carrying Buck `authority`.
-  //   - `ts:check:strict` owns only the residual root TypeScript solution (the projects with
-  //     no Buck authority). It consumes Buck-owned declarations through the dist overlays that
-  //     `buck2:typescript:materialize-dist` publishes, so it is ordered after the materializer.
+  // Buck is the single TypeScript check and declaration authority.
   typecheck: job({
     step: {
-      name: 'Type check (Buck authority + residual root solution)',
-      run: runDevenvTasksBefore('buck2:check', 'ts:check:strict'),
+      name: 'Type check (Buck)',
+      run: runDevenvTasksBefore('buck2:check'),
     },
     extraSteps: [verifyOtelShellEntryStep],
   }),
