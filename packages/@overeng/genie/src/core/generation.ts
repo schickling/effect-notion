@@ -118,12 +118,12 @@ export const pinStagedModuleIdentity = ({
 
   const visit = (node: ts.Node): void => {
     if (
-      ts.isPropertyAccessExpression(node) &&
-      ts.isMetaProperty(node.expression) &&
+      ts.isPropertyAccessExpression(node) === true &&
+      ts.isMetaProperty(node.expression) === true &&
       node.expression.keywordToken === ts.SyntaxKind.ImportKeyword &&
       node.expression.name.text === 'meta' &&
-      ts.isIdentifier(node.name) &&
-      isImportMetaIdentityField(node.name.text)
+      ts.isIdentifier(node.name) === true &&
+      isImportMetaIdentityField(node.name.text) === true
     ) {
       rewrites.push({
         // `pos` includes leading trivia (comments keep their own bytes); `getStart` lands on the
@@ -144,7 +144,7 @@ export const pinStagedModuleIdentity = ({
   // Apply back-to-front so earlier spans keep their original offsets. Spans never nest (a match
   // is not descended into), so ordering by start is total.
   return rewrites
-    .sort((left, right) => left.start - right.start)
+    .toSorted((left, right) => left.start - right.start)
     .reduceRight(
       (code, { start, end, text }) => `${code.slice(0, start)}${text}${code.slice(end)}`,
       sourceCode,
