@@ -596,6 +596,24 @@ describe('GitHub expression validation', () => {
     expect(yaml).toContain("group: '${{ github.workflow }}-${{ github.ref }}'")
   })
 
+  it('does not indent empty lines in block scalars', () => {
+    const workflow = githubWorkflow({
+      name: 'CI',
+      on: { push: { branches: ['main'] } },
+      jobs: {
+        build: {
+          'runs-on': 'ubuntu-latest',
+          steps: [{ run: 'const first = true\n\nconst second = true' }],
+        },
+      },
+    })
+
+    const yaml = workflow.stringify(mockGenieContext)
+
+    expect(yaml).toContain('const first = true\n\n        const second = true')
+    expect(yaml.split('\n').filter((line) => /[ \t]+$/u.test(line))).toEqual([])
+  })
+
   it('keeps expressions quoted in inline arrays', () => {
     const workflow = githubWorkflow({
       name: 'CI',
