@@ -167,6 +167,10 @@ All notable changes to this project will be documented in this file.
   declared overlay. Aggregate no-op apply skips Buck when all overlay identities
   are already current.
 
+- **@overeng/megarepo**: composition capability realizations stay GC-rooted
+  until their resolution handles are released, preventing automatic Nix GC from
+  deleting projected executables during long aggregate overlay publication.
+
 - **CI**: keep draft assistant PRs mergeable by completing the auto-review job
   successfully when no review request is needed.
 - **CI**: stop requiring `main`-only Notion integration, live-deploy, and

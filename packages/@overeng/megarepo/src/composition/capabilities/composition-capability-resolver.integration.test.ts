@@ -264,10 +264,11 @@ describe('composition capability resolver', () => {
         'a-tool',
         'z-tool',
       ])
+      const privateRoot = NodePath.dirname(result.candidateRoot)
       expect(await readFile(fixture.nixLog, 'utf8')).toBe(
-        `build --no-link --print-out-paths --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#a-package^out\n` +
+        `build --out-link ${NodePath.join(privateRoot, 'gc-root-a-tool')} --print-out-paths --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#a-package^out\n` +
           `path-info --recursive --offline --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#a-package^out\n` +
-          `build --no-link --print-out-paths --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#z-package^out\n` +
+          `build --out-link ${NodePath.join(privateRoot, 'gc-root-z-tool')} --print-out-paths --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#z-package^out\n` +
           `path-info --recursive --offline --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#z-package^out\n`,
       )
       expect(result.capabilities[0]?.closureStorePaths).toEqual([bashOutput])
@@ -463,7 +464,12 @@ describe('composition capability resolver', () => {
       })
       expect(result.nixCommands[0]?.args).toEqual([
         'build',
-        '--no-link',
+        '--out-link',
+        NodePath.join(
+          NodePath.resolve(tmpdir()),
+          '.megarepo-capabilities-planned-candidate',
+          'gc-root-buck2',
+        ),
         '--print-out-paths',
         '--no-write-lock-file',
         '--no-update-lock-file',
