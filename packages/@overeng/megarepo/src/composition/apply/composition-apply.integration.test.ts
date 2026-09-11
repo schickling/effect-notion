@@ -547,7 +547,7 @@ describe('composition apply integration', () => {
       const mountedMembers = result.members.filter((member) => member.owned === false)
       expect(mountedMembers).toHaveLength(1)
       for (const member of mountedMembers) {
-        expect(member.mount._tag).toBe('AlreadyCurrent')
+        expect(member.mount?._tag).toBe('AlreadyCurrent')
       }
       expect(value.calls.some((call) => call.startsWith('scratch:'))).toBe(false)
       expect(value.calls.some((call) => call.startsWith('buck:'))).toBe(false)
@@ -569,7 +569,7 @@ describe('composition apply integration', () => {
       expect(result._tag).toBe('Applied')
       if (result._tag !== 'Applied') return
       const mountedMember = result.members.find((member) => member.owned === false)
-      expect(mountedMember?.mount._tag).toBe('AlreadyCurrent')
+      expect(mountedMember?.mount?._tag).toBe('AlreadyCurrent')
       expect(mountedMember?.overlays.map((overlay) => overlay.destinationPath)).toEqual([
         NodePath.join(value.root, 'workspace', 'repos', 'dep', 'pkg/dist1'),
       ])
