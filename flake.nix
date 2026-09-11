@@ -53,9 +53,7 @@
         # Buck is the sole producer for shipped Rust CLIs. Nix imports the exact
         # reviewed per-tuple release assets and revalidates their descriptors,
         # payloads, native runtime contracts, and entrypoints.
-        trackedBuck2NativeProducts = import ./nix/buck2-native-products { inherit pkgs; };
-        otelite = trackedBuck2NativeProducts.products.otelite;
-        otel-scrape = trackedBuck2NativeProducts.products.otel-scrape;
+        nativeProductPackages = (import ./nix/buck2-native-products { inherit pkgs; }).products;
         buck2 = import ./nix/buck2.nix { inherit pkgs; };
         buck2-go = import ./nix/go.nix { inherit pkgs; };
         buck2-stage0-tools = import ./nix/buck2-stage0-tools.nix { inherit pkgs; };
@@ -85,11 +83,10 @@
         packages =
           cliPackages
           // providerCliPackages
+          // nativeProductPackages
           // {
             inherit
               buck2
-              otelite
-              otel-scrape
               ;
             # Hub toolchain authority realization: the exact Bun every Buck JS/TS action uses.
             bun = pkgs.bun;
@@ -163,17 +160,22 @@
           notion-md = cliPackages.notion-md.outPath;
         };
 
-        apps.update-bun-hashes = flake-utils.lib.mkApp {
-          drv = import ./nix/workspace-tools/lib/update-bun-hashes.nix { inherit pkgs; };
-        };
-        apps.otelite = flake-utils.lib.mkApp {
-          drv = otelite;
-          exePath = "/bin/otelite";
-        };
-        apps.otel-scrape = flake-utils.lib.mkApp {
-          drv = otel-scrape;
-          exePath = "/bin/otel-scrape";
-        };
+        apps =
+          {
+            update-bun-hashes = flake-utils.lib.mkApp {
+              drv = import ./nix/workspace-tools/lib/update-bun-hashes.nix { inherit pkgs; };
+            };
+          }
+          // pkgs.lib.optionalAttrs (nativeProductPackages ? otelite) {
+            otelite = flake-utils.lib.mkApp {
+              drv = nativeProductPackages.otelite;
+              exePath = "/bin/otelite";
+            };
+            otel-scrape = flake-utils.lib.mkApp {
+              drv = nativeProductPackages.otel-scrape;
+              exePath = "/bin/otel-scrape";
+            };
+          };
       }
     )
     // {

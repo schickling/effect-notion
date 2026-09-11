@@ -18,6 +18,10 @@ let
   expectedKeys = builtins.concatMap (
     platform: map (product: "${product.name}/${platformKey platform}") targets.products
   ) targets.platforms;
+  platformKeys = map (platform: platformKey (builtins.removeAttrs platform [ "system" ])) targets.platforms;
+  systems = map (platform: platform.system) targets.platforms;
+  productNames = map (product: product.name) targets.products;
+  productTargets = map (product: product.target) targets.products;
   checkEntry = entry:
     let
       descriptor = contract.verifyDescriptor {
@@ -94,13 +98,34 @@ let
     if currentPlatform == null then { } else productsBySystem.${currentPlatform.system};
   topChecks = [
     (ensure (builtins.attrNames manifest == [ "products" "schema" ]) "manifest fields are not exact")
+    (ensure (builtins.attrNames targets == [ "platforms" "products" "schema" ])
+      "target inventory fields are not exact")
     (ensure (manifest.schema == "effect-utils/buck2-native-release-products/v1") "unsupported manifest schema")
     (ensure (targets.schema == "effect-utils/buck2-native-release-targets/v1") "unsupported target schema")
+    (ensure (builtins.all (platform:
+      builtins.attrNames platform == [ "abi" "architecture" "os" "system" ]
+      && builtins.all builtins.isString [ platform.abi platform.architecture platform.os platform.system ]
+    ) targets.platforms) "target platforms are malformed")
+    (ensure (builtins.all (product:
+      builtins.attrNames product == [ "name" "target" ]
+      && builtins.isString product.name
+      && builtins.match "^[A-Za-z0-9][A-Za-z0-9._+-]*$" product.name != null
+      && builtins.isString product.target
+      && builtins.match "^([A-Za-z0-9_]+)?//.+:.+$" product.target != null
+      && builtins.match ".*[[:space:]\\[\\]].*" product.target == null
+    ) targets.products) "target products are malformed")
+    (ensure (builtins.length platformKeys == builtins.length (lib.unique platformKeys))
+      "target platforms contain duplicate native tuples")
+    (ensure (builtins.length systems == builtins.length (lib.unique systems))
+      "target platforms contain duplicate Nix systems")
+    (ensure (builtins.length productNames == builtins.length (lib.unique productNames))
+      "target products contain duplicate names")
+    (ensure (builtins.length productTargets == builtins.length (lib.unique productTargets))
+      "target products contain duplicate labels")
     (ensure (builtins.length actualKeys == builtins.length expectedKeys) "manifest matrix has the wrong size")
     (ensure (builtins.length actualKeys == builtins.length (lib.unique actualKeys)) "manifest matrix contains duplicates")
     (ensure (lib.sort builtins.lessThan actualKeys == lib.sort builtins.lessThan expectedKeys)
       "manifest does not exactly cover the declared product matrix")
-    (ensure (currentPlatform != null) "host platform is not admitted")
   ];
 in
 builtins.deepSeq topChecks {
