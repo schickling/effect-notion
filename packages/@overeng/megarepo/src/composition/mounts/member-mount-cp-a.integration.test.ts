@@ -23,6 +23,7 @@ import { expect } from 'vitest'
 
 import { resolvePinnedCoreutils } from '../../test-utils/coreutils.ts'
 import { makeCanonicalTempDirectoryScoped } from '../../test-utils/temp-root.ts'
+import { publishDistOverlay } from '../overlays/dist-overlay-lifecycle.ts'
 import {
   cpAMemberMountDestinationPath,
   cpAMemberMountTransactionPath,
@@ -272,6 +273,70 @@ describe('cp-a member mount lifecycle', () => {
       expect(metadata.declaredOverlays).toEqual(declaredOverlays)
       expect(metadata.overlays).toEqual([])
       expect(yield* pathExists(NodePath.join(fixture.destinationPath, 'dir', 'dist'))).toBe(false)
+    }, withNode),
+  )
+
+  it.effect(
+    'preserves validated published overlays when the immutable mount authority is unchanged',
+    Effect.fnUntraced(function* () {
+      const fixture = yield* makeFixture()
+      const declaration = { target: '//pkg:dist', destination: 'dir/dist' } as const
+      const mountRequest = requestFor({
+        fixture,
+        sourcePath: fixture.sourceA,
+        lockedCommit: 'a'.repeat(40),
+        distOverlays: [declaration],
+      })
+      const mounted = yield* materializeCpAMemberMount({
+        request: mountRequest,
+        runtime: runtimeFor(fixture),
+      })
+      expect(mounted._tag).toBe('Published')
+      if (mounted._tag !== 'Published') return
+
+      const artifactPath = NodePath.join(fixture.workspaceRoot, 'artifact')
+      yield* Effect.promise(async () => {
+        await mkdir(artifactPath)
+        await writeFile(NodePath.join(artifactPath, 'bundle.js'), 'built\n')
+        await chmod(NodePath.join(artifactPath, 'bundle.js'), 0o444)
+      })
+      const mountInfo = yield* Effect.promise(() => lstat(fixture.destinationPath))
+      const overlay = yield* publishDistOverlay({
+        request: {
+          workspaceRoot: fixture.workspaceRoot,
+          member: fixture.member,
+          expectedMountIdentity: { dev: mountInfo.dev, ino: mountInfo.ino },
+          expectedMetadata: mounted.metadata,
+          target: declaration.target,
+          destination: declaration.destination,
+          artifactPath,
+          cpPath: fixture.cpPath,
+          mvPath: fixture.mvPath,
+          dryRun: false,
+        },
+        runtime: {
+          assertUpdateLockOwned: async () => undefined,
+          nonce: () => 'mount-current',
+        },
+      })
+      expect(overlay._tag).toBe('Published')
+      if (overlay._tag !== 'Published') return
+
+      const repeated = yield* materializeCpAMemberMount({
+        request: mountRequest,
+        runtime: runtimeFor(fixture),
+      })
+      expect(repeated._tag).toBe('AlreadyCurrent')
+      if (repeated._tag !== 'AlreadyCurrent') return
+      expect(repeated.metadata).toEqual(overlay.metadata)
+      expect(
+        yield* Effect.promise(() =>
+          readFile(
+            NodePath.join(fixture.destinationPath, declaration.destination, 'bundle.js'),
+            'utf8',
+          ),
+        ),
+      ).toBe('built\n')
     }, withNode),
   )
 

@@ -78,6 +78,8 @@ interface FixtureOptions {
   readonly allowDarwin?: boolean
   readonly recovery?: boolean
   readonly cacheSections?: CompositionApplyRequest['cacheSections']
+  readonly alreadyCurrent?: boolean
+  readonly currentOverlayCount?: number
   readonly releaseFailures?: ReadonlyArray<string>
 }
 
@@ -117,11 +119,25 @@ const fixture = async (options: FixtureOptions = {}) => {
   const inspections = new Map<string, CompositionMountedMemberInspection>(
     locked.map(({ key }) => {
       const manifest = manifests.get(NodePath.join(root, 'store', key))!
+      const baseMetadata = mountMetadata({ workspaceRoot, key, manifest })
+      const currentOverlayCount =
+        options.alreadyCurrent === true ? manifest.distOverlays.length : options.currentOverlayCount
       return [
         key,
         {
           identity: { dev: 1, ino: key.length + 10 },
-          metadata: mountMetadata({ workspaceRoot, key, manifest }),
+          metadata:
+            currentOverlayCount !== undefined
+              ? {
+                  ...baseMetadata,
+                  overlays: manifest.distOverlays.slice(0, currentOverlayCount).map((overlay) => ({
+                    target: overlay.target,
+                    destination: overlay.destination,
+                    digest,
+                    count: 1,
+                  })),
+                }
+              : baseMetadata,
         },
       ] as const
     }),
@@ -224,12 +240,19 @@ const fixture = async (options: FixtureOptions = {}) => {
       calls.push(`mount:${mount.member}:${mount.allowVerifiedDarwinAdvance}`)
       if (options.mountFailure === mount.member) throw new Error('mount failed')
       const manifest = manifests.get(mount.sourcePath)!
-      return {
-        _tag: 'Published',
-        operation: 'FirstPublish',
-        destinationPath: NodePath.join(workspaceRoot, 'repos', mount.member),
-        metadata: mountMetadata({ workspaceRoot, key: mount.member, manifest }),
-      }
+      const current = inspections.get(mount.member)!
+      return options.alreadyCurrent === true || options.currentOverlayCount !== undefined
+        ? {
+            _tag: 'AlreadyCurrent',
+            destinationPath: NodePath.join(workspaceRoot, 'repos', mount.member),
+            metadata: current.metadata,
+          }
+        : {
+            _tag: 'Published',
+            operation: 'FirstPublish',
+            destinationPath: NodePath.join(workspaceRoot, 'repos', mount.member),
+            metadata: mountMetadata({ workspaceRoot, key: mount.member, manifest }),
+          }
     },
     listPublishedMemberKeys: async () => [],
     teardownMount: async () => {
@@ -507,6 +530,50 @@ describe('composition apply integration', () => {
         expect(command).toContain('|--out|')
       }
       expect(value.calls.at(-1)).toBe('lock:release')
+    } finally {
+      await value.cleanup()
+    }
+  })
+
+  it('skips Buck and overlay publication for validated already-current overlays', async () => {
+    const value = await fixture({ alreadyCurrent: true })
+    try {
+      const result = await Effect.runPromise(
+        compositionApply({ request: value.request, runtime: value.runtime }),
+      )
+      expect(result.members.every((member) => member.overlays.length === 0)).toBe(true)
+      const mountedMembers = result.members.filter((member) => member.owned === false)
+      expect(mountedMembers).toHaveLength(1)
+      for (const member of mountedMembers) {
+        expect(member.mount._tag).toBe('AlreadyCurrent')
+      }
+      expect(value.calls.some((call) => call.startsWith('scratch:'))).toBe(false)
+      expect(value.calls.some((call) => call.startsWith('buck:'))).toBe(false)
+      expect(value.calls.some((call) => call.startsWith('overlay:'))).toBe(false)
+    } finally {
+      await value.cleanup()
+    }
+  })
+
+  it('builds only missing overlays for an otherwise current mount', async () => {
+    const value = await fixture({
+      members: [{ key: 'dep', overlays: 2 }],
+      currentOverlayCount: 1,
+    })
+    try {
+      const result = await Effect.runPromise(
+        compositionApply({ request: value.request, runtime: value.runtime }),
+      )
+      const mountedMember = result.members.find((member) => member.owned === false)
+      expect(mountedMember?.mount._tag).toBe('AlreadyCurrent')
+      expect(mountedMember?.overlays.map((overlay) => overlay.destinationPath)).toEqual([
+        NodePath.join(value.root, 'workspace', 'repos', 'dep', 'pkg/dist1'),
+      ])
+      expect(value.calls.filter((call) => call.startsWith('scratch:dep:create'))).toHaveLength(1)
+      expect(value.calls.filter((call) => call.startsWith('buck:'))).toHaveLength(1)
+      expect(value.calls.filter((call) => call.startsWith('overlay:dep://pkg:'))).toEqual([
+        'overlay:dep://pkg:dist1',
+      ])
     } finally {
       await value.cleanup()
     }
