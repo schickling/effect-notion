@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/notion-react/BUCK.genie.ts
-# Projection schema version: 9
+# Projection schema version: 10
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:2080622f965a7d8a579e84c784d88a00d77463192d00315a6a1df50023242596
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/package.json.genie.ts, packages/@overeng/notion-react/BUCK.genie.ts, packages/@overeng/notion-react/BUCK.genie.ts, packages/@overeng/notion-react/package.json.genie.ts, packages/@overeng/notion-react/src/**/*.cts, packages/@overeng/notion-react/src/**/*.js, packages/@overeng/notion-react/src/**/*.mts, packages/@overeng/notion-react/src/**/*.spec.cjs, packages/@overeng/notion-react/src/**/*.spec.jsx, packages/@overeng/notion-react/src/**/*.spec.mjs, packages/@overeng/notion-react/src/**/*.test.cjs, packages/@overeng/notion-react/src/**/*.test.jsx, packages/@overeng/notion-react/src/**/*.test.mjs, packages/@overeng/notion-react/src/**/*.ts, packages/@overeng/notion-react/src/**/*.tsx, packages/@overeng/notion-react/src/**/__snapshots__/*.snap, packages/@overeng/notion-react/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts
+# Semantic fingerprint: sha256:244e4c152735604f20677b34a18fd58f3d4f56fc7711f9579eb3554492d65411
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/package.json.genie.ts, packages/@overeng/notion-react/BUCK.genie.ts, packages/@overeng/notion-react/BUCK.genie.ts, packages/@overeng/notion-react/package.json.genie.ts, packages/@overeng/notion-react/src/**/*.cts, packages/@overeng/notion-react/src/**/*.js, packages/@overeng/notion-react/src/**/*.mts, packages/@overeng/notion-react/src/**/*.spec.cjs, packages/@overeng/notion-react/src/**/*.spec.jsx, packages/@overeng/notion-react/src/**/*.spec.mjs, packages/@overeng/notion-react/src/**/*.test.cjs, packages/@overeng/notion-react/src/**/*.test.jsx, packages/@overeng/notion-react/src/**/*.test.mjs, packages/@overeng/notion-react/src/**/*.ts, packages/@overeng/notion-react/src/**/*.tsx, packages/@overeng/notion-react/src/**/__snapshots__/*.snap, packages/@overeng/notion-react/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
@@ -125,6 +126,14 @@ export_materialization_inputs([
     "src/web/subpages.stories.tsx",
     "src/web/toggle.unit.test.tsx",
 ])
+
+static_source_set(
+    name = "static_sources",
+    node_modules = ":node_modules",
+    prefix = "packages/@overeng/notion-react",
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    visibility = ["PUBLIC"],
+)
 
 alias(
     name = "node_modules",

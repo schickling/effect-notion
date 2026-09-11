@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/react-inspector/BUCK.genie.ts
-# Projection schema version: 9
+# Projection schema version: 10
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:931940cf84e9764e1172d871d8a613a12569eb591bf809c8a22e813422a4a1d7
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/react-inspector/BUCK.genie.ts, packages/@overeng/react-inspector/BUCK.genie.ts, packages/@overeng/react-inspector/package.json.genie.ts, packages/@overeng/react-inspector/src/**/*.cts, packages/@overeng/react-inspector/src/**/*.js, packages/@overeng/react-inspector/src/**/*.mts, packages/@overeng/react-inspector/src/**/*.spec.cjs, packages/@overeng/react-inspector/src/**/*.spec.jsx, packages/@overeng/react-inspector/src/**/*.spec.mjs, packages/@overeng/react-inspector/src/**/*.test.cjs, packages/@overeng/react-inspector/src/**/*.test.jsx, packages/@overeng/react-inspector/src/**/*.test.mjs, packages/@overeng/react-inspector/src/**/*.ts, packages/@overeng/react-inspector/src/**/*.tsx, packages/@overeng/react-inspector/src/**/__snapshots__/*.snap, packages/@overeng/react-inspector/test-d/**/*.cts, packages/@overeng/react-inspector/test-d/**/*.js, packages/@overeng/react-inspector/test-d/**/*.mts, packages/@overeng/react-inspector/test-d/**/*.spec.cjs, packages/@overeng/react-inspector/test-d/**/*.spec.jsx, packages/@overeng/react-inspector/test-d/**/*.spec.mjs, packages/@overeng/react-inspector/test-d/**/*.test.cjs, packages/@overeng/react-inspector/test-d/**/*.test.jsx, packages/@overeng/react-inspector/test-d/**/*.test.mjs, packages/@overeng/react-inspector/test-d/**/*.ts, packages/@overeng/react-inspector/test-d/**/*.tsx, packages/@overeng/react-inspector/test-d/**/__snapshots__/*.snap, packages/@overeng/react-inspector/tsconfig.json.genie.ts, packages/@overeng/react-inspector/tsconfig.strict-consumer.json.genie.ts
+# Semantic fingerprint: sha256:0cacfb67a4c0032a3e27d532cba0e30d491c2d070cfce0f067142fd898512eb9
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/react-inspector/BUCK.genie.ts, packages/@overeng/react-inspector/BUCK.genie.ts, packages/@overeng/react-inspector/package.json.genie.ts, packages/@overeng/react-inspector/src/**/*.cts, packages/@overeng/react-inspector/src/**/*.js, packages/@overeng/react-inspector/src/**/*.mts, packages/@overeng/react-inspector/src/**/*.spec.cjs, packages/@overeng/react-inspector/src/**/*.spec.jsx, packages/@overeng/react-inspector/src/**/*.spec.mjs, packages/@overeng/react-inspector/src/**/*.test.cjs, packages/@overeng/react-inspector/src/**/*.test.jsx, packages/@overeng/react-inspector/src/**/*.test.mjs, packages/@overeng/react-inspector/src/**/*.ts, packages/@overeng/react-inspector/src/**/*.tsx, packages/@overeng/react-inspector/src/**/__snapshots__/*.snap, packages/@overeng/react-inspector/test-d/**/*.cts, packages/@overeng/react-inspector/test-d/**/*.js, packages/@overeng/react-inspector/test-d/**/*.mts, packages/@overeng/react-inspector/test-d/**/*.spec.cjs, packages/@overeng/react-inspector/test-d/**/*.spec.jsx, packages/@overeng/react-inspector/test-d/**/*.spec.mjs, packages/@overeng/react-inspector/test-d/**/*.test.cjs, packages/@overeng/react-inspector/test-d/**/*.test.jsx, packages/@overeng/react-inspector/test-d/**/*.test.mjs, packages/@overeng/react-inspector/test-d/**/*.ts, packages/@overeng/react-inspector/test-d/**/*.tsx, packages/@overeng/react-inspector/test-d/**/__snapshots__/*.snap, packages/@overeng/react-inspector/tsconfig.json.genie.ts, packages/@overeng/react-inspector/tsconfig.strict-consumer.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
@@ -59,6 +60,14 @@ export_materialization_inputs([
     "src/utils/propertyUtils.tsx",
     "test-d/exact-optional-consumer.ts",
 ])
+
+static_source_set(
+    name = "static_sources",
+    node_modules = ":node_modules",
+    prefix = "packages/@overeng/react-inspector",
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    visibility = ["PUBLIC"],
+)
 
 alias(
     name = "node_modules",

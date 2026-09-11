@@ -1,5 +1,3 @@
-/* oxlint-disable oxc/no-barrel-file -- This module is the package's intentional public schema API. */
-
 export {
   type LineageBundle,
   type SchemaAnnotations,

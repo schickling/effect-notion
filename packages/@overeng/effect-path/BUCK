@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/effect-path/BUCK.genie.ts
-# Projection schema version: 9
+# Projection schema version: 10
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:6bf17dc2757ab32c693a3a4572a73cda22dbb2e1221e7312e2de983c0d824f34
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-path/BUCK.genie.ts, packages/@overeng/effect-path/BUCK.genie.ts, packages/@overeng/effect-path/package.json.genie.ts, packages/@overeng/effect-path/src/**/*.cts, packages/@overeng/effect-path/src/**/*.js, packages/@overeng/effect-path/src/**/*.mts, packages/@overeng/effect-path/src/**/*.spec.cjs, packages/@overeng/effect-path/src/**/*.spec.jsx, packages/@overeng/effect-path/src/**/*.spec.mjs, packages/@overeng/effect-path/src/**/*.test.cjs, packages/@overeng/effect-path/src/**/*.test.jsx, packages/@overeng/effect-path/src/**/*.test.mjs, packages/@overeng/effect-path/src/**/*.ts, packages/@overeng/effect-path/src/**/*.tsx, packages/@overeng/effect-path/src/**/__snapshots__/*.snap, packages/@overeng/effect-path/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
+# Semantic fingerprint: sha256:4df2750c970f60e4d5515f0023cfdb8a2cd919897b53bcb8ca9716e164d7c70c
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-path/BUCK.genie.ts, packages/@overeng/effect-path/BUCK.genie.ts, packages/@overeng/effect-path/package.json.genie.ts, packages/@overeng/effect-path/src/**/*.cts, packages/@overeng/effect-path/src/**/*.js, packages/@overeng/effect-path/src/**/*.mts, packages/@overeng/effect-path/src/**/*.spec.cjs, packages/@overeng/effect-path/src/**/*.spec.jsx, packages/@overeng/effect-path/src/**/*.spec.mjs, packages/@overeng/effect-path/src/**/*.test.cjs, packages/@overeng/effect-path/src/**/*.test.jsx, packages/@overeng/effect-path/src/**/*.test.mjs, packages/@overeng/effect-path/src/**/*.ts, packages/@overeng/effect-path/src/**/*.tsx, packages/@overeng/effect-path/src/**/__snapshots__/*.snap, packages/@overeng/effect-path/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
@@ -36,6 +37,14 @@ export_materialization_inputs([
     "src/unsafe.ts",
     "src/verified.ts",
 ])
+
+static_source_set(
+    name = "static_sources",
+    node_modules = ":node_modules",
+    prefix = "packages/@overeng/effect-path",
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    visibility = ["PUBLIC"],
+)
 
 alias(
     name = "node_modules",

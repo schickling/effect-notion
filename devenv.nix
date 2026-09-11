@@ -94,7 +94,6 @@ let
     weaver-version-smoke = import ./nix/devenv-modules/tasks/shared/weaver-version-smoke.nix;
     context = ./nix/devenv-modules/tasks/shared/context.nix;
     devenv-module-tests = ./nix/devenv-modules/tasks/local/devenv-module-tests.nix;
-    asset-import-type-reference = ./nix/devenv-modules/tasks/local/asset-import-type-reference.nix;
   };
   # Repository CLIs come from the reviewed Buck product boundary, not from a
   # source entrypoint that exists only here. The activated shell, the flake
@@ -126,49 +125,10 @@ let
     }
   ];
 
-  # Explicit workspace members for the repo-root pnpm workspace.
-  # NOTE: Using pnpm temporarily due to bun bugs. Plan to switch back once fixed.
-  # See: context/workarounds/bun-issues.md
-  allPackages = [
-    "packages/@overeng/agent-session-ingest"
-    "packages/@overeng/buck2-tools"
-    "packages/@overeng/content-address"
-    "packages/@overeng/utils"
-    "packages/@overeng/utils-dev"
-    "packages/@overeng/effect-ai-claude-cli"
-    "packages/@overeng/effect-distributed-lock"
-    "packages/@overeng/effect-path"
-    "packages/@overeng/effect-react"
-    "packages/@overeng/effect-rpc-tanstack"
-    "packages/@overeng/effect-rpc-tanstack/examples/basic"
-    "packages/@overeng/effect-schema-form"
-    "packages/@overeng/effect-schema-form-aria"
-    "packages/@overeng/genie"
-    "packages/@overeng/kdl"
-    "packages/@overeng/kdl-effect"
-    "packages/@overeng/megarepo"
-    "packages/@overeng/notion-cli"
-    "packages/@overeng/notion-core"
-    "packages/@overeng/notion-datasource-sync"
-    "packages/@overeng/notion-effect-client"
-    "packages/@overeng/notion-effect-schema"
-    "packages/@overeng/notion-md"
-    "packages/@overeng/notion-property-write"
-    "packages/@overeng/notion-react"
-    "packages/@overeng/npm-release"
-    "packages/@overeng/otel-contract"
-    "packages/@overeng/oxc-config"
-    "packages/@overeng/pty-effect"
-    "packages/@overeng/react-inspector"
-    "packages/@overeng/restate-effect"
-    "packages/@overeng/stylex-tokens"
-    "packages/@overeng/tui-core"
-    "packages/@overeng/tui-react"
-    "packages/@overeng/tui-stories"
-    "packages/@overeng/ci-tools"
-    "context/opentui"
-    "context/effect/socket"
-  ];
+  # The generated root package manifest is the workspace package authority.
+  # Consuming it here removes the former hand-maintained Nix package list and
+  # makes Genie freshness the single stage-zero synchronization boundary.
+  allPackages = (builtins.fromJSON (builtins.readFile ./package.json)).workspaces;
 
   packageTestQuarantine = { };
   validatedPackageTestQuarantine = lib.mapAttrs (
@@ -353,7 +313,6 @@ let
   buck2TestAuthorityCollectionTargets = builtins.concatMap (
     lane: lib.optional (lane ? collectionTarget) lane.collectionTarget
   ) buck2TestAuthorityLanes;
-  buck2TestAuthorityPackagePaths = map (lane: lane.packagePath) buck2TestAuthorityLanes;
   buck2TestAuthorityIssues =
     builtins.concatMap buck2TestLaneIssues buck2TestAuthorityLanes
     ++
@@ -372,11 +331,7 @@ let
     ++ lib.optional (
       builtins.length (lib.unique buck2TestAuthorityCollectionTargets)
       != builtins.length buck2TestAuthorityCollectionTargets
-    ) "lanes declare a duplicate collection target"
-    ++ lib.optional (
-      builtins.length (lib.unique buck2TestAuthorityPackagePaths)
-      != builtins.length buck2TestAuthorityPackagePaths
-    ) "more than one lane per package is not supported";
+    ) "lanes declare a duplicate collection target";
   discoveredTestPackagePaths = map (pkg: pkg.path) packagesWithTests;
   # A lane whose package carries no discovered Vitest tests (or is quarantined) means the
   # generated bridge and the filesystem have drifted apart; fail every consumer of the lanes
@@ -408,6 +363,24 @@ let
     after = lane.unboundedAfter;
   }) (builtins.filter (lane: lane.unboundedFiles != [ ]) buck2TestLanes);
   sourceTestPackages = sourceOnlyTestPackages ++ unboundedTestPackages;
+
+  buck2BuildExec =
+    { name, targets }:
+    trace.exec name ''
+      set -euo pipefail
+      root="''${DEVENV_ROOT:-$PWD}"
+      export PATH=${
+        lib.makeBinPath [
+          pkgs.coreutils
+          pkgs.watchman
+        ]
+      }
+      workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
+      buck="$workspace_root/.megarepo/bin/buck2"
+      exec "$buck" build \
+        --target-platforms effect_utils//buck2/platforms:host_platform \
+        ${lib.concatStringsSep " \\\n        " targets}
+    '';
 
   # Buck-invoking tasks discover the same pinned composed binary as `buck2:check`, so a lane
   # cannot run against a different Buck than the one the check gate proved.
@@ -808,10 +781,7 @@ in
     # Nix CLI build and hash management
     (taskModules.nix-cli { cliPackages = nixCliPackages; })
     (taskModules.secretspec { })
-    # Local task: Validate allPackages matches filesystem packages (effect-utils specific)
-    ./nix/devenv-modules/tasks/local/workspace-check.nix
     taskModules.devenv-module-tests
-    taskModules.asset-import-type-reference
     # Notion integration tests (requires NOTION_API_TOKEN)
     ./nix/devenv-modules/tasks/local/notion-integration-test.nix
     # Restate integration tests (native restate-server via RESTATE_SERVER_BIN)
@@ -829,6 +799,41 @@ in
   tasks."genie:check".after = [ "pnpm:install" ];
   tasks."lint:check:genie".after = [ "pnpm:install" ];
   tasks."genie:watch".after = [ "pnpm:install" ];
+
+  # Read-only formatting and linting are Buck actions over the exact generated
+  # source manifest. Mutation remains source-side under lint:fix.
+  tasks."lint:check:format".after = lib.mkForce [ "mr:apply" ];
+  tasks."lint:check:format".exec = lib.mkForce (buck2BuildExec {
+    name = "lint:check:format";
+    targets = [ "effect_utils//buck2/static:check_format" ];
+  });
+  tasks."lint:check:oxlint".after = lib.mkForce [ "mr:apply" ];
+  tasks."lint:check:oxlint".exec = lib.mkForce (buck2BuildExec {
+    name = "lint:check:oxlint";
+    targets = [ "effect_utils//buck2/static:check_lint" ];
+  });
+  tasks."lint:check:asset-import-needs-type-reference" = {
+    after = [ "mr:apply" ];
+    description = "Require travelling type references for compiled asset imports through Buck";
+    exec = buck2BuildExec {
+      name = "lint:check:asset-import-needs-type-reference";
+      targets = [ "effect_utils//buck2/static:check_policy" ];
+    };
+  };
+  tasks."lint:check".after = lib.mkAfter [ "lint:check:asset-import-needs-type-reference" ];
+  tasks."lint:check:genie:coverage".after = lib.mkForce [ "mr:apply" ];
+  tasks."lint:check:genie:coverage".exec = lib.mkForce (buck2BuildExec {
+    name = "lint:check:genie:coverage";
+    targets = [ "effect_utils//buck2/static:check_policy" ];
+  });
+  tasks."workspace:check" = {
+    after = [ "mr:apply" ];
+    description = "Validate generated workspace package inventory through Buck";
+    exec = buck2BuildExec {
+      name = "workspace:check";
+      targets = [ "effect_utils//buck2/static:check_policy" ];
+    };
+  };
 
   # Non-`.genie.ts` sources share one list with the lint freshness scheduler.
   effectUtils.genie.extraInputGlobs = genieExtraInputGlobs;
@@ -886,12 +891,15 @@ in
   # reads RESTATE_SERVER_BIN to locate the native server, else falls back to $PATH).
   env.RESTATE_SERVER_BIN = "${restate}/bin/restate-server";
 
-  # Genie and mr run from their packaged products, whose dependencies are baked
-  # into the store path, so neither waits on a repository pnpm projection any
-  # more. What survives is the real constraint: the composed-root mutators must
-  # not run concurrently with each other.
+  # Genie and mr run from packaged products, but the generated projection still defines
+  # the graph mr composes. Generation freshness is therefore a source-side stage-zero
+  # prerequisite: a stale graph must fail before reconciliation can publish it to Buck.
+  # The composed-root mutators also remain serialized behind mr:setup.
   tasks."mr:setup".after = [ "mr:bootstrap" ];
-  tasks."mr:apply".after = [ "mr:setup" ];
+  tasks."mr:apply".after = [
+    "genie:check"
+    "mr:setup"
+  ];
 
   # buck2-tools executes inside pinned Bun actions and exercises Bun.YAML/Bun.which.
   # Keep its package gate on that runtime rather than Vitest's Node process.
@@ -1000,12 +1008,12 @@ in
   };
 
   tasks."bundle:smoke" = {
-    after = [ "pnpm:install" ];
-    description = "Bundle representative public entries with Vite/Rollup dependency resolution";
-    exec = trace.exec "bundle:smoke" ''
-      set -euo pipefail
-      DEVENV_TASK_PASSTHROUGH=1 pnpm --dir packages/@overeng/pty-effect run bundle:smoke
-    '';
+    after = [ "mr:apply" ];
+    description = "Bundle representative public entries through Buck with Vite/Rollup";
+    exec = buck2UnitTestExec {
+      name = "bundle:smoke";
+      targets = [ "effect_utils//packages/@overeng/pty-effect:bundle_smoke" ];
+    };
   };
 
   tasks."gh:apply-settings" = {

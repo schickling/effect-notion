@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/pty-effect/BUCK.genie.ts
-# Projection schema version: 9
+# Projection schema version: 10
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:91b54c8becee6775dc73067e91b75d00994bf5751e49c24c68030d934f9f8572
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/pty-effect/BUCK.genie.ts, packages/@overeng/pty-effect/BUCK.genie.ts, packages/@overeng/pty-effect/package.json.genie.ts, packages/@overeng/pty-effect/src/**/*.cts, packages/@overeng/pty-effect/src/**/*.js, packages/@overeng/pty-effect/src/**/*.mts, packages/@overeng/pty-effect/src/**/*.spec.cjs, packages/@overeng/pty-effect/src/**/*.spec.jsx, packages/@overeng/pty-effect/src/**/*.spec.mjs, packages/@overeng/pty-effect/src/**/*.test.cjs, packages/@overeng/pty-effect/src/**/*.test.jsx, packages/@overeng/pty-effect/src/**/*.test.mjs, packages/@overeng/pty-effect/src/**/*.ts, packages/@overeng/pty-effect/src/**/*.tsx, packages/@overeng/pty-effect/src/**/__snapshots__/*.snap, packages/@overeng/pty-effect/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
+# Semantic fingerprint: sha256:f4f52c3e72858eaa7b942e4acabbb10f7e618c19c3ccce773d0cf7b8ff81b853
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/pty-effect/BUCK.genie.ts, packages/@overeng/pty-effect/BUCK.genie.ts, packages/@overeng/pty-effect/package.json.genie.ts, packages/@overeng/pty-effect/src/**/*.cts, packages/@overeng/pty-effect/src/**/*.js, packages/@overeng/pty-effect/src/**/*.mts, packages/@overeng/pty-effect/src/**/*.spec.cjs, packages/@overeng/pty-effect/src/**/*.spec.jsx, packages/@overeng/pty-effect/src/**/*.spec.mjs, packages/@overeng/pty-effect/src/**/*.test.cjs, packages/@overeng/pty-effect/src/**/*.test.jsx, packages/@overeng/pty-effect/src/**/*.test.mjs, packages/@overeng/pty-effect/src/**/*.ts, packages/@overeng/pty-effect/src/**/*.tsx, packages/@overeng/pty-effect/src/**/__snapshots__/*.snap, packages/@overeng/pty-effect/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
@@ -28,12 +29,21 @@ export_materialization_inputs([
     "src/PtySpawner.ts",
     "src/PtySpec.ts",
     "src/Screenshot.ts",
+    "src/bundle-smoke.unit.test.ts",
     "src/client.test.ts",
     "src/client.ts",
     "src/client.unit.test.ts",
     "src/mod.ts",
     "src/pty.contract.ts",
 ])
+
+static_source_set(
+    name = "static_sources",
+    node_modules = ":node_modules",
+    prefix = "packages/@overeng/pty-effect",
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    visibility = ["PUBLIC"],
+)
 
 alias(
     name = "node_modules",
@@ -60,6 +70,7 @@ package_view(
         "src/PtySpawner.ts": "src/PtySpawner.ts",
         "src/PtySpec.ts": "src/PtySpec.ts",
         "src/Screenshot.ts": "src/Screenshot.ts",
+        "src/bundle-smoke.unit.test.ts": "src/bundle-smoke.unit.test.ts",
         "src/client.test.ts": "src/client.test.ts",
         "src/client.ts": "src/client.ts",
         "src/client.unit.test.ts": "src/client.unit.test.ts",
@@ -85,6 +96,7 @@ package_view(
         "src/PtySpawner.ts": "src/PtySpawner.ts",
         "src/PtySpec.ts": "src/PtySpec.ts",
         "src/Screenshot.ts": "src/Screenshot.ts",
+        "src/bundle-smoke.unit.test.ts": "src/bundle-smoke.unit.test.ts",
         "src/client.test.ts": "src/client.test.ts",
         "src/client.ts": "src/client.ts",
         "src/client.unit.test.ts": "src/client.unit.test.ts",
@@ -126,6 +138,7 @@ vitest_test(
     package_tree = ":test_package_tree",
     excludes = [
         "src/PtySession.test.ts",
+        "src/bundle-smoke.unit.test.ts",
         "src/client.test.ts",
     ],
     visibility = ["PUBLIC"],
@@ -136,7 +149,27 @@ vitest_collect(
     package_tree = ":test_package_tree",
     excludes = [
         "src/PtySession.test.ts",
+        "src/bundle-smoke.unit.test.ts",
         "src/client.test.ts",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "bundle_smoke",
+    package_tree = ":test_package_tree",
+    test_files = [
+        "src/bundle-smoke.unit.test.ts",
+    ],
+    timeout_ms = 120000,
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "bundle_smoke_collect",
+    package_tree = ":test_package_tree",
+    test_files = [
+        "src/bundle-smoke.unit.test.ts",
     ],
     visibility = ["PUBLIC"],
 )

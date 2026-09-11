@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/effect-schema-form-aria/BUCK.genie.ts
-# Projection schema version: 9
+# Projection schema version: 10
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:4ecb0d801988ffd833fbeea66f06e4f0920619bd6b3d1acc934a01f9c1831be3
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-schema-form-aria/BUCK.genie.ts, packages/@overeng/effect-schema-form-aria/BUCK.genie.ts, packages/@overeng/effect-schema-form-aria/package.json.genie.ts, packages/@overeng/effect-schema-form-aria/src/**/*.cts, packages/@overeng/effect-schema-form-aria/src/**/*.js, packages/@overeng/effect-schema-form-aria/src/**/*.mts, packages/@overeng/effect-schema-form-aria/src/**/*.spec.cjs, packages/@overeng/effect-schema-form-aria/src/**/*.spec.jsx, packages/@overeng/effect-schema-form-aria/src/**/*.spec.mjs, packages/@overeng/effect-schema-form-aria/src/**/*.test.cjs, packages/@overeng/effect-schema-form-aria/src/**/*.test.jsx, packages/@overeng/effect-schema-form-aria/src/**/*.test.mjs, packages/@overeng/effect-schema-form-aria/src/**/*.ts, packages/@overeng/effect-schema-form-aria/src/**/*.tsx, packages/@overeng/effect-schema-form-aria/src/**/__snapshots__/*.snap, packages/@overeng/effect-schema-form-aria/tsconfig.json.genie.ts, packages/@overeng/effect-schema-form/BUCK.genie.ts, packages/@overeng/effect-schema-form/package.json.genie.ts, packages/@overeng/stylex-tokens/BUCK.genie.ts, packages/@overeng/stylex-tokens/package.json.genie.ts
+# Semantic fingerprint: sha256:d6e031e9fc506e27d1913123b94e4c8e890cb8d1da317b2262f89c847164ffcc
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-schema-form-aria/BUCK.genie.ts, packages/@overeng/effect-schema-form-aria/BUCK.genie.ts, packages/@overeng/effect-schema-form-aria/package.json.genie.ts, packages/@overeng/effect-schema-form-aria/src/**/*.cts, packages/@overeng/effect-schema-form-aria/src/**/*.js, packages/@overeng/effect-schema-form-aria/src/**/*.mts, packages/@overeng/effect-schema-form-aria/src/**/*.spec.cjs, packages/@overeng/effect-schema-form-aria/src/**/*.spec.jsx, packages/@overeng/effect-schema-form-aria/src/**/*.spec.mjs, packages/@overeng/effect-schema-form-aria/src/**/*.test.cjs, packages/@overeng/effect-schema-form-aria/src/**/*.test.jsx, packages/@overeng/effect-schema-form-aria/src/**/*.test.mjs, packages/@overeng/effect-schema-form-aria/src/**/*.ts, packages/@overeng/effect-schema-form-aria/src/**/*.tsx, packages/@overeng/effect-schema-form-aria/src/**/__snapshots__/*.snap, packages/@overeng/effect-schema-form-aria/tsconfig.json.genie.ts, packages/@overeng/effect-schema-form/BUCK.genie.ts, packages/@overeng/effect-schema-form/package.json.genie.ts, packages/@overeng/stylex-tokens/BUCK.genie.ts, packages/@overeng/stylex-tokens/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -39,6 +40,14 @@ export_materialization_inputs([
     "src/stories/TextField.stories.tsx",
     "src/tokens.stylex.ts",
 ])
+
+static_source_set(
+    name = "static_sources",
+    node_modules = ":node_modules",
+    prefix = "packages/@overeng/effect-schema-form-aria",
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    visibility = ["PUBLIC"],
+)
 
 alias(
     name = "node_modules",

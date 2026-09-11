@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/restate-effect/BUCK.genie.ts
-# Projection schema version: 9
+# Projection schema version: 10
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:4f4c8971c98e10239142c3adadd6aab322f8fab211f1d35fdb0298c391cf3db7
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/examples/**/*.cts, packages/@overeng/restate-effect/examples/**/*.js, packages/@overeng/restate-effect/examples/**/*.mts, packages/@overeng/restate-effect/examples/**/*.spec.cjs, packages/@overeng/restate-effect/examples/**/*.spec.jsx, packages/@overeng/restate-effect/examples/**/*.spec.mjs, packages/@overeng/restate-effect/examples/**/*.test.cjs, packages/@overeng/restate-effect/examples/**/*.test.jsx, packages/@overeng/restate-effect/examples/**/*.test.mjs, packages/@overeng/restate-effect/examples/**/*.ts, packages/@overeng/restate-effect/examples/**/*.tsx, packages/@overeng/restate-effect/examples/**/__snapshots__/*.snap, packages/@overeng/restate-effect/package.json.genie.ts, packages/@overeng/restate-effect/src/**/*.cts, packages/@overeng/restate-effect/src/**/*.js, packages/@overeng/restate-effect/src/**/*.mts, packages/@overeng/restate-effect/src/**/*.spec.cjs, packages/@overeng/restate-effect/src/**/*.spec.jsx, packages/@overeng/restate-effect/src/**/*.spec.mjs, packages/@overeng/restate-effect/src/**/*.test.cjs, packages/@overeng/restate-effect/src/**/*.test.jsx, packages/@overeng/restate-effect/src/**/*.test.mjs, packages/@overeng/restate-effect/src/**/*.ts, packages/@overeng/restate-effect/src/**/*.tsx, packages/@overeng/restate-effect/src/**/__snapshots__/*.snap, packages/@overeng/restate-effect/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:d40f4d4df5a4ac72b4a10bf0ba70b1200663d88212066fcfe081209b368ef603
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/examples/**/*.cts, packages/@overeng/restate-effect/examples/**/*.js, packages/@overeng/restate-effect/examples/**/*.mts, packages/@overeng/restate-effect/examples/**/*.spec.cjs, packages/@overeng/restate-effect/examples/**/*.spec.jsx, packages/@overeng/restate-effect/examples/**/*.spec.mjs, packages/@overeng/restate-effect/examples/**/*.test.cjs, packages/@overeng/restate-effect/examples/**/*.test.jsx, packages/@overeng/restate-effect/examples/**/*.test.mjs, packages/@overeng/restate-effect/examples/**/*.ts, packages/@overeng/restate-effect/examples/**/*.tsx, packages/@overeng/restate-effect/examples/**/__snapshots__/*.snap, packages/@overeng/restate-effect/package.json.genie.ts, packages/@overeng/restate-effect/src/**/*.cts, packages/@overeng/restate-effect/src/**/*.js, packages/@overeng/restate-effect/src/**/*.mts, packages/@overeng/restate-effect/src/**/*.spec.cjs, packages/@overeng/restate-effect/src/**/*.spec.jsx, packages/@overeng/restate-effect/src/**/*.spec.mjs, packages/@overeng/restate-effect/src/**/*.test.cjs, packages/@overeng/restate-effect/src/**/*.test.jsx, packages/@overeng/restate-effect/src/**/*.test.mjs, packages/@overeng/restate-effect/src/**/*.ts, packages/@overeng/restate-effect/src/**/*.tsx, packages/@overeng/restate-effect/src/**/__snapshots__/*.snap, packages/@overeng/restate-effect/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
@@ -95,6 +96,14 @@ export_materialization_inputs([
     "src/testing/test-env.integration.test.ts",
     "src/testing/testing.ts",
 ])
+
+static_source_set(
+    name = "static_sources",
+    node_modules = ":node_modules",
+    prefix = "packages/@overeng/restate-effect",
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    visibility = ["PUBLIC"],
+)
 
 alias(
     name = "node_modules",

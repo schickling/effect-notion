@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: context/effect/socket/BUCK.genie.ts
-# Projection schema version: 9
+# Projection schema version: 10
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:881831fdcc881dfe34d72f840af9a676e25bf881776aa56aad54eef9cca16ffd
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, context/effect/socket/BUCK.genie.ts, context/effect/socket/BUCK.genie.ts, context/effect/socket/examples/**/*.cts, context/effect/socket/examples/**/*.js, context/effect/socket/examples/**/*.mts, context/effect/socket/examples/**/*.spec.cjs, context/effect/socket/examples/**/*.spec.jsx, context/effect/socket/examples/**/*.spec.mjs, context/effect/socket/examples/**/*.test.cjs, context/effect/socket/examples/**/*.test.jsx, context/effect/socket/examples/**/*.test.mjs, context/effect/socket/examples/**/*.ts, context/effect/socket/examples/**/*.tsx, context/effect/socket/examples/**/__snapshots__/*.snap, context/effect/socket/package.json.genie.ts, context/effect/socket/tsconfig.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts
+# Semantic fingerprint: sha256:8d8e70b66b7a63d0c7ca72d853ffe5ac3508d287b206209eb0cbc859ad171359
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, context/effect/socket/BUCK.genie.ts, context/effect/socket/BUCK.genie.ts, context/effect/socket/examples/**/*.cts, context/effect/socket/examples/**/*.js, context/effect/socket/examples/**/*.mts, context/effect/socket/examples/**/*.spec.cjs, context/effect/socket/examples/**/*.spec.jsx, context/effect/socket/examples/**/*.spec.mjs, context/effect/socket/examples/**/*.test.cjs, context/effect/socket/examples/**/*.test.jsx, context/effect/socket/examples/**/*.test.mjs, context/effect/socket/examples/**/*.ts, context/effect/socket/examples/**/*.tsx, context/effect/socket/examples/**/__snapshots__/*.snap, context/effect/socket/package.json.genie.ts, context/effect/socket/tsconfig.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 load("//buck2:typescript.bzl", "tsgo_typecheck")
 
 export_file(
@@ -32,6 +33,14 @@ export_materialization_inputs([
     "examples/ws-json-client.ts",
     "examples/ws-json-server.ts",
 ])
+
+static_source_set(
+    name = "static_sources",
+    node_modules = ":node_modules",
+    prefix = "context/effect/socket",
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    visibility = ["PUBLIC"],
+)
 
 alias(
     name = "node_modules",

@@ -113,6 +113,12 @@ export default oxlintConfig({
       files: ['**/utils/src/node/otel.ts', '**/utils/src/node/otel-attrs.ts'],
       rules: { 'oxc/no-barrel-file': 'off' },
     },
+    // This file is the package's intentional public schema subpath. Keep the
+    // public contract explicit instead of de-barreling the consumer-facing API.
+    {
+      files: ['**/react-inspector/src/schema/mod.tsx'],
+      rules: { 'oxc/no-barrel-file': 'off' },
+    },
     // restate-effect's `./testing` harness has a benign barrel-induced cycle:
     // `testing.ts` aggregates and re-exports `RestateTestEnv`, which imports the
     // harness back from `testing.ts`. Test-infra aggregation, not a runtime

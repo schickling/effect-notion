@@ -1,0 +1,179 @@
+{
+  "ciOperations": [
+    {
+      "disposition": "outside-by-policy:pre-composition-trust-gate",
+      "operation": "default-ref-policy"
+    },
+    {
+      "disposition": "buck-owned",
+      "operation": "typecheck"
+    },
+    {
+      "disposition": "buck-pending:editor",
+      "operation": "lint"
+    },
+    {
+      "disposition": "outside-by-policy:aggregate-includes-policy-excluded-tests",
+      "operation": "test"
+    },
+    {
+      "disposition": "outside-by-policy:browser-integration",
+      "operation": "test-playwright-utils"
+    },
+    {
+      "disposition": "outside-by-policy:browser-integration",
+      "operation": "test-playwright-tui-react"
+    },
+    {
+      "disposition": "outside-by-policy:filesystem-integration",
+      "operation": "test-megarepo-cold-gc"
+    },
+    {
+      "disposition": "outside-by-policy:nix-evaluation",
+      "operation": "nix-check"
+    },
+    {
+      "disposition": "outside-by-policy:nix-realization",
+      "operation": "nix-fod-check"
+    },
+    {
+      "disposition": "outside-by-policy:nix-builder-contract",
+      "operation": "pnpm-builder-contract"
+    },
+    {
+      "disposition": "outside-by-policy:nix-builder-contract",
+      "operation": "pnpm-regression"
+    },
+    {
+      "disposition": "buck-owned",
+      "operation": "bundle-smoke"
+    },
+    {
+      "disposition": "buck-pending:rust",
+      "operation": "cargo"
+    },
+    {
+      "disposition": "outside-by-policy:aggregate-includes-change-relative-and-live-integration",
+      "operation": "weaver"
+    },
+    {
+      "disposition": "outside-by-policy:bootstrap-integration",
+      "operation": "bootstrap-cold-proof"
+    },
+    {
+      "disposition": "outside-by-policy:nix-realization",
+      "operation": "nix-closure-sizes"
+    },
+    {
+      "disposition": "outside-by-policy:ci-measurement-with-run-timestamp",
+      "operation": "source-shape"
+    },
+    {
+      "disposition": "outside-by-policy:service-integration",
+      "operation": "test-integration-restate"
+    },
+    {
+      "disposition": "outside-by-policy:operator-benchmark",
+      "operation": "devenv-perf"
+    },
+    {
+      "disposition": "outside-by-policy:secret-service-integration",
+      "operation": "test-integration-notion"
+    },
+    {
+      "disposition": "outside-by-policy:live-deployment",
+      "operation": "test-live-deploy-ci-tools"
+    },
+    {
+      "disposition": "outside-by-policy:live-deployment",
+      "operation": "deploy-storybooks"
+    },
+    {
+      "disposition": "outside-by-policy:ci-control-plane",
+      "operation": "ci-measurements-report"
+    },
+    {
+      "disposition": "outside-by-policy:ci-control-plane",
+      "operation": "notify-alignment"
+    }
+  ],
+  "developerOperations": [
+    {
+      "disposition": "buck-owned",
+      "operation": "buck2:check"
+    },
+    {
+      "disposition": "outside-by-policy:workspace-publication",
+      "operation": "buck2:typescript:materialize-dist"
+    },
+    {
+      "disposition": "outside-by-policy:cross-boundary-aggregate",
+      "operation": "check:all"
+    },
+    {
+      "disposition": "outside-by-policy:cross-boundary-aggregate",
+      "operation": "check:quick"
+    },
+    {
+      "disposition": "outside-by-policy:stage-zero-bootstrap-freshness",
+      "operation": "genie:check"
+    },
+    {
+      "disposition": "outside-by-policy:authoring-mutation",
+      "operation": "genie:run"
+    },
+    {
+      "disposition": "outside-by-policy:long-lived-watcher",
+      "operation": "genie:watch"
+    },
+    {
+      "disposition": "buck-pending:editor",
+      "operation": "lint:check"
+    },
+    {
+      "disposition": "outside-by-policy:authoring-mutation",
+      "operation": "lint:fix"
+    },
+    {
+      "disposition": "outside-by-policy:nix-realization",
+      "operation": "nix:build"
+    },
+    {
+      "disposition": "outside-by-policy:nix-realization",
+      "operation": "nix:build:genie"
+    },
+    {
+      "disposition": "outside-by-policy:nix-evaluation",
+      "operation": "nix:check"
+    },
+    {
+      "disposition": "buck-pending:editor",
+      "operation": "pnpm:install"
+    },
+    {
+      "disposition": "outside-by-policy:aggregate-includes-policy-excluded-tests",
+      "operation": "test:<pkg>"
+    },
+    {
+      "disposition": "outside-by-policy:aggregate-includes-policy-excluded-tests",
+      "operation": "test:genie"
+    },
+    {
+      "disposition": "outside-by-policy:secret-service-integration",
+      "operation": "test:integration"
+    },
+    {
+      "disposition": "outside-by-policy:aggregate-includes-policy-excluded-tests",
+      "operation": "test:run"
+    },
+    {
+      "disposition": "outside-by-policy:aggregate-includes-policy-excluded-tests",
+      "operation": "test:utils"
+    },
+    {
+      "disposition": "outside-by-policy:long-lived-watcher",
+      "operation": "test:watch"
+    }
+  ],
+  "schemaVersion": 1
+}

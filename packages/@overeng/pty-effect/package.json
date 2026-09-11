@@ -23,9 +23,6 @@
       "default": "./src/client.ts"
     }
   },
-  "scripts": {
-    "bundle:smoke": "bun ../../../genie/ci-scripts/bundle-smoke.ts"
-  },
   "dependencies": {
     "@myobie/pty": "0.10.0",
     "@overeng/otel-contract": "workspace:^"

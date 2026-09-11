@@ -13,7 +13,7 @@ import {
   type CommandRuntime,
   executeCommandPlan,
   type ForwardedSignal,
-  planBuck2TypeScriptBuild,
+  planBuck2AuthorityBuild,
   planTypeScriptDistMaterialization,
 } from './typescript-authority-runtime.ts'
 
@@ -96,7 +96,7 @@ describe('Buck2 TypeScript authority runtime planning', () => {
     ])
 
     expect(
-      planBuck2TypeScriptBuild({
+      planBuck2AuthorityBuild({
         admissions: fixtureAdmissions,
         buck2Bin: '/workspace/.megarepo/bin/buck2',
         collectionTargets: ['effect_utils//packages/@example/widget:test_collect'],
@@ -108,6 +108,7 @@ describe('Buck2 TypeScript authority runtime planning', () => {
       'effect_utils//packages/@example/widget:typecheck',
       'effect_utils//packages/@example/widget:test',
       'effect_utils//packages/@example/widget:test_collect',
+      'effect_utils//buck2/static:check',
       'effect_utils//buck2/toolchains:archive_tool',
       'effect_utils//buck2/toolchains:product_tool',
       '--local-only',
@@ -116,7 +117,7 @@ describe('Buck2 TypeScript authority runtime planning', () => {
     // A package with no declared lane adds nothing: the gate must not invent a
     // target name for it, execution or inventory.
     expect(
-      planBuck2TypeScriptBuild({
+      planBuck2AuthorityBuild({
         admissions: fixtureAdmissions,
         buck2Bin: '/workspace/.megarepo/bin/buck2',
         collectionTargets: [],
@@ -126,6 +127,7 @@ describe('Buck2 TypeScript authority runtime planning', () => {
       '/workspace/.megarepo/bin/buck2',
       'build',
       'effect_utils//packages/@example/widget:typecheck',
+      'effect_utils//buck2/static:check',
       'effect_utils//buck2/toolchains:archive_tool',
       'effect_utils//buck2/toolchains:product_tool',
       '--local-only',
@@ -151,7 +153,7 @@ describe('Buck2 TypeScript authority runtime planning', () => {
       ),
     )
 
-    expect(planBuck2TypeScriptBuild({ buck2Bin: '/workspace/.megarepo/bin/buck2' })).toEqual([
+    expect(planBuck2AuthorityBuild({ buck2Bin: '/workspace/.megarepo/bin/buck2' })).toEqual([
       '/workspace/.megarepo/bin/buck2',
       'build',
       ...authoritativeBuck2TypeScriptProjects.map(
@@ -159,6 +161,7 @@ describe('Buck2 TypeScript authority runtime planning', () => {
       ),
       ...buck2TypeScriptTestTargets,
       ...buck2TypeScriptTestCollectionTargets,
+      'effect_utils//buck2/static:check',
       'effect_utils//buck2/toolchains:archive_tool',
       'effect_utils//buck2/toolchains:product_tool',
       '--local-only',

@@ -25,11 +25,22 @@ export const buck2TypeScriptAdmission = {
     {
       name: 'test',
       runner: 'vitest',
-      // Only the pure client suite is bounded: the session and compiled-binary suites need a
-      // real PTY, the Nix-built `node-pty` addon, and `bun build --compile`, so they stay
-      // unbounded (decision 0026) under the devenv `test:pty-effect` task.
-      excludes: ['src/PtySession.test.ts', 'src/client.test.ts'],
+      // The native session and compiled-binary suites remain source-owned (decision 0026).
+      // The Vite contract gets a separate Buck lane so CI retains its bundle-specific signal.
+      excludes: ['src/PtySession.test.ts', 'src/bundle-smoke.unit.test.ts', 'src/client.test.ts'],
+      sourceOwners: { 'src/bundle-smoke.unit.test.ts': 'bundle:smoke' },
       unboundedAfter: ['pnpm:link-native-node-packages'],
+    },
+    {
+      name: 'bundle_smoke',
+      runner: 'vitest',
+      testFiles: ['src/bundle-smoke.unit.test.ts'],
+      sourceOwners: {
+        'src/PtySession.test.ts': 'test:pty-effect:unbounded',
+        'src/client.test.ts': 'test:pty-effect:unbounded',
+        'src/client.unit.test.ts': 'test:pty-effect',
+      },
+      timeoutMs: 120_000,
     },
   ],
 } as const satisfies Buck2TypeScriptAdmission

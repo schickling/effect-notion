@@ -88,6 +88,18 @@ const manifestProjection = {
       ],
     },
     {
+      toolId: 'oxfmt',
+      protocol: 'oxc/oxfmt/v1',
+      flakePackage: 'oxfmt',
+      executable: 'bin/oxfmt',
+    },
+    {
+      toolId: 'oxlint',
+      protocol: 'oxc/oxlint/v1',
+      flakePackage: 'oxlint-with-plugins',
+      executable: 'bin/oxlint',
+    },
+    {
       toolId: 'archive-tool',
       protocol: 'effect-utils/buck2-archive-tool/v2',
       flakePackage: 'buck2-archive-tool',

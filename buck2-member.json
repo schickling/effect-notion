@@ -189,6 +189,18 @@
       "executable": "bin/node"
     },
     {
+      "toolId": "oxfmt",
+      "protocol": "oxc/oxfmt/v1",
+      "flakePackage": "oxfmt",
+      "executable": "bin/oxfmt"
+    },
+    {
+      "toolId": "oxlint",
+      "protocol": "oxc/oxlint/v1",
+      "flakePackage": "oxlint-with-plugins",
+      "executable": "bin/oxlint"
+    },
+    {
       "toolId": "product",
       "protocol": "effect-utils/buck2-product/v1",
       "flakePackage": "buck2-product",

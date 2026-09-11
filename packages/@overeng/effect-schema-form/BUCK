@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/effect-schema-form/BUCK.genie.ts
-# Projection schema version: 9
+# Projection schema version: 10
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:1a05a7f6d8482c00c25010e37d3c560861928e5cb5c07bce168ef4f9b48e99ea
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-schema-form/BUCK.genie.ts, packages/@overeng/effect-schema-form/BUCK.genie.ts, packages/@overeng/effect-schema-form/package.json.genie.ts, packages/@overeng/effect-schema-form/src/**/*.cts, packages/@overeng/effect-schema-form/src/**/*.js, packages/@overeng/effect-schema-form/src/**/*.mts, packages/@overeng/effect-schema-form/src/**/*.spec.cjs, packages/@overeng/effect-schema-form/src/**/*.spec.jsx, packages/@overeng/effect-schema-form/src/**/*.spec.mjs, packages/@overeng/effect-schema-form/src/**/*.test.cjs, packages/@overeng/effect-schema-form/src/**/*.test.jsx, packages/@overeng/effect-schema-form/src/**/*.test.mjs, packages/@overeng/effect-schema-form/src/**/*.ts, packages/@overeng/effect-schema-form/src/**/*.tsx, packages/@overeng/effect-schema-form/src/**/__snapshots__/*.snap, packages/@overeng/effect-schema-form/tsconfig.json.genie.ts
+# Semantic fingerprint: sha256:f1b46d07748ddf58ede43f2759ccae0b283fb4b0abbd6f7b3ca2aec7233d49f2
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-schema-form/BUCK.genie.ts, packages/@overeng/effect-schema-form/BUCK.genie.ts, packages/@overeng/effect-schema-form/package.json.genie.ts, packages/@overeng/effect-schema-form/src/**/*.cts, packages/@overeng/effect-schema-form/src/**/*.js, packages/@overeng/effect-schema-form/src/**/*.mts, packages/@overeng/effect-schema-form/src/**/*.spec.cjs, packages/@overeng/effect-schema-form/src/**/*.spec.jsx, packages/@overeng/effect-schema-form/src/**/*.spec.mjs, packages/@overeng/effect-schema-form/src/**/*.test.cjs, packages/@overeng/effect-schema-form/src/**/*.test.jsx, packages/@overeng/effect-schema-form/src/**/*.test.mjs, packages/@overeng/effect-schema-form/src/**/*.ts, packages/@overeng/effect-schema-form/src/**/*.tsx, packages/@overeng/effect-schema-form/src/**/__snapshots__/*.snap, packages/@overeng/effect-schema-form/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
@@ -29,6 +30,14 @@ export_materialization_inputs([
     "src/types.ts",
     "src/utils.ts",
 ])
+
+static_source_set(
+    name = "static_sources",
+    node_modules = ":node_modules",
+    prefix = "packages/@overeng/effect-schema-form",
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    visibility = ["PUBLIC"],
+)
 
 alias(
     name = "node_modules",

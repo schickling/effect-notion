@@ -44,6 +44,19 @@ export const internalPackages = [
   'ci-tools',
 ] as const
 
+/**
+ * Every pnpm workspace member path, including private packages and non-`@overeng`
+ * context packages. Keep package-set consumers on this pure registry rather than
+ * importing package generators, whose values are needed only to render manifests.
+ */
+export const pnpmWorkspaceMemberPaths = [
+  'context/effect/socket',
+  'context/opentui',
+  ...internalPackages.map((name) => `packages/@overeng/${name}` as const),
+  'packages/@overeng/npm-release',
+  'packages/@overeng/stylex-tokens',
+].toSorted()
+
 /** Short name of an internal @overeng/* package. */
 export type InternalPackageName = (typeof internalPackages)[number]
 
