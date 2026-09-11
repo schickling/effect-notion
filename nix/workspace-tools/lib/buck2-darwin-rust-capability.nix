@@ -43,6 +43,7 @@ let
     previous=
     for argument in "$@"; do
       if [ "$previous" = -o ]; then output="$argument"; fi
+      case "$argument" in --emit=link=*) output="''${argument#--emit=link=}" ;; esac
       previous="$argument"
     done
     ${pkgs.rustc}/bin/rustc \
