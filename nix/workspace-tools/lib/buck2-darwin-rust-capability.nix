@@ -41,10 +41,21 @@ let
 
     output=
     previous=
+    capture_output() {
+      if [ "$previous" = -o ]; then output="$1"; fi
+      case "$1" in --emit=link=*) output="''${1#--emit=link=}" ;; esac
+      previous="$1"
+    }
     for argument in "$@"; do
-      if [ "$previous" = -o ]; then output="$argument"; fi
-      case "$argument" in --emit=link=*) output="''${argument#--emit=link=}" ;; esac
-      previous="$argument"
+      case "$argument" in
+        @*)
+          response_file="''${argument#@}"
+          if [ -f "$response_file" ]; then
+            while IFS= read -r response_argument; do capture_output "$response_argument"; done <"$response_file"
+          fi
+          ;;
+        *) capture_output "$argument" ;;
+      esac
     done
     ${pkgs.rustc}/bin/rustc \
       -C linker=${pkgs.clang}/bin/clang \
