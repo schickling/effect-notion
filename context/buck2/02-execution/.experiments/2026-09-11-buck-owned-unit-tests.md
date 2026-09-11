@@ -21,6 +21,8 @@ Generation rejects duplicate or nested lane packages until overlapping membershi
 
 Buck stages bounded tests in package trees with project references removed, runs pinned Bun and Vitest tools in scratch-only writable directories, rejects ambient inherited environment for collection, disables Vitest's own cache, and executes 32 lanes through one `buck2 test` aggregate. Source Vitest receives only exact positional complements. Existing dedicated Notion integration, megarepo cold-GC, Utils Playwright, and TUI React Playwright tasks own the exceptional files.
 
+Test execution has one explicit temporary exception to the TypeScript-authority ordering rule: Genie, kdl-effect, megarepo, and tui-stories enter the bounded test partition before their declaration/typecheck projects transfer. Their test actions do not consume those projects' root `tsc` outputs; they execute staged source against the Buck-owned editor dependency view. All four execution and collection targets pass in the complete 32-lane proof, and their source-side whole-suite producers are removed by the same generated task cutover. The TypeScript tranche still owes declaration/typecheck authority for these projects, but no unit-test producer remains duplicated.
+
 The baseline gate now compares three independent observations:
 
 1. the repository filesystem census against every authority row;
