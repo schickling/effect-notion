@@ -295,7 +295,7 @@ const metadataScanMatches = ({
   )
 }
 
-const metadataEqual = ({
+const mountAuthorityEqual = ({
   left,
   right,
 }: {
@@ -319,17 +319,6 @@ const metadataEqual = ({
       other !== undefined &&
       overlay.target === other.target &&
       overlay.destination === other.destination
-    )
-  }) &&
-  left.overlays.length === right.overlays.length &&
-  left.overlays.every((overlay, index) => {
-    const other = right.overlays[index]
-    return (
-      other !== undefined &&
-      overlay.target === other.target &&
-      overlay.destination === other.destination &&
-      overlay.digest === other.digest &&
-      overlay.count === other.count
     )
   })
 
@@ -1500,7 +1489,7 @@ export const materializeCpAMemberMount = ({
         ? 'FirstPublish'
         : oldIdentity._tag === 'LegacySymlink'
           ? 'LegacyConversion'
-          : metadataEqual({ left: oldIdentity.metadata, right: newMetadata }) === true
+          : mountAuthorityEqual({ left: oldIdentity.metadata, right: newMetadata }) === true
             ? 'AlreadyCurrent'
             : 'Advance'
     const nonce = runtime.nonce?.() ?? `${process.pid}-${randomBytes(8).toString('hex')}`
@@ -1525,14 +1514,20 @@ export const materializeCpAMemberMount = ({
       stagePath,
       transactionPath,
       oldIdentity,
-      newMetadata,
+      newMetadata:
+        operation === 'AlreadyCurrent' && oldIdentity._tag === 'Owned'
+          ? oldIdentity.metadata
+          : newMetadata,
       steps: [...planSteps(operation)],
     }
 
     if (operation === 'AlreadyCurrent') {
+      if (oldIdentity._tag !== 'Owned') {
+        throw new TypeError(`Already-current mount '${request.member}' has no owned metadata`)
+      }
       return request.dryRun === true
         ? { _tag: 'DryRun' as const, plan }
-        : { _tag: 'AlreadyCurrent' as const, destinationPath, metadata: newMetadata }
+        : { _tag: 'AlreadyCurrent' as const, destinationPath, metadata: oldIdentity.metadata }
     }
     if (operation !== 'FirstPublish') {
       yield* ensureExchangeAllowed({

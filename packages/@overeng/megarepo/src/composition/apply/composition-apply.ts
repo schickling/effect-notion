@@ -1241,7 +1241,18 @@ const applyComposition = async ({
         for (const member of lockedMembers) {
           let inspection = mountInspections.get(member.key)!
           const results: Array<CompositionApplyMemberResult['overlays'][number]> = []
-          for (const declaration of member.manifest.distOverlays) {
+          const declarations =
+            mountResults.get(member.key)?._tag === 'AlreadyCurrent'
+              ? member.manifest.distOverlays.filter(
+                  (declaration) =>
+                    inspection.metadata.overlays.some(
+                      (overlay) =>
+                        overlay.target === declaration.target &&
+                        overlay.destination === declaration.destination,
+                    ) === false,
+                )
+              : member.manifest.distOverlays
+          for (const declaration of declarations) {
             const scratch = await runtime.overlayScratch.create({
               workspaceRoot: request.workspaceRoot,
               memberKey: member.key,
