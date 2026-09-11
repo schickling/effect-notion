@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/kdl-effect/BUCK.genie.ts
-# Projection schema version: 3
+# Projection schema version: 6
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:074fefa3851036c41922d00c3c5891ec6edd03de77fa0302595bf9ec78551505
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/kdl-effect/BUCK.genie.ts, packages/@overeng/kdl-effect/BUCK.genie.ts, packages/@overeng/kdl-effect/package.json.genie.ts, packages/@overeng/kdl-effect/src/**/*.cts, packages/@overeng/kdl-effect/src/**/*.js, packages/@overeng/kdl-effect/src/**/*.mts, packages/@overeng/kdl-effect/src/**/*.ts, packages/@overeng/kdl-effect/src/**/*.tsx, packages/@overeng/kdl-effect/tsconfig.json.genie.ts, packages/@overeng/kdl/BUCK.genie.ts, packages/@overeng/kdl/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
+# Semantic fingerprint: sha256:b4a5ca0c1d8fe5d1b65f16079acad108fdfc2affeaa96868c1b952328eae8461
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/kdl-effect/BUCK.genie.ts, packages/@overeng/kdl-effect/BUCK.genie.ts, packages/@overeng/kdl-effect/package.json.genie.ts, packages/@overeng/kdl-effect/src/**/*.cts, packages/@overeng/kdl-effect/src/**/*.js, packages/@overeng/kdl-effect/src/**/*.mts, packages/@overeng/kdl-effect/src/**/*.spec.cjs, packages/@overeng/kdl-effect/src/**/*.spec.jsx, packages/@overeng/kdl-effect/src/**/*.spec.mjs, packages/@overeng/kdl-effect/src/**/*.test.cjs, packages/@overeng/kdl-effect/src/**/*.test.jsx, packages/@overeng/kdl-effect/src/**/*.test.mjs, packages/@overeng/kdl-effect/src/**/*.ts, packages/@overeng/kdl-effect/src/**/*.tsx, packages/@overeng/kdl-effect/src/**/__snapshots__/*.snap, packages/@overeng/kdl-effect/tsconfig.json.genie.ts, packages/@overeng/kdl/BUCK.genie.ts, packages/@overeng/kdl/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:javascript.bzl", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -55,6 +56,24 @@ package_view(
     visibility = ["PUBLIC"],
 )
 
+package_view(
+    name = "test_package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_kdl_effect_bdfdc416cbf6",
+    files = {
+        "package.json": "package.json",
+        "src/decode.ts": "src/decode.ts",
+        "src/encode.ts": "src/encode.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/parse.test.ts": "src/parse.test.ts",
+        "src/parse.ts": "src/parse.ts",
+        "tsconfig.json": "tsconfig.json",
+        "vitest.config.ts": "vitest.config.ts",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+
 editor_view_inputs(
     name = "editor_view_inputs",
     editor_inputs = ":editor_inputs",
@@ -73,5 +92,11 @@ tsgo_emit(
     package_tree = ":package_tree",
     declaration_sources = {
     },
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":test_package_tree",
     visibility = ["PUBLIC"],
 )

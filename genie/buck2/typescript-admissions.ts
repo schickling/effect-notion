@@ -1,9 +1,14 @@
 import { Buffer } from 'node:buffer'
 
+import { buck2TypeScriptAdmission as agentSessionIngestAdmission } from '../../packages/@overeng/agent-session-ingest/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as ciToolsAdmission } from '../../packages/@overeng/ci-tools/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as contentAddressAdmission } from '../../packages/@overeng/content-address/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as effectAiClaudeCliAdmission } from '../../packages/@overeng/effect-ai-claude-cli/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as effectDistributedLockAdmission } from '../../packages/@overeng/effect-distributed-lock/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as effectPathAdmission } from '../../packages/@overeng/effect-path/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as effectReactAdmission } from '../../packages/@overeng/effect-react/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as effectRpcTanstackAdmission } from '../../packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as effectSchemaFormAdmission } from '../../packages/@overeng/effect-schema-form/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as genieAdmission } from '../../packages/@overeng/genie/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as kdlEffectAdmission } from '../../packages/@overeng/kdl-effect/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as kdlAdmission } from '../../packages/@overeng/kdl/BUCK.genie.ts'
@@ -19,12 +24,15 @@ import { buck2TypeScriptAdmission as notionReactAdmission } from '../../packages
 import { buck2TypeScriptAdmission as npmReleaseAdmission } from '../../packages/@overeng/npm-release/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as otelContractAdmission } from '../../packages/@overeng/otel-contract/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as oxcConfigAdmission } from '../../packages/@overeng/oxc-config/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as ptyEffectAdmission } from '../../packages/@overeng/pty-effect/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as reactInspectorAdmission } from '../../packages/@overeng/react-inspector/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as restateEffectAdmission } from '../../packages/@overeng/restate-effect/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as stylexTokensAdmission } from '../../packages/@overeng/stylex-tokens/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as tuiCoreAdmission } from '../../packages/@overeng/tui-core/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as tuiReactAdmission } from '../../packages/@overeng/tui-react/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as tuiStoriesAdmission } from '../../packages/@overeng/tui-stories/BUCK.genie.ts'
-import { buck2TypeScriptAdmission as utilsAdmission } from '../../packages/@overeng/utils/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as utilsDevAdmission } from '../../packages/@overeng/utils-dev/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as utilsAdmission } from '../../packages/@overeng/utils/BUCK.genie.ts'
 import type {
   Buck2TypeScriptAuthorityMetadata,
   Buck2TypeScriptPackageProjection,
@@ -41,16 +49,22 @@ export type Buck2TypeScriptAdmission = Buck2TypeScriptPackageProjection & {
 /** Derived command and manifest data for a Buck-authoritative TypeScript package. */
 export type AuthoritativeBuck2TypeScriptAdmission = Buck2TypeScriptAuthorityMetadata & {
   readonly packagePath: string
+  readonly sourceRoots: readonly string[]
   readonly typecheckTarget: `//${string}:typecheck`
   readonly distTarget: `//${string}:dist`
 }
 
 /** Semantic registry for every package admitted to the Buck TypeScript projection. */
 export const buck2TypeScriptAdmissions = {
+  agentSessionIngest: agentSessionIngestAdmission,
   ciTools: ciToolsAdmission,
   contentAddress: contentAddressAdmission,
+  effectAiClaudeCli: effectAiClaudeCliAdmission,
   effectDistributedLock: effectDistributedLockAdmission,
   effectPath: effectPathAdmission,
+  effectReact: effectReactAdmission,
+  effectRpcTanstack: effectRpcTanstackAdmission,
+  effectSchemaForm: effectSchemaFormAdmission,
   genie: genieAdmission,
   kdl: kdlAdmission,
   kdlEffect: kdlEffectAdmission,
@@ -66,6 +80,9 @@ export const buck2TypeScriptAdmissions = {
   npmRelease: npmReleaseAdmission,
   otelContract: otelContractAdmission,
   oxcConfig: oxcConfigAdmission,
+  ptyEffect: ptyEffectAdmission,
+  reactInspector: reactInspectorAdmission,
+  restateEffect: restateEffectAdmission,
   stylexTokens: stylexTokensAdmission,
   tuiCore: tuiCoreAdmission,
   tuiReact: tuiReactAdmission,
@@ -78,6 +95,7 @@ export const buck2TypeScriptAdmissions = {
 export const deriveBuck2TypeScriptAuthority = ({
   authority,
   packagePath,
+  sourceRoots,
 }: Buck2TypeScriptAdmission & {
   readonly authority: Buck2TypeScriptAuthorityMetadata
 }): AuthoritativeBuck2TypeScriptAdmission => ({
@@ -85,6 +103,7 @@ export const deriveBuck2TypeScriptAuthority = ({
   distTarget: `//${packagePath}:dist`,
   packagePath,
   projectFile: authority.projectFile,
+  sourceRoots,
   typecheckTarget: `//${packagePath}:typecheck`,
 })
 
@@ -112,6 +131,20 @@ export const buck2TypeScriptDistOverlays = authoritativeBuck2TypeScriptAdmission
   .toSorted((left, right) =>
     Buffer.from(left.destination).compare(Buffer.from(right.destination)),
   )
+
+/**
+ * Every Buck test target the admitted packages declare, byte-sorted.
+ *
+ * `buck2:check` builds these beside the typecheck targets so a declared lane
+ * cannot rot: its rule, its staged package tree, and its attested tools are
+ * proven to analyse and stage on every check. Test EXECUTION is a separate
+ * question and is still source-owned — see `context/buck2/roadmap.md` Phase 3.
+ */
+export const buck2TypeScriptTestTargets = Object.values(buck2TypeScriptAdmissions)
+  .flatMap((admission: Buck2TypeScriptAdmission): readonly `//${string}`[] =>
+    (admission.tests ?? []).map((target) => `//${admission.packagePath}:${target.name}` as const),
+  )
+  .toSorted((left, right) => Buffer.from(left).compare(Buffer.from(right)))
 
 /** Byte-sorted package paths whose editor dependency surface is currently admitted. */
 export const editorViewConsumerPackagePaths = Object.values(buck2TypeScriptAdmissions)

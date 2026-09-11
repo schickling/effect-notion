@@ -52,10 +52,5 @@
   },
   "include": [
     "src/**/*"
-  ],
-  "references": [
-    {
-      "path": "../effect-schema-form"
-    }
   ]
 }

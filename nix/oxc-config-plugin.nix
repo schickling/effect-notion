@@ -44,7 +44,7 @@ let
 
   # Patches referenced in pnpm-workspace.yaml (shared across all workspaces)
   patchesDirs = [
-    "packages/@overeng/utils/patches"
+    "patches"
   ];
 
   rootPnpmWorkspaceYamlPath = srcPath + "/pnpm-workspace.yaml";
@@ -233,7 +233,7 @@ pkgs.stdenv.mkDerivation {
     ];
     evergreen.fodGraph.v1 =
       let
-        packageAttr = ".#packages.${pkgs.stdenv.hostPlatform.system}.oxc-config";
+        packageAttr = ".#packages.${pkgs.stdenv.hostPlatform.system}.\"oxc-config-plugin\"";
         boundaryAttr = "${packageAttr}.passthru.depsBuildsByInstallRoot.root";
       in
       {

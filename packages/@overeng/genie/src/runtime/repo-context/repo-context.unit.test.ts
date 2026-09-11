@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
-import { defineRepoContext, repoRootFromModuleUrl } from './mod.ts'
+import { defineRepoContext, modulePathFromUrl, repoRootFromModuleUrl } from './mod.ts'
 
 const createRepoFixture = () => {
   const root = mkdtempSync(join(tmpdir(), 'genie-repo-context-'))
@@ -44,17 +44,18 @@ describe('repo context', () => {
     }
   })
 
-  it('recovers the repo root from Genie temp import mirror paths', () => {
+  it('reports the module path of a generator inside a repository', () => {
     const fixture = createRepoFixture()
-    const mirroredModulePath = join(
-      mkdtempSync(join(tmpdir(), 'genie-import-')),
-      fixture.root.slice(1),
-      'genie',
-      'repo.ts',
-    )
-    mkdirSync(join(mirroredModulePath, '..'), { recursive: true })
-    writeFileSync(mirroredModulePath, '')
 
-    expect(repoRootFromModuleUrl(pathToFileURL(mirroredModulePath).href)).toBe(fixture.root)
+    expect(modulePathFromUrl(fixture.moduleUrl)).toBe(join(fixture.root, 'genie', 'repo.ts'))
+  })
+
+  it('refuses a module URL that is outside every repository', () => {
+    const outsidePath = join(mkdtempSync(join(tmpdir(), 'genie-outside-')), 'module.ts')
+    writeFileSync(outsidePath, '')
+
+    expect(() => modulePathFromUrl(pathToFileURL(outsidePath).href)).toThrow(
+      'Could not find repository root',
+    )
   })
 })

@@ -1243,7 +1243,12 @@ describe('effect-utils CI composition workspace', () => {
         'if [ "$1" = "--cwd" ]; then',
         '  workspace="$2"; shift 2',
         '  test "$*" = "apply --worktree-mode tracking --lock-sync off --output ci"',
-        '  mkdir -p "$workspace/.megarepo/bin"',
+        '  if [ -f "$workspace/.megarepo/composition-generation.json" ]; then exit 0; fi',
+        '  bare="$(git -C "$workspace" rev-parse --path-format=absolute --git-common-dir)"',
+        '  stage="${workspace}.member-stage"',
+        '  git --git-dir="$bare" worktree move "$workspace" "$stage"',
+        '  mkdir -p "$workspace/repos" "$workspace/.megarepo/bin"',
+        '  git --git-dir="$bare" worktree move "$stage" "$workspace/repos/effect-utils"',
         '  printf \'{}\\n\' > "$workspace/.megarepo/composition-generation.json"',
         '  printf \'[cells]\\n\' > "$workspace/.buckconfig"',
         '  printf \'#!/usr/bin/env bash\\nexit 0\\n\' > "$workspace/.megarepo/bin/buck2"',
@@ -1266,12 +1271,15 @@ describe('effect-utils CI composition workspace', () => {
         'test -n "$repo" && test -n "$ref" && test -n "$base" && test "$porcelain" -eq 1',
         'bare="$MEGAREPO_STORE/github.com/$repo/.bare"',
         'workspace="$MEGAREPO_STORE/github.com/$repo/refs/heads/$ref"',
-        'member="$workspace/repos/effect-utils"',
         'git --git-dir="$bare" update-ref "refs/heads/$ref" "$base"',
-        'mkdir -p "$workspace/repos"',
-        'git --git-dir="$bare" worktree add "$member" "$ref" >/dev/null',
+        'mkdir -p "$(dirname "$workspace")"',
+        'git --git-dir="$bare" worktree add "$workspace" "$ref" >/dev/null',
         'if [ -f "$fake_root/fail" ]; then exit 37; fi',
-        'printf \'%s\\n\' "$member"',
+        'if [ "${FAKE_MR_OUTPUT_MEMBER_ROOT:-0}" = 1 ]; then',
+        '  printf \'%s\\n\' "$workspace/repos/effect-utils"',
+        'else',
+        '  printf \'%s\\n\' "$workspace"',
+        'fi',
       ].join('\n'),
     )
     chmodSync(join(fakeBin, 'nix'), 0o755)
@@ -1401,6 +1409,22 @@ describe('effect-utils CI composition workspace', () => {
     20_000,
   )
 
+  it('accepts a member-root porcelain result from the release CLI', async () => {
+    const fixture = makeFixture('Linux')
+    try {
+      const result = await runComposition(fixture, { FAKE_MR_OUTPUT_MEMBER_ROOT: '1' })
+      expect(result.status, result.stderr).toBe(0)
+      const member = join(
+        fixture.runnerTemp,
+        'megarepo-store/100/2/unit_job/github.com/overengineeringstudio/effect-utils/refs/heads/ci-100-2-unit_job/repos/effect-utils',
+      )
+      expect(git(member, 'rev-parse', 'HEAD')).toBe(fixture.sha)
+      await expect(cleanupComposition(fixture)).resolves.toMatchObject({ status: 0 })
+    } finally {
+      rmSync(fixture.root, { force: true, recursive: true, maxRetries: 10, retryDelay: 20 })
+    }
+  }, 20_000)
+
   it('cleans a direct-final-path worktree after generation fails', async () => {
     const fixture = makeFixture('Linux')
     try {
@@ -1415,8 +1439,7 @@ describe('effect-utils CI composition workspace', () => {
         store,
         'github.com/overengineeringstudio/effect-utils/refs/heads/ci-100-2-unit_job',
       )
-      const member = join(workspace, 'repos/effect-utils')
-      expect(git(member, 'symbolic-ref', 'HEAD')).toBe('refs/heads/ci-100-2-unit_job')
+      expect(git(workspace, 'symbolic-ref', 'HEAD')).toBe('refs/heads/ci-100-2-unit_job')
 
       const cleanup = await cleanupComposition(fixture)
       expect(cleanup.status, cleanup.stderr).toBe(0)
@@ -1434,7 +1457,7 @@ describe('effect-utils CI composition workspace', () => {
       const store = fixture.env.MEGAREPO_STORE!
       const member = join(
         store,
-        'github.com/overengineeringstudio/effect-utils/refs/heads/ci-100-2-unit_job/repos/effect-utils',
+        'github.com/overengineeringstudio/effect-utils/refs/heads/ci-100-2-unit_job',
       )
       git(member, 'switch', '-c', 'unrelated')
 

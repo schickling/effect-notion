@@ -29,8 +29,7 @@ let
   # The release asset name embeds the module path verbatim, and a GitHub
   # release asset name cannot contain "/": the module path is therefore one
   # path segment, not a relative path.
-  validModulePathSegment =
-    path: builtins.match "[A-Za-z0-9][A-Za-z0-9._+-]*" path != null;
+  validModulePathSegment = path: builtins.match "[A-Za-z0-9][A-Za-z0-9._+-]*" path != null;
   descriptorModuleSha256 =
     descriptor:
     builtins.convertHash {
@@ -66,12 +65,10 @@ let
     assert lib.assertMsg (
       builtins.isString productName && builtins.match "[A-Za-z0-9][A-Za-z0-9._+-]*" productName != null
     ) "buck2-products: descriptor has an unsafe product name";
-    assert lib.assertMsg (
-      builtins.elem descriptor.productKind [
-        "cli"
-        "module"
-      ]
-    ) "buck2-products: ${productName} has an unsupported product kind";
+    assert lib.assertMsg (builtins.elem descriptor.productKind [
+      "cli"
+      "module"
+    ]) "buck2-products: ${productName} has an unsupported product kind";
     assert lib.assertMsg (builtins.elem descriptor.runtimeKind [
       "bun"
       "node"
@@ -89,9 +86,8 @@ let
         os = "any";
       }
     ) "buck2-products: ${productName} is not platform-invariant";
-    assert lib.assertMsg (
-      validModulePathSegment descriptor.modulePath
-    ) "buck2-products: ${productName} module path is not one release-asset-safe path segment";
+    assert lib.assertMsg (validModulePathSegment descriptor.modulePath)
+      "buck2-products: ${productName} module path is not one release-asset-safe path segment";
     assert lib.assertMsg (
       builtins.isList descriptor.externalCapabilities
       && builtins.all builtins.isString descriptor.externalCapabilities
@@ -108,9 +104,8 @@ let
       ]
       && builtins.all builtins.isString (builtins.attrValues descriptor.provenance)
     ) "buck2-products: ${productName} has invalid provenance";
-    assert lib.assertMsg (
-      builtins.isString descriptor.target
-    ) "buck2-products: ${productName} has an invalid target";
+    assert lib.assertMsg (builtins.isString descriptor.target)
+      "buck2-products: ${productName} has an invalid target";
     assert lib.assertMsg (
       builtins.isInt descriptor.sizeBytes && descriptor.sizeBytes > 0
     ) "buck2-products: ${productName} descriptor declares no payload size";
@@ -134,9 +129,8 @@ let
     assert lib.assertMsg (
       release.tag == derivedTag
     ) "buck2-products: ${productName} release tag does not match its product and payload digest";
-    assert lib.assertMsg (
-      release.name == derivedName
-    ) "buck2-products: ${productName} release asset name does not match its payload digest and module path";
+    assert lib.assertMsg (release.name == derivedName)
+      "buck2-products: ${productName} release asset name does not match its payload digest and module path";
     assert lib.assertMsg (
       release.url == derivedUrl
     ) "buck2-products: ${productName} release URL does not match its tag and asset name";
@@ -151,6 +145,7 @@ let
           inherit (release) url hash;
         };
         descriptor = descriptorFile;
+        descriptorContent = canonicalDescriptor;
         expectedDescriptorSha256 = entry.descriptorSha256;
         expectedModuleSha256 = moduleSha256;
         inherit release;

@@ -108,10 +108,12 @@ for (const name of [
   'ts:build',
   'ts:build-watch',
   'check:quick',
+  'check:all',
   'buck2:check',
   'buck2:typescript:materialize-dist',
   'buck2:tui-core:publish-editor',
   'buck2:tui-core:check-editor',
+  'test:run',
 ])
   requireTask(name)
 
@@ -133,12 +135,27 @@ try {
 }
 
 const materializer = 'buck2:typescript:materialize-dist'
+// Buck owns typecheck and dist for the authoritative packages; the root `tsc` tasks own only
+// the residual projects, and those consume Buck-owned declarations through the dist overlays
+// the materializer publishes. Every root TypeScript task must therefore run after it.
 for (const name of ['ts:check', 'ts:check:strict', 'ts:build', 'ts:build-watch', 'check:quick']) {
   ok({
-    condition: reaches({ start: name, target: materializer }) === false,
-    name: `${name} does not reach inert ${materializer}`,
+    condition: reaches({ start: name, target: materializer }),
+    name: `${name} reaches ${materializer}`,
   })
 }
+// `test:run` is only the baseline-collection gate: it must keep its per-package fan-out, or the
+// gate would observe an incomplete managed-test summary directory and pass vacuously.
+const testRunPackageTasks = [...(dependencies.get('test:run') ?? [])].filter(
+  (name) => name.startsWith('test:') === true,
+)
+ok({
+  condition: testRunPackageTasks.length > 0,
+  name: 'test:run aggregates per-package test tasks',
+})
+// Test execution is still source-owned, so `test:run` deliberately does NOT depend on Buck or
+// on `mr:apply`. Buck owns the declared test inputs: `buck2:check` builds every admitted
+// package's `:test` lane, and that ordering is asserted with the other Buck tasks below.
 // `mr apply` both reconciles the workspace and installs the `.buck2/capabilities`
 // projection that Buck analysis of `//buck2/toolchains` reads, so it is the single
 // ordering barrier for every task that invokes Buck.

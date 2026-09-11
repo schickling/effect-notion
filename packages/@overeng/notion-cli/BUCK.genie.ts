@@ -11,24 +11,29 @@ export const buck2TypeScriptAdmission = {
   sourceRoots: ['src'],
   workspaceSiblings: [
     {
+      packageName: '@overeng/effect-path',
+      packagePath: 'packages/@overeng/effect-path',
+      distTarget: '//packages/@overeng/effect-path:dist',
+    },
+    {
       packageName: '@overeng/notion-datasource-sync',
       packagePath: 'packages/@overeng/notion-datasource-sync',
-      sourceRoots: ['src'],
+      distTarget: '//packages/@overeng/notion-datasource-sync:dist',
     },
     {
       packageName: '@overeng/notion-effect-client',
       packagePath: 'packages/@overeng/notion-effect-client',
-      sourceRoots: ['src'],
+      distTarget: '//packages/@overeng/notion-effect-client:dist',
     },
     {
       packageName: '@overeng/notion-effect-schema',
       packagePath: 'packages/@overeng/notion-effect-schema',
-      sourceRoots: ['src'],
+      distTarget: '//packages/@overeng/notion-effect-schema:dist',
     },
     {
       packageName: '@overeng/notion-md',
       packagePath: 'packages/@overeng/notion-md',
-      sourceRoots: ['src'],
+      distTarget: '//packages/@overeng/notion-md:dist',
     },
     {
       packageName: '@overeng/otel-contract',
@@ -57,6 +62,18 @@ export const buck2TypeScriptAdmission = {
     },
   ],
   editorViewConsumer: false,
+  authority: {
+    declarationEntrypoint: 'src/mod.d.ts',
+    projectFile: 'tsconfig.json',
+  },
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+      // The CLI contract and concurrent-import suites spawn the pinned Bun.
+      tools: { BUN_BIN: '//buck2/toolchains:tool_bun' },
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default withJavaScriptCandidates({

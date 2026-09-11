@@ -18,6 +18,8 @@ Use the `--no-tui` flag to see all output. If tools aren't directly in `$PATH`, 
 
 We're using megarepo for repo management. We're using `pnpm` temporarily for installs (bun is still used to run scripts) and `devenv` to manage the development environment.
 
+The TypeScript tasks (`ts:check`, `ts:check:strict`, `ts:build`, `ts:emit`, `ts:build-watch`) consume Buck-owned package declarations from published `dist` directories, so they run after `buck2:typescript:materialize-dist`. That publisher needs a composed megarepo workspace: in a detached/flat clone it can only verify declarations a composed workspace already published, and it refuses with the exact package and path it could not find rather than type-checking against an absent `dist`. Work on this repo through its megarepo composition.
+
 # Genie (Config File Generation)
 
 Config files like `package.json`, `tsconfig.base.json`, and `.github/workflows/ci.yml` are generated from TypeScript source files using genie. The source files have a `.genie.ts` suffix (e.g., `package.json.genie.ts`).

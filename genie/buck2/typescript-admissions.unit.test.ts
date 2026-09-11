@@ -8,6 +8,7 @@ import { decodeBuckMemberManifestJson } from '../../packages/@overeng/megarepo/s
 import {
   isRootTsconfigCheckProject,
   isRootTsconfigEmitProject,
+  rootTsconfigProjects,
   rootWorkspaceTsconfigProjects,
 } from '../tsconfig-projects.ts'
 import {
@@ -35,13 +36,49 @@ describe('Buck2 TypeScript authority derivation', () => {
     expect(authoritativeBuck2TypeScriptAdmissions).toEqual(packageLocalAuthorities)
   })
 
-  it('keeps legacy typechecking authoritative without emitting noEmit projects', () => {
-    expect(rootWorkspaceTsconfigProjects.every(isRootTsconfigCheckProject)).toBe(true)
+  it('excludes every Buck-authoritative project from the root TypeScript solution', () => {
+    const authoritativePackagePaths = authoritativeBuck2TypeScriptAdmissions.map(
+      ({ packagePath }) => packagePath,
+    )
+
     expect(
       rootWorkspaceTsconfigProjects
-        .filter((project) => isRootTsconfigEmitProject(project) === false)
-        .map(({ path }) => path),
-    ).toEqual(['packages/@overeng/stylex-tokens'])
+        .filter((project) => isRootTsconfigCheckProject(project) === false)
+        .map(({ path }) => path)
+        .toSorted((left, right) => Buffer.from(left).compare(Buffer.from(right))),
+    ).toEqual(
+      authoritativePackagePaths.toSorted((left, right) =>
+        Buffer.from(left).compare(Buffer.from(right)),
+      ),
+    )
+  })
+
+  it('leaves exactly the projects no Buck target owns to root tsc', () => {
+    // The generated solutions sort by path, so assert on that same order.
+    const rootMembers = (predicate: (project: RootTsconfigProject) => boolean): readonly string[] =>
+      rootTsconfigProjects
+        .filter(predicate)
+        .map(({ path }) => path)
+        .toSorted((left, right) => left.localeCompare(right))
+
+    // Checking and emitting are one decision: a project Buck typechecks also
+    // owns its declarations, so the two root filters must select the same set.
+    expect(rootMembers(isRootTsconfigCheckProject)).toEqual(
+      rootMembers(isRootTsconfigEmitProject),
+    )
+
+    expect(rootMembers(isRootTsconfigCheckProject)).toEqual([
+      'context/effect/socket',
+      'context/opentui',
+      'packages/@overeng/buck2-tools',
+      'packages/@overeng/effect-rpc-tanstack/examples/basic',
+      'packages/@overeng/effect-schema-form-aria',
+      'packages/@overeng/genie',
+      'packages/@overeng/kdl-effect',
+      'packages/@overeng/megarepo',
+      'packages/@overeng/react-inspector/tsconfig.strict-consumer.json',
+      'packages/@overeng/tui-stories',
+    ])
   })
 
   it('derives manifest overlays and root TypeScript authority from the same entries', () => {
@@ -62,9 +99,11 @@ describe('Buck2 TypeScript authority derivation', () => {
     expect(projectedManifest.distOverlays).toEqual(buck2TypeScriptDistOverlays)
 
     expect(
-      rootWorkspaceTsconfigProjects.flatMap(({ buck2Authority, path }) =>
-        buck2Authority === undefined ? [] : [{ buck2Authority, path }],
-      ),
+      rootWorkspaceTsconfigProjects
+        .flatMap(({ buck2Authority, path }) =>
+          buck2Authority === undefined ? [] : [{ buck2Authority, path }],
+        )
+        .toSorted((left, right) => Buffer.from(left.path).compare(Buffer.from(right.path))),
     ).toEqual(
       authoritativeBuck2TypeScriptAdmissions
         .filter(({ packagePath }) =>
@@ -77,7 +116,8 @@ describe('Buck2 TypeScript authority derivation', () => {
             typecheckTarget,
           },
           path: packagePath,
-        })),
+        }))
+        .toSorted((left, right) => Buffer.from(left.path).compare(Buffer.from(right.path))),
     )
   })
 })

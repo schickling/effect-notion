@@ -69,28 +69,91 @@ export default packageJson(
     name: '@overeng/notion-datasource-sync',
     ...privatePackageDefaults,
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'node' }),
-      './body': exportEntry('./src/body/adapter.ts', { environment: 'node' }),
-      './body/notion-md': exportEntry('./src/body/notion-md.ts', { environment: 'node' }),
-      './cli/effect-command': exportEntry('./src/cli/effect-command.ts', { environment: 'node' }),
-      './daemon': exportEntry('./src/daemon/watch.ts', { environment: 'node' }),
-      './demo': exportEntry('./src/demo/live-demo.ts', { environment: 'node' }),
-      './gateway': exportEntry('./src/gateway/gateway.ts', { environment: 'node' }),
-      './gateway/fake': exportEntry('./src/gateway/fake.ts', { environment: 'node' }),
-      './gateway/notion': exportEntry('./src/gateway/notion.ts', { environment: 'node' }),
-      './local': exportEntry('./src/local/workspace.ts', { environment: 'node' }),
-      './observability': exportEntry('./src/observability/observability.ts', {
-        environment: 'node',
-      }),
-      './replica': exportEntry('./src/replica/replica.ts', { environment: 'node' }),
-      './store': exportEntry('./src/store/store.ts', { environment: 'node' }),
-      './store/projections': exportEntry('./src/store/projections.ts', { environment: 'node' }),
-      './store/schema': exportEntry('./src/store/schema.ts', { environment: 'node' }),
-      './sync': exportEntry('./src/sync/sync.ts', { environment: 'node' }),
-      './sync/executor': exportEntry('./src/sync/executor.ts', { environment: 'node' }),
-      './sync/observation': exportEntry('./src/sync/observation.ts', { environment: 'node' }),
-      './testing/*': exportEntry('./src/testing/*.ts', { environment: 'node' }),
-      './webhook': exportEntry('./src/webhook/mod.ts', { environment: 'node' }),
+      '.': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'node' },
+      ),
+      './body': exportEntry(
+        { types: './dist/src/body/adapter.d.ts', default: './src/body/adapter.ts' },
+        { environment: 'node' },
+      ),
+      './body/notion-md': exportEntry(
+        { types: './dist/src/body/notion-md.d.ts', default: './src/body/notion-md.ts' },
+        { environment: 'node' },
+      ),
+      './cli/effect-command': exportEntry(
+        { types: './dist/src/cli/effect-command.d.ts', default: './src/cli/effect-command.ts' },
+        { environment: 'node' },
+      ),
+      './daemon': exportEntry(
+        { types: './dist/src/daemon/watch.d.ts', default: './src/daemon/watch.ts' },
+        { environment: 'node' },
+      ),
+      './demo': exportEntry(
+        { types: './dist/src/demo/live-demo.d.ts', default: './src/demo/live-demo.ts' },
+        { environment: 'node' },
+      ),
+      './gateway': exportEntry(
+        { types: './dist/src/gateway/gateway.d.ts', default: './src/gateway/gateway.ts' },
+        { environment: 'node' },
+      ),
+      './gateway/fake': exportEntry(
+        { types: './dist/src/gateway/fake.d.ts', default: './src/gateway/fake.ts' },
+        { environment: 'node' },
+      ),
+      './gateway/notion': exportEntry(
+        { types: './dist/src/gateway/notion.d.ts', default: './src/gateway/notion.ts' },
+        { environment: 'node' },
+      ),
+      './local': exportEntry(
+        { types: './dist/src/local/workspace.d.ts', default: './src/local/workspace.ts' },
+        { environment: 'node' },
+      ),
+      './observability': exportEntry(
+        {
+          types: './dist/src/observability/observability.d.ts',
+          default: './src/observability/observability.ts',
+        },
+        {
+          environment: 'node',
+        },
+      ),
+      './replica': exportEntry(
+        { types: './dist/src/replica/replica.d.ts', default: './src/replica/replica.ts' },
+        { environment: 'node' },
+      ),
+      './store': exportEntry(
+        { types: './dist/src/store/store.d.ts', default: './src/store/store.ts' },
+        { environment: 'node' },
+      ),
+      './store/projections': exportEntry(
+        { types: './dist/src/store/projections.d.ts', default: './src/store/projections.ts' },
+        { environment: 'node' },
+      ),
+      './store/schema': exportEntry(
+        { types: './dist/src/store/schema.d.ts', default: './src/store/schema.ts' },
+        { environment: 'node' },
+      ),
+      './sync': exportEntry(
+        { types: './dist/src/sync/sync.d.ts', default: './src/sync/sync.ts' },
+        { environment: 'node' },
+      ),
+      './sync/executor': exportEntry(
+        { types: './dist/src/sync/executor.d.ts', default: './src/sync/executor.ts' },
+        { environment: 'node' },
+      ),
+      './sync/observation': exportEntry(
+        { types: './dist/src/sync/observation.d.ts', default: './src/sync/observation.ts' },
+        { environment: 'node' },
+      ),
+      './testing/*': exportEntry(
+        { types: './dist/src/testing/*.d.ts', default: './src/testing/*.ts' },
+        { environment: 'node' },
+      ),
+      './webhook': exportEntry(
+        { types: './dist/src/webhook/mod.d.ts', default: './src/webhook/mod.ts' },
+        { environment: 'node' },
+      ),
     },
     scripts: {
       'demo:verify':

@@ -18,22 +18,22 @@ export const buck2TypeScriptAdmission = {
     {
       packageName: '@overeng/notion-core',
       packagePath: 'packages/@overeng/notion-core',
-      sourceRoots: ['src'],
+      distTarget: '//packages/@overeng/notion-core:dist',
     },
     {
       packageName: '@overeng/notion-effect-client',
       packagePath: 'packages/@overeng/notion-effect-client',
-      sourceRoots: ['src'],
+      distTarget: '//packages/@overeng/notion-effect-client:dist',
     },
     {
       packageName: '@overeng/notion-effect-schema',
       packagePath: 'packages/@overeng/notion-effect-schema',
-      sourceRoots: ['src'],
+      distTarget: '//packages/@overeng/notion-effect-schema:dist',
     },
     {
       packageName: '@overeng/notion-property-write',
       packagePath: 'packages/@overeng/notion-property-write',
-      sourceRoots: ['src'],
+      distTarget: '//packages/@overeng/notion-property-write:dist',
     },
     {
       packageName: '@overeng/otel-contract',
@@ -57,6 +57,29 @@ export const buck2TypeScriptAdmission = {
     },
   ],
   editorViewConsumer: false,
+  authority: {
+    declarationEntrypoint: 'src/mod.d.ts',
+    projectFile: 'tsconfig.json',
+  },
+  // The golden-file fixpoint reads the committed `demo/showcase.nmd`, which no source
+  // root carries.
+  testDataRoots: [{ root: 'demo', extensions: ['.nmd'] }],
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+      // The e2e suites and the editor-observability suite reach the live gateway and the
+      // `otelite` binary, so they stay unbounded (decision 0026). The golden-file fixpoint
+      // reads the committed demo, declared as test data below.
+      excludes: [
+        'src/cli.e2e.test.ts',
+        'src/editor-edit.e2e.test.ts',
+        'src/editor-observability.unit.test.ts',
+        'src/reconcile.e2e.test.ts',
+        'src/sync.e2e.test.ts',
+      ],
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default withJavaScriptCandidates({

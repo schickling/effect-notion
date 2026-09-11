@@ -3,7 +3,10 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  lstatSync,
   rmSync,
+  readlinkSync,
+  realpathSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
@@ -15,8 +18,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   copyDeclarationSources,
   hashDeclaredInputRoots,
+  linkStagedWorkspaceProjects,
   parseEmitOptions,
   parseTypecheckOptions,
+  relinkStagedDependencyView,
 } from './typescript-runner.ts'
 
 const scratchDirectories: string[] = []
@@ -104,6 +109,50 @@ describe('TypeScript emit declaration command', () => {
       ).toThrow('declaration source must be a normalized portable relative path')
     },
   )
+})
+
+it('rebinds a staged package to its declared dependency view after relocation', async () => {
+  const { root, packageRoot } = createFixture()
+  const dependencyView = join(root, 'buck-artifact', 'node_modules')
+  const stagedPackageRoot = join(root, 'system-temp', 'package')
+  mkdirSync(dependencyView, { recursive: true })
+  mkdirSync(stagedPackageRoot, { recursive: true })
+  symlinkSync('../buck-artifact/node_modules', join(packageRoot, 'node_modules'))
+  symlinkSync('../buck-artifact/node_modules', join(stagedPackageRoot, 'node_modules'))
+
+  await relinkStagedDependencyView({ packageTree: packageRoot, stagedPackageRoot })
+
+  expect(readlinkSync(join(stagedPackageRoot, 'node_modules'))).toBe(realpathSync(dependencyView))
+  expect(lstatSync(join(stagedPackageRoot, 'node_modules')).isSymbolicLink()).toBe(true)
+})
+
+it('projects declared workspace package trees beside the relocated package', async () => {
+  const { root } = createFixture()
+  const artifactRoot = join(root, 'buck-out', 'packages', '@overeng')
+  const packageTree = join(artifactRoot, 'notion-cli', '__package_tree__', 'package_tree')
+  const siblingTree = join(artifactRoot, 'effect-path', '__package_tree__', 'package_tree')
+  const stagingRoot = join(root, 'system-temp')
+  const stagedPackageRoot = join(stagingRoot, 'package')
+  mkdirSync(packageTree, { recursive: true })
+  mkdirSync(join(siblingTree, 'node_modules'), { recursive: true })
+  writeFileSync(
+    join(siblingTree, 'tsconfig.json'),
+    `${JSON.stringify({ compilerOptions: { composite: true, noEmit: true } }, undefined, 2)}\n`,
+  )
+  mkdirSync(stagedPackageRoot, { recursive: true })
+
+  await linkStagedWorkspaceProjects({
+    packageTree,
+    readRoots: [packageTree, siblingTree],
+    stagedPackageRoot,
+    stagingRoot,
+  })
+
+  const stagedSibling = join(stagingRoot, 'effect-path')
+  expect(lstatSync(stagedSibling).isDirectory()).toBe(true)
+  expect(JSON.parse(readFileSync(join(stagedSibling, 'tsconfig.json'), 'utf8'))).toEqual({
+    compilerOptions: { composite: true, noEmit: false },
+  })
 })
 
 describe('TypeScript handwritten declaration copy', () => {

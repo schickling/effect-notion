@@ -52,6 +52,49 @@ export const buck2TypeScriptAdmission = {
     },
   ],
   editorViewConsumer: false,
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+      // The CLI contract suite spawns the pinned Bun. Every `*.integration.test.ts` suite and
+      // the PTY prompt suite drive real git, nix, coreutils, and `script`, so they stay
+      // unbounded (decision 0026) under the devenv `test:megarepo` and
+      // `test:megarepo-cold-gc` tasks.
+      tools: { BUN_BIN: '//buck2/toolchains:tool_bun' },
+      excludes: [
+        'src/cli/cli.integration.test.ts',
+        'src/cli/commands/composition.integration.test.ts',
+        'src/cli/commands/store/composed-worktrees.integration.test.ts',
+        'src/cli/pin.integration.test.ts',
+        'src/cli/prompt-select-pty.test.ts',
+        'src/cli/status.integration.test.ts',
+        'src/cli/store-gc-cold.integration.test.ts',
+        'src/cli/store-gc-generated.integration.test.ts',
+        'src/cli/store-gc-otel.integration.test.ts',
+        'src/cli/store.integration.test.ts',
+        'src/cli/sync.integration.test.ts',
+        'src/composition/acquisition/owned-worktree-acquisition.integration.test.ts',
+        'src/composition/apply/composition-apply.integration.test.ts',
+        'src/composition/apply/workspace-update-lock.integration.test.ts',
+        'src/composition/capabilities/composition-capability-resolver.integration.test.ts',
+        'src/composition/capabilities/owned-capability-projection.integration.test.ts',
+        'src/composition/mounts/member-mount-cp-a.integration.test.ts',
+        'src/composition/mounts/member-mount-r6.integration.test.ts',
+        'src/composition/overlays/dist-overlay-lifecycle.integration.test.ts',
+        'src/composition/root/composition-root-publisher.integration.test.ts',
+        'src/composition/root/composition-root.integration.test.ts',
+        'src/core/git-memory.integration.test.ts',
+        'src/core/git-streaming-parsers.integration.test.ts',
+        'src/core/git-timeout.integration.test.ts',
+        'src/store/store-archive.integration.test.ts',
+        'src/store/store-deletion-lease.integration.test.ts',
+        'src/store/store-inuse.integration.test.ts',
+        'src/store/store-liveness.integration.test.ts',
+        'src/store/store-lossless.integration.test.ts',
+        'src/test-utils/store-setup.integration.test.ts',
+      ],
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default withJavaScriptCandidates({

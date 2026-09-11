@@ -44,15 +44,20 @@
         }
       }
     ],
-    "rootDir": "src",
+    "rootDir": ".",
     "jsx": "react-jsx",
     "checkJs": false,
     "composite": true,
     "noImplicitAny": false,
-    "strictNullChecks": false
+    "strictNullChecks": false,
+    "noEmit": true
   },
   "include": [
     "src/**/*"
   ],
-  "references": []
+  "exclude": [
+    "src/**/*.cjs",
+    "src/**/*.jsx",
+    "src/**/*.mjs"
+  ]
 }

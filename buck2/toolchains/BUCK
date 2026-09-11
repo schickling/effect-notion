@@ -25,6 +25,27 @@ support_tool(
     tool_id = "coreutils-readlink",
     visibility = ["PUBLIC"],
 )
+
+# The Node runtime Vitest lanes select when a suite exercises Node built-ins Bun
+# does not implement. Attested like every other executable a contained action
+# launches, so the lane reads the realization's whole closure rather than one file.
+support_tool(
+    name = "tool_node",
+    protocol = "nodejs/node/v24",
+    tool_id = "node",
+    visibility = ["PUBLIC"],
+)
+
+# The pinned Bun a bounded CLI-contract lane spawns as a child process. The
+# toolchain already carries Bun for the action itself; this is the separate,
+# attested capability a test's own subprocess resolves through PATH.
+support_tool(
+    name = "tool_bun",
+    protocol = "effect-utils/buck2-bun/v1",
+    tool_id = "bun",
+    visibility = ["PUBLIC"],
+)
+
 native_rust_toolchains(
     capabilities = CAPABILITIES,
     generation = GENERATION,

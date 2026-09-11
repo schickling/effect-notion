@@ -432,10 +432,15 @@ const nativeDepPolicyAuditStep = {
 
 // Core product jobs keyed by the shared Genie CI source of truth.
 const jobs: Record<CoreCIJobName, ReturnType<typeof job> | ReturnType<typeof multiPlatformJob>> = {
+  // Typecheck authority is split after the Buck cutover, so this lane gates on both halves:
+  //   - `buck2:check` owns typecheck and dist for every package carrying Buck `authority`.
+  //   - `ts:check:strict` owns only the residual root TypeScript solution (the projects with
+  //     no Buck authority). It consumes Buck-owned declarations through the dist overlays that
+  //     `buck2:typescript:materialize-dist` publishes, so it is ordered after the materializer.
   typecheck: job({
     step: {
-      name: 'Type check',
-      run: runDevenvTasksBefore('ts:check:strict'),
+      name: 'Type check (Buck authority + residual root solution)',
+      run: runDevenvTasksBefore('buck2:check', 'ts:check:strict'),
     },
     extraSteps: [verifyOtelShellEntryStep],
   }),
@@ -447,6 +452,11 @@ const jobs: Record<CoreCIJobName, ReturnType<typeof job> | ReturnType<typeof mul
       run: runDevenvTasksBefore('genie:check', 'lint:check'),
     },
   }),
+  // Test execution is still source-owned: `test:run` aggregates the per-package Vitest tasks and
+  // hosts the baseline-test-collection gate, which reads every package task's retained summary
+  // directory, so CI must not shard the packages here. Buck owns the declared test INPUTS — each
+  // admitted package's `//<packagePath>:test` lane is built by the `typecheck` lane's
+  // `buck2:check` — and the execution flip waits on wiring that gate to `vitest_collect`.
   test: multiPlatformJob({
     name: 'Unit tests',
     run: runDevenvTasksBefore('test:run'),
@@ -457,25 +467,22 @@ const jobs: Record<CoreCIJobName, ReturnType<typeof job> | ReturnType<typeof mul
       run: runDevenvTasksBefore('test:megarepo-cold-gc'),
     },
   }),
-  // Verify Nix hashes are up-to-date (pnpmDepsHash + localDeps)
-  // This catches stale hashes before they break downstream consumers
+  // Verify the surviving pnpm FOD hash (pnpmDepsHash + localDeps) is up to date.
+  // After the Buck product cutover the nix-cli registry is no longer a fan-out over seven CLI
+  // FODs: the repository CLIs are wrapped from the immutable Buck product manifest and have no
+  // source builder or hash left to check. `.#oxlint-npm` (the pnpm-built oxlint plugin bundle)
+  // is the one entry that remains.
   'nix-check': multiPlatformJob({
     name: 'Nix hash check',
     run: runDevenvTasksBefore('nix:check'),
   }),
-  // Force a fresh local rebuild of every exported pnpm FOD to catch stale
-  // hashes that normal CI can otherwise mask via store/substituter reuse.
+  // Force a fresh local rebuild of the exported pnpm FOD to catch a stale hash that normal CI
+  // can otherwise mask via store/substituter reuse. `.#oxc-config-plugin-pnpm-deps` is the only
+  // such attribute left — every CLI `*-pnpm-deps` FOD went away with its source builder — so
+  // this is a single cold build, not a list that is expected to grow again.
   'nix-fod-check': multiPlatformStrictNixJob(
     validateColdPnpmDepsStep({
-      flakeRefs: [
-        '.#genie-pnpm-deps',
-        '.#ci-tools-pnpm-deps',
-        '.#megarepo-pnpm-deps',
-        '.#oxc-config-plugin-pnpm-deps',
-        '.#tui-stories-pnpm-deps',
-        '.#notion-cli-pnpm-deps',
-        '.#notion-md-pnpm-deps',
-      ],
+      flakeRefs: ['.#oxc-config-plugin-pnpm-deps'],
       substituters: ['https://cache.nixos.org'],
     }),
   ),
@@ -488,6 +495,9 @@ const jobs: Record<CoreCIJobName, ReturnType<typeof job> | ReturnType<typeof mul
     // and the genie policy source, both present here without node_modules.
     extraSteps: [nativeDepPolicyAuditStep],
   }),
+  // After the cutover `mk-pnpm-cli` has no in-repo CLI consumer left: it is exercised only by
+  // its own contract suite here and, through `mk-pnpm-deps.nix`, by the oxc-config plugin FOD.
+  // That makes this lane the sole remaining guard on the shared pnpm deps helper.
   'pnpm-regression': job({
     step: {
       name: 'pnpm regression suite',
@@ -505,12 +515,6 @@ const jobs: Record<CoreCIJobName, ReturnType<typeof job> | ReturnType<typeof mul
     step: {
       name: 'Bundle smoke tests',
       run: runDevenvTasksBefore('bundle:smoke'),
-    },
-  }),
-  buck2: job({
-    step: {
-      name: 'Buck2 toolchain surface and Nix bridge',
-      run: runDevenvTasksBefore('buck2:check'),
     },
   }),
   cargo: job({
@@ -605,7 +609,7 @@ const nixClosureMeasurementTargets = [
     label: 'Genie package',
     group: 'packages',
     path: ['nix', 'closures', 'packages', 'genie'],
-    description: 'the packaged Genie CLI closure',
+    description: 'the Genie CLI closure wrapped from the immutable Buck product manifest',
     system: 'x86_64-linux',
   },
   {
@@ -615,7 +619,7 @@ const nixClosureMeasurementTargets = [
     label: 'Megarepo package',
     group: 'packages',
     path: ['nix', 'closures', 'packages', 'megarepo'],
-    description: 'the packaged megarepo CLI closure',
+    description: 'the megarepo CLI closure wrapped from the immutable Buck product manifest',
     system: 'x86_64-linux',
   },
   {
@@ -675,9 +679,16 @@ const extraJobs: Record<string, any> = {
         ),
       },
       {
-        name: 'Check product publisher contract and dry-run',
+        // Two workspace-tools contract suites bound the release-manifest boundary from both
+        // sides: the publisher (source of the manifest) and the importer (its only consumer).
+        // `buck2:nix-bridge:check` still owns the bridge/build-product suites through devenv.
+        name: 'Check product publisher and manifest import contracts',
         run: withCiSourceRoot(
-          '"${DEVENV_BIN:?DEVENV_BIN not set}" shell -- env -u GITHUB_EVENT_NAME bash nix/workspace-tools/lib/tests/buck2-release-products.sh "$PWD"',
+          [
+            'set -euo pipefail',
+            '"${DEVENV_BIN:?DEVENV_BIN not set}" shell -- env -u GITHUB_EVENT_NAME bash nix/workspace-tools/lib/tests/buck2-release-products.sh "$PWD"',
+            '"${DEVENV_BIN:?DEVENV_BIN not set}" shell -- bash nix/workspace-tools/lib/tests/javascript-product-import.sh "$PWD"',
+          ].join('\n'),
         ),
       },
       {
@@ -735,6 +746,9 @@ const extraJobs: Record<string, any> = {
       checkoutStep(),
       installNixStep(),
       prepareEffectUtilsCompositionStep,
+      prepareCiScriptsStep,
+      preparePinnedDevenvStep,
+      validateNixStoreStep,
       {
         name: 'Prove a fresh context gets a remote action-cache hit',
         env: {
@@ -795,8 +809,9 @@ const extraJobs: Record<string, any> = {
   },
   // bootstrap:cold-proof (R32) — the empirical authority for the bootstrap-safe import-closure
   // contract (issue #884). In a fresh, no-node_modules tree of the committed source it runs the
-  // self-contained nix genie (`.#genie`, a cachix cache hit here) with `--phase bootstrap`, then
-  // `pnpm install --frozen-lockfile` against the registry, asserting both
+  // `.#genie` CLI (after the cutover a wrapper around the immutable Buck product manifest rather
+  // than a source build, so this lane no longer warms a source FOD) with `--phase bootstrap`,
+  // then `pnpm install --frozen-lockfile` against the registry, asserting both
   // succeed. This exercises the exact pre-install path; `bootstrap-closure:check` (in `check:all`) is
   // the static fast-feedback pre-check. Separate lane because it is heavier than the product checks.
   'bootstrap-cold-proof': job({

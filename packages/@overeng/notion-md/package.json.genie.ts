@@ -70,9 +70,18 @@ export default packageJson(
     name: '@overeng/notion-md',
     ...privatePackageDefaults,
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'node' }),
-      './cli': exportEntry('./src/cli.ts', { environment: 'node' }),
-      './cli-program': exportEntry('./src/cli-program.ts', { environment: 'node' }),
+      '.': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'node' },
+      ),
+      './cli': exportEntry(
+        { types: './dist/src/cli.d.ts', default: './src/cli.ts' },
+        { environment: 'node' },
+      ),
+      './cli-program': exportEntry(
+        { types: './dist/src/cli-program.d.ts', default: './src/cli-program.ts' },
+        { environment: 'node' },
+      ),
     },
     scripts: {
       storybook: 'storybook dev -p 6015',

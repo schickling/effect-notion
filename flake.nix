@@ -74,121 +74,21 @@
               inherit pkgs;
               nixpkgsRevision = nixpkgs.rev;
             };
-        cliPackages = {
-          genie = import (rootPath + "/packages/@overeng/genie/nix/build.nix") {
-            inherit
-              pkgs
-              gitRev
-              commitTs
-              dirty
-              ;
-            src = self;
-            typeProofCompilerBin = "${tsgo.packages.${system}.tsgo}/bin/tsgo";
-          };
-          genie-bootstrap-closure-check =
-            import (rootPath + "/packages/@overeng/genie/nix/bootstrap-closure-check.nix")
-              {
-                inherit
-                  pkgs
-                  gitRev
-                  commitTs
-                  dirty
-                  ;
-                src = self;
-              };
-          ci-tools = import (rootPath + "/packages/@overeng/ci-tools/nix/build.nix") {
-            inherit
-              pkgs
-              gitRev
-              commitTs
-              dirty
-              ;
-            src = self;
-          };
-          megarepo = import (rootPath + "/packages/@overeng/megarepo/nix/build.nix") {
-            inherit
-              pkgs
-              gitRev
-              commitTs
-              dirty
-              ;
-            src = self;
-          };
-          tui-stories = import (rootPath + "/packages/@overeng/tui-stories/nix/build.nix") {
-            inherit
-              pkgs
-              gitRev
-              commitTs
-              dirty
-              ;
-            src = self;
-          };
-          notion-cli = import (rootPath + "/packages/@overeng/notion-cli/nix/build.nix") {
-            inherit
-              pkgs
-              gitRev
-              commitTs
-              dirty
-              ;
-            src = self;
-          };
-          notion-md = import (rootPath + "/packages/@overeng/notion-md/nix/build.nix") {
-            inherit
-              pkgs
-              gitRev
-              commitTs
-              dirty
-              ;
-            src = self;
-          };
-          npm-release = import (rootPath + "/packages/@overeng/npm-release/nix/build.nix") {
-            inherit
-              pkgs
-              gitRev
-              commitTs
-              dirty
-              ;
-            src = self;
-          };
+        # Buck is the sole repository-product producer. Nix imports only the
+        # reviewed, content-addressed release assets the product publication
+        # gate committed; there is no source CLI build left in this flake.
+        trackedBuck2Products = import ./nix/buck2-products { inherit pkgs; };
+        buck2ProductCandidates = import ./nix/workspace-tools/lib/buck2-product-candidates.nix {
+          inherit
+            pkgs
+            gitRev
+            commitTs
+            dirty
+            ;
+          products = trackedBuck2Products.products;
+          typeProofCompilerBin = "${tsgo.packages.${system}.tsgo}/bin/tsgo";
         };
-        cliPackagesDirty = {
-          genie = import (rootPath + "/packages/@overeng/genie/nix/build.nix") {
-            inherit pkgs gitRev commitTs;
-            src = self;
-            dirty = true;
-            typeProofCompilerBin = "${tsgo.packages.${system}.tsgo}/bin/tsgo";
-          };
-          ci-tools = import (rootPath + "/packages/@overeng/ci-tools/nix/build.nix") {
-            inherit pkgs gitRev commitTs;
-            src = self;
-            dirty = true;
-          };
-          megarepo = import (rootPath + "/packages/@overeng/megarepo/nix/build.nix") {
-            inherit pkgs gitRev commitTs;
-            src = self;
-            dirty = true;
-          };
-          tui-stories = import (rootPath + "/packages/@overeng/tui-stories/nix/build.nix") {
-            inherit pkgs gitRev commitTs;
-            src = self;
-            dirty = true;
-          };
-          notion-cli = import (rootPath + "/packages/@overeng/notion-cli/nix/build.nix") {
-            inherit pkgs gitRev commitTs;
-            src = self;
-            dirty = true;
-          };
-          notion-md = import (rootPath + "/packages/@overeng/notion-md/nix/build.nix") {
-            inherit pkgs gitRev commitTs;
-            src = self;
-            dirty = true;
-          };
-          npm-release = import (rootPath + "/packages/@overeng/npm-release/nix/build.nix") {
-            inherit pkgs gitRev commitTs;
-            src = self;
-            dirty = true;
-          };
-        };
+        cliPackages = buck2ProductCandidates;
       in
       {
         packages =
@@ -202,6 +102,11 @@
               ;
             # Hub toolchain authority realization: the exact Bun every Buck JS/TS action uses.
             bun = pkgs.bun;
+            # Hub toolchain authority realization: the exact Node every Buck Vitest lane
+            # that exercises Node built-ins runs on.
+            buck2-node = pkgs.writeShellScriptBin "node" ''
+              exec ${pkgs.nodejs_24 or pkgs.nodejs}/bin/node "$@"
+            '';
             # Hub toolchain authority realization: the exact Go distribution every
             # Buck Go action compiles with — the OFFICIAL release archive, not
             # `pkgs.go`, whose patched stdlib puts three absolute store paths into
@@ -237,28 +142,12 @@
             buck2-rust-shell = buck2-rust-toolchain-capability.packages.rust-shell;
             cli-build-stamp = cliBuildStamp.package;
             effect-tsgo = tsgo.packages.${system}.effect-tsgo;
-            genie-dirty = cliPackagesDirty.genie;
-            ci-tools = cliPackages.ci-tools;
-            ci-tools-dirty = cliPackagesDirty.ci-tools;
-            # Publish the FODs as first-class flake outputs so external tooling
-            # can refresh hashes against the actual cached boundary without
-            # rebuilding the full CLI package graph.
-            "genie-pnpm-deps" = cliPackages.genie.passthru.depsBuildsByInstallRoot.root;
-            "ci-tools-pnpm-deps" = cliPackages.ci-tools.passthru.depsBuildsByInstallRoot.root;
-            megarepo-dirty = cliPackagesDirty.megarepo;
-            "megarepo-pnpm-deps" = cliPackages.megarepo.passthru.depsBuildsByInstallRoot.root;
-            tui-stories-dirty = cliPackagesDirty.tui-stories;
-            "tui-stories-pnpm-deps" = cliPackages.tui-stories.passthru.depsBuildsByInstallRoot.root;
-            notion-cli = cliPackages.notion-cli;
-            notion-cli-dirty = cliPackagesDirty.notion-cli;
-            "notion-cli-pnpm-deps" = cliPackages.notion-cli.passthru.depsBuildsByInstallRoot.root;
-            notion-md = cliPackages.notion-md;
-            notion-md-dirty = cliPackagesDirty.notion-md;
-            "notion-md-pnpm-deps" = cliPackages.notion-md.passthru.depsBuildsByInstallRoot.root;
-            npm-release = cliPackages.npm-release;
-            npm-release-dirty = cliPackagesDirty.npm-release;
-            "npm-release-pnpm-deps" = cliPackages.npm-release.passthru.depsBuildsByInstallRoot.root;
-            oxc-config = oxlintNpm.pluginBundle;
+            # The oxlint plugin bundle keeps its pnpm FOD as first-class outputs:
+            # `nix/oxlint-npm.nix` needs the pnpm-built plugin bundle, which the
+            # `oxc-config` JavaScript product does not replace. The bundle exposes
+            # Evergreen producer metadata; its raw FOD remains directly addressable.
+            # The `oxc-config` package itself is merged in from `cliPackages`.
+            "oxc-config-plugin" = oxlintNpm.pluginBundle;
             "oxc-config-plugin-pnpm-deps" = oxlintNpm.pluginBundle.passthru.depsBuildsByInstallRoot.root;
             # npm oxlint with NAPI bindings + pre-bundled @overeng/oxc-config plugin
             oxlint-npm = oxlintNpm;
@@ -278,14 +167,6 @@
           tui-stories = cliPackages.tui-stories.outPath;
           notion-cli = cliPackages.notion-cli.outPath;
           notion-md = cliPackages.notion-md.outPath;
-        };
-        cliOutPathsDirty = {
-          genie = cliPackagesDirty.genie.outPath;
-          ci-tools = cliPackagesDirty.ci-tools.outPath;
-          megarepo = cliPackagesDirty.megarepo.outPath;
-          tui-stories = cliPackagesDirty.tui-stories.outPath;
-          notion-cli = cliPackagesDirty.notion-cli.outPath;
-          notion-md = cliPackagesDirty.notion-md.outPath;
         };
 
         apps.update-bun-hashes = flake-utils.lib.mkApp {
@@ -352,6 +233,25 @@
       lib.mkBuck2ArtifactImport =
         { pkgs }: import ./nix/workspace-tools/lib/buck2-artifact-import.nix { inherit pkgs; };
 
+      # Verify and import one tracked Buck JavaScript product (descriptor plus
+      # content-addressed module bytes) into a wrappable Nix output.
+      lib.mkBuck2JavaScriptProductImport =
+        { pkgs }: import ./nix/workspace-tools/lib/javascript-product-import.nix { inherit pkgs; };
+
+      # Wrap this effect-utils revision's tracked Buck JavaScript products into
+      # candidate packages. Callers can replace `products` for an explicit
+      # manifest experiment; normal consumers inherit this revision's manifest.
+      # Usage: effectUtils.lib.mkBuck2ProductCandidates { inherit pkgs; }
+      lib.mkBuck2ProductCandidates =
+        args:
+        import ./nix/workspace-tools/lib/buck2-product-candidates.nix (
+          {
+            products = (import ./nix/buck2-products { pkgs = args.pkgs; }).products;
+            typeProofCompilerBin = "${tsgo.packages.${args.pkgs.stdenv.hostPlatform.system}.tsgo}/bin/tsgo";
+          }
+          // args
+        );
+
       # Shell helper for runtime CLI build stamps.
       lib.cliBuildStamp =
         { pkgs }: import ./nix/workspace-tools/lib/cli-build-stamp.nix { inherit pkgs; };
@@ -370,12 +270,14 @@
       # Can be added to devenv packages without importing the full OTEL module.
       lib.mkOtelSpan = { pkgs }: import ./nix/devenv-modules/otel/otel-span.nix { inherit pkgs; };
 
-      # Convenience helper for bundling the common genie/megarepo CLIs.
-      # Use this for releases/CI where hermetic Nix builds are needed.
+      # Convenience helper for bundling the common genie/megarepo CLIs from
+      # this effect-utils revision's tracked Buck products. An explicit
+      # `products` argument remains available for manifest experiments.
       lib.mkCliPackages =
         args:
         import ./nix/workspace-tools/lib/mk-cli-packages.nix (
           {
+            products = (import ./nix/buck2-products { pkgs = args.pkgs; }).products;
             typeProofCompilerBin = "${tsgo.packages.${args.pkgs.stdenv.hostPlatform.system}.tsgo}/bin/tsgo";
           }
           // args
@@ -408,7 +310,6 @@
       # Usage: effectUtils.lib.mkPnpm { inherit pkgs; }
       lib.mkPnpm = { pkgs }: import ./nix/pnpm.nix { inherit pkgs; };
 
-      # Note: mkSourceCli is internal-only (not exported).
       # For consuming CLIs from other repos, use:
       #   effectUtils.packages.${system}.genie
       #   effectUtils.packages.${system}.ci-tools

@@ -12,16 +12,20 @@
   "description": "Browser DevTools-style React inspectors with native Effect 4 Schema support",
   "license": "MIT",
   "exports": {
-    ".": "./src/index.tsx"
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./src/index.tsx"
+    }
   },
   "files": [
     "package.json",
     "dist",
+    "dist-pack",
     "src",
     "!dist/**/*.tsbuildinfo"
   ],
   "scripts": {
-    "build": "tsc --build tsconfig.json",
+    "build": "tsc --project tsconfig.json --noEmit false --outDir dist-pack --declaration false --declarationMap false --composite false --incremental false",
     "storybook": "storybook dev -p 6011",
     "storybook:build": "storybook build"
   },
@@ -52,7 +56,10 @@
   "publishConfig": {
     "access": "public",
     "exports": {
-      ".": "./dist/index.js"
+      ".": {
+        "types": "./dist/src/index.d.ts",
+        "default": "./dist-pack/src/index.js"
+      }
     }
   }
 }

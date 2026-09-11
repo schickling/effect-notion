@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/effect-distributed-lock/BUCK.genie.ts
-# Projection schema version: 3
+# Projection schema version: 6
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:f981970d8a1f7d1ec0fc103033a7c18500335479413a8ae020ebaec5950504b2
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/effect-distributed-lock/BUCK.genie.ts, packages/@overeng/effect-distributed-lock/BUCK.genie.ts, packages/@overeng/effect-distributed-lock/package.json.genie.ts, packages/@overeng/effect-distributed-lock/src/**/*.cts, packages/@overeng/effect-distributed-lock/src/**/*.js, packages/@overeng/effect-distributed-lock/src/**/*.mts, packages/@overeng/effect-distributed-lock/src/**/*.ts, packages/@overeng/effect-distributed-lock/src/**/*.tsx, packages/@overeng/effect-distributed-lock/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
+# Semantic fingerprint: sha256:5784b24dce427db3974b85ccae6a62cf4f4fcf50fc3e69c4d2eb60dee4d4a13f
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-distributed-lock/BUCK.genie.ts, packages/@overeng/effect-distributed-lock/BUCK.genie.ts, packages/@overeng/effect-distributed-lock/package.json.genie.ts, packages/@overeng/effect-distributed-lock/src/**/*.cts, packages/@overeng/effect-distributed-lock/src/**/*.js, packages/@overeng/effect-distributed-lock/src/**/*.mts, packages/@overeng/effect-distributed-lock/src/**/*.spec.cjs, packages/@overeng/effect-distributed-lock/src/**/*.spec.jsx, packages/@overeng/effect-distributed-lock/src/**/*.spec.mjs, packages/@overeng/effect-distributed-lock/src/**/*.test.cjs, packages/@overeng/effect-distributed-lock/src/**/*.test.jsx, packages/@overeng/effect-distributed-lock/src/**/*.test.mjs, packages/@overeng/effect-distributed-lock/src/**/*.ts, packages/@overeng/effect-distributed-lock/src/**/*.tsx, packages/@overeng/effect-distributed-lock/src/**/__snapshots__/*.snap, packages/@overeng/effect-distributed-lock/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:javascript.bzl", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -55,6 +56,24 @@ package_view(
     visibility = ["PUBLIC"],
 )
 
+package_view(
+    name = "test_package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_effect_distributed_lock_f36a75b36a62",
+    files = {
+        "package.json": "package.json",
+        "src/Backing.ts": "src/Backing.ts",
+        "src/DistributedSemaphore.ts": "src/DistributedSemaphore.ts",
+        "src/Errors.ts": "src/Errors.ts",
+        "src/distributed-semaphore.test.ts": "src/distributed-semaphore.test.ts",
+        "src/mod.ts": "src/mod.ts",
+        "tsconfig.json": "tsconfig.json",
+        "vitest.config.ts": "vitest.config.ts",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+
 editor_view_inputs(
     name = "editor_view_inputs",
     editor_inputs = ":editor_inputs",
@@ -74,5 +93,11 @@ tsgo_emit(
     declaration_sources = {
     },
     declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":test_package_tree",
     visibility = ["PUBLIC"],
 )

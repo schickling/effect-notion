@@ -372,8 +372,9 @@ run_inherit_root_patched_dependencies_regression() {
   echo "Check: inherit-root-patched-dependencies scalar lockfile and selector handling"
   local script
   script="$(
-    cd "$ROOT" &&
-      nix build --no-link --no-write-lock-file --print-out-paths ".#packages.$SYSTEM.genie.passthru.inheritRootPatchedDependenciesScript"
+    nix build --no-link --no-write-lock-file --print-out-paths \
+      --override-input effect-utils "path:$WORKSPACE_REAL/repos/effect-utils" \
+      "path:$DOWNSTREAM_DIR#packages.$SYSTEM.mk-pnpm-cli-pure-eval-fixture.passthru.inheritRootPatchedDependenciesScript"
   )"
 
   local fixture
@@ -457,8 +458,8 @@ if [ "$SKIP_MEGAREPO" -eq 0 ]; then
 fi
 
 if [ "$SKIP_DOWNSTREAM" -eq 0 ]; then
-  run_inherit_root_patched_dependencies_regression
   prepare_downstream_workspace
+  run_inherit_root_patched_dependencies_regression
   run_downstream_pure_eval_regression
   run_downstream_regression "genie" "genie"
   if [ "$SKIP_DOWNSTREAM_MEGAREPO" -eq 0 ]; then

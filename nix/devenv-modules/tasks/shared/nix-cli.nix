@@ -5,14 +5,18 @@
 #     (inputs.effect-utils.devenvModules.tasks.nix-cli {
 #       cliPackages = [
 #         {
-#           name = "genie";
-#           flakeRef = ".#genie";
-#           hashSource = "packages/@overeng/genie/nix/build.nix";
+#           name = "oxlint-npm";
+#           flakeRef = ".#oxlint-npm";
+#           hashSource = "nix/oxc-config-plugin.nix";
 #           lockfile = "pnpm-lock.yaml";
 #         }
 #       ];
 #     })
 #   ];
+#
+# Only packages whose dependency closure is still a Nix fixed-output derivation
+# belong here. A CLI wrapped from a reviewed Buck product has no source hash to
+# refresh, so listing it would create a hash-repair target with nothing behind it.
 #
 # Provides:
 #   - nix:build - Build all CLI packages

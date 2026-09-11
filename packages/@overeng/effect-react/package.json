@@ -16,8 +16,14 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": "./src/mod.ts",
-    "./react-aria": "./src/react-aria/mod.ts"
+    ".": {
+      "types": "./dist/src/mod.d.ts",
+      "default": "./src/mod.ts"
+    },
+    "./react-aria": {
+      "types": "./dist/src/react-aria/mod.d.ts",
+      "default": "./src/react-aria/mod.ts"
+    }
   },
   "scripts": {
     "storybook": "storybook dev -p 6009",
@@ -30,6 +36,7 @@
     "@overeng/utils": "workspace:^",
     "@storybook/react": "10.5.10",
     "@storybook/react-vite": "10.5.10",
+    "@types/node": "26.5.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "@vitejs/plugin-react": "6.1.1",

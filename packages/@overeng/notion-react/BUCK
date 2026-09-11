@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/notion-react/BUCK.genie.ts
-# Projection schema version: 3
+# Projection schema version: 6
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:ec2a5805bc65c22d41f64f4912a2a8f9f95e51ec9173c14c7b766ad3565bd336
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-client/src/**/*.cts, packages/@overeng/notion-effect-client/src/**/*.js, packages/@overeng/notion-effect-client/src/**/*.mts, packages/@overeng/notion-effect-client/src/**/*.ts, packages/@overeng/notion-effect-client/src/**/*.tsx, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-effect-schema/src/**/*.cts, packages/@overeng/notion-effect-schema/src/**/*.js, packages/@overeng/notion-effect-schema/src/**/*.mts, packages/@overeng/notion-effect-schema/src/**/*.ts, packages/@overeng/notion-effect-schema/src/**/*.tsx, packages/@overeng/notion-react/BUCK.genie.ts, packages/@overeng/notion-react/BUCK.genie.ts, packages/@overeng/notion-react/package.json.genie.ts, packages/@overeng/notion-react/src/**/*.cts, packages/@overeng/notion-react/src/**/*.js, packages/@overeng/notion-react/src/**/*.mts, packages/@overeng/notion-react/src/**/*.ts, packages/@overeng/notion-react/src/**/*.tsx, packages/@overeng/notion-react/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts
+# Semantic fingerprint: sha256:2cc4a522ea1fef4d00e7048e01d02d961396b3084d6a005d5c27bac711917e34
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/package.json.genie.ts, packages/@overeng/notion-react/BUCK.genie.ts, packages/@overeng/notion-react/BUCK.genie.ts, packages/@overeng/notion-react/package.json.genie.ts, packages/@overeng/notion-react/src/**/*.cts, packages/@overeng/notion-react/src/**/*.js, packages/@overeng/notion-react/src/**/*.mts, packages/@overeng/notion-react/src/**/*.spec.cjs, packages/@overeng/notion-react/src/**/*.spec.jsx, packages/@overeng/notion-react/src/**/*.spec.mjs, packages/@overeng/notion-react/src/**/*.test.cjs, packages/@overeng/notion-react/src/**/*.test.jsx, packages/@overeng/notion-react/src/**/*.test.mjs, packages/@overeng/notion-react/src/**/*.ts, packages/@overeng/notion-react/src/**/*.tsx, packages/@overeng/notion-react/src/**/__snapshots__/*.snap, packages/@overeng/notion-react/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:javascript.bzl", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -253,6 +254,123 @@ package_view(
     visibility = ["PUBLIC"],
 )
 
+package_view(
+    name = "test_package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_notion_react_7158c0aeaa96",
+    files = {
+        "package.json": "package.json",
+        "src/cache/fs-cache.ts": "src/cache/fs-cache.ts",
+        "src/cache/fs-cache.unit.test.ts": "src/cache/fs-cache.unit.test.ts",
+        "src/cache/in-memory-cache.ts": "src/cache/in-memory-cache.ts",
+        "src/cache/mod.ts": "src/cache/mod.ts",
+        "src/cache/types.ts": "src/cache/types.ts",
+        "src/components/blocks.ts": "src/components/blocks.ts",
+        "src/components/blocks.unit.test.tsx": "src/components/blocks.unit.test.tsx",
+        "src/components/h.ts": "src/components/h.ts",
+        "src/components/inline.ts": "src/components/inline.ts",
+        "src/components/mod.ts": "src/components/mod.ts",
+        "src/components/props.ts": "src/components/props.ts",
+        "src/markdown/composition.unit.test.tsx": "src/markdown/composition.unit.test.tsx",
+        "src/markdown/mod.ts": "src/markdown/mod.ts",
+        "src/markdown/render-to-notion-markdown.ts": "src/markdown/render-to-notion-markdown.ts",
+        "src/markdown/render-to-notion-markdown.unit.test.tsx": "src/markdown/render-to-notion-markdown.unit.test.tsx",
+        "src/mod.ts": "src/mod.ts",
+        "src/notion-react.contract.ts": "src/notion-react.contract.ts",
+        "src/o11y/effect-adapter.ts": "src/o11y/effect-adapter.ts",
+        "src/o11y/effect-adapter.unit.test.ts": "src/o11y/effect-adapter.unit.test.ts",
+        "src/o11y/mod.ts": "src/o11y/mod.ts",
+        "src/o11y/otel-adapter.ts": "src/o11y/otel-adapter.ts",
+        "src/o11y/otel-adapter.unit.test.ts": "src/o11y/otel-adapter.unit.test.ts",
+        "src/renderer/adopt.ts": "src/renderer/adopt.ts",
+        "src/renderer/adopt.unit.test.tsx": "src/renderer/adopt.unit.test.tsx",
+        "src/renderer/errors.ts": "src/renderer/errors.ts",
+        "src/renderer/flatten-rich-text.ts": "src/renderer/flatten-rich-text.ts",
+        "src/renderer/flatten-rich-text.unit.test.tsx": "src/renderer/flatten-rich-text.unit.test.tsx",
+        "src/renderer/host-config.ts": "src/renderer/host-config.ts",
+        "src/renderer/host-config.unit.test.tsx": "src/renderer/host-config.unit.test.tsx",
+        "src/renderer/icons.ts": "src/renderer/icons.ts",
+        "src/renderer/keys.ts": "src/renderer/keys.ts",
+        "src/renderer/keys.unit.test.tsx": "src/renderer/keys.unit.test.tsx",
+        "src/renderer/mod.ts": "src/renderer/mod.ts",
+        "src/renderer/op-buffer.ts": "src/renderer/op-buffer.ts",
+        "src/renderer/page-lifecycle.ts": "src/renderer/page-lifecycle.ts",
+        "src/renderer/page-lifecycle.unit.test.tsx": "src/renderer/page-lifecycle.unit.test.tsx",
+        "src/renderer/pagination.unit.test.tsx": "src/renderer/pagination.unit.test.tsx",
+        "src/renderer/plan.unit.test.tsx": "src/renderer/plan.unit.test.tsx",
+        "src/renderer/readback-observe.ts": "src/renderer/readback-observe.ts",
+        "src/renderer/readback.ts": "src/renderer/readback.ts",
+        "src/renderer/readback.unit.test.tsx": "src/renderer/readback.unit.test.tsx",
+        "src/renderer/render-to-notion.ts": "src/renderer/render-to-notion.ts",
+        "src/renderer/render-to-notion.unit.test.tsx": "src/renderer/render-to-notion.unit.test.tsx",
+        "src/renderer/sync-diff.ts": "src/renderer/sync-diff.ts",
+        "src/renderer/sync-diff.unit.test.tsx": "src/renderer/sync-diff.unit.test.tsx",
+        "src/renderer/sync-events.ts": "src/renderer/sync-events.ts",
+        "src/renderer/sync-events.unit.test.tsx": "src/renderer/sync-events.unit.test.tsx",
+        "src/renderer/sync-metrics.churn.unit.test.tsx": "src/renderer/sync-metrics.churn.unit.test.tsx",
+        "src/renderer/sync-metrics.errors.unit.test.tsx": "src/renderer/sync-metrics.errors.unit.test.tsx",
+        "src/renderer/sync-metrics.matrix.unit.test.tsx": "src/renderer/sync-metrics.matrix.unit.test.tsx",
+        "src/renderer/sync-metrics.scale.unit.test.tsx": "src/renderer/sync-metrics.scale.unit.test.tsx",
+        "src/renderer/sync-metrics.shape.unit.test.tsx": "src/renderer/sync-metrics.shape.unit.test.tsx",
+        "src/renderer/sync-metrics.ts": "src/renderer/sync-metrics.ts",
+        "src/renderer/sync-mock.unit.test.tsx": "src/renderer/sync-mock.unit.test.tsx",
+        "src/renderer/sync-page-ops.unit.test.tsx": "src/renderer/sync-page-ops.unit.test.tsx",
+        "src/renderer/sync-property.unit.test.tsx": "src/renderer/sync-property.unit.test.tsx",
+        "src/renderer/sync.ts": "src/renderer/sync.ts",
+        "src/renderer/upload-id-retry.ts": "src/renderer/upload-id-retry.ts",
+        "src/renderer/upload-id-retry.unit.test.tsx": "src/renderer/upload-id-retry.unit.test.tsx",
+        "src/renderer/upload-registry.ts": "src/renderer/upload-registry.ts",
+        "src/renderer/url-provider.ts": "src/renderer/url-provider.ts",
+        "src/renderer/url-provider.unit.test.tsx": "src/renderer/url-provider.unit.test.tsx",
+        "src/test/integration/e2e/adopt.e2e.test.tsx": "src/test/integration/e2e/adopt.e2e.test.tsx",
+        "src/test/integration/e2e/blocks.e2e.test.tsx": "src/test/integration/e2e/blocks.e2e.test.tsx",
+        "src/test/integration/e2e/edge-cases.e2e.test.tsx": "src/test/integration/e2e/edge-cases.e2e.test.tsx",
+        "src/test/integration/e2e/helpers.ts": "src/test/integration/e2e/helpers.ts",
+        "src/test/integration/e2e/mutations.e2e.test.tsx": "src/test/integration/e2e/mutations.e2e.test.tsx",
+        "src/test/integration/e2e/prop-projection.e2e.test.tsx": "src/test/integration/e2e/prop-projection.e2e.test.tsx",
+        "src/test/integration/e2e/readback.e2e.test.tsx": "src/test/integration/e2e/readback.e2e.test.tsx",
+        "src/test/integration/e2e/sub-pages.e2e.test.tsx": "src/test/integration/e2e/sub-pages.e2e.test.tsx",
+        "src/test/mock-client.ts": "src/test/mock-client.ts",
+        "src/test/mock-client.unit.test.ts": "src/test/mock-client.unit.test.ts",
+        "src/test/regression/sync-perf.regression.unit.test.tsx": "src/test/regression/sync-perf.regression.unit.test.tsx",
+        "src/web/blocks.stories.tsx": "src/web/blocks.stories.tsx",
+        "src/web/blocks.tsx": "src/web/blocks.tsx",
+        "src/web/demo/basic-blocks.stories.tsx": "src/web/demo/basic-blocks.stories.tsx",
+        "src/web/demo/bookmarks.stories.tsx": "src/web/demo/bookmarks.stories.tsx",
+        "src/web/demo/code-blocks.stories.tsx": "src/web/demo/code-blocks.stories.tsx",
+        "src/web/demo/color-rainbow.stories.tsx": "src/web/demo/color-rainbow.stories.tsx",
+        "src/web/demo/column-layouts.stories.tsx": "src/web/demo/column-layouts.stories.tsx",
+        "src/web/demo/index.stories.tsx": "src/web/demo/index.stories.tsx",
+        "src/web/demo/links.stories.tsx": "src/web/demo/links.stories.tsx",
+        "src/web/demo/lists.stories.tsx": "src/web/demo/lists.stories.tsx",
+        "src/web/demo/math-equations.stories.tsx": "src/web/demo/math-equations.stories.tsx",
+        "src/web/demo/modern-breadcrumb.stories.tsx": "src/web/demo/modern-breadcrumb.stories.tsx",
+        "src/web/demo/modern-child-db-page.stories.tsx": "src/web/demo/modern-child-db-page.stories.tsx",
+        "src/web/demo/modern-color-palette.stories.tsx": "src/web/demo/modern-color-palette.stories.tsx",
+        "src/web/demo/modern-column-widths.stories.tsx": "src/web/demo/modern-column-widths.stories.tsx",
+        "src/web/demo/modern-file-upload.stories.tsx": "src/web/demo/modern-file-upload.stories.tsx",
+        "src/web/demo/modern-link-preview.stories.tsx": "src/web/demo/modern-link-preview.stories.tsx",
+        "src/web/demo/modern-meeting-notes.stories.tsx": "src/web/demo/modern-meeting-notes.stories.tsx",
+        "src/web/demo/modern-synced-block.stories.tsx": "src/web/demo/modern-synced-block.stories.tsx",
+        "src/web/demo/modern-tabs.stories.tsx": "src/web/demo/modern-tabs.stories.tsx",
+        "src/web/demo/placeholders.stories.tsx": "src/web/demo/placeholders.stories.tsx",
+        "src/web/demo/toc.stories.tsx": "src/web/demo/toc.stories.tsx",
+        "src/web/inline.stories.tsx": "src/web/inline.stories.tsx",
+        "src/web/inline.tsx": "src/web/inline.tsx",
+        "src/web/katex.tsx": "src/web/katex.tsx",
+        "src/web/media.stories.tsx": "src/web/media.stories.tsx",
+        "src/web/mod.ts": "src/web/mod.ts",
+        "src/web/pages.stories.tsx": "src/web/pages.stories.tsx",
+        "src/web/shiki.tsx": "src/web/shiki.tsx",
+        "src/web/subpages.stories.tsx": "src/web/subpages.stories.tsx",
+        "src/web/toggle.unit.test.tsx": "src/web/toggle.unit.test.tsx",
+        "tsconfig.json": "tsconfig.json",
+        "vitest.config.ts": "vitest.config.ts",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+
 editor_view_inputs(
     name = "editor_view_inputs",
     editor_inputs = ":editor_inputs",
@@ -271,5 +389,12 @@ tsgo_emit(
     package_tree = ":package_tree",
     declaration_sources = {
     },
+    declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":test_package_tree",
     visibility = ["PUBLIC"],
 )

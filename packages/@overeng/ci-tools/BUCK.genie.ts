@@ -27,6 +27,27 @@ export const buck2TypeScriptAdmission = {
     },
   ],
   editorViewConsumer: false,
+  authority: {
+    declarationEntrypoint: 'src/mod.d.ts',
+    projectFile: 'tsconfig.json',
+  },
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+      // The CLI contract suite runs the CLI as a child process under the pinned Bun.
+      // Deploy e2e and live-deploy suites are unbounded (decision 0026) and stay with the
+      // devenv `test:ci-tools` task.
+      tools: { BUN_BIN: '//buck2/toolchains:tool_bun' },
+      excludes: [
+        'src/deploy-netlify.e2e.test.ts',
+        'src/deploy-netlify.live.e2e.test.ts',
+        'src/deploy-vercel.e2e.test.ts',
+        'src/deploy-vercel.live.e2e.test.ts',
+        'src/workflow-report.e2e.test.ts',
+      ],
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default withJavaScriptCandidates({

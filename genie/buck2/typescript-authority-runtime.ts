@@ -3,8 +3,10 @@ import process from 'node:process'
 
 import {
   authoritativeBuck2TypeScriptAdmissions,
+  buck2TypeScriptTestTargets,
   type AuthoritativeBuck2TypeScriptAdmission,
 } from './typescript-admissions.ts'
+import { buck2TypeScriptDeclarationSources } from './typescript-package-projection.ts'
 
 /** Executable followed by its exact ordered argument vector. */
 export type CommandArgv = [executable: string, ...args: string[]]
@@ -36,18 +38,42 @@ export type CommandRuntime = {
   }) => void
 }
 
+/**
+ * Resolves the handwritten declarations a package publishes verbatim.
+ *
+ * Injectable so planning stays testable without a package tree on disk; the
+ * default is the same census the Buck projection renders into
+ * `declaration_sources`, which is what keeps copy and comparison from drifting.
+ */
+export type DeclarationSourceResolver = (options: {
+  readonly packagePath: string
+  readonly sourceRoots: readonly string[]
+}) => readonly string[]
+
 /** Plans the existing declaration materializer invocation for every authoritative package. */
 export const planTypeScriptDistMaterialization = ({
   admissions = authoritativeBuck2TypeScriptAdmissions,
   bashBin,
+  declarationSources,
   root,
 }: {
   readonly admissions?: readonly AuthoritativeBuck2TypeScriptAdmission[]
   readonly bashBin: string
+  readonly declarationSources?: DeclarationSourceResolver
   readonly root: string
-}): readonly CommandArgv[] =>
-  admissions.map(
-    ({ declarationEntrypoint, distTarget, packagePath, projectFile }): CommandArgv => [
+}): readonly CommandArgv[] => {
+  const resolveDeclarationSources: DeclarationSourceResolver =
+    declarationSources ??
+    (({ packagePath, sourceRoots }) =>
+      buck2TypeScriptDeclarationSources({ packagePath, repoRoot: root, sourceRoots }))
+  return admissions.map(
+    ({
+      declarationEntrypoint,
+      distTarget,
+      packagePath,
+      projectFile,
+      sourceRoots,
+    }): CommandArgv => [
       bashBin,
       `${root}/scripts/typescript-materialize-dist.sh`,
       root,
@@ -55,22 +81,31 @@ export const planTypeScriptDistMaterialization = ({
       qualifyEffectUtilsLabel(distTarget),
       declarationEntrypoint,
       projectFile,
+      ...resolveDeclarationSources({ packagePath, sourceRoots }),
     ],
   )
+}
 
-/** Plans the single Buck build used by buck2:check, preserving target order. */
+/**
+ * Plans the single Buck build used by buck2:check, preserving target order.
+ *
+ * Test targets are built, not run: building proves the lane's rule, staged
+ * package tree, and attested tools still analyse, which is what keeps a
+ * declared suite from rotting while its execution is source-owned.
+ */
 export const planBuck2TypeScriptBuild = ({
   admissions = authoritativeBuck2TypeScriptAdmissions,
   buck2Bin,
+  testTargets = buck2TypeScriptTestTargets,
 }: {
   readonly admissions?: readonly AuthoritativeBuck2TypeScriptAdmission[]
   readonly buck2Bin: string
+  readonly testTargets?: readonly `//${string}`[]
 }): CommandArgv => [
   buck2Bin,
   'build',
-  ...admissions.map(({ typecheckTarget }) =>
-    qualifyEffectUtilsLabel(typecheckTarget),
-  ),
+  ...admissions.map(({ typecheckTarget }) => qualifyEffectUtilsLabel(typecheckTarget)),
+  ...testTargets.map(qualifyEffectUtilsLabel),
   'effect_utils//buck2/toolchains:archive_tool',
   'effect_utils//buck2/toolchains:product_tool',
   '--local-only',

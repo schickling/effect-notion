@@ -97,7 +97,11 @@ The descriptor factory is shared with the datasource-sync Node runtime. That mak
 
 Trace: R07-R10, R15.
 
-`nix/build.nix` builds a Bun `notion` binary and installs the runtime workspace needed by the Node-backed datasource-sync entrypoint.
+The packaged `notion` wrapper composes two reviewed Buck JavaScript products
+imported from `nix/buck2-products/manifest.json`: the `notion-cli` product
+supplies the root binary, and the `notion-db-runtime` product supplies the
+Node-backed datasource-sync entrypoint together with its native `@opentui/core`
+bindings.
 
 ```text
 packaged notion

@@ -29,6 +29,17 @@ export const buck2TypeScriptAdmission = {
     declarationEntrypoint: 'src/mod.d.ts',
     projectFile: 'tsconfig.buck.json',
   },
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+      // The stdout-contract fixtures spawn both runtimes as separate processes.
+      tools: {
+        BUN_BIN: '//buck2/toolchains:tool_bun',
+        NODE_BIN: '//buck2/toolchains:tool_node',
+      },
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)

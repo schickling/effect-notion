@@ -24,6 +24,7 @@ const workspaceDeps = catalog.compose({
         '@storybook/react',
         '@storybook/react-vite',
         '@types/react',
+        '@types/node',
         '@types/react-dom',
         '@vitejs/plugin-react',
         'typescript',
@@ -43,8 +44,14 @@ export default packageJson(
     name: '@overeng/effect-react',
     ...privatePackageDefaults,
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'browser' }),
-      './react-aria': exportEntry('./src/react-aria/mod.ts', { environment: 'browser' }),
+      '.': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'browser' },
+      ),
+      './react-aria': exportEntry(
+        { types: './dist/src/react-aria/mod.d.ts', default: './src/react-aria/mod.ts' },
+        { environment: 'browser' },
+      ),
     },
     publishConfig: {
       access: 'public',

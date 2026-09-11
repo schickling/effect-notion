@@ -144,10 +144,36 @@ RENAME_EXCHANGE advance.
   package-specific evidence; its devenv/pnpm build-path consumers are deleted
   with that package's admission.
 - Workspace-sibling live links (symlink-back) are part of the standard rule.
-- The coverage-asserted registry in `genie/tsconfig-projects.ts` has 38 root
-  projects. Seven are admitted; 31 projects remain in both root solutions and
-  leave them one package-scoped deletion-ledger entry at a time, grouped by
-  dependency layer for review and landing.
+- The coverage-asserted registry in `genie/tsconfig-projects.ts` has 39 root
+  projects. Root-solution membership is the exact complement of Buck authority:
+  `isRootTsconfigCheckProject` and `isRootTsconfigEmitProject` both read the
+  project's `buck2Authority`, which is derived from
+  `authoritativeBuck2TypeScriptAdmissions`, so no project can have two
+  producers and no second registry can drift from the first. 29 projects are
+  admitted. The 10 that remain are exactly the projects no Buck target owns:
+  `@overeng/buck2-tools`, `@overeng/genie`, `@overeng/kdl-effect`,
+  `@overeng/megarepo`, `@overeng/tui-stories`,
+  `@overeng/effect-schema-form-aria`, the `@overeng/effect-rpc-tanstack` basic
+  example, the two `context/` example projects, and the
+  `@overeng/react-inspector` strict-consumer project. They consume
+  Buck-owned declarations through the dist overlays that
+  `buck2:typescript:materialize-dist` publishes, so root checking is ordered
+  after that materialization rather than reproducing it.
+- Per-package unit-test lanes are DECLARED on the same authority registry
+  (decision [0026](./.decisions/0026-buck-owned-unit-tests.md)): 32 admitted
+  packages emit a `//<packagePath>:test` target over their bounded suites, and
+  `buck2:check` builds every one of them so a lane's rule, staged package tree,
+  and attested tools cannot rot. Each target's `excludes` list names the
+  unbounded suites the policy keeps outside: integration, e2e, live-deploy,
+  PTY, and any suite that spawns an external binary.
+- Test EXECUTION is not yet transferred. Two mechanisms have to land first: the
+  baseline test-collection gate consumes retained Vitest JSON summaries that a
+  Buck test action does not write (the `vitest_collect` rule exists for this
+  and is not yet wired to the gate), and the unbounded remainder of each
+  package's suite needs its own declared lane so no file loses a runner and no
+  file runs twice. Until both land, `test:<package>` stays the source-owned
+  Vitest run over the whole suite and Buck ownership of test inputs is proven
+  by the build gate rather than by executing the lane.
 
 - Admission 2 transfers `@overeng/tui-react` typecheck and declaration emit to
   `//packages/@overeng/tui-react:typecheck` and
@@ -228,9 +254,20 @@ RENAME_EXCHANGE advance.
   `rust/third-party/.cargo/config.toml` are deleted in the same change; the
   buckify gate pins a cargo home and asserts a byte-unchanged lock; the eight
   vendored-mode fixups are re-verified by building their crates.
-- Eight repository pnpm-deps FODs remain: ci-tools, Genie, mr, notion-cli,
-  notion-md, npm-release, oxc-config, and tui-stories. Each disappears only
-  after its real Buck product passes the independent Nix bridge (BUCK-R10).
+- One repository pnpm-deps FOD remains: `oxc-config`, whose pnpm-built oxlint
+  plugin bundle is an npm-plugin artifact rather than a JavaScript product, so
+  no product import replaces it. The ci-tools, Genie, mr, notion-cli,
+  notion-md, npm-release, and tui-stories FODs are dissolved (BUCK-R10): each
+  Nix wrapper now imports its reviewed, content-addressed product from
+  `nix/buck2-products/manifest.json` and the corresponding
+  `packages/@overeng/*/nix/build.nix` source producer is deleted.
+- Rust product authority is NOT transferred by that change. `otelite` and
+  `otel-scrape` are per-tuple native executables whose products this repository
+  has never emitted or independently imported, so their
+  `rustPlatform.buildRustPackage` source producers remain the authority and
+  their flake packages and apps are unchanged. The transfer condition is
+  unchanged: emit and independently import real BuildProducts first, then
+  delete the Cargo/Nix source producers.
 
 ## Phase 6 — second consumer (dotfiles)
 
@@ -270,7 +307,7 @@ RENAME_EXCHANGE advance.
   [0025](./.decisions/0025-cow-reflink-local-disk-economics.md) hygiene):
   measured 90% hardlink dedup where the store is shared versus zero on
   private stores (~95 GB reclaim) makes the former "moot under 0022" parking
-  premature while 36 of 38 projects still require the root install.
+  premature while 37 of 38 workspace importers still require the root install.
   Consolidation stays live until Phase 4 deletes the root install, then the
   developer-time store leaves Buck scope again.
 - pnpm 12: revisit when it is the `latest` dist-tag and packaged in nixpkgs;

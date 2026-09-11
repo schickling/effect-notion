@@ -44,8 +44,14 @@ export default packageJson(
       'bundle:smoke': 'bun ../../../genie/ci-scripts/bundle-smoke.ts',
     },
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'node' }),
-      './client': exportEntry('./src/client.ts', { environment: 'node' }),
+      '.': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'node' },
+      ),
+      './client': exportEntry(
+        { types: './dist/src/client.d.ts', default: './src/client.ts' },
+        { environment: 'node' },
+      ),
     },
     publishConfig: {
       access: 'public',

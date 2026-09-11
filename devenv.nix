@@ -97,8 +97,11 @@ let
     devenv-module-tests = ./nix/devenv-modules/tasks/local/devenv-module-tests.nix;
     asset-import-type-reference = ./nix/devenv-modules/tasks/local/asset-import-type-reference.nix;
   };
-  # Use bun source entrypoints for in-repo CLIs in devenv (flake builds stay strict).
-  mkSourceCli = import ./nix/devenv-modules/lib/mk-source-cli.nix { inherit pkgs; };
+  # Repository CLIs come from the reviewed Buck product boundary, not from a
+  # source entrypoint that exists only here. The activated shell, the flake
+  # outputs, and CI therefore run the same content-addressed bytes, so a task
+  # cannot pass locally against a source tree and fail against the product.
+  repoPackages = repoFlake.packages.${currentSystem};
 
   # Real packages backing guarded command names. The cli-guards own bin/<name>
   # and exec these via absolute store path under passthrough, so they are passed
@@ -106,63 +109,22 @@ let
   # providers (which would collide with the guards in buildEnv). See cli-guard.nix.
   effectTsgo = inputs.tsgo.packages.${currentSystem}.effect-tsgo;
   pnpmPkg = import ./nix/pnpm.nix { inherit pkgs; };
-  genieSourceCli = mkSourceCli {
-    name = "genie";
-    entry = "packages/@overeng/genie/bin/genie.tsx";
-  };
-  mrSourceCli = mkSourceCli {
-    name = "mr";
-    entry = "packages/@overeng/megarepo/bin/mr.ts";
-  };
-  ciToolsSourceCli = mkSourceCli {
-    name = "ci-tools";
-    entry = "packages/@overeng/ci-tools/bin/ci-tools.ts";
-  };
+  genieCli = repoPackages.genie;
+  mrCli = repoPackages.megarepo;
+  ciToolsCli = repoPackages.ci-tools;
+  tuiStoriesCli = repoPackages.tui-stories;
+  genieBootstrapClosureCheckCli = repoPackages.genie-bootstrap-closure-check;
   buck2Machine = import ./nix/buck2.nix { pkgs = flakePkgs; };
   buck2Stage0Definition = import ./nix/buck2-stage0-tools.nix { inherit pkgs; };
-  # CLI packages built with Nix (for hash management)
+  # The only Nix-managed pnpm dependency hash left: the oxlint plugin bundle is
+  # an npm-plugin artifact, so no JavaScript product import replaces it.
   nixCliPackages = [
-    {
-      name = "genie";
-      flakeRef = ".#genie";
-      hashSource = "packages/@overeng/genie/nix/build.nix";
-      lockfile = "pnpm-lock.yaml";
-      packageJson = "packages/@overeng/genie/package.json";
-    }
-    {
-      name = "megarepo";
-      flakeRef = ".#megarepo";
-      hashSource = "packages/@overeng/megarepo/nix/build.nix";
-      lockfile = "pnpm-lock.yaml";
-      packageJson = "packages/@overeng/megarepo/package.json";
-    }
-    {
-      name = "tui-stories";
-      flakeRef = ".#tui-stories";
-      hashSource = "packages/@overeng/tui-stories/nix/build.nix";
-      lockfile = "pnpm-lock.yaml";
-      packageJson = "packages/@overeng/tui-stories/package.json";
-    }
     {
       name = "oxlint-npm";
       flakeRef = ".#oxlint-npm";
       hashSource = "nix/oxc-config-plugin.nix";
       lockfile = "pnpm-lock.yaml";
       packageJson = "packages/@overeng/oxc-config/package.json";
-    }
-    {
-      name = "notion-cli";
-      flakeRef = ".#notion-cli";
-      hashSource = "packages/@overeng/notion-cli/nix/build.nix";
-      lockfile = "pnpm-lock.yaml";
-      packageJson = "packages/@overeng/notion-cli/package.json";
-    }
-    {
-      name = "notion-md";
-      flakeRef = ".#notion-md";
-      hashSource = "packages/@overeng/notion-md/nix/build.nix";
-      lockfile = "pnpm-lock.yaml";
-      packageJson = "packages/@overeng/notion-md/package.json";
     }
   ];
 
@@ -476,6 +438,7 @@ in
         # so its task-cache refresh cannot race sibling check:all work.
         prerequisiteTasks = [
           "bootstrap-closure:check"
+          "buck2:check"
           "cargo:check"
           "dependency-materialization:evidence:check"
           "devenv:trace-audit"
@@ -503,7 +466,7 @@ in
     # Shared task modules
     taskModules.genie
     (taskModules.ts { tsBinPkg = effectTsgo; })
-    (taskModules.megarepo { mrPkg = mrSourceCli; })
+    (taskModules.megarepo { mrPkg = mrCli; })
     (taskModules.lint-nix { })
     (taskModules.check {
       extraChecks = [
@@ -511,8 +474,15 @@ in
         "workspace:check"
         "lint:nix"
       ];
-      checkAllTypecheckTask = "ts:check:strict";
+      # Root `tsc` no longer owns the admitted packages, so the fast lane runs
+      # its incremental form while `check:all` gets the forced one below.
+      extraQuickChecks = [ "ts:check" ];
+      checkQuickTypecheckTask = "buck2:check";
+      checkAllTypecheckTask = "buck2:check";
     })
+    # Root `tsc` remains the sole producer for the projects no Buck target owns.
+    # `extraChecks` feeds both gates, so the forced run is wired here instead.
+    { tasks."check:all".after = [ "ts:check:strict" ]; }
     (taskModules.weaver { })
     # Wire the additive weaver gate into `check:all` only (not `check:quick`, which stays fast):
     # `after` list options merge across modules, so this appends without redefining check:all.
@@ -522,7 +492,9 @@ in
     # runtime closure reaches a runtime-only package (which would break `genie --phase bootstrap` on a
     # fresh pre-install clone). Wired into `check:all` only (kept out of `check:quick`). The empirical
     # authority is `bootstrap:cold-proof` (R32); this static gate is its cheap pre-check.
-    (taskModules.bootstrap-closure { })
+    (taskModules.bootstrap-closure {
+      checkerBin = "${genieBootstrapClosureCheckCli}/bin/genie-bootstrap-closure-check";
+    })
     { tasks."check:all".after = [ "bootstrap-closure:check" ]; }
     # Compat-diff gate (SC-R11): blocks a PR that REMOVES a shipped registry attribute/signal.
     # PR-scoped (needs a merge-base baseline) — degrades to a warning locally on a fresh clone with
@@ -564,7 +536,7 @@ in
     (taskModules.netlify {
       siteName = "overeng-utils";
       siteId = "462d2440-fb38-4e69-8023-9c425d1e2132";
-      ciToolsBin = "${ciToolsSourceCli}/bin/ci-tools";
+      ciToolsBin = "${ciToolsCli}/bin/ci-tools";
       deployments = map (pkg: {
         name = pkg.name;
         staticDir = "${pkg.path}/storybook-static";
@@ -575,7 +547,7 @@ in
     # Workflow reports run as standalone CI control-plane steps, including when
     # a deploy is skipped. Use the hermetic package instead of relying on an
     # ambient source-workspace node_modules projection.
-    (taskModules.workflow-report { })
+    (taskModules.workflow-report { ciToolsBin = "${ciToolsCli}/bin/ci-tools"; })
     (taskModules.lint-oxc {
       oxlintPkg = oxlintWithPlugins;
       lintPaths = [
@@ -594,6 +566,9 @@ in
       genieCoverageDirs = [ "packages" ];
       # Type-aware linting for typescript/no-deprecated rule
       tsconfig = "tsconfig.check.json";
+      # The type-aware rules resolve Buck-authoritative packages through their
+      # published `dist` declarations, so the lane waits for the materializer.
+      tsconfigAfterTasks = [ "buck2:typescript:materialize-dist" ];
       # Warning cleanup is complete: every oxlint rule is at zero repo-wide
       # (swept + key rules promoted to error; non-API surfaces exempted by
       # override). Lint is now fatal on ANY warning so the gate can never
@@ -638,10 +613,17 @@ in
     ./nix/devenv-modules/tasks/local/restate-integration-test.nix
   ];
 
-  # The guarded `genie` command dispatches to the source-mode CLI in this repo;
-  # downstream consumers should normally set this to the packaged effect-utils
-  # Genie derivation.
-  effectUtils.genie.package = genieSourceCli;
+  # The guarded `genie` command dispatches to this repository's own packaged
+  # Genie product, which is also what downstream consumers set here.
+  effectUtils.genie.package = genieCli;
+
+  # Design-time generators import the workspace dependency graph. The packaged
+  # CLI is self-contained, but the generator sources it loads still require
+  # pnpm's package links.
+  tasks."genie:run".after = [ "pnpm:install" ];
+  tasks."genie:check".after = [ "pnpm:install" ];
+  tasks."lint:check:genie".after = [ "pnpm:install" ];
+  tasks."genie:watch".after = [ "pnpm:install" ];
 
   # Non-`.genie.ts` sources share one list with the lint freshness scheduler.
   effectUtils.genie.extraInputGlobs = genieExtraInputGlobs;
@@ -658,19 +640,16 @@ in
     # restate-server (+ restate CLI) on $PATH for restate-effect integration tests.
     restate
     # Use the packaged wrapper so `notion db ...` runs on Node 24 with node:sqlite.
-    repoFlake.packages.${currentSystem}.notion-cli
+    repoPackages.notion-cli
     # Rust binaries on PATH for local smoke tests and downstream wrappers.
-    repoFlake.packages.${currentSystem}.otelite
-    repoFlake.packages.${currentSystem}.otel-scrape
+    repoPackages.otelite
+    repoPackages.otel-scrape
     # Nix-distributed Buck binary used by direct repository tasks.
     buck2Machine
     buck2Stage0Definition.product
     cliBuildStamp.package
-    ciToolsSourceCli
-    (mkSourceCli {
-      name = "tui-stories";
-      entry = "packages/@overeng/tui-stories/bin/tui-stories.tsx";
-    })
+    ciToolsCli
+    tuiStoriesCli
     # Rust toolchain for the standalone Rust crates.
     # Nix builds use pkgs.rustPlatform; these give local dev + the cargo CI lane
     # cargo/clippy/rustfmt/rust-analyzer matching nixpkgs' stable rust.
@@ -702,26 +681,23 @@ in
   # reads RESTATE_SERVER_BIN to locate the native server, else falls back to $PATH).
   env.RESTATE_SERVER_BIN = "${restate}/bin/restate-server";
 
-  # Source-mode CLIs need pnpm install before running.
-  # (The shared modules don't assume this — they work with Nix packages too.)
-  tasks."genie:run".after = [ "pnpm:install" ];
-  tasks."genie:watch".after = [ "pnpm:install" ];
-  tasks."genie:check".after = [ "pnpm:install" ];
-  tasks."lint:check:genie".after = [ "pnpm:install" ];
-  tasks."mr:bootstrap".after = [ "pnpm:install" ];
-  tasks."mr:setup".after = [
-    "pnpm:install"
-    "mr:bootstrap"
-  ];
-  tasks."mr:fetch-apply".after = [ "pnpm:install" ];
-  tasks."mr:lock".after = [ "pnpm:install" ];
-  # Serialize every source-mode task that can mutate the same composed root.
-  tasks."mr:apply".after = [
-    "pnpm:install"
-    "mr:setup"
-  ];
-  tasks."mr:check".after = [ "pnpm:install" ];
-  tasks."mr:source-policy-check".after = [ "pnpm:install" ];
+  # Genie and mr run from their packaged products, whose dependencies are baked
+  # into the store path, so neither waits on a repository pnpm projection any
+  # more. What survives is the real constraint: the composed-root mutators must
+  # not run concurrently with each other.
+  tasks."mr:setup".after = [ "mr:bootstrap" ];
+  tasks."mr:apply".after = [ "mr:setup" ];
+
+  # The projects root `tsc` still owns resolve their Buck-authoritative
+  # dependencies through published `dist` declarations, so the root project
+  # graph runs after the materializer that publishes them. `after` list options
+  # merge across modules, so these edges are additive and the shared `ts` module
+  # stays free of repository-specific Buck task names. `ts:check:strict`
+  # inherits the merged `ts:check` graph and needs no edge of its own.
+  tasks."ts:check".after = [ "buck2:typescript:materialize-dist" ];
+  tasks."ts:build".after = [ "buck2:typescript:materialize-dist" ];
+  tasks."ts:emit".after = [ "buck2:typescript:materialize-dist" ];
+  tasks."ts:build-watch".after = [ "buck2:typescript:materialize-dist" ];
 
   # buck2-tools executes inside pinned Bun actions and exercises Bun.YAML/Bun.which.
   # Keep its package gate on that runtime rather than Vitest's Node process.
@@ -1123,7 +1099,7 @@ in
   };
 
   tasks."buck2:check" = {
-    description = "Build admitted TypeScript checks and surviving archive/product Buck2 surface";
+    description = "Build every admitted TypeScript check, declared test lane, and the archive/product Buck2 surface";
     after = [
       "mr:apply"
       "buck2:nix-bridge:check"

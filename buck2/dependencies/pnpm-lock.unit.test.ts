@@ -188,7 +188,7 @@ describe('translatePnpmLock', () => {
     expect(Object.keys(first.snapshots)).toHaveLength(652)
     expect(Object.keys(first.importers)).toHaveLength(39)
     expect(first.packages['@myobie/pty@0.10.0']!.patch?.path).toBe(
-      'packages/@overeng/utils/patches/@myobie__pty@0.10.0.patch',
+      'patches/@myobie__pty@0.10.0.patch',
     )
   })
 

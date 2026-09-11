@@ -13,9 +13,10 @@ export default tsconfigJson({
     ...packageTsconfigCompilerOptions,
     ...nodeTypes,
     ...reactJsx,
+    noEmit: true,
     jsxImportSource: 'react',
     lib: [...domLib],
   },
   include: ['src/**/*'],
-  references: [{ path: '../notion-md' }],
+  references: [],
 } satisfies TSConfigArgs)

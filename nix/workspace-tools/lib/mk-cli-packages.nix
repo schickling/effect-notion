@@ -1,56 +1,35 @@
+# Bundle the CLIs downstream repos consume by name.
+#
+# The CLIs are wrapped Buck products, so `products` (the `products` attribute of
+# `nix/buck2-products`) is a required argument: there is no source build to fall
+# back to, and a caller that cannot supply the tracked products has no CLI.
 {
   pkgs,
+  products,
+  typeProofCompilerBin,
+  oxfmtPkg ? pkgs.oxfmt,
   gitRev ? "unknown",
   commitTs ? 0,
-  workspaceRoot ? ./.,
   dirty ? false,
-  typeProofCompilerBin,
 }:
 let
-  workspaceRootPath =
-    if builtins.isAttrs workspaceRoot && builtins.hasAttr "outPath" workspaceRoot then
-      workspaceRoot.outPath
-    else
-      workspaceRoot;
+  candidates = import ./buck2-product-candidates.nix {
+    inherit
+      pkgs
+      products
+      typeProofCompilerBin
+      oxfmtPkg
+      gitRev
+      commitTs
+      dirty
+      ;
+  };
 in
 {
-  genie = import (workspaceRootPath + "/packages/@overeng/genie/nix/build.nix") {
-    inherit
-      pkgs
-      gitRev
-      commitTs
-      dirty
-      ;
-    src = workspaceRoot;
-    inherit typeProofCompilerBin;
-  };
-  genie-bootstrap-closure-check =
-    import (workspaceRootPath + "/packages/@overeng/genie/nix/bootstrap-closure-check.nix")
-      {
-        inherit
-          pkgs
-          gitRev
-          commitTs
-          dirty
-          ;
-        src = workspaceRoot;
-      };
-  megarepo = import (workspaceRootPath + "/packages/@overeng/megarepo/nix/build.nix") {
-    inherit
-      pkgs
-      gitRev
-      commitTs
-      dirty
-      ;
-    src = workspaceRoot;
-  };
-  ci-tools = import (workspaceRootPath + "/packages/@overeng/ci-tools/nix/build.nix") {
-    inherit
-      pkgs
-      gitRev
-      commitTs
-      dirty
-      ;
-    src = workspaceRoot;
-  };
+  inherit (candidates)
+    ci-tools
+    genie
+    genie-bootstrap-closure-check
+    megarepo
+    ;
 }

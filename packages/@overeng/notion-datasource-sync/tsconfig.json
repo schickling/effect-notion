@@ -49,14 +49,11 @@
     "types": [
       "node"
     ],
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "noEmit": true
   },
   "include": [
     "src/**/*"
   ],
-  "references": [
-    {
-      "path": "../notion-md"
-    }
-  ]
+  "references": []
 }

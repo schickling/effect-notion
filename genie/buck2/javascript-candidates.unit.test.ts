@@ -117,13 +117,19 @@ describe('JavaScript product registry', () => {
     }
   })
 
-  it('keeps product package admissions non-authoritative editor non-consumers', () => {
+  it('keeps product package admissions editor non-consumers with targets clear of authority', () => {
     const admissions = Object.values(buck2TypeScriptAdmissions)
+    const authorityTargetNames: Record<string, true> = { typecheck: true, dist: true }
     for (const packagePath of productPackagePaths) {
       const admission = admissions.find((candidate) => candidate.packagePath === packagePath)
       expect(admission, `missing TypeScript admission for ${packagePath}`).toBeDefined()
       expect(admission?.editorViewConsumer).toBe(false)
-      expect(admission?.authority).toBeUndefined()
+      for (const product of javaScriptProductsFor(
+        packagePath as keyof typeof javaScriptProductRegistry,
+      )) {
+        expect(authorityTargetNames[product.targetName]).toBeUndefined()
+        expect(authorityTargetNames[`${product.targetName}-module`]).toBeUndefined()
+      }
     }
   })
 })
@@ -148,5 +154,17 @@ describe('JavaScript candidate projection wrapper', () => {
     expect(output).toContain('    name = "notion-cli-candidate",')
     expect(output).toContain('    product_kind = "cli",')
     expect(output).toContain('    target = "node",')
+  })
+
+  it('keeps the dynamic Genie generator import closure intact', () => {
+    const admission = buck2TypeScriptAdmissions.genie
+    const projection = buck2TypeScriptPackageProjection(admission)
+    const output = withJavaScriptCandidates({
+      projection,
+      products: javaScriptProductsFor(admission.packagePath),
+    }).stringify(genieContext)
+
+    expect(output).toContain('    name = "genie-candidate-module",')
+    expect(output).toContain('    tree_shaking = False,')
   })
 })

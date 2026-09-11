@@ -106,6 +106,16 @@ const manifestProjection = {
       executable: 'bin/readlink',
     },
     {
+      // Vitest suites that exercise Node built-ins (`node:sqlite`, `node:worker_threads`)
+      // cannot run on Bun, so their Buck test lanes declare NODE_BIN as an attested
+      // capability. A capability binds the whole Nix closure of the realization, which a
+      // bare executable path handed to a contained action cannot carry.
+      toolId: 'node',
+      protocol: 'nodejs/node/v24',
+      flakePackage: 'buck2-node',
+      executable: 'bin/node',
+    },
+    {
       toolId: 'product',
       protocol: 'effect-utils/buck2-product/v1',
       flakePackage: 'buck2-product',

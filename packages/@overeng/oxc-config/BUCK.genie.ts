@@ -10,6 +10,16 @@ export const buck2TypeScriptAdmission = {
   projectionSource: 'packages/@overeng/oxc-config/BUCK.genie.ts',
   sourceRoots: ['src'],
   editorViewConsumer: false,
+  authority: {
+    declarationEntrypoint: 'src/mod.d.ts',
+    projectFile: 'tsconfig.json',
+  },
+  tests: [
+    {
+      name: 'test',
+      runner: 'vitest',
+    },
+  ],
 } as const satisfies Buck2TypeScriptAdmission
 
 export default withJavaScriptCandidates({

@@ -615,7 +615,7 @@ export const createEffectUtilsRefs = (basePath: string) =>
 
 /** Repo-local patches that should not be projected into downstream consumers. */
 export const effectUtilsWorkspacePatches = definePatchedDependencies({
-  location: 'packages/@overeng/utils',
+  location: '.',
   patches: {
     /* @myobie/pty@0.10.0 (via @overeng/pty-effect) does a default import
        `import xtermSerialize from "@xterm/addon-serialize"`, but
@@ -623,7 +623,7 @@ export const effectUtilsWorkspacePatches = definePatchedDependencies({
        exports are named (`SerializeAddon`, `HTMLSerializeHandler`) — the
        CJS-interop default that 0.13.x provided is gone. Rewrite the import to
        a namespace import so `xtermSerialize.SerializeAddon` resolves. */
-    '@myobie/pty@0.10.0': './patches/@myobie__pty@0.10.0.patch',
+    '@myobie/pty@0.10.0': 'patches/@myobie__pty@0.10.0.patch',
   },
 })
 

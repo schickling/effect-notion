@@ -1,0 +1,112 @@
+# Generated file - DO NOT EDIT
+# Source: BUCK.genie.ts
+
+# Projection source: packages/@overeng/effect-schema-form/BUCK.genie.ts
+# Projection schema version: 6
+# Projection generator: effect-utils/genie/buck2-typescript-package-projection
+# Semantic fingerprint: sha256:01be519327d85123bb010611a61edbe05376236bd2ce293fa634709f77a5ef92
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-schema-form/BUCK.genie.ts, packages/@overeng/effect-schema-form/BUCK.genie.ts, packages/@overeng/effect-schema-form/package.json.genie.ts, packages/@overeng/effect-schema-form/src/**/*.cts, packages/@overeng/effect-schema-form/src/**/*.js, packages/@overeng/effect-schema-form/src/**/*.mts, packages/@overeng/effect-schema-form/src/**/*.spec.cjs, packages/@overeng/effect-schema-form/src/**/*.spec.jsx, packages/@overeng/effect-schema-form/src/**/*.spec.mjs, packages/@overeng/effect-schema-form/src/**/*.test.cjs, packages/@overeng/effect-schema-form/src/**/*.test.jsx, packages/@overeng/effect-schema-form/src/**/*.test.mjs, packages/@overeng/effect-schema-form/src/**/*.ts, packages/@overeng/effect-schema-form/src/**/*.tsx, packages/@overeng/effect-schema-form/src/**/__snapshots__/*.snap, packages/@overeng/effect-schema-form/tsconfig.json.genie.ts
+# Regenerate: devenv tasks run genie:run
+
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
+
+export_file(
+    name = "package.json",
+    src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_materialization_inputs([
+    "src/SchemaForm.tsx",
+    "src/context.tsx",
+    "src/hooks.ts",
+    "src/introspection.ts",
+    "src/mod.ts",
+    "src/mod.unit.test.tsx",
+    "src/types.ts",
+    "src/utils.ts",
+])
+
+alias(
+    name = "node_modules",
+    actual = "//buck2/dependencies:view_packages_overeng_effect_schema_form_9234ab1a7f4a",
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "editor_inputs",
+    actual = ":node_modules",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_effect_schema_form_9234ab1a7f4a",
+    files = {
+        "package.json": "package.json",
+        "src/SchemaForm.tsx": "src/SchemaForm.tsx",
+        "src/context.tsx": "src/context.tsx",
+        "src/hooks.ts": "src/hooks.ts",
+        "src/introspection.ts": "src/introspection.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/mod.unit.test.tsx": "src/mod.unit.test.tsx",
+        "src/types.ts": "src/types.ts",
+        "src/utils.ts": "src/utils.ts",
+        "tsconfig.json": "tsconfig.json",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "test_package_tree",
+    dependency_view = "//buck2/dependencies:view_packages_overeng_effect_schema_form_9234ab1a7f4a",
+    files = {
+        "package.json": "package.json",
+        "src/SchemaForm.tsx": "src/SchemaForm.tsx",
+        "src/context.tsx": "src/context.tsx",
+        "src/hooks.ts": "src/hooks.ts",
+        "src/introspection.ts": "src/introspection.ts",
+        "src/mod.ts": "src/mod.ts",
+        "src/mod.unit.test.tsx": "src/mod.unit.test.tsx",
+        "src/types.ts": "src/types.ts",
+        "src/utils.ts": "src/utils.ts",
+        "tsconfig.json": "tsconfig.json",
+        "vitest.config.ts": "vitest.config.ts",
+    },
+    runtime = "//:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+tsgo_typecheck(
+    name = "typecheck",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+tsgo_emit(
+    name = "dist",
+    package_tree = ":package_tree",
+    declaration_sources = {
+    },
+    declaration_entrypoint = "src/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+vitest_test(
+    name = "test",
+    package_tree = ":test_package_tree",
+    visibility = ["PUBLIC"],
+)

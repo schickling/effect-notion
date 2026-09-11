@@ -2,11 +2,22 @@
 #
 # The stable devenv task names remain here, but deploy semantics live in
 # `ci-tools deploy vercel`.
+#
+# `ciToolsBin` is required and must be an absolute path to the wrapped
+# `ci-tools` Buck product; there is no source build and no ambient PATH
+# fallback, so a consumer supplies it explicitly:
+#
+#   imports = [
+#     (inputs.effect-utils.devenvModules.tasks.vercel {
+#       deployments = [ ... ];
+#       ciToolsBin = "${inputs.effect-utils.packages.${pkgs.system}.ci-tools}/bin/ci-tools";
+#     })
+#   ];
 {
   deployments ? [ ],
   buildTaskPrefix ? null,
   aliasSuffix ? null,
-  ciToolsBin ? null,
+  ciToolsBin,
   vercelCliPkg ? null,
   vercelBin ? null,
 }:
@@ -14,12 +25,7 @@
 let
   trace = import ../lib/trace.nix { inherit lib; };
   root = ../../../..;
-  ciToolsPkg = import (root + "/packages/@overeng/ci-tools/nix/build.nix") {
-    inherit pkgs;
-    src = root;
-    dirty = true;
-  };
-  resolvedCiToolsBin = if ciToolsBin == null then "${ciToolsPkg}/bin/ci-tools" else ciToolsBin;
+  resolvedCiToolsBin = ciToolsBin;
   defaultVercelCliPkg =
     if vercelCliPkg == null then
       import (root + "/nix/provider-clis/vercel-cli") { inherit pkgs; }
@@ -152,6 +158,8 @@ in
   # emitted by this task. Keep that dependency inside the reusable module so a
   # consumer cannot compose a deploy job with missing report tasks.
   imports = [ ./workflow-report-module.nix ];
+
+  effectUtils.workflowReport.ciToolsBin = ciToolsBin;
 
   tasks = lib.mkMerge (
     (if hasDeployments then map mkDeployTask deployments else [ ])

@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
-import { dirname, isAbsolute, join, parse, sep } from 'node:path'
+import { dirname, join, parse } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /** Repo-local file access anchored at the repository that owns a generator module. */
@@ -39,53 +39,29 @@ const findRepoRoot = (startPath: string): string | undefined => {
   }
 }
 
-const recoverOriginalModulePath = (mirroredPath: string): string | undefined => {
-  const parts = mirroredPath.split(sep).filter(Boolean)
-
-  for (let index = 1; index < parts.length; index++) {
-    const candidate = `${sep}${parts.slice(index).join(sep)}`
-    if (
-      isAbsolute(candidate) === true &&
-      existsSync(candidate) === true &&
-      findRepoRoot(candidate) !== undefined
-    ) {
-      return candidate
-    }
-  }
-
-  return undefined
-}
-
 /** Find the closest repository root above the module identified by `importMetaUrl`. */
 export const repoRootFromModuleUrl = (importMetaUrl: string): string => {
-  const modulePath = fileURLToPath(importMetaUrl)
-  const directRoot = findRepoRoot(modulePath)
-  if (directRoot !== undefined) return directRoot
-
-  const originalModulePath = recoverOriginalModulePath(modulePath)
-  if (originalModulePath !== undefined) {
-    const recoveredRoot = findRepoRoot(originalModulePath)
-    if (recoveredRoot !== undefined) return recoveredRoot
+  const root = findRepoRoot(fileURLToPath(importMetaUrl))
+  if (root === undefined) {
+    throw new Error(`Could not find repository root for module ${importMetaUrl}`)
   }
-
-  throw new Error(`Could not find repository root for module ${importMetaUrl}`)
+  return root
 }
 
 /**
- * Absolute repository path of the module identified by `importMetaUrl`, recovering the
- * original path when the module runs from a compiled-binary import mirror. Generator code
- * that needs its own repo-relative identity must use this rather than a `process.cwd()`
- * relative path: the Buck-built product runs with its own working directory, which is not
- * the tree being generated.
+ * Absolute repository path of the module identified by `importMetaUrl`. Generator code that
+ * needs its own repo-relative identity must use this rather than a `process.cwd()` relative
+ * path: the Buck-built product runs with its own working directory, which is not the tree
+ * being generated. The compiled product stages and bundles generator sources before import,
+ * and pins each staged module's `import.meta` back to its original location, so the URL
+ * reaching this function is always a real source path.
  */
 export const modulePathFromUrl = (importMetaUrl: string): string => {
   const modulePath = fileURLToPath(importMetaUrl)
-  if (findRepoRoot(modulePath) !== undefined) return modulePath
-
-  const originalModulePath = recoverOriginalModulePath(modulePath)
-  if (originalModulePath !== undefined) return originalModulePath
-
-  throw new Error(`Could not find repository root for module ${importMetaUrl}`)
+  if (findRepoRoot(modulePath) === undefined) {
+    throw new Error(`Could not find repository root for module ${importMetaUrl}`)
+  }
+  return modulePath
 }
 
 /** Create a repo context for generator code that may run from aggregate megarepos. */
