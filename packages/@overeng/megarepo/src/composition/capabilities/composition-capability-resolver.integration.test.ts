@@ -647,4 +647,18 @@ describe('composition capability resolver', () => {
       await Promise.all([clean(first), clean(second)])
     }
   })
+  it('does not require flake.lock when a member projects no capabilities', async () => {
+    const fixture = await makeFixture()
+    try {
+      await rm(NodePath.join(fixture.memberRoot, 'flake.lock'))
+      const result = await resolve(fixture, { manifest: manifest({ capabilities: [] }) })
+      expect(result._tag).toBe('Resolved')
+      if (result._tag !== 'Resolved') throw new Error('unreachable')
+      expect(result.capabilities).toEqual([])
+      expect(result.nixCommands).toEqual([])
+      await result.release()
+    } finally {
+      await clean(fixture)
+    }
+  })
 })
