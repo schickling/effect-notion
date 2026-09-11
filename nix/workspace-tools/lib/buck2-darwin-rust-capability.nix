@@ -66,15 +66,18 @@ let
     if [ -n "$output" ]; then
       # nixpkgs' Darwin stdenv links iconv from the store. Product binaries must
       # instead use macOS' ABI-compatible dyld-cache install name.
+      source ${signingUtils}
       if ${cctools}/bin/otool -L "$output" 2>/dev/null \
         | ${pkgs.gnugrep}/bin/grep -Fq ${lib.escapeShellArg "${pkgs.libiconv}/lib/libiconv.2.dylib"}; then
         ${cctools}/bin/install_name_tool \
           -change ${lib.escapeShellArg "${pkgs.libiconv}/lib/libiconv.2.dylib"} \
           /usr/lib/libiconv.2.dylib \
           "$output"
+        # install_name_tool invalidates the compiler-produced signature.
+        sign "$output"
+      else
+        signIfRequired "$output"
       fi
-      source ${signingUtils}
-      signIfRequired "$output"
     fi
   '';
   preflight = pkgs.writeShellScript "buck2-rust-darwin-preflight" ''
