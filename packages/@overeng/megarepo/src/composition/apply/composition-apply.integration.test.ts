@@ -541,6 +541,8 @@ describe('composition apply integration', () => {
       const result = await Effect.runPromise(
         compositionApply({ request: value.request, runtime: value.runtime }),
       )
+      expect(result._tag).toBe('Applied')
+      if (result._tag !== 'Applied') return
       expect(result.members.every((member) => member.overlays.length === 0)).toBe(true)
       const mountedMembers = result.members.filter((member) => member.owned === false)
       expect(mountedMembers).toHaveLength(1)
@@ -564,6 +566,8 @@ describe('composition apply integration', () => {
       const result = await Effect.runPromise(
         compositionApply({ request: value.request, runtime: value.runtime }),
       )
+      expect(result._tag).toBe('Applied')
+      if (result._tag !== 'Applied') return
       const mountedMember = result.members.find((member) => member.owned === false)
       expect(mountedMember?.mount._tag).toBe('AlreadyCurrent')
       expect(mountedMember?.overlays.map((overlay) => overlay.destinationPath)).toEqual([
