@@ -260,18 +260,21 @@ RENAME_EXCHANGE advance.
   realized Nix providers for stage-zero archive/product tools remain the
   intentional cycle-breaking boundary admitted by
   [decision 0010](./.decisions/0010-admit-rust-stage-zero-support-tools.md).
+- The CI `cargo` operation remains outside Buck by policy: it aggregates the
+  workspace contract, Cargo tests, Clippy, and rustfmt. Buck owns Rust
+  compilation and shipped products; the operation ledger does not claim that
+  the broader source-quality lane moved with them.
 - One repository pnpm-deps FOD remains: `oxc-config`, whose pnpm-built oxlint
   plugin bundle is an npm-plugin artifact rather than a JavaScript product. The
   ci-tools, Genie, mr, notion-cli, notion-md, npm-release, and tui-stories FODs
   remain replaced by reviewed content-addressed Buck product imports.
 
-## Phase 6 — second consumer (dotfiles)
+## Phase 6 — composed consumers
 
-- dotfiles consumes effect-utils targets through composition (success criterion
-  6), compares producer/consumer action digests in CI, and proves zero local
-  execution from the shared cache. The same admission deletes its source-mount
-  CLI path, dependency writers, and live cross-workspace mutation paths; until
-  then symlink compositions remain no-upload.
+- The downstream fleet now pins effect-utils as the exact platform hub through
+  schema-1 member manifests. The dotfiles proof built and published all 35
+  projected overlays and checked 92 generated projections unchanged; the
+  aggregate composition owns the final whole-fleet admission proof.
 
 ## Cross-phase commitments (ratified 2026-09-01)
 
