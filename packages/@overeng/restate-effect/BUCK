@@ -2,15 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/restate-effect/BUCK.genie.ts
-# Projection schema version: 6
+# Projection schema version: 8
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:6856a6213e16dde64bf1043e7a8628203bd0024d4b418abd1a85ab26ca707a9c
+# Semantic fingerprint: sha256:ee891b8ffd75fcfe975bd019175c526708767347de19c07eb644a6cb2091ea99
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/BUCK.genie.ts, packages/@overeng/restate-effect/examples/**/*.cts, packages/@overeng/restate-effect/examples/**/*.js, packages/@overeng/restate-effect/examples/**/*.mts, packages/@overeng/restate-effect/examples/**/*.spec.cjs, packages/@overeng/restate-effect/examples/**/*.spec.jsx, packages/@overeng/restate-effect/examples/**/*.spec.mjs, packages/@overeng/restate-effect/examples/**/*.test.cjs, packages/@overeng/restate-effect/examples/**/*.test.jsx, packages/@overeng/restate-effect/examples/**/*.test.mjs, packages/@overeng/restate-effect/examples/**/*.ts, packages/@overeng/restate-effect/examples/**/*.tsx, packages/@overeng/restate-effect/examples/**/__snapshots__/*.snap, packages/@overeng/restate-effect/package.json.genie.ts, packages/@overeng/restate-effect/src/**/*.cts, packages/@overeng/restate-effect/src/**/*.js, packages/@overeng/restate-effect/src/**/*.mts, packages/@overeng/restate-effect/src/**/*.spec.cjs, packages/@overeng/restate-effect/src/**/*.spec.jsx, packages/@overeng/restate-effect/src/**/*.spec.mjs, packages/@overeng/restate-effect/src/**/*.test.cjs, packages/@overeng/restate-effect/src/**/*.test.jsx, packages/@overeng/restate-effect/src/**/*.test.mjs, packages/@overeng/restate-effect/src/**/*.ts, packages/@overeng/restate-effect/src/**/*.tsx, packages/@overeng/restate-effect/src/**/__snapshots__/*.snap, packages/@overeng/restate-effect/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -276,6 +276,7 @@ package_view(
         "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
+    strip_project_references = True,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
@@ -331,5 +332,44 @@ vitest_test(
         "src/testing/harness.integration.test.ts",
         "src/testing/test-env.integration.test.ts",
     ],
+    tools = {
+        "NODE_BIN": "//buck2/toolchains:tool_node",
+    },
+    vitest_runtime = "node",
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
+    package_tree = ":test_package_tree",
+    excludes = [
+        "src/admin/admin.integration.test.ts",
+        "src/authoring/awakeable.integration.test.ts",
+        "src/authoring/concurrency.integration.test.ts",
+        "src/authoring/object.integration.test.ts",
+        "src/authoring/peek.integration.test.ts",
+        "src/authoring/workflow.integration.test.ts",
+        "src/clients/contract-policy.integration.test.ts",
+        "src/clients/in-handler-call.integration.test.ts",
+        "src/endpoint/examples.integration.test.ts",
+        "src/endpoint/multi-deployment.integration.test.ts",
+        "src/endpoint/restate-effect.integration.test.ts",
+        "src/error/http-error-classification.integration.test.ts",
+        "src/error/retry-policy.integration.test.ts",
+        "src/error/saga.integration.test.ts",
+        "src/error/suspension.integration.test.ts",
+        "src/observability/otel-replay.integration.test.ts",
+        "src/runtime/cancellation.integration.test.ts",
+        "src/scheduling/scheduled-compose.integration.test.ts",
+        "src/scheduling/scheduled-durability.integration.test.ts",
+        "src/scheduling/scheduled.integration.test.ts",
+        "src/schema/redaction.integration.test.ts",
+        "src/testing/harness.integration.test.ts",
+        "src/testing/test-env.integration.test.ts",
+    ],
+    tools = {
+        "NODE_BIN": "//buck2/toolchains:tool_node",
+    },
+    vitest_runtime = "node",
     visibility = ["PUBLIC"],
 )

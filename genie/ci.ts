@@ -22,6 +22,8 @@ export const CORE_CI_JOB_NAMES = [
   'typecheck',
   'lint',
   'test',
+  'test-playwright-utils',
+  'test-playwright-tui-react',
   'test-megarepo-cold-gc',
   'nix-check',
   'nix-fod-check',

@@ -2,15 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/agent-session-ingest/BUCK.genie.ts
-# Projection schema version: 6
+# Projection schema version: 8
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:4559e4bd92b255c6dd4b234b34dbbedfdc6dbc3db5b9595675e20c4b3e3cf290
+# Semantic fingerprint: sha256:6f3bf54bfe5dfc65f9f6a82c8bbeffda546302bb2030cfd39202042fc00b5b9b
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/agent-session-ingest/BUCK.genie.ts, packages/@overeng/agent-session-ingest/BUCK.genie.ts, packages/@overeng/agent-session-ingest/package.json.genie.ts, packages/@overeng/agent-session-ingest/src/**/*.cts, packages/@overeng/agent-session-ingest/src/**/*.js, packages/@overeng/agent-session-ingest/src/**/*.mts, packages/@overeng/agent-session-ingest/src/**/*.spec.cjs, packages/@overeng/agent-session-ingest/src/**/*.spec.jsx, packages/@overeng/agent-session-ingest/src/**/*.spec.mjs, packages/@overeng/agent-session-ingest/src/**/*.test.cjs, packages/@overeng/agent-session-ingest/src/**/*.test.jsx, packages/@overeng/agent-session-ingest/src/**/*.test.mjs, packages/@overeng/agent-session-ingest/src/**/*.ts, packages/@overeng/agent-session-ingest/src/**/*.tsx, packages/@overeng/agent-session-ingest/src/**/__snapshots__/*.snap, packages/@overeng/agent-session-ingest/tsconfig.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -132,6 +132,7 @@ package_view(
         "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
+    strip_project_references = True,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
@@ -161,6 +162,18 @@ tsgo_emit(
 
 vitest_test(
     name = "test",
+    package_tree = ":test_package_tree",
+    excludes = [
+        "src/claude.integration.test.ts",
+        "src/codex.integration.test.ts",
+        "src/opencode.integration.test.ts",
+        "src/services.integration.test.ts",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
     package_tree = ":test_package_tree",
     excludes = [
         "src/claude.integration.test.ts",

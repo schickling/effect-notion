@@ -44,7 +44,14 @@ import { Schema } from 'effect'
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity'
 // oxlint-disable-next-line import/no-unassigned-import -- deliberate side-effect import: the bundler injects xterm's stylesheet
 import '@xterm/xterm/css/xterm.css'
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 
 import { msAsTimeString } from '@overeng/utils'
 
@@ -135,8 +142,6 @@ export const TuiStoryPreview = <S, A>({
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [ndjsonLines, setNdjsonLines] = useState<NdjsonLine[]>([])
-  // Force re-render when atom changes (for panes that need current state value)
-  const [, forceUpdate] = useState(0)
 
   // Atom-based state management — atom is derived from initialState so it
   // resets when props change (e.g. Storybook controls toggling verbose/force)
@@ -169,11 +174,18 @@ export const TuiStoryPreview = <S, A>({
     return result
   }, [initialState, timeline, reducer])
 
-  // Get current state from atom (for panes and JSON output)
-  const currentState = registry.get(stateAtom)
+  const subscribeToState = useCallback(
+    (onStoreChange: () => void) => registry.subscribe(stateAtom, onStoreChange),
+    [registry, stateAtom],
+  )
+  const readState = useCallback(() => registry.get(stateAtom), [registry, stateAtom])
+  const currentState = useSyncExternalStore(subscribeToState, readState, readState)
 
   // Use final state for final modes, current state for live modes
   const effectiveState = isFinalMode(activeTab) === true ? finalState : currentState
+  // Static preview renderers create short-lived React roots. A fresh snapshot atom prevents
+  // derived-atom caches from retaining the initial state across those roots.
+  const previewStateAtom = useMemo(() => Atom.make(effectiveState), [effectiveState])
 
   // Dispatch action and update state via atom
   const dispatch = useCallback(
@@ -194,8 +206,6 @@ export const TuiStoryPreview = <S, A>({
       } catch {
         // Ignore encoding errors
       }
-      // Force re-render for panes that read effectiveState
-      forceUpdate((n) => n + 1)
     },
     [reducer, stateSchema, registry, stateAtom],
   )
@@ -206,7 +216,6 @@ export const TuiStoryPreview = <S, A>({
     setCurrentTime(0)
     setIsPlaying(false)
     setNdjsonLines([])
-    forceUpdate((n) => n + 1)
   }, [initialState, registry, stateAtom])
 
   // Timeline playback effect
@@ -257,6 +266,7 @@ export const TuiStoryPreview = <S, A>({
       allowProposedApi: true,
       cursorBlink: false,
       cursorStyle: 'bar',
+      screenReaderMode: true,
       disableStdin: true,
     })
 
@@ -373,7 +383,7 @@ export const TuiStoryPreview = <S, A>({
         {activeTab === 'alt-screen' && (
           <FullscreenPreviewPane
             View={ViewCast}
-            stateAtom={stateAtom as Atom.Atom<unknown>}
+            stateAtom={previewStateAtom as Atom.Atom<unknown>}
             registry={registry}
             height={height}
           />
@@ -381,7 +391,7 @@ export const TuiStoryPreview = <S, A>({
         {activeTab === 'ci' && (
           <CIPreviewPane
             View={ViewCast}
-            stateAtom={stateAtom as Atom.Atom<unknown>}
+            stateAtom={previewStateAtom as Atom.Atom<unknown>}
             registry={registry}
             height={height}
           />
@@ -389,7 +399,7 @@ export const TuiStoryPreview = <S, A>({
         {activeTab === 'ci-plain' && (
           <CIPlainPreviewPane
             View={ViewCast}
-            stateAtom={stateAtom as Atom.Atom<unknown>}
+            stateAtom={previewStateAtom as Atom.Atom<unknown>}
             registry={registry}
             height={height}
           />
@@ -397,7 +407,7 @@ export const TuiStoryPreview = <S, A>({
         {activeTab === 'log' && (
           <LogPreviewPane
             View={ViewCast}
-            stateAtom={stateAtom as Atom.Atom<unknown>}
+            stateAtom={previewStateAtom as Atom.Atom<unknown>}
             registry={registry}
             height={height}
           />

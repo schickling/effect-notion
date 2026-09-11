@@ -20,6 +20,7 @@
   packages,
   installTask ? "pnpm:install",
   playwrightBin ? "playwright",
+  playwrightPkg ? null,
 }:
 { lib, pkgs, ... }:
 let
@@ -45,7 +46,10 @@ let
 
 in
 {
-  packages = cliGuard.fromTasks guardedTasks;
+  packages = cliGuard.fromTasks {
+    tasks = guardedTasks;
+    reals = lib.optionalAttrs (playwrightPkg != null) { playwright = playwrightPkg; };
+  };
 
   tasks = lib.mkMerge (
     map (pkg: cliGuard.stripGuards (mkTestTask pkg)) packages ++ [ (cliGuard.stripGuards guardedTasks) ]

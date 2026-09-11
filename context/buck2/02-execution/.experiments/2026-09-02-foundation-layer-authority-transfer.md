@@ -36,7 +36,7 @@ The four package targets (`typecheck` and `dist` for both packages) were built t
 - Deleted 25 dependent project-reference edges.
 - Replaced tui-react's content-tracked utils-dev source sibling with its Buck `dist` edge.
 - Pointed all four public TypeScript export conditions at `dist/src/**/*.d.ts` and made the ordinary tsconfig write-free.
-- No package-local standalone check/build task existed to delete. `check-baseline-test-collection.ts` remains because it validates task collection rather than compiling utils-dev.
+- No package-local standalone check/build task existed to delete. `src/check-baseline-test-collection.ts` remains because it validates task collection rather than compiling utils-dev.
 
 ### Deletion ledger — `@overeng/stylex-preset`
 

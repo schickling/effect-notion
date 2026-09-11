@@ -6,7 +6,7 @@ import {
   ContentDigest,
   MediaType,
   type ContentDescriptor,
-} from '@overeng/content-address'
+} from '@overeng/content-address/schema'
 
 const NonNegativeInt = Schema.Int.pipe(
   Schema.check(Schema.isBetween({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER })),

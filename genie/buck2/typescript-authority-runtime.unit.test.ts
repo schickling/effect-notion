@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   authoritativeBuck2TypeScriptAdmissions,
+  buck2TypeScriptTestCollectionTargets,
   buck2TypeScriptTestTargets,
   type AuthoritativeBuck2TypeScriptAdmission,
 } from './typescript-admissions.ts'
@@ -124,24 +125,27 @@ describe('Buck2 TypeScript authority runtime planning', () => {
       planBuck2TypeScriptBuild({
         admissions: fixtureAdmissions,
         buck2Bin: '/workspace/.megarepo/bin/buck2',
-        testTargets: ['//packages/@example/widget:test'],
+        collectionTargets: ['effect_utils//packages/@example/widget:test_collect'],
+        testTargets: ['effect_utils//packages/@example/widget:test'],
       }),
     ).toEqual([
       '/workspace/.megarepo/bin/buck2',
       'build',
       'effect_utils//packages/@example/widget:typecheck',
       'effect_utils//packages/@example/widget:test',
+      'effect_utils//packages/@example/widget:test_collect',
       'effect_utils//buck2/toolchains:archive_tool',
       'effect_utils//buck2/toolchains:product_tool',
       '--local-only',
     ])
 
     // A package with no declared lane adds nothing: the gate must not invent a
-    // target name for it.
+    // target name for it, execution or inventory.
     expect(
       planBuck2TypeScriptBuild({
         admissions: fixtureAdmissions,
         buck2Bin: '/workspace/.megarepo/bin/buck2',
+        collectionTargets: [],
         testTargets: [],
       }),
     ).toEqual([
@@ -182,16 +186,25 @@ describe('Buck2 TypeScript authority runtime planning', () => {
       ...authoritativeBuck2TypeScriptAdmissions.map(
         ({ typecheckTarget }) => `effect_utils${typecheckTarget}`,
       ),
-      ...buck2TypeScriptTestTargets.map((target) => `effect_utils${target}`),
+      ...buck2TypeScriptTestTargets,
+      ...buck2TypeScriptTestCollectionTargets,
       'effect_utils//buck2/toolchains:archive_tool',
       'effect_utils//buck2/toolchains:product_tool',
       '--local-only',
     ])
 
-    // Every admitted package that has test files declares a lane, so the gate
-    // covers them all rather than a subset that silently shrinks.
-    expect(buck2TypeScriptTestTargets.length).toBeGreaterThan(0)
+    // Every admitted package that has test files declares a lane, and every Vitest lane
+    // contributes its inventory target, so the gate covers them all rather than a subset
+    // that silently shrinks.
+    expect(buck2TypeScriptTestTargets.length).toBeGreaterThanOrEqual(32)
+    expect(buck2TypeScriptTestTargets.every((target) => target.startsWith('effect_utils//'))).toBe(
+      true,
+    )
     expect(buck2TypeScriptTestTargets.every((target) => target.endsWith(':test'))).toBe(true)
+    expect(buck2TypeScriptTestCollectionTargets.length).toBe(buck2TypeScriptTestTargets.length)
+    expect(
+      buck2TypeScriptTestCollectionTargets.every((target) => target.endsWith(':test_collect')),
+    ).toBe(true)
   })
 
   it('derives handwritten declaration arguments from the registry census by default', () => {
@@ -223,10 +236,7 @@ describe('Buck2 TypeScript authority runtime planning', () => {
   it('forwards task signals to the active child and propagates its signal outcome', async () => {
     const { emitSignal, runtime, signalListeners, spawnedCommands } = makeCommandRuntime()
     const execution = executeCommandPlan({
-      commands: [
-        ['first'],
-        ['second'],
-      ],
+      commands: [['first'], ['second']],
       runtime,
     })
 
@@ -244,11 +254,7 @@ describe('Buck2 TypeScript authority runtime planning', () => {
   it('keeps commands sequential and propagates the first non-zero status', async () => {
     const { runtime, spawnedCommands } = makeCommandRuntime()
     const execution = executeCommandPlan({
-      commands: [
-        ['first'],
-        ['second'],
-        ['unreached'],
-      ],
+      commands: [['first'], ['second'], ['unreached']],
       runtime,
     })
 

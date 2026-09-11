@@ -2,15 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/notion-property-write/BUCK.genie.ts
-# Projection schema version: 6
+# Projection schema version: 8
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:8fa268a482e28d1854299666030b3bb4cecb776b3d268d7d38fe0111783207c1
+# Semantic fingerprint: sha256:2ad6fa5d9f8f8d464f250b80613959e92bab26d8840437aeca8000b1bf0d9666
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-property-write/BUCK.genie.ts, packages/@overeng/notion-property-write/BUCK.genie.ts, packages/@overeng/notion-property-write/package.json.genie.ts, packages/@overeng/notion-property-write/src/**/*.cts, packages/@overeng/notion-property-write/src/**/*.js, packages/@overeng/notion-property-write/src/**/*.mts, packages/@overeng/notion-property-write/src/**/*.spec.cjs, packages/@overeng/notion-property-write/src/**/*.spec.jsx, packages/@overeng/notion-property-write/src/**/*.spec.mjs, packages/@overeng/notion-property-write/src/**/*.test.cjs, packages/@overeng/notion-property-write/src/**/*.test.jsx, packages/@overeng/notion-property-write/src/**/*.test.mjs, packages/@overeng/notion-property-write/src/**/*.ts, packages/@overeng/notion-property-write/src/**/*.tsx, packages/@overeng/notion-property-write/src/**/__snapshots__/*.snap, packages/@overeng/notion-property-write/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -75,6 +75,7 @@ package_view(
         "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
+    strip_project_references = True,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
@@ -104,6 +105,12 @@ tsgo_emit(
 
 vitest_test(
     name = "test",
+    package_tree = ":test_package_tree",
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
     package_tree = ":test_package_tree",
     visibility = ["PUBLIC"],
 )

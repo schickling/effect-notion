@@ -5,15 +5,15 @@ load("//buck2:package_tools.bzl", "package_bin_artifact")
 load("//buck2/products:defs.bzl", "javascript_product")
 
 # Projection source: packages/@overeng/oxc-config/BUCK.genie.ts
-# Projection schema version: 6
+# Projection schema version: 8
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:c6b61341fad9976f8585e3faa17b2b1e0c26c3ac12dc15d72b4354f3f509ffc7
+# Semantic fingerprint: sha256:97c102d46470e5a07408c360cc27780efb7dccb7ecc858f39a14e711dafb8aa9
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/oxc-config/BUCK.genie.ts, packages/@overeng/oxc-config/BUCK.genie.ts, packages/@overeng/oxc-config/package.json.genie.ts, packages/@overeng/oxc-config/src/**/*.cts, packages/@overeng/oxc-config/src/**/*.js, packages/@overeng/oxc-config/src/**/*.mts, packages/@overeng/oxc-config/src/**/*.spec.cjs, packages/@overeng/oxc-config/src/**/*.spec.jsx, packages/@overeng/oxc-config/src/**/*.spec.mjs, packages/@overeng/oxc-config/src/**/*.test.cjs, packages/@overeng/oxc-config/src/**/*.test.jsx, packages/@overeng/oxc-config/src/**/*.test.mjs, packages/@overeng/oxc-config/src/**/*.ts, packages/@overeng/oxc-config/src/**/*.tsx, packages/@overeng/oxc-config/src/**/__snapshots__/*.snap, packages/@overeng/oxc-config/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -177,6 +177,7 @@ package_view(
         "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
+    strip_project_references = True,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
@@ -206,6 +207,12 @@ tsgo_emit(
 
 vitest_test(
     name = "test",
+    package_tree = ":test_package_tree",
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
     package_tree = ":test_package_tree",
     visibility = ["PUBLIC"],
 )

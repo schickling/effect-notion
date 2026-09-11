@@ -1,4 +1,7 @@
-import { createGenieOutput, type GenieOutput } from '../../packages/@overeng/genie/src/runtime/core.ts'
+import {
+  createGenieOutput,
+  type GenieOutput,
+} from '../../packages/@overeng/genie/src/runtime/core.ts'
 
 const quote = (value: string): string => JSON.stringify(value)
 const list = (values: readonly string[]): string => `[${values.map(quote).join(', ')}]`

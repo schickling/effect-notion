@@ -3,6 +3,7 @@ import process from 'node:process'
 
 import {
   authoritativeBuck2TypeScriptAdmissions,
+  buck2TypeScriptTestCollectionTargets,
   buck2TypeScriptTestTargets,
   type AuthoritativeBuck2TypeScriptAdmission,
 } from './typescript-admissions.ts'
@@ -67,13 +68,7 @@ export const planTypeScriptDistMaterialization = ({
     (({ packagePath, sourceRoots }) =>
       buck2TypeScriptDeclarationSources({ packagePath, repoRoot: root, sourceRoots }))
   return admissions.map(
-    ({
-      declarationEntrypoint,
-      distTarget,
-      packagePath,
-      projectFile,
-      sourceRoots,
-    }): CommandArgv => [
+    ({ declarationEntrypoint, distTarget, packagePath, projectFile, sourceRoots }): CommandArgv => [
       bashBin,
       `${root}/scripts/typescript-materialize-dist.sh`,
       root,
@@ -89,23 +84,28 @@ export const planTypeScriptDistMaterialization = ({
 /**
  * Plans the single Buck build used by buck2:check, preserving target order.
  *
- * Test targets are built, not run: building proves the lane's rule, staged
- * package tree, and attested tools still analyse, which is what keeps a
- * declared suite from rotting while its execution is source-owned.
+ * Every declared lane contributes both its execution target and its inventory target. The
+ * inventory is what the source-side bounded task reads, so an inventory that stops
+ * analysing has to fail the check rather than quietly fall back to a source-side census.
  */
 export const planBuck2TypeScriptBuild = ({
   admissions = authoritativeBuck2TypeScriptAdmissions,
   buck2Bin,
+  collectionTargets = buck2TypeScriptTestCollectionTargets,
   testTargets = buck2TypeScriptTestTargets,
 }: {
   readonly admissions?: readonly AuthoritativeBuck2TypeScriptAdmission[]
   readonly buck2Bin: string
-  readonly testTargets?: readonly `//${string}`[]
+  /** Fully qualified inventory labels. */
+  readonly collectionTargets?: readonly string[]
+  /** Fully qualified execution labels. */
+  readonly testTargets?: readonly string[]
 }): CommandArgv => [
   buck2Bin,
   'build',
   ...admissions.map(({ typecheckTarget }) => qualifyEffectUtilsLabel(typecheckTarget)),
-  ...testTargets.map(qualifyEffectUtilsLabel),
+  ...testTargets,
+  ...collectionTargets,
   'effect_utils//buck2/toolchains:archive_tool',
   'effect_utils//buck2/toolchains:product_tool',
   '--local-only',
@@ -149,9 +149,7 @@ const nodeCommandRuntime: CommandRuntime = {
       })
       child.once('close', (status, signal) => {
         resolve(
-          signal === null
-            ? { _tag: 'Status', status: status ?? 1 }
-            : { _tag: 'Signal', signal },
+          signal === null ? { _tag: 'Status', status: status ?? 1 } : { _tag: 'Signal', signal },
         )
       })
     })

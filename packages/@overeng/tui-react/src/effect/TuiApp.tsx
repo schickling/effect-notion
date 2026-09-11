@@ -39,8 +39,6 @@
  * @module
  */
 
-import { Console as NodeConsole } from 'node:console'
-
 import type { Scope } from 'effect'
 import {
   Cause,
@@ -69,7 +67,6 @@ import {
   ViewOutputStreamTag,
   stripAnsi,
 } from './OutputMode.tsx'
-import { writeStdoutLineSync, writeStdoutSync } from './stdout.node.ts'
 
 // =============================================================================
 // TuiApp TypeId (for dual API dispatch)
@@ -893,8 +890,12 @@ const isStringSchema = (schema: Schema.Schema<unknown>): boolean => schema.ast._
  * Wraps Node's built-in `console.Console` (which already understands the full
  * Console surface).
  */
-const consoleOnStream = (stream: NodeJS.WriteStream): Console.Console =>
-  new NodeConsole({ stdout: stream, stderr: stream })
+const consoleOnStream = (stream: NodeJS.WriteStream): Effect.Effect<Console.Console> =>
+  Effect.promise(async () => {
+    // Platform boundary: browser stories import TuiApp but never execute its Node CLI path.
+    const { Console: NodeConsole } = await import('node:console')
+    return new NodeConsole({ stdout: stream, stderr: stream })
+  })
 
 /** Write a value to stdout using the appropriate format for its schema type.
  *  Strings are written raw (no JSON encoding). Structured types are JSON-encoded.
@@ -905,6 +906,20 @@ const consoleOnStream = (stream: NodeJS.WriteStream): Console.Console =>
  *  regardless. The synchronous write also keeps the result intact when the CLI
  *  exits non-zero; see {@link writeStdoutSync} for why buffered writes truncate.
  */
+const writeStdout = ({
+  text,
+  trailingNewline,
+}: {
+  readonly text: string
+  readonly trailingNewline: boolean
+}): Effect.Effect<void> =>
+  Effect.promise(async () => {
+    // Platform boundary: keep node:fs and SharedArrayBuffer out of browser module evaluation.
+    const stdout = await import('./stdout.node.ts')
+    if (trailingNewline === true) stdout.writeStdoutLineSync(text)
+    else stdout.writeStdoutSync(text)
+  })
+
 const writeResult = <O,>({
   value,
   schema,
@@ -913,12 +928,15 @@ const writeResult = <O,>({
   schema: Schema.Codec<O>
 }): Effect.Effect<void> =>
   isStringSchema(schema as Schema.Schema<unknown>) === true
-    ? Effect.sync(() => {
-        const str = String(value)
-        writeStdoutSync(str.length > 0 && str.endsWith('\n') === false ? `${str}\n` : str)
+    ? Effect.suspend(() => {
+        const text = String(value)
+        return writeStdout({
+          text: text.length > 0 && text.endsWith('\n') === false ? `${text}\n` : text,
+          trailingNewline: false,
+        })
       })
     : Schema.encodeEffect(Schema.fromJsonString(schema))(value).pipe(
-        Effect.flatMap((json) => Effect.sync(() => writeStdoutLineSync(json))),
+        Effect.flatMap((json) => writeStdout({ text: json, trailingNewline: true })),
         Effect.orDie,
       )
 
@@ -958,11 +976,13 @@ const runResultImpl = <S, A, O, E, R>(
     // stdout; it prints itself and returns `void`, so wrapping it in
     // `Logger.withConsoleError` would leave the pretty line on stdout and add a
     // stray `undefined` line on stderr.
+    const stderrConsole = yield* consoleOnStream(process.stderr)
+
     const stderrSideChannelLayer = Layer.mergeAll(
       Layer.succeed(ViewOutputStreamTag, process.stderr),
       Logger.layer([Logger.consolePretty()], { mergeWithExisting: false }),
       Layer.succeed(Logger.LogToStderr, true),
-      Layer.succeed(Console.Console, consoleOnStream(process.stderr)),
+      Layer.succeed(Console.Console, stderrConsole),
     )
 
     const innerEffect =

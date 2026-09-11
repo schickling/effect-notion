@@ -29,11 +29,16 @@ export default packageJson(
         { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
         { environment: 'node' },
       ),
+      './schema': exportEntry(
+        { types: './dist/src/schema.d.ts', default: './src/schema.ts' },
+        { environment: 'isomorphic-es2024' },
+      ),
     },
     publishConfig: {
       access: 'public',
       exports: {
         '.': './dist/mod.js',
+        './schema': './dist/schema.js',
       },
     },
   } satisfies PackageJsonInputData,

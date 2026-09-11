@@ -114,6 +114,7 @@ for (const name of [
   'buck2:tui-core:publish-editor',
   'buck2:tui-core:check-editor',
   'test:run',
+  'test:buck2:unit',
 ])
   requireTask(name)
 
@@ -144,21 +145,48 @@ for (const name of ['ts:check', 'ts:check:strict', 'ts:build', 'ts:build-watch',
     name: `${name} reaches ${materializer}`,
   })
 }
-// `test:run` is only the baseline-collection gate: it must keep its per-package fan-out, or the
-// gate would observe an incomplete managed-test summary directory and pass vacuously.
-const testRunPackageTasks = [...(dependencies.get('test:run') ?? [])].filter(
-  (name) => name.startsWith('test:') === true,
-)
+// `test:run` must schedule the one Buck aggregate and the source-side batches which own
+// packages absent from the authority plus admitted lanes' exact unbounded complements. Either
+// edge going missing would silently omit a disjoint side of the test partition.
+const testRunDependencies = [...(dependencies.get('test:run') ?? [])]
 ok({
-  condition: testRunPackageTasks.length > 0,
-  name: 'test:run aggregates per-package test tasks',
+  condition: testRunDependencies.includes('test:buck2:unit'),
+  name: 'test:run executes the Buck-owned bounded partition',
 })
-// Test execution is still source-owned, so `test:run` deliberately does NOT depend on Buck or
-// on `mr:apply`. Buck owns the declared test inputs: `buck2:check` builds every admitted
-// package's `:test` lane, and that ordering is asserted with the other Buck tasks below.
+ok({
+  condition: testRunDependencies.some((name) => name.startsWith('test:run:batch:') === true),
+  name: 'test:run executes the source-owned complement partition',
+})
 // `mr apply` both reconciles the workspace and installs the `.buck2/capabilities`
 // projection that Buck analysis of `//buck2/toolchains` reads, so it is the single
 // ordering barrier for every task that invokes Buck.
+const buck2TestAuthority = JSON.parse(readFileSync(`${root}/buck2-test-authority.json`, 'utf8'))
+if (buck2TestAuthority.schemaVersion !== 2 || Array.isArray(buck2TestAuthority.lanes) === false) {
+  throw new Error('buck2-test-authority.json does not match schemaVersion 2')
+}
+for (const lane of buck2TestAuthority.lanes) {
+  if (
+    typeof lane.taskName !== 'string' ||
+    typeof lane.sourceOwners !== 'object' ||
+    lane.sourceOwners === null ||
+    Array.isArray(lane.sourceOwners)
+  ) {
+    throw new Error('buck2-test-authority.json contains a malformed lane')
+  }
+}
+const buck2TestLaneTaskNames = buck2TestAuthority.lanes.map(({ taskName }) => taskName)
+const buck2UnboundedTaskNames = buck2TestAuthority.lanes.flatMap(({ unboundedTaskName }) =>
+  unboundedTaskName === undefined ? [] : [unboundedTaskName],
+)
+const buck2ExternalOwnerTaskNames = [
+  ...new Set(buck2TestAuthority.lanes.flatMap(({ sourceOwners }) => Object.values(sourceOwners))),
+]
+for (const name of [...buck2UnboundedTaskNames, ...buck2ExternalOwnerTaskNames]) {
+  ok({
+    condition: tasks.has(name),
+    name: `${name} exists as a source-side test owner`,
+  })
+}
 for (const name of [
   materializer,
   'buck2:check',
@@ -166,6 +194,8 @@ for (const name of [
   'buck2:tui-core:publish-editor',
   'buck2:tui-core:check-editor',
   'buck2:nix-bridge:check',
+  'test:buck2:unit',
+  ...buck2TestLaneTaskNames,
 ]) {
   ok({
     condition: reaches({ start: name, target: 'mr:apply' }),

@@ -6,7 +6,7 @@ export const buck2TypeScriptAdmission = {
   packageName: '@overeng/tui-react',
   packagePath: 'packages/@overeng/tui-react',
   projectionSource: 'packages/@overeng/tui-react/BUCK.genie.ts',
-  sourceRoots: ['src', 'test', 'examples'],
+  sourceRoots: ['src', 'test', 'examples', 'e2e'],
   workspaceSiblings: [
     {
       packageName: '@overeng/tui-core',
@@ -33,6 +33,12 @@ export const buck2TypeScriptAdmission = {
     {
       name: 'test',
       runner: 'vitest',
+      vitestRuntime: 'node',
+      excludes: ['e2e/resize-truncation.pw.test.ts', 'e2e/tui-story-preview.pw.test.ts'],
+      sourceOwners: {
+        'e2e/resize-truncation.pw.test.ts': 'test:pw:tui-react',
+        'e2e/tui-story-preview.pw.test.ts': 'test:pw:tui-react',
+      },
       // The stdout-contract fixtures spawn both runtimes as separate processes.
       tools: {
         BUN_BIN: '//buck2/toolchains:tool_bun',
