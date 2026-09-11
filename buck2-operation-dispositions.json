@@ -49,7 +49,7 @@
       "operation": "bundle-smoke"
     },
     {
-      "disposition": "buck-pending:rust",
+      "disposition": "buck-owned",
       "operation": "cargo"
     },
     {
