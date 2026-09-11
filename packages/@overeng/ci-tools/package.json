@@ -24,8 +24,8 @@
     "@overeng/utils": "workspace:^"
   },
   "devDependencies": {
-    "@effect/platform-node": "4.0.0-rc.111",
-    "@effect/vitest": "4.0.0-rc.111",
+    "@effect/platform-node": "4.0.0-rc.112",
+    "@effect/vitest": "4.0.0-rc.112",
     "@overeng/utils": "workspace:^",
     "@overeng/utils-dev": "workspace:^",
     "@types/bun": "1.4.1",
@@ -34,10 +34,10 @@
     "vitest": "4.1.9"
   },
   "peerDependencies": {
-    "@effect/opentelemetry": "^4.0.0-rc.111",
-    "@effect/platform-node": "^4.0.0-rc.111",
+    "@effect/opentelemetry": "^4.0.0-rc.112",
+    "@effect/platform-node": "^4.0.0-rc.112",
     "@playwright/test": "^1.63.0",
-    "effect": "^4.0.0-rc.111"
+    "effect": "^4.0.0-rc.112"
   },
   "publishConfig": {
     "access": "public",

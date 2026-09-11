@@ -27,8 +27,8 @@
     "@restatedev/restate-sdk-clients": "1.17.0"
   },
   "devDependencies": {
-    "@effect/opentelemetry": "4.0.0-rc.111",
-    "@effect/vitest": "4.0.0-rc.111",
+    "@effect/opentelemetry": "4.0.0-rc.112",
+    "@effect/vitest": "4.0.0-rc.112",
     "@opentelemetry/api": "1.9.1",
     "@opentelemetry/resources": "2.11.0",
     "@opentelemetry/sdk-logs": "0.222.0",
@@ -41,18 +41,18 @@
     "@overeng/utils-dev": "workspace:^",
     "@restatedev/restate-sdk-opentelemetry": "1.17.0",
     "@types/node": "26.5.0",
-    "effect": "4.0.0-rc.111",
+    "effect": "4.0.0-rc.112",
     "typescript": "7.0.2",
     "vitest": "4.1.9"
   },
   "peerDependencies": {
-    "@effect/opentelemetry": "^4.0.0-rc.111",
-    "@effect/platform-node": "^4.0.0-rc.111",
+    "@effect/opentelemetry": "^4.0.0-rc.112",
+    "@effect/platform-node": "^4.0.0-rc.112",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/sdk-metrics": "^2.11.0",
     "@playwright/test": "^1.63.0",
     "@restatedev/restate-sdk-opentelemetry": "^1.17.0",
-    "effect": "^4.0.0-rc.111"
+    "effect": "^4.0.0-rc.112"
   },
   "publishConfig": {
     "access": "public",

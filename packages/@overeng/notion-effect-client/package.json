@@ -25,16 +25,16 @@
     "./test": "./src/test/integration/setup.ts"
   },
   "dependencies": {
-    "@effect/opentelemetry": "4.0.0-rc.111",
-    "@effect/platform-node": "4.0.0-rc.111",
-    "@effect/vitest": "4.0.0-rc.111",
+    "@effect/opentelemetry": "4.0.0-rc.112",
+    "@effect/platform-node": "4.0.0-rc.112",
+    "@effect/vitest": "4.0.0-rc.112",
     "@overeng/content-address": "workspace:^",
     "@overeng/notion-core": "workspace:^",
     "@overeng/notion-effect-schema": "workspace:^",
     "@overeng/otel-contract": "workspace:^",
     "@overeng/utils": "workspace:^",
     "@playwright/test": "1.63.0",
-    "effect": "4.0.0-rc.111",
+    "effect": "4.0.0-rc.112",
     "mdast-util-gfm-strikethrough": "2.0.0",
     "mdast-util-gfm-table": "2.0.0",
     "mdast-util-gfm-task-list-item": "2.0.0",
@@ -48,10 +48,10 @@
     "vitest": "4.1.9"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.111",
+    "@effect/vitest": "4.0.0-rc.112",
     "@overeng/utils-dev": "workspace:^",
     "@types/node": "26.5.0",
-    "effect": "4.0.0-rc.111",
+    "effect": "4.0.0-rc.112",
     "typescript": "7.0.2",
     "vitest": "4.1.9"
   },
