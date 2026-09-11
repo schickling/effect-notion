@@ -82,7 +82,7 @@ _javascript_product = rule(
             providers = [BunToolchainInfo],
         )),
         "_runner": attrs.default_only(attrs.dep(
-            default = "//:package_command_runtime",
+            default = "//packages/@overeng/buck2-tools:package_command_runtime",
             providers = [DefaultInfo],
         )),
     },

@@ -47,7 +47,7 @@ const importClosure = (entry: string): readonly string[] => {
   return [...seen].toSorted()
 }
 
-const rootBuck = readFileSync('BUCK', 'utf8')
+const buck2ToolsBuck = readFileSync('packages/@overeng/buck2-tools/BUCK', 'utf8')
 
 describe('staged Buck runtime closure', () => {
   it.each(buck2StagedRuntimes.map((runtime) => [runtime.label, runtime] as const))(
@@ -64,17 +64,17 @@ describe('staged Buck runtime closure', () => {
   )('%s is staged as one file and therefore imports nothing relative', (_label, runtime) => {
     expect(runtime.modules).toEqual([runtime.entry])
     expect(relativeSpecifiers(readFileSync(runtime.entry, 'utf8'))).toEqual([])
-    expect(rootBuck).toContain(`    src = "${runtime.entry}",`)
+    expect(buck2ToolsBuck).toContain(`    src = "src/${stagedModuleName(runtime.entry)}",`)
   })
 
-  it('declares every filegroup-staged module in the root Buck package', () => {
+  it('declares every filegroup-staged module in the buck2-tools package', () => {
     for (const runtime of buck2StagedRuntimes.filter((entry) => entry.staging === 'filegroup')) {
-      const name = runtime.label.slice('//:'.length)
-      const block = rootBuck.split(`name = "${name}",`)[1]?.split(')')[0] ?? ''
+      const name = runtime.label.slice(runtime.label.lastIndexOf(':') + 1)
+      const block = buck2ToolsBuck.split(`name = "${name}",`)[1]?.split(')')[0] ?? ''
       expect(block, `no filegroup block for ${runtime.label}`).not.toBe('')
       const declared = [...block.matchAll(/"([^"]+)":\s*"([^"]+)"/gu)].map((match) => ({
         staged: match[1],
-        source: match[2],
+        source: `packages/@overeng/buck2-tools/${match[2] ?? ''}`,
       }))
       expect(declared.map(({ source }) => source).toSorted()).toEqual(
         [...runtime.modules].toSorted(),

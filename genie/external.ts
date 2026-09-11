@@ -797,9 +797,8 @@ export const createPatchPostinstall = (args: { basePath: string }) => {
  * `false`. This switch is the gate: both fields are `true`, so Effect warnings
  * AND suggestions fail the build exit code (errors always gate regardless).
  *
- * The gate runs through the existing `tsgo --build` over the project graph — no
- * extra compiler pass — so it is enforced by `ts:check` / `ts:check:strict`
- * (hence `devenv tasks run check:quick` / `devenv tasks run check:all` and the CI `typecheck` lane).
+ * The gate runs inside every Buck `tsgo_typecheck` target, so `buck2:check`
+ * enforces it across all 39 projects and the CI `typecheck` lane.
  *
  * This is the SHARED base consumed by peer repos: enabling it gates Effect
  * diagnostics fleet-wide. A repo that is not yet clean can locally override its

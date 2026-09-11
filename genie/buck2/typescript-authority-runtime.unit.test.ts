@@ -1,27 +1,21 @@
-import { existsSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
 import { describe, expect, it } from 'vitest'
 
 import {
-  authoritativeBuck2TypeScriptAdmissions,
+  authoritativeBuck2TypeScriptDeclarations,
+  authoritativeBuck2TypeScriptProjects,
   buck2TypeScriptTestCollectionTargets,
   buck2TypeScriptTestTargets,
-  type AuthoritativeBuck2TypeScriptAdmission,
+  type AuthoritativeBuck2TypeScriptDeclaration,
 } from './typescript-admissions.ts'
 import {
   type CommandArgv,
   type CommandOutcome,
   type CommandRuntime,
-  type DeclarationSourceResolver,
   executeCommandPlan,
   type ForwardedSignal,
   planBuck2TypeScriptBuild,
   planTypeScriptDistMaterialization,
 } from './typescript-authority-runtime.ts'
-
-const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url))
 
 const fixtureAdmissions = [
   {
@@ -29,16 +23,10 @@ const fixtureAdmissions = [
     distTarget: '//packages/@example/widget:dist',
     packagePath: 'packages/@example/widget',
     projectFile: 'tsconfig.buck.json',
-    sourceRoots: ['src'],
+    projectPath: 'packages/@example/widget',
     typecheckTarget: '//packages/@example/widget:typecheck',
   },
-] as const satisfies readonly AuthoritativeBuck2TypeScriptAdmission[]
-
-const fixtureDeclarationSources: DeclarationSourceResolver = ({ packagePath, sourceRoots }) => {
-  expect(packagePath).toBe('packages/@example/widget')
-  expect(sourceRoots).toEqual(['src'])
-  return ['src/vendor.d.ts']
-}
+] as const satisfies readonly AuthoritativeBuck2TypeScriptDeclaration[]
 
 type SpawnedCommand = {
   readonly command: CommandArgv
@@ -94,7 +82,6 @@ describe('Buck2 TypeScript authority runtime planning', () => {
       planTypeScriptDistMaterialization({
         admissions: fixtureAdmissions,
         bashBin: '/nix/store/bash/bin/bash',
-        declarationSources: fixtureDeclarationSources,
         root: '/repo',
       }),
     ).toEqual([
@@ -105,21 +92,8 @@ describe('Buck2 TypeScript authority runtime planning', () => {
         'packages/@example/widget',
         'effect_utils//packages/@example/widget:dist',
         'types/index.d.ts',
-        'tsconfig.buck.json',
-        'src/vendor.d.ts',
       ],
     ])
-
-    // A package without handwritten declarations passes none: the materializer
-    // must not receive a placeholder path it would then fail to copy.
-    expect(
-      planTypeScriptDistMaterialization({
-        admissions: fixtureAdmissions,
-        bashBin: '/nix/store/bash/bin/bash',
-        declarationSources: () => [],
-        root: '/repo',
-      })[0]?.length,
-    ).toBe(7)
 
     expect(
       planBuck2TypeScriptBuild({
@@ -162,20 +136,17 @@ describe('Buck2 TypeScript authority runtime planning', () => {
     expect(
       planTypeScriptDistMaterialization({
         bashBin: '/nix/store/bash/bin/bash',
-        declarationSources: ({ packagePath }) => [`${packagePath}/probe.d.ts`],
         root: '/repo',
       }),
     ).toEqual(
-      authoritativeBuck2TypeScriptAdmissions.map(
-        ({ declarationEntrypoint, distTarget, packagePath, projectFile }) => [
+      authoritativeBuck2TypeScriptDeclarations.map(
+        ({ declarationEntrypoint, distTarget, packagePath }) => [
           '/nix/store/bash/bin/bash',
           '/repo/scripts/typescript-materialize-dist.sh',
           '/repo',
           packagePath,
           `effect_utils${distTarget}`,
           declarationEntrypoint,
-          projectFile,
-          `${packagePath}/probe.d.ts`,
         ],
       ),
     )
@@ -183,7 +154,7 @@ describe('Buck2 TypeScript authority runtime planning', () => {
     expect(planBuck2TypeScriptBuild({ buck2Bin: '/workspace/.megarepo/bin/buck2' })).toEqual([
       '/workspace/.megarepo/bin/buck2',
       'build',
-      ...authoritativeBuck2TypeScriptAdmissions.map(
+      ...authoritativeBuck2TypeScriptProjects.map(
         ({ typecheckTarget }) => `effect_utils${typecheckTarget}`,
       ),
       ...buck2TypeScriptTestTargets,
@@ -205,32 +176,6 @@ describe('Buck2 TypeScript authority runtime planning', () => {
     expect(
       buck2TypeScriptTestCollectionTargets.every((target) => target.endsWith(':test_collect')),
     ).toBe(true)
-  })
-
-  it('derives handwritten declaration arguments from the registry census by default', () => {
-    const commands = planTypeScriptDistMaterialization({
-      bashBin: '/nix/store/bash/bin/bash',
-      root: repositoryRoot,
-    })
-    const declarationArguments = commands.map((command) => ({
-      packagePath: command[3],
-      sources: command.slice(7),
-    }))
-
-    // The materializer copies these paths out of the package tree, so every one
-    // has to be a package-relative declaration that actually exists. Anything
-    // else would fail the copy or, worse, read as staleness against the dist.
-    for (const { packagePath, sources } of declarationArguments) {
-      for (const source of sources) {
-        expect(source.endsWith('.d.ts'), `${packagePath}: ${source}`).toBe(true)
-        expect(path.isAbsolute(source)).toBe(false)
-        expect(existsSync(path.join(repositoryRoot, packagePath ?? '', source))).toBe(true)
-      }
-    }
-
-    // At least one admitted package publishes handwritten declarations; without
-    // that the detached comparison would prove nothing about the copy path.
-    expect(declarationArguments.some(({ sources }) => sources.length > 0)).toBe(true)
   })
 
   it('forwards task signals to the active child and propagates its signal outcome', async () => {

@@ -48,7 +48,10 @@ export default packageJson(
     name: '@overeng/effect-schema-form-aria',
     ...privatePackageDefaults,
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'browser' }),
+      '.': exportEntry(
+        { types: './dist/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'browser' },
+      ),
       './styles.css': exportEntry('./src/styles.css', { environment: 'browser' }),
     },
     publishConfig: {

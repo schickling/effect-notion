@@ -7,14 +7,17 @@ import {
   type PackageJsonInputData,
 } from '../../../../../genie/internal.ts'
 import utilsPkg from '../../../utils/package.json.genie.ts'
+import effectRpcTanstackPkg from '../../package.json.genie.ts'
 
 const workspaceDeps = catalog.compose({
   workspace: workspaceMember({
     memberPath: 'packages/@overeng/effect-rpc-tanstack/examples/basic',
   }),
   dependencies: {
+    workspace: [effectRpcTanstackPkg],
     external: {
       ...catalog.pick(
+        '@effect/platform-node',
         '@tanstack/react-router',
         '@tanstack/react-start',
         'effect',

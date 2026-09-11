@@ -1,0 +1,65 @@
+# Generated file - DO NOT EDIT
+# Source: BUCK.genie.ts
+
+# Projection source: context/opentui/BUCK.genie.ts
+# Projection schema version: 9
+# Projection generator: effect-utils/genie/buck2-typescript-package-projection
+# Semantic fingerprint: sha256:5f527b837277c26929a0c5c5f5b1a0727c066902012d47ddf5181b632b9b6804
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, context/opentui/BUCK.genie.ts, context/opentui/BUCK.genie.ts, context/opentui/examples/**/*.cts, context/opentui/examples/**/*.js, context/opentui/examples/**/*.mts, context/opentui/examples/**/*.spec.cjs, context/opentui/examples/**/*.spec.jsx, context/opentui/examples/**/*.spec.mjs, context/opentui/examples/**/*.test.cjs, context/opentui/examples/**/*.test.jsx, context/opentui/examples/**/*.test.mjs, context/opentui/examples/**/*.ts, context/opentui/examples/**/*.tsx, context/opentui/examples/**/__snapshots__/*.snap, context/opentui/package.json.genie.ts, context/opentui/tsconfig.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts
+# Regenerate: devenv tasks run genie:run
+
+load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
+load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:typescript.bzl", "tsgo_typecheck")
+
+export_file(
+    name = "package.json",
+    src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+export_materialization_inputs([
+    "examples/dynamic-height.tsx",
+    "examples/effect-atoms-keyboard.tsx",
+    "examples/simple-counter.tsx",
+])
+
+alias(
+    name = "node_modules",
+    actual = "//buck2/dependencies:view_context_opentui_be69c4c22aa3",
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "editor_inputs",
+    actual = ":node_modules",
+    visibility = ["PUBLIC"],
+)
+
+package_view(
+    name = "package_tree",
+    dependency_view = "//buck2/dependencies:view_context_opentui_be69c4c22aa3",
+    files = {
+        "examples/dynamic-height.tsx": "examples/dynamic-height.tsx",
+        "examples/effect-atoms-keyboard.tsx": "examples/effect-atoms-keyboard.tsx",
+        "examples/simple-counter.tsx": "examples/simple-counter.tsx",
+        "package.json": "package.json",
+        "tsconfig.json": "tsconfig.json",
+    },
+    runtime = "//packages/@overeng/buck2-tools:package_tree_runtime",
+    runtime_entry = "package-tree.ts",
+    visibility = ["PUBLIC"],
+)
+
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)
+
+tsgo_typecheck(
+    name = "typecheck",
+    package_tree = ":package_tree",
+    visibility = ["PUBLIC"],
+)

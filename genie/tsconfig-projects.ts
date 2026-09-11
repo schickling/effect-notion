@@ -40,76 +40,63 @@ import tuiReactTsconfig from '../packages/@overeng/tui-react/tsconfig.json.genie
 import tuiStoriesTsconfig from '../packages/@overeng/tui-stories/tsconfig.json.genie.ts'
 import utilsDevTsconfig from '../packages/@overeng/utils-dev/tsconfig.json.genie.ts'
 import utilsTsconfig from '../packages/@overeng/utils/tsconfig.json.genie.ts'
-import { authoritativeBuck2TypeScriptAdmissions } from './buck2/typescript-admissions.ts'
+import { authoritativeBuck2TypeScriptProjects } from './buck2/typescript-admissions.ts'
 
-/** The Buck targets that own one root TypeScript project's checking and declarations. */
+/** Buck targets that own one root TypeScript project's checking and optional declarations. */
 export type Buck2TypeScriptAuthority = {
   readonly _tag: 'Buck2TypeScriptAuthority'
-  readonly typecheckTarget: `//${string}:typecheck`
-  readonly emitTarget: `//${string}:dist`
+  readonly typecheckTarget: `//${string}:${string}`
+  readonly emitTarget?: `//${string}:dist`
 }
 
 export type RootTsconfigProject = {
   readonly path: string
   readonly tsconfig: GenieOutput<TSConfigArgs>
-  readonly buck2Authority?: Buck2TypeScriptAuthority
+  readonly buck2Authority: Buck2TypeScriptAuthority
 }
 
-type RootTsconfigProjectDefinition = Omit<RootTsconfigProject, 'path'>
+type RootTsconfigProjectDefinition = Pick<RootTsconfigProject, 'tsconfig'>
 
 /**
- * Root solution membership is the complement of Buck authority.
+ * Authority keyed by project path because one package may own multiple projects.
  *
- * A project whose typecheck and declarations a Buck target owns must not also be
- * a member of the root `tsc` solution: two producers of the same `dist` race
- * each other, and root `tsc` would recheck inputs Buck already gates. The
- * remaining projects stay root-owned and read the Buck-owned declarations that
- * `buck2:typescript:materialize-dist` publishes, so root checking is ordered
- * after that materialization rather than duplicating it.
+ * The lookup is also the completeness assertion for the lint project graph:
+ * every registered root project must have exactly one Buck authority.
  */
-export const isRootTsconfigCheckProject = (project: RootTsconfigProject): boolean =>
-  project.buck2Authority === undefined
-
-export const isRootTsconfigEmitProject = (project: RootTsconfigProject): boolean =>
-  project.buck2Authority === undefined
-
-/**
- * Authority keyed by the project path this module names, not by package path.
- *
- * `rootTsconfigProjects` addresses projects, and a package may contribute more
- * than one (`react-inspector` contributes its strict-consumer project). Keying
- * on the project path lets one lookup serve both project lists without a second
- * registry to keep in step with `authoritativeBuck2TypeScriptAdmissions`.
- */
-const buck2AuthoritiesByProjectPath: Readonly<Record<string, Buck2TypeScriptAuthority>> =
-  Object.fromEntries(
-    authoritativeBuck2TypeScriptAdmissions.map(
-      ({
-        distTarget,
-        packagePath,
-        typecheckTarget,
-      }): readonly [string, Buck2TypeScriptAuthority] => [
-        packagePath,
-        {
-          _tag: 'Buck2TypeScriptAuthority',
-          emitTarget: distTarget,
-          typecheckTarget,
-        },
-      ],
-    ),
-  )
+const buck2AuthoritiesByProjectPath: Readonly<Record<string, Buck2TypeScriptAuthority>> = (() => {
+  const authorities: Record<string, Buck2TypeScriptAuthority> = {}
+  for (const {
+    declarationEntrypoint,
+    packagePath,
+    projectPath,
+    typecheckTarget,
+  } of authoritativeBuck2TypeScriptProjects) {
+    if (authorities[projectPath] !== undefined) {
+      throw new Error(`root TypeScript project has multiple Buck authorities: ${projectPath}`)
+    }
+    authorities[projectPath] = {
+      _tag: 'Buck2TypeScriptAuthority',
+      typecheckTarget,
+      ...(declarationEntrypoint === undefined
+        ? {}
+        : { emitTarget: `//${packagePath}:dist` as const }),
+    }
+  }
+  return authorities
+})()
 
 const attachBuck2Authority = ({
   path,
   ...definition
-}: RootTsconfigProject): RootTsconfigProject => {
+}: RootTsconfigProjectDefinition & { readonly path: string }): RootTsconfigProject => {
   const buck2Authority = buck2AuthoritiesByProjectPath[path]
-  return buck2Authority === undefined
-    ? { path, ...definition }
-    : { path, ...definition, buck2Authority }
+  if (buck2Authority === undefined) {
+    throw new Error(`root TypeScript project has no Buck authority: ${path}`)
+  }
+  return { path, ...definition, buck2Authority }
 }
 
-export const rootWorkspaceTsconfigProjects = (() => {
+const rootWorkspaceTsconfigProjects = (() => {
   const workspaceTsconfigsByPath: Record<string, RootTsconfigProjectDefinition> = {
     'context/effect/socket': { tsconfig: effectSocketTsconfig },
     'context/opentui': { tsconfig: opentuiTsconfig },
@@ -186,7 +173,7 @@ export const rootWorkspaceTsconfigProjects = (() => {
   })
 })()
 
-export const extraRootTsconfigProjects = [
+const extraRootTsconfigProjects = [
   attachBuck2Authority({
     path: 'packages/@overeng/react-inspector/tsconfig.strict-consumer.json',
     tsconfig: reactInspectorStrictConsumerTsconfig,

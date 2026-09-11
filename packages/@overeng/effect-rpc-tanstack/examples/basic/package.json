@@ -5,6 +5,7 @@
     "workspaceClosureDirs": [
       "packages/@overeng/content-address",
       "packages/@overeng/effect-distributed-lock",
+      "packages/@overeng/effect-rpc-tanstack",
       "packages/@overeng/effect-rpc-tanstack/examples/basic",
       "packages/@overeng/otel-contract",
       "packages/@overeng/utils",
@@ -22,6 +23,8 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@effect/platform-node": "4.0.0-rc.112",
+    "@overeng/effect-rpc-tanstack": "workspace:^",
     "@tanstack/react-router": "1.170.33",
     "@tanstack/react-start": "1.168.50",
     "effect": "4.0.0-rc.112",

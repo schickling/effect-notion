@@ -8,10 +8,7 @@ export const buck2TypeScriptAdmission = {
   projectionSource: 'packages/@overeng/notion-core/BUCK.genie.ts',
   sourceRoots: ['src'],
   editorViewConsumer: false,
-  authority: {
-    declarationEntrypoint: 'src/mod.d.ts',
-    projectFile: 'tsconfig.json',
-  },
+  authorities: [{ declarationEntrypoint: 'src/mod.d.ts', projectFile: 'tsconfig.json' }],
   tests: [
     {
       name: 'test',

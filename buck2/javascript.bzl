@@ -106,7 +106,7 @@ bun_executable = rule(
         "test_files": attrs.list(attrs.string(), default = []),
         "excludes": attrs.list(attrs.string(), default = []),
         "_runner": attrs.default_only(attrs.dep(
-            default = "//:javascript_action_runtime",
+            default = "//packages/@overeng/buck2-tools:javascript_action_runtime",
             providers = [DefaultInfo],
         )),
         "_javascript": attrs.default_only(attrs.exec_dep(
@@ -174,7 +174,7 @@ _TEST_ATTRS = {
     "labels": attrs.list(attrs.string(), default = []),
     "contacts": attrs.list(attrs.string(), default = []),
     "_runner": attrs.default_only(attrs.dep(
-        default = "//:javascript_action_runtime",
+        default = "//packages/@overeng/buck2-tools:javascript_action_runtime",
         providers = [DefaultInfo],
     )),
     "_javascript": attrs.default_only(attrs.exec_dep(

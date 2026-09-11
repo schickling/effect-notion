@@ -56,20 +56,36 @@ export default packageJson(
       // consumer (e.g. a `.bzl` genie generator) can import `GenieOutput`/`Strict` and the builders without
       // dragging genie's runtime ambient globals into its program. Filesystem/spawn capabilities used during
       // validation are injected via `GenieContext` (`io`, `actionlint`) by the engine.
-      '.': exportEntry('./src/runtime/mod.ts', {
-        environment: 'isomorphic-es2024',
-        typeProof: 'strict',
-      }),
+      '.': exportEntry(
+        { types: './dist/src/runtime/mod.d.ts', default: './src/runtime/mod.ts' },
+        {
+          environment: 'isomorphic-es2024',
+          typeProof: 'strict',
+        },
+      ),
       // Node-resident entry: re-exports `.` plus the node-only members (nodeGenieIO, actionlint runner,
       // github-ruleset reconcile ops, fs-discovery tsconfigJsonFromPackages, repo-context).
-      './node': exportEntry('./src/runtime/node/mod.ts', { environment: 'node' }),
+      './node': exportEntry(
+        { types: './dist/src/runtime/node/mod.d.ts', default: './src/runtime/node/mod.ts' },
+        { environment: 'node' },
+      ),
       // Explicit reusable composition layer. Keep `.` focused on thin artifact builders; put cross-artifact
       // helpers that consume structured Genie metadata here.
-      './composition': exportEntry('./src/runtime/composition/mod.ts', {
-        environment: 'isomorphic-es2024',
-      }),
-      './cli': exportEntry('./src/build/mod.tsx', { environment: 'node' }),
-      './sdk': exportEntry('./src/sdk/mod.ts', { environment: 'node' }),
+      './composition': exportEntry(
+        {
+          types: './dist/src/runtime/composition/mod.d.ts',
+          default: './src/runtime/composition/mod.ts',
+        },
+        { environment: 'isomorphic-es2024' },
+      ),
+      './cli': exportEntry(
+        { types: './dist/src/build/mod.d.ts', default: './src/build/mod.tsx' },
+        { environment: 'node' },
+      ),
+      './sdk': exportEntry(
+        { types: './dist/src/sdk/mod.d.ts', default: './src/sdk/mod.ts' },
+        { environment: 'node' },
+      ),
     },
     publishConfig: {
       access: 'public',

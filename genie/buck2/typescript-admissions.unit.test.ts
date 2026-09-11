@@ -6,14 +6,10 @@ import { describe, expect, it } from 'vitest'
 import buckMemberManifest from '../../buck2-member.json.genie.ts'
 import buck2TestAuthority from '../../buck2-test-authority.json.genie.ts'
 import { decodeBuckMemberManifestJson } from '../../packages/@overeng/megarepo/src/buck2-manifest.ts'
+import { rootTsconfigProjects } from '../tsconfig-projects.ts'
 import {
-  isRootTsconfigCheckProject,
-  isRootTsconfigEmitProject,
-  rootTsconfigProjects,
-  rootWorkspaceTsconfigProjects,
-} from '../tsconfig-projects.ts'
-import {
-  authoritativeBuck2TypeScriptAdmissions,
+  authoritativeBuck2TypeScriptDeclarations,
+  authoritativeBuck2TypeScriptProjects,
   buck2TestLanes,
   buck2TypeScriptAdmissions,
   buck2TypeScriptDistOverlays,
@@ -25,68 +21,36 @@ import {
 } from './typescript-admissions.ts'
 
 describe('Buck2 TypeScript authority derivation', () => {
-  it('derives authority only from package-local declarations in registry order', () => {
+  it('derives every project only from package-local declarations in registry order', () => {
     const packageLocalAuthorities = Object.values(buck2TypeScriptAdmissions).flatMap(
       (admission: Buck2TypeScriptAdmission) =>
-        admission.authority === undefined
-          ? []
-          : [
-              deriveBuck2TypeScriptAuthority({
-                ...admission,
-                authority: admission.authority,
-              }),
-            ],
+        (admission.authorities ?? []).map((authority) =>
+          deriveBuck2TypeScriptAuthority({
+            authority,
+            packagePath: admission.packagePath,
+            sourceRoots: admission.sourceRoots,
+          }),
+        ),
     )
 
-    expect(authoritativeBuck2TypeScriptAdmissions).toEqual(packageLocalAuthorities)
+    expect(authoritativeBuck2TypeScriptProjects).toEqual(packageLocalAuthorities)
+    expect(authoritativeBuck2TypeScriptProjects).toHaveLength(39)
   })
 
-  it('excludes every Buck-authoritative project from the root TypeScript solution', () => {
-    const authoritativePackagePaths = authoritativeBuck2TypeScriptAdmissions.map(
-      ({ packagePath }) => packagePath,
-    )
+  it('gives every root TypeScript project one Buck typecheck target', () => {
+    const authoritativeProjectPaths = authoritativeBuck2TypeScriptProjects
+      .map(({ projectPath }) => projectPath)
+      .toSorted((left, right) => Buffer.from(left).compare(Buffer.from(right)))
+    const rootProjectPaths = rootTsconfigProjects
+      .map(({ path }) => path)
+      .toSorted((left, right) => Buffer.from(left).compare(Buffer.from(right)))
 
-    expect(
-      rootWorkspaceTsconfigProjects
-        .filter((project) => isRootTsconfigCheckProject(project) === false)
-        .map(({ path }) => path)
-        .toSorted((left, right) => Buffer.from(left).compare(Buffer.from(right))),
-    ).toEqual(
-      authoritativePackagePaths.toSorted((left, right) =>
-        Buffer.from(left).compare(Buffer.from(right)),
-      ),
-    )
+    expect(authoritativeProjectPaths).toEqual(rootProjectPaths)
   })
 
-  it('leaves exactly the projects no Buck target owns to root tsc', () => {
-    // The generated solutions sort by path, so assert on that same order.
-    const rootMembers = (predicate: (project: RootTsconfigProject) => boolean): readonly string[] =>
-      rootTsconfigProjects
-        .filter(predicate)
-        .map(({ path }) => path)
-        .toSorted((left, right) => left.localeCompare(right))
-
-    // Checking and emitting are one decision: a project Buck typechecks also
-    // owns its declarations, so the two root filters must select the same set.
-    expect(rootMembers(isRootTsconfigCheckProject)).toEqual(rootMembers(isRootTsconfigEmitProject))
-
-    expect(rootMembers(isRootTsconfigCheckProject)).toEqual([
-      'context/effect/socket',
-      'context/opentui',
-      'packages/@overeng/buck2-tools',
-      'packages/@overeng/effect-rpc-tanstack/examples/basic',
-      'packages/@overeng/effect-schema-form-aria',
-      'packages/@overeng/genie',
-      'packages/@overeng/kdl-effect',
-      'packages/@overeng/megarepo',
-      'packages/@overeng/react-inspector/tsconfig.strict-consumer.json',
-      'packages/@overeng/tui-stories',
-    ])
-  })
-
-  it('derives manifest overlays and root TypeScript authority from the same entries', () => {
+  it('derives declaration overlays and project authorities from the same entries', () => {
     expect(buck2TypeScriptDistOverlays).toEqual(
-      authoritativeBuck2TypeScriptAdmissions
+      authoritativeBuck2TypeScriptDeclarations
         .map(({ distTarget, packagePath }) => ({
           destination: `${packagePath}/dist`,
           target: distTarget,
@@ -102,26 +66,34 @@ describe('Buck2 TypeScript authority derivation', () => {
     expect(projectedManifest.distOverlays).toEqual(buck2TypeScriptDistOverlays)
 
     expect(
-      rootWorkspaceTsconfigProjects
-        .flatMap(({ buck2Authority, path }) =>
-          buck2Authority === undefined ? [] : [{ buck2Authority, path }],
-        )
+      rootTsconfigProjects
+        .map(({ buck2Authority, path }) => ({ buck2Authority, path }))
         .toSorted((left, right) => Buffer.from(left.path).compare(Buffer.from(right.path))),
     ).toEqual(
-      authoritativeBuck2TypeScriptAdmissions
-        .filter(({ packagePath }) =>
-          rootWorkspaceTsconfigProjects.some(({ path }) => path === packagePath),
-        )
-        .map(({ distTarget, packagePath, typecheckTarget }) => ({
+      authoritativeBuck2TypeScriptProjects
+        .map(({ declarationEntrypoint, packagePath, projectPath, typecheckTarget }) => ({
           buck2Authority: {
             _tag: 'Buck2TypeScriptAuthority',
-            emitTarget: distTarget,
             typecheckTarget,
+            ...(declarationEntrypoint === undefined ? {} : { emitTarget: `//${packagePath}:dist` }),
           },
-          path: packagePath,
+          path: projectPath,
         }))
         .toSorted((left, right) => Buffer.from(left.path).compare(Buffer.from(right.path))),
     )
+  })
+
+  it('represents the React Inspector strict consumer as an independent project', () => {
+    expect(
+      authoritativeBuck2TypeScriptProjects.find(
+        ({ projectPath }) =>
+          projectPath === 'packages/@overeng/react-inspector/tsconfig.strict-consumer.json',
+      ),
+    ).toMatchObject({
+      packagePath: 'packages/@overeng/react-inspector',
+      projectFile: 'tsconfig.strict-consumer.json',
+      typecheckTarget: '//packages/@overeng/react-inspector:strict_consumer_typecheck',
+    })
   })
 })
 

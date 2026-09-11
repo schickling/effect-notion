@@ -6,40 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import ciWorkflow from '../../.github/workflows/ci.yml.genie.ts'
 import dependencyBuck from '../../buck2/dependencies/BUCK.genie.ts'
-import agentSessionIngestBuck from '../../packages/@overeng/agent-session-ingest/BUCK.genie.ts'
-import ciToolsBuck from '../../packages/@overeng/ci-tools/BUCK.genie.ts'
-import contentAddressBuck from '../../packages/@overeng/content-address/BUCK.genie.ts'
-import effectAiClaudeCliBuck from '../../packages/@overeng/effect-ai-claude-cli/BUCK.genie.ts'
-import effectDistributedLockBuck from '../../packages/@overeng/effect-distributed-lock/BUCK.genie.ts'
-import effectPathBuck from '../../packages/@overeng/effect-path/BUCK.genie.ts'
-import effectReactBuck from '../../packages/@overeng/effect-react/BUCK.genie.ts'
-import effectRpcTanstackBuck from '../../packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts'
-import effectSchemaFormBuck from '../../packages/@overeng/effect-schema-form/BUCK.genie.ts'
-import genieBuck from '../../packages/@overeng/genie/BUCK.genie.ts'
 import type { GenieContext } from '../../packages/@overeng/genie/src/runtime/core.ts'
-import kdlEffectBuck from '../../packages/@overeng/kdl-effect/BUCK.genie.ts'
-import kdlBuck from '../../packages/@overeng/kdl/BUCK.genie.ts'
-import megarepoBuck from '../../packages/@overeng/megarepo/BUCK.genie.ts'
-import notionCliBuck from '../../packages/@overeng/notion-cli/BUCK.genie.ts'
-import notionCoreBuck from '../../packages/@overeng/notion-core/BUCK.genie.ts'
-import notionDatasourceSyncBuck from '../../packages/@overeng/notion-datasource-sync/BUCK.genie.ts'
-import notionEffectClientBuck from '../../packages/@overeng/notion-effect-client/BUCK.genie.ts'
-import notionEffectSchemaBuck from '../../packages/@overeng/notion-effect-schema/BUCK.genie.ts'
-import notionMdBuck from '../../packages/@overeng/notion-md/BUCK.genie.ts'
-import notionPropertyWriteBuck from '../../packages/@overeng/notion-property-write/BUCK.genie.ts'
-import notionReactBuck from '../../packages/@overeng/notion-react/BUCK.genie.ts'
-import npmReleaseBuck from '../../packages/@overeng/npm-release/BUCK.genie.ts'
-import otelContractBuck from '../../packages/@overeng/otel-contract/BUCK.genie.ts'
-import oxcConfigBuck from '../../packages/@overeng/oxc-config/BUCK.genie.ts'
-import ptyEffectBuck from '../../packages/@overeng/pty-effect/BUCK.genie.ts'
-import reactInspectorBuck from '../../packages/@overeng/react-inspector/BUCK.genie.ts'
-import restateEffectBuck from '../../packages/@overeng/restate-effect/BUCK.genie.ts'
-import stylexTokensBuck from '../../packages/@overeng/stylex-tokens/BUCK.genie.ts'
-import tuiCoreBuck from '../../packages/@overeng/tui-core/BUCK.genie.ts'
-import tuiReactBuck from '../../packages/@overeng/tui-react/BUCK.genie.ts'
-import tuiStoriesBuck from '../../packages/@overeng/tui-stories/BUCK.genie.ts'
-import utilsDevBuck from '../../packages/@overeng/utils-dev/BUCK.genie.ts'
-import utilsBuck from '../../packages/@overeng/utils/BUCK.genie.ts'
 import {
   buck2TestLanes,
   buck2TypeScriptAdmissions,
@@ -51,42 +18,14 @@ import {
 } from './typescript-package-projection.ts'
 
 const genieContext: GenieContext = { cwd: process.cwd(), location: '' }
+const buck2ToolsBuck = readFileSync('packages/@overeng/buck2-tools/BUCK', 'utf8')
 
-const outputsByAdmission = {
-  agentSessionIngest: agentSessionIngestBuck.stringify(genieContext),
-  ciTools: ciToolsBuck.stringify(genieContext),
-  contentAddress: contentAddressBuck.stringify(genieContext),
-  effectAiClaudeCli: effectAiClaudeCliBuck.stringify(genieContext),
-  effectDistributedLock: effectDistributedLockBuck.stringify(genieContext),
-  effectPath: effectPathBuck.stringify(genieContext),
-  effectReact: effectReactBuck.stringify(genieContext),
-  effectRpcTanstack: effectRpcTanstackBuck.stringify(genieContext),
-  effectSchemaForm: effectSchemaFormBuck.stringify(genieContext),
-  genie: genieBuck.stringify(genieContext),
-  kdl: kdlBuck.stringify(genieContext),
-  kdlEffect: kdlEffectBuck.stringify(genieContext),
-  megarepo: megarepoBuck.stringify(genieContext),
-  notionCli: notionCliBuck.stringify(genieContext),
-  notionCore: notionCoreBuck.stringify(genieContext),
-  notionDatasourceSync: notionDatasourceSyncBuck.stringify(genieContext),
-  notionEffectClient: notionEffectClientBuck.stringify(genieContext),
-  notionEffectSchema: notionEffectSchemaBuck.stringify(genieContext),
-  notionMd: notionMdBuck.stringify(genieContext),
-  notionPropertyWrite: notionPropertyWriteBuck.stringify(genieContext),
-  notionReact: notionReactBuck.stringify(genieContext),
-  npmRelease: npmReleaseBuck.stringify(genieContext),
-  otelContract: otelContractBuck.stringify(genieContext),
-  oxcConfig: oxcConfigBuck.stringify(genieContext),
-  ptyEffect: ptyEffectBuck.stringify(genieContext),
-  reactInspector: reactInspectorBuck.stringify(genieContext),
-  restateEffect: restateEffectBuck.stringify(genieContext),
-  stylexTokens: stylexTokensBuck.stringify(genieContext),
-  tuiCore: tuiCoreBuck.stringify(genieContext),
-  tuiReact: tuiReactBuck.stringify(genieContext),
-  tuiStories: tuiStoriesBuck.stringify(genieContext),
-  utils: utilsBuck.stringify(genieContext),
-  utilsDev: utilsDevBuck.stringify(genieContext),
-} as const satisfies Record<keyof typeof buck2TypeScriptAdmissions, string>
+const outputsByAdmission = Object.fromEntries(
+  Object.entries(buck2TypeScriptAdmissions).map(([name, admission]) => [
+    name,
+    readFileSync(path.join(admission.packagePath, 'BUCK'), 'utf8'),
+  ]),
+) as Record<keyof typeof buck2TypeScriptAdmissions, string>
 
 const admittedPackages = Object.entries(buck2TypeScriptAdmissions).map(([key, admission]) => ({
   output: outputsByAdmission[key as keyof typeof outputsByAdmission],
@@ -184,7 +123,9 @@ describe('declared-closure package projection', () => {
       expect(admitted.output).toContain(`    dependency_view = "${admitted.dependencyView}",`)
       expect(admitted.output).toContain('    actual = ":node_modules",')
       expect(admitted.output).not.toContain('//buck2/dependencies:importer_')
-      expect(admitted.output).toContain('    runtime = "//:package_tree_runtime",')
+      expect(admitted.output).toContain(
+        '    runtime = "//packages/@overeng/buck2-tools:package_tree_runtime",',
+      )
       expect(admitted.output).toContain('    runtime_entry = "package-tree.ts",')
       expect(admitted.output).toContain('load("//buck2:editor_view.bzl", "editor_view_inputs")')
       expect(admitted.output).toContain(editorViewTarget)
@@ -214,8 +155,8 @@ describe('declared-closure package projection', () => {
         `${packagePath}/`,
       )
     }
-    expect(rootBuck).toContain('name = "package_tree_runtime",')
-    expect(rootBuck).toContain('packages/@overeng/buck2-tools/src/package-tree.ts')
+    expect(rootBuck).not.toContain('name = "package_tree_runtime",')
+    expect(buck2ToolsBuck).toContain('name = "package_tree_runtime",')
     for (const admitted of admittedPackages) {
       for (const packagePath of admittedPackages.map(({ packagePath }) => packagePath)) {
         expect(
@@ -237,14 +178,60 @@ describe('declared-closure package projection', () => {
   it('projects package-specific declaration entrypoints for authoritative emits', () => {
     const output = buck2TypeScriptPackageProjection({
       ...buck2TypeScriptAdmissions.stylexTokens,
-      authority: {
-        declarationEntrypoint: 'src/tokens.stylex.d.ts',
-        projectFile: 'tsconfig.json',
-      },
+      authorities: [
+        {
+          declarationEntrypoint: 'src/tokens.stylex.d.ts',
+          projectFile: 'tsconfig.json',
+        },
+      ],
     }).stringify(genieContext)
 
     expect(output).toContain('    declaration_entrypoint = "src/tokens.stylex.d.ts",')
   })
+
+  it('projects an additional no-emit project under its own typecheck target', () => {
+    const output = outputsByAdmission.reactInspector
+
+    expect(output).toContain('    name = "strict_consumer_typecheck",')
+    expect(output).toContain('    project = "tsconfig.strict-consumer.json",')
+    expect(output.split('    name = "dist",')).toHaveLength(2)
+  })
+
+  it('refuses an unnamed additional authority project', () => {
+    expect(() =>
+      buck2TypeScriptPackageProjection({
+        ...buck2TypeScriptAdmissions.reactInspector,
+        authorities: [
+          {
+            declarationEntrypoint: 'src/index.d.ts',
+            projectFile: 'tsconfig.json',
+          },
+          {
+            projectFile: 'tsconfig.strict-consumer.json',
+            projectPath: 'packages/@overeng/react-inspector/tsconfig.strict-consumer.json',
+          },
+        ],
+      }).stringify(genieContext),
+    ).toThrow('must name its typecheck target')
+  })
+
+  it.each(['dist', 'package_tree', 'test', 'test_collect'])(
+    'refuses a typecheck target that collides with generated target %s',
+    (typecheckTargetName) => {
+      expect(() =>
+        buck2TypeScriptPackageProjection({
+          ...buck2TypeScriptAdmissions.kdl,
+          authorities: [
+            {
+              declarationEntrypoint: 'src/mod.d.ts',
+              projectFile: 'tsconfig.json',
+              typecheckTargetName,
+            },
+          ],
+        }).stringify(genieContext),
+      ).toThrow('collides with generated Buck target')
+    },
+  )
 
   it('projects only package-local handwritten declarations into emit inputs', () => {
     expect(outputsByAdmission.tuiReact).toContain(
@@ -268,7 +255,7 @@ describe('same-cell label projection', () => {
       expect(admitted.output).not.toMatch(/@?effect_utils\/\//u)
       expect(admitted.output).toContain('load("//buck2:materialization.bzl"')
       expect(admitted.output).toContain('//buck2/dependencies:view_')
-      expect(admitted.output).toContain('//:package_tree_runtime')
+      expect(admitted.output).toContain('//packages/@overeng/buck2-tools:package_tree_runtime')
     }
 
     const hubSources = [
@@ -286,6 +273,7 @@ describe('declared test lanes', () => {
   // Spelled out rather than spread-with-undefined: `exactOptionalPropertyTypes` makes an
   // explicit `tests: undefined` a different type from an absent lane declaration.
   const kdlAdmissionWithoutTests: Buck2TypeScriptPackageProjection = {
+    authorities: buck2TypeScriptAdmissions.kdl.authorities,
     dependencyImporter: buck2TypeScriptAdmissions.kdl.dependencyImporter,
     packageName: buck2TypeScriptAdmissions.kdl.packageName,
     packagePath: buck2TypeScriptAdmissions.kdl.packagePath,
@@ -562,16 +550,17 @@ describe('declared test lanes', () => {
       tests: [{ name: 'test', runner: 'vitest', timeoutMs: 60_000 }],
     }).stringify(genieContext)
 
-    expect(outputsByAdmission.kdl).toContain('# Projection schema version: 8')
+    expect(outputsByAdmission.kdl).toContain('# Projection schema version: 9')
     expect(fingerprintOf(outputsByAdmission.kdl)).not.toBe(fingerprintOf(withoutTests))
     expect(fingerprintOf(outputsByAdmission.kdl)).not.toBe(fingerprintOf(withLongerTimeout))
   })
 
   it('names the JavaScript action runtime as the runner every lane executes', () => {
     const rules = readFileSync('buck2/javascript.bzl', 'utf8')
-    expect(rules).not.toContain('//packages/@overeng/buck2-tools:javascript_action_runtime')
-    expect(rules.split('default = "//:javascript_action_runtime",')).toHaveLength(3)
-    expect(readFileSync('BUCK', 'utf8')).toContain('    name = "javascript_action_runtime",')
+    expect(
+      rules.split('default = "//packages/@overeng/buck2-tools:javascript_action_runtime",'),
+    ).toHaveLength(3)
+    expect(buck2ToolsBuck).toContain('    name = "javascript_action_runtime",')
   })
 })
 
