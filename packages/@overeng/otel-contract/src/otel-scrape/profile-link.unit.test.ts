@@ -311,7 +311,9 @@ describe('otel-scrape profile links', () => {
               'node',
         ) ?? {}
       expect(
-        (span.attributes as ReadonlyArray<{ readonly key?: unknown }>).map((attribute) => attribute.key),
+        (span.attributes as ReadonlyArray<{ readonly key?: unknown }>).map(
+          (attribute) => attribute.key,
+        ),
       ).not.toContain('process.command_args')
       const event = span.events.find(
         (candidate: { readonly name?: unknown }) => candidate.name === 'otel_scrape.profile.link',
