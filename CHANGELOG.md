@@ -279,6 +279,15 @@ All notable changes to this project will be documented in this file.
   Root install, native graft, package-specific editor tasks, install dashboards,
   and install-dependent CI and developer entrypoints are removed.
 
+- **Buck2 / Rust product authority**: compile the complete five-member Rust
+  workspace through Buck, fetch Cargo-locked third-party crates as hash-pinned
+  Buck archives, and publish `otelite` plus `otel-scrape` as strict,
+  content-addressed native products for x86_64 Linux, aarch64 Linux, and
+  aarch64 Darwin. Nix now independently verifies and imports those immutable
+  assets; flake packages, apps, devenv, and observability consume the imports.
+  The superseded `rustPlatform.buildRustPackage` product derivations, their
+  narrow-source helper, and the direct Cargo release build are removed.
+
 - **pnpm**: move the ecosystem pin from pnpm 11.8.0 to 12.3.4 and retire the
   separate lock mutator. pnpm 12 ships the CLI as a native Rust executable, so
   `nix/pnpm.nix` no longer overrides `pkgs.pnpm`: it assembles the published
