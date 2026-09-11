@@ -60,8 +60,8 @@ GLOBAL FLAGS
   --wizard                                                            Start wizard mode for a command
   --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
   --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
-[time] ERROR (#73): ~effect/cli/CliError/ShowHelp: Help requested
-    at <anonymous> (<repo>/node_modules/.pnpm/effect@4.0.0-rc.111/node_modules/effect/dist/unstable/cli/Command.js:1077:34)
+[time] ERROR (#<fiber>): ~effect/cli/CliError/ShowHelp: Help requested
+    at <anonymous> (<repo>/node_modules/.pnpm/effect@<version>/node_modules/effect/dist/unstable/cli/Command.js:<line>:<column>)
 ",
 }
 `;
@@ -93,8 +93,8 @@ GLOBAL FLAGS
 
 ERROR
   Invalid value for flag --concurrency: "nope". Expected a string representing a finite number (notion 0.1.0)
-[time] ERROR (#73): ~effect/cli/CliError/ShowHelp: Help requested
-    at <anonymous> (<repo>/node_modules/.pnpm/effect@4.0.0-rc.111/node_modules/effect/dist/unstable/cli/Command.js:1077:34)
+[time] ERROR (#<fiber>): ~effect/cli/CliError/ShowHelp: Help requested
+    at <anonymous> (<repo>/node_modules/.pnpm/effect@<version>/node_modules/effect/dist/unstable/cli/Command.js:<line>:<column>)
 ",
   "stdout": "",
 }
@@ -127,8 +127,8 @@ GLOBAL FLAGS
   --wizard                                                            Start wizard mode for a command
   --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
   --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
-[time] ERROR (#73): ~effect/cli/CliError/ShowHelp: Help requested
-    at <anonymous> (<repo>/node_modules/.pnpm/effect@4.0.0-rc.111/node_modules/effect/dist/unstable/cli/Command.js:1077:34)
+[time] ERROR (#<fiber>): ~effect/cli/CliError/ShowHelp: Help requested
+    at <anonymous> (<repo>/node_modules/.pnpm/effect@<version>/node_modules/effect/dist/unstable/cli/Command.js:<line>:<column>)
 ",
 }
 `;

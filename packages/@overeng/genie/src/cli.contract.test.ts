@@ -20,10 +20,13 @@ const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url))
  * by this baseline.
  */
 const normalizeOutput = (input: string): string =>
-  normalizeCliOutput({ input, ansi: true, time: true, repoRoot }).replace(
-    /effect@4\.0\.0-rc\.\d+\/node_modules\/effect\/dist\/unstable\/cli\/Command\.js:\d+:\d+/g,
-    'effect@<version>/node_modules/effect/dist/unstable/cli/Command.js:<line>:<column>',
-  )
+  normalizeCliOutput({
+    input,
+    ansi: true,
+    time: true,
+    repoRoot,
+    effectCliInternals: true,
+  })
 
 const runCli = (...args: ReadonlyArray<string>) => {
   const result = spawnSync('bun', [cliPath, ...args], {

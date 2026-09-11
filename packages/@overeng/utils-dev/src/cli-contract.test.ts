@@ -59,6 +59,18 @@ describe('normalizeCliOutput', () => {
     })
   })
 
+  describe('Effect CLI internals', () => {
+    it('masks volatile fiber ids, package versions, and source positions when enabled', () => {
+      const input =
+        '[time] ERROR (#73): ~effect/cli/CliError/ShowHelp\n' +
+        'at effect@4.0.0-rc.112/node_modules/effect/dist/unstable/cli/Command.js:1077:34'
+      expect(normalizeCliOutput({ input, effectCliInternals: true })).toBe(
+        '[time] ERROR (#<fiber>): ~effect/cli/CliError/ShowHelp\n' +
+          'at effect@<version>/node_modules/effect/dist/unstable/cli/Command.js:<line>:<column>',
+      )
+    })
+  })
+
   describe('local-source suffix', () => {
     it('is masked unconditionally, including under an empty policy', () => {
       const input = 'genie v4.0.0 — running from local source (/repo/packages/@overeng/genie)'
