@@ -76,7 +76,10 @@ let
       headers="$(${pkgs.lib.escapeShellArg inspectionTools.otool.executable} -hv "$executable")" \
         || fail "otool header inspection failed for $relative"
       header_architecture="$(printf '%s\n' "$headers" | ${pkgs.gawk}/bin/awk '
-        NR == 2 { print $2; seen = 1 }
+        $1 == "MH_MAGIC_64" && ($2 == "ARM64" || $2 == "X86_64") {
+          print tolower($2)
+          seen++
+        }
         END { if (seen != 1) exit 2 }
       ')" || fail "malformed Mach-O architecture observation: $relative"
       [ "$header_architecture" = "$actual_architecture" ] \
@@ -93,7 +96,8 @@ let
           print platform, minos
         }
       ') || fail "malformed Mach-O build-version observation: $relative"
-      [ "$actual_platform" = "MACOS" ] || fail "Mach-O build platform mismatch for $relative"
+      [ "$actual_platform" = "MACOS" ] || [ "$actual_platform" = "1" ] \
+        || fail "Mach-O build platform mismatch for $relative"
       [ "$actual_minimum_os" = "$(${pkgs.jq}/bin/jq -r '.runtime.minimumOs' "$descriptor")" ] \
         || fail "Mach-O minimum OS mismatch for $relative"
 
@@ -111,7 +115,7 @@ let
       if printf '%s\n' "$load_commands" | ${pkgs.gnugrep}/bin/grep -Eq '^      cmd LC_RPATH$'; then
         fail "Mach-O LC_RPATH must be absent: $relative"
       fi
-      local signature_offset signature_size file_size magic declared_size count index slot blob_offset blob_magic flags
+      local signature_offset signature_size file_size magic declared_size count index slot blob_offset blob_magic blob_size flags
       read -r signature_offset signature_size < <(printf '%s\n' "$load_commands" | ${pkgs.gawk}/bin/awk '
         /^      cmd LC_CODE_SIGNATURE$/ { in_signature = 1; matches++; next }
         in_signature && /^  dataoff / { offset = $2; next }
@@ -129,21 +133,33 @@ let
       [ "$magic" -eq 4208856256 ] || fail "Mach-O code signature is not a superblob: $relative"
       declared_size="$(read_be32 "$executable" "$((signature_offset + 4))")"
       count="$(read_be32 "$executable" "$((signature_offset + 8))")"
-      [ "$declared_size" -eq "$signature_size" ] \
-        && [ "$count" -le "$(( (signature_size - 12) / 8 ))" ] \
+      [ "$declared_size" -ge 12 ] \
+        && [ "$declared_size" -le "$signature_size" ] \
+        && [ "$count" -le "$(( (declared_size - 12) / 8 ))" ] \
         || fail "malformed Mach-O code signature superblob: $relative"
       flags=
       index=0
       while [ "$index" -lt "$count" ]; do
         slot="$(read_be32 "$executable" "$((signature_offset + 12 + index * 8))")"
         blob_offset="$(read_be32 "$executable" "$((signature_offset + 16 + index * 8))")"
-        [ "$blob_offset" -le "$((signature_size - 16))" ] \
+        [ "$blob_offset" -le "$((declared_size - 8))" ] \
           || fail "Mach-O code-signature blob is outside the superblob: $relative"
-        [ "$slot" -ne 65536 ] || fail "Mach-O CMS signature must be absent: $relative"
+        if [ "$slot" -eq 65536 ]; then
+          blob_magic="$(read_be32 "$executable" "$((signature_offset + blob_offset))")"
+          blob_size="$(read_be32 "$executable" "$((signature_offset + blob_offset + 4))")"
+          [ "$blob_magic" -eq 4208855809 ] \
+            && [ "$blob_size" -eq 8 ] \
+            && [ "$((blob_offset + blob_size))" -le "$declared_size" ] \
+            || fail "Mach-O CMS signature blob must be empty: $relative"
+        fi
         if [ "$slot" -eq 0 ]; then
           blob_magic="$(read_be32 "$executable" "$((signature_offset + blob_offset))")"
-          [ "$blob_magic" -eq 4208856066 ] \
-            || fail "Mach-O CodeDirectory has invalid magic: $relative"
+          blob_size="$(read_be32 "$executable" "$((signature_offset + blob_offset + 4))")"
+          [ "$blob_magic" -ge 4208856066 ] \
+            && [ "$blob_magic" -le 4208856068 ] \
+            && [ "$blob_size" -ge 16 ] \
+            && [ "$((blob_offset + blob_size))" -le "$declared_size" ] \
+            || fail "Mach-O CodeDirectory is invalid: $relative"
           flags="$(read_be32 "$executable" "$((signature_offset + blob_offset + 12))")"
         fi
         index="$((index + 1))"

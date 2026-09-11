@@ -137,19 +137,21 @@ let
     case "''${1-}" in
       -hv)
         printf '%s\n' \
+          "$2:" \
           'Mach header' \
-          'MH_MAGIC_64 arm64 ALL 0x00 EXECUTE 0 0 NOUNDEFS'
+          '      magic  cputype cpusubtype  caps    filetype ncmds sizeofcmds      flags' \
+          'MH_MAGIC_64    ARM64        ALL  0x00     EXECUTE    19       1984   NOUNDEFS'
         ;;
       -l)
         printf '%s\n' \
           'Load command 0' \
           '      cmd LC_BUILD_VERSION' \
-          ' platform MACOS' \
+          ' platform 1' \
           '    minos 14.0' \
           'Load command 1' \
           '      cmd LC_CODE_SIGNATURE' \
           '  dataoff 64' \
-          ' datasize 44'
+          ' datasize 60'
         ;;
       -L)
         printf '%s\n' \

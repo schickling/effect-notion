@@ -241,7 +241,7 @@ rm -f "$empty_descriptor"
 mach_o_root="$(mktemp -d)"
 mkdir -p "$mach_o_root/bin"
 dd if=/dev/zero of="$mach_o_root/bin/fixture-tool" bs=1 count=64 status=none
-printf '\372\336\014\300\000\000\000\054\000\000\000\001\000\000\000\000\000\000\000\024\372\336\014\002\000\000\000\030\000\000\000\000\000\000\000\002\000\000\000\000\000\000\000\000' >>"$mach_o_root/bin/fixture-tool"
+printf '\372\336\014\300\000\000\000\074\000\000\000\002\000\000\000\000\000\000\000\034\000\001\000\000\000\000\000\064\372\336\014\002\000\000\000\030\000\000\000\000\000\000\000\002\000\000\000\000\000\000\000\000\372\336\013\001\000\000\000\010' >>"$mach_o_root/bin/fixture-tool"
 chmod +x "$mach_o_root/bin/fixture-tool"
 mach_o_descriptor="$(mktemp)"
 jq -cn '{
@@ -264,14 +264,14 @@ in import (repo + \"/nix/workspace-tools/lib/buck2-runtime-inspect-mach-o-dynami
 mach_o_inspector_out="$(build_expr "$mach_o_inspector_expr")"
 "$mach_o_inspector_out" "$mach_o_descriptor" "$mach_o_root"
 cp "$mach_o_root/bin/fixture-tool" "$mach_o_root/bin/no-adhoc-tool"
-printf '\000\000\000\000' | dd of="$mach_o_root/bin/no-adhoc-tool" bs=1 seek=96 conv=notrunc status=none
+printf '\000\000\000\000' | dd of="$mach_o_root/bin/no-adhoc-tool" bs=1 seek=104 conv=notrunc status=none
 jq '.entrypoints = ["bin/no-adhoc-tool"]' "$mach_o_descriptor" >"$mach_o_descriptor.no-adhoc"
 expect_command_failure "Mach-O CodeDirectory without ad-hoc flag" "must carry the ad-hoc flag" \
   "$mach_o_inspector_out" "$mach_o_descriptor.no-adhoc" "$mach_o_root"
 cp "$mach_o_root/bin/fixture-tool" "$mach_o_root/bin/cms-tool"
-printf '\000\001\000\000' | dd of="$mach_o_root/bin/cms-tool" bs=1 seek=76 conv=notrunc status=none
+printf '\011' | dd of="$mach_o_root/bin/cms-tool" bs=1 seek=123 conv=notrunc status=none
 jq '.entrypoints = ["bin/cms-tool"]' "$mach_o_descriptor" >"$mach_o_descriptor.cms"
-expect_command_failure "Mach-O CMS signature slot" "CMS signature must be absent" \
+expect_command_failure "Mach-O non-empty CMS signature wrapper" "CMS signature blob must be empty" \
   "$mach_o_inspector_out" "$mach_o_descriptor.cms" "$mach_o_root"
 hostile_mach_o_inspector_expr="let
   $common_let
