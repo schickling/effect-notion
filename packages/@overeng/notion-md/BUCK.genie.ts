@@ -57,10 +57,7 @@ export const buck2TypeScriptAdmission = {
     },
   ],
   editorViewConsumer: false,
-  authority: {
-    declarationEntrypoint: 'src/mod.d.ts',
-    projectFile: 'tsconfig.json',
-  },
+  authorities: [{ declarationEntrypoint: 'src/mod.d.ts', projectFile: 'tsconfig.json' }],
   // The golden-file fixpoint reads the committed `demo/showcase.nmd`, which no source
   // root carries.
   testDataRoots: [{ root: 'demo', extensions: ['.nmd'] }],

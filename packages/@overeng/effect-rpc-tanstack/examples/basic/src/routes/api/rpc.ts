@@ -1,6 +1,7 @@
 import { createFileRoute, type FileRoutesByPath } from '@tanstack/react-router'
 
-import { makeHandler } from '../../../../../src/server.ts'
+import { makeHandler } from '@overeng/effect-rpc-tanstack/server'
+
 import { UserApi } from '../../rpc/api.ts'
 import { UserHandlers } from '../../rpc/server.ts'
 

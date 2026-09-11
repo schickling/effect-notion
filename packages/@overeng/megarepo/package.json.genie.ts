@@ -63,9 +63,18 @@ export default packageJson(
       'storybook:build': 'storybook build',
     },
     exports: {
-      '.': exportEntry('./src/mod.ts', { environment: 'node' }),
-      './buck2-manifest': exportEntry('./src/buck2-manifest.ts', { environment: 'node' }),
-      './cli': exportEntry('./src/cli/mod.ts', { environment: 'node' }),
+      '.': exportEntry(
+        { types: './dist/src/mod.d.ts', default: './src/mod.ts' },
+        { environment: 'node' },
+      ),
+      './buck2-manifest': exportEntry(
+        { types: './dist/src/buck2-manifest.d.ts', default: './src/buck2-manifest.ts' },
+        { environment: 'node' },
+      ),
+      './cli': exportEntry(
+        { types: './dist/src/cli/mod.d.ts', default: './src/cli/mod.ts' },
+        { environment: 'node' },
+      ),
     },
     publishConfig: {
       access: 'public',

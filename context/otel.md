@@ -108,7 +108,7 @@ Subcommands:
 ```bash
 otel-span run <service-name> <span-name> -- <command> [args...]
 otel-span run effect-utils-devenv devenv.task.exec --attr task.name=pnpm:install -- pnpm install
-otel-span emit-span effect-utils-devenv typescript.project.check --attr-string span.label=socket
+otel-span emit-span effect-utils-devenv devenv.task.status --attr-string span.label=buck2:check
 printf '%s' "$otlp_json" | otel-span emit
 ```
 
@@ -124,18 +124,14 @@ stable span names and low-cardinality attributes instead of synthetic services.
 `trace.nix`:
 
 ```nix
-# In task modules (e.g., ts.nix):
+# In task modules:
 trace = import ../lib/trace.nix { inherit lib; };
-exec = trace.exec "ts:check" "tsc --build tsconfig.check.json";
+exec = trace.exec "buck2:check" "buck2 build <authoritative-targets>";
 ```
 
-**Compiler measurement spans**: TypeScript build diagnostics emit children of
-the `ts:check`/`ts:build` task span with stable operation names:
-`typescript.project.check` and `typescript.build.aggregate`.
-
-`TRACEPARENT`/`OTEL_TASK_TRACEPARENT` chains the spans: task wrappers create
-`devenv.task.*` spans, and compiler diagnostics emit child measurement spans
-under the task span.
+`TRACEPARENT`/`OTEL_TASK_TRACEPARENT` chains nested task wrappers under the
+calling `devenv.task.*` span. Buck owns TypeScript compiler execution; the
+retired root compiler wrapper no longer emits a parallel TypeScript span tree.
 
 ## Span Conventions
 
@@ -148,21 +144,16 @@ under the task span.
 
 ### Span Attributes (devenv tasks)
 
-| Attribute         | Type      | Description                           | Example                                       |
-| ----------------- | --------- | ------------------------------------- | --------------------------------------------- |
-| `name`            | span name | Stable operation name                 | `devenv.task.exec`, `devenv.task.status`      |
-| `span.label`      | string    | Human-readable short label            | `ts:check`, `socket`, `aggregate`             |
-| `tool.name`       | string    | Tool namespace                        | `devenv`, `typescript`                        |
-| `task.name`       | string    | Devenv task name                      | `pnpm:install`, `ts:check`                    |
-| `task.phase`      | string    | Task wrapper phase                    | `exec`, `status`                              |
-| `task.cached`     | bool      | Whether task was cached/skipped       | `true`, `false`                               |
-| `status.method`   | string    | Cache/status check strategy           | `binary`, `hash`, `path`                      |
-| `exit.code`       | int       | Process exit code                     | `0`, `1`                                      |
-| `compiler.name`   | string    | TypeScript compiler binary            | `tsgo`, `tsc`                                 |
-| `ts.project`      | string    | Repo-relative TypeScript project path | `context/effect/socket`                       |
-| `ts.project.name` | string    | Short TypeScript project label        | `socket`                                      |
-| `tsconfig.path`   | string    | TypeScript build config               | `tsconfig.check.json`                         |
-| `typescript.*`    | typed     | Compiler timings/counters             | `typescript.total_time_s`, `typescript.files` |
+| Attribute       | Type      | Description                     | Example                                  |
+| --------------- | --------- | ------------------------------- | ---------------------------------------- |
+| `name`          | span name | Stable operation name           | `devenv.task.exec`, `devenv.task.status` |
+| `span.label`    | string    | Human-readable short label      | `buck2:check`                            |
+| `tool.name`     | string    | Tool namespace                  | `devenv`                                 |
+| `task.name`     | string    | Devenv task name                | `pnpm:install`, `buck2:check`            |
+| `task.phase`    | string    | Task wrapper phase              | `exec`, `status`                         |
+| `task.cached`   | bool      | Whether task was cached/skipped | `true`, `false`                          |
+| `status.method` | string    | Cache/status check strategy     | `binary`, `hash`, `path`                 |
+| `exit.code`     | int       | Process exit code               | `0`, `1`                                 |
 
 `trace.exec` adds `task.cached=false` for executed tasks. `trace.status` derives
 `task.cached` from the status command exit code. Raw command arguments and

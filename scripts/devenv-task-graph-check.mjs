@@ -103,10 +103,6 @@ const reaches = ({ start, target }) => {
 }
 
 for (const name of [
-  'ts:check',
-  'ts:check:strict',
-  'ts:build',
-  'ts:build-watch',
   'check:quick',
   'check:all',
   'buck2:check',
@@ -117,6 +113,12 @@ for (const name of [
   'test:buck2:unit',
 ])
   requireTask(name)
+for (const name of ['ts:check', 'ts:check:strict', 'ts:build', 'ts:build-watch', 'ts:emit']) {
+  ok({
+    condition: tasks.has(name) === false,
+    name: `${name} is absent after the Buck authority cutover`,
+  })
+}
 
 const visiting = new Set()
 const visited = new Set()
@@ -136,13 +138,10 @@ try {
 }
 
 const materializer = 'buck2:typescript:materialize-dist'
-// Buck owns typecheck and dist for the authoritative packages; the root `tsc` tasks own only
-// the residual projects, and those consume Buck-owned declarations through the dist overlays
-// the materializer publishes. Every root TypeScript task must therefore run after it.
-for (const name of ['ts:check', 'ts:check:strict', 'ts:build', 'ts:build-watch', 'check:quick']) {
+for (const name of ['check:quick', 'check:all']) {
   ok({
-    condition: reaches({ start: name, target: materializer }),
-    name: `${name} reaches ${materializer}`,
+    condition: reaches({ start: name, target: 'buck2:check' }),
+    name: `${name} reaches the Buck-owned TypeScript gate`,
   })
 }
 // `test:run` must schedule the one Buck aggregate and the source-side batches which own
@@ -169,7 +168,7 @@ for (const lane of buck2TestAuthority.lanes) {
     typeof lane.taskName !== 'string' ||
     typeof lane.sourceOwners !== 'object' ||
     lane.sourceOwners === null ||
-    Array.isArray(lane.sourceOwners)
+    Array.isArray(lane.sourceOwners) === true
   ) {
     throw new Error('buck2-test-authority.json contains a malformed lane')
   }
@@ -226,23 +225,25 @@ ok({
 })
 ok({
   condition:
-    typescriptAuthorityRuntimeSource.includes('authoritativeBuck2TypeScriptAdmissions') === true &&
+    typescriptAuthorityRuntimeSource.includes('authoritativeBuck2TypeScriptDeclarations') ===
+      true &&
+    typescriptAuthorityRuntimeSource.includes('authoritativeBuck2TypeScriptProjects') === true &&
     typescriptAuthorityRuntimeSource.includes('admissions.map(') === true &&
     typescriptAuthorityRuntimeSource.includes('scripts/typescript-materialize-dist.sh') === true &&
     typescriptAuthorityRuntimeSource.includes('packages/@overeng/tui-core') === false &&
     typescriptAuthorityRuntimeSource.includes('packages/@overeng/tui-react') === false,
-  name: 'TypeScript authority runtime derives materialization from the registry',
+  name: 'TypeScript authority runtime derives checking and publication from the registry',
 })
 ok({
   condition:
     source.includes('composed_workspace_root()') === true &&
     source.includes('worktree list --porcelain -z') === true &&
     source.includes('backlink=') === true &&
-    materializerSource.includes('TYPESCRIPT_DIST_MODE=publish') === true &&
-    materializerSource.includes('TYPESCRIPT_DIST_MODE=check') === true &&
-    materializerSource.includes('TSGO_BIN=') === true &&
-    materializerSource.includes('DIFF_BIN=') === true,
-  name: 'materializer publishes from a composition root and checks freshness standalone',
+    materializerSource.includes('requires a composed megarepo workspace') === true &&
+    materializerSource.includes('WORKSPACE_ROOT=') === true &&
+    materializerSource.includes('TYPESCRIPT_DIST_MODE=') === false &&
+    materializerSource.includes('TSGO_BIN=') === false,
+  name: 'materializer publishes only from a reciprocal composition root',
 })
 
 for (const name of ['buck2:tui-core:publish-editor', 'buck2:tui-core:check-editor']) {

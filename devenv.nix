@@ -70,7 +70,6 @@ let
   # Shared task modules (from shared/ directory)
   taskModules = {
     genie = ./nix/devenv-modules/tasks/shared/genie.nix;
-    ts = import ./nix/devenv-modules/tasks/shared/ts.nix;
     worktree-guard = import ./nix/devenv-modules/tasks/shared/worktree-guard.nix;
     setup = import ./nix/devenv-modules/tasks/shared/setup.nix;
     check = import ./nix/devenv-modules/tasks/shared/check.nix;
@@ -107,7 +106,6 @@ let
   # and exec these via absolute store path under passthrough, so they are passed
   # as `*Pkg` reals to the task modules instead of also being top-level profile
   # providers (which would collide with the guards in buildEnv). See cli-guard.nix.
-  effectTsgo = inputs.tsgo.packages.${currentSystem}.effect-tsgo;
   pnpmPkg = import ./nix/pnpm.nix { inherit pkgs; };
   genieCli = repoPackages.genie;
   mrCli = repoPackages.megarepo;
@@ -649,7 +647,6 @@ in
           "nix:flake:check"
           "pnpm:install"
           "test:run"
-          "ts:check:strict"
           "weaver:check"
           "weaver:diff"
           "weaver:version-smoke"
@@ -664,7 +661,6 @@ in
     inputs.playwright.devenvModules.default
     # Shared task modules
     taskModules.genie
-    (taskModules.ts { tsBinPkg = effectTsgo; })
     (taskModules.megarepo { mrPkg = mrCli; })
     (taskModules.lint-nix { })
     (taskModules.check {
@@ -673,15 +669,9 @@ in
         "workspace:check"
         "lint:nix"
       ];
-      # Root `tsc` no longer owns the admitted packages, so the fast lane runs
-      # its incremental form while `check:all` gets the forced one below.
-      extraQuickChecks = [ "ts:check" ];
       checkQuickTypecheckTask = "buck2:check";
       checkAllTypecheckTask = "buck2:check";
     })
-    # Root `tsc` remains the sole producer for the projects no Buck target owns.
-    # `extraChecks` feeds both gates, so the forced run is wired here instead.
-    { tasks."check:all".after = [ "ts:check:strict" ]; }
     (taskModules.weaver { })
     # Wire the additive weaver gate into `check:all` only (not `check:quick`, which stays fast):
     # `after` list options merge across modules, so this appends without redefining check:all.
@@ -781,9 +771,8 @@ in
       ++ genieExtraInputGlobs;
       genieCoverageDirs = [ "packages" ];
       # Type-aware linting for typescript/no-deprecated rule
-      tsconfig = "tsconfig.check.json";
-      # The type-aware rules resolve Buck-authoritative packages through their
-      # published `dist` declarations, so the lane waits for the materializer.
+      tsconfig = "tsconfig.lint.json";
+      # Type-aware lint consumes the declaration products Buck publishes.
       tsconfigAfterTasks = [ "buck2:typescript:materialize-dist" ];
       # Warning cleanup is complete: every oxlint rule is at zero repo-wide
       # (swept + key rules promoted to error; non-API surfaces exempted by
@@ -903,17 +892,6 @@ in
   # not run concurrently with each other.
   tasks."mr:setup".after = [ "mr:bootstrap" ];
   tasks."mr:apply".after = [ "mr:setup" ];
-
-  # The projects root `tsc` still owns resolve their Buck-authoritative
-  # dependencies through published `dist` declarations, so the root project
-  # graph runs after the materializer that publishes them. `after` list options
-  # merge across modules, so these edges are additive and the shared `ts` module
-  # stays free of repository-specific Buck task names. `ts:check:strict`
-  # inherits the merged `ts:check` graph and needs no edge of its own.
-  tasks."ts:check".after = [ "buck2:typescript:materialize-dist" ];
-  tasks."ts:build".after = [ "buck2:typescript:materialize-dist" ];
-  tasks."ts:emit".after = [ "buck2:typescript:materialize-dist" ];
-  tasks."ts:build-watch".after = [ "buck2:typescript:materialize-dist" ];
 
   # buck2-tools executes inside pinned Bun actions and exercises Bun.YAML/Bun.which.
   # Keep its package gate on that runtime rather than Vitest's Node process.
@@ -1056,13 +1034,11 @@ in
       # silently turns the whole audit vacuous (it always exits 0) — the exact
       # failure this rewrite fixes.
       #
-      # A few raw exec/status lines are legitimately allowed and are annotated
-      # with a `trace-audit-allow` marker comment IMMEDIATELY ABOVE the line:
-      #   - the raw string is an argument passed INTO trace.* a few lines below
-      #     (restate integration test, ts:emit).
-      # A deliberately-untraced task would also qualify, but there are currently
-      # none: every thin `ci-tools` delegation task (netlify/vercel deploys,
-      # workflow-report) routes through trace.exec for a task span.
+      # Raw exec/status lines can be allowed only when they are annotated with
+      # a `trace-audit-allow` marker comment IMMEDIATELY ABOVE the line.
+      # There are currently no such exceptions: every thin `ci-tools`
+      # delegation task (netlify/vercel deploys, workflow-report) routes through
+      # trace.exec for a task span.
       # The marker is matched in a 2-line window (the line plus the one above),
       # so this stays robust to line shifts — no fragile file:line pins.
       marker='trace-audit-allow'
@@ -1286,17 +1262,13 @@ in
           pkgs.watchman
         ]
       }
-      if workspace_root="$(composed_workspace_root "$root")"; then
-        export TYPESCRIPT_DIST_MODE=publish
-        export WORKSPACE_ROOT="$workspace_root"
-        export BUCK2_BIN="$WORKSPACE_ROOT/.megarepo/bin/buck2"
-      else
+      workspace_root="$(composed_workspace_root "$root")" || {
         identity_status=$?
-        [ "$identity_status" -eq 1 ] || exit "$identity_status"
-        export TYPESCRIPT_DIST_MODE=check
-        export TSGO_BIN=${effectTsgo}/bin/tsgo
-        export DIFF_BIN=${pkgs.diffutils}/bin/diff
-      fi
+        echo "buck2:typescript:materialize-dist requires a composed megarepo workspace" >&2
+        exit "$identity_status"
+      }
+      export WORKSPACE_ROOT="$workspace_root"
+      export BUCK2_BIN="$WORKSPACE_ROOT/.megarepo/bin/buck2"
       exec ${pkgs.bun}/bin/bun "$root/genie/buck2/typescript-authority-runtime.ts" \
         materialize-dist "$root" ${pkgs.bash}/bin/bash
     '';

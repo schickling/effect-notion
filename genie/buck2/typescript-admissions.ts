@@ -1,4 +1,7 @@
+import { buck2TypeScriptAdmission as effectSocketAdmission } from '../../context/effect/socket/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as opentuiAdmission } from '../../context/opentui/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as agentSessionIngestAdmission } from '../../packages/@overeng/agent-session-ingest/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as buck2ToolsAdmission } from '../../packages/@overeng/buck2-tools/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as ciToolsAdmission } from '../../packages/@overeng/ci-tools/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as contentAddressAdmission } from '../../packages/@overeng/content-address/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as effectAiClaudeCliAdmission } from '../../packages/@overeng/effect-ai-claude-cli/BUCK.genie.ts'
@@ -6,6 +9,8 @@ import { buck2TypeScriptAdmission as effectDistributedLockAdmission } from '../.
 import { buck2TypeScriptAdmission as effectPathAdmission } from '../../packages/@overeng/effect-path/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as effectReactAdmission } from '../../packages/@overeng/effect-react/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as effectRpcTanstackAdmission } from '../../packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as effectRpcTanstackBasicAdmission } from '../../packages/@overeng/effect-rpc-tanstack/examples/basic/BUCK.genie.ts'
+import { buck2TypeScriptAdmission as effectSchemaFormAriaAdmission } from '../../packages/@overeng/effect-schema-form-aria/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as effectSchemaFormAdmission } from '../../packages/@overeng/effect-schema-form/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as genieAdmission } from '../../packages/@overeng/genie/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as kdlEffectAdmission } from '../../packages/@overeng/kdl-effect/BUCK.genie.ts'
@@ -36,33 +41,40 @@ import {
   discoverCollectableTestModules,
 } from './typescript-package-projection.ts'
 import type {
-  Buck2TypeScriptAuthorityMetadata,
   Buck2TypeScriptPackageProjection,
   Buck2TypeScriptPackageTestTarget,
+  Buck2TypeScriptProjectAuthorityMetadata,
 } from './typescript-package-projection.ts'
 
-export type { Buck2TypeScriptAuthorityMetadata } from './typescript-package-projection.ts'
+export type { Buck2TypeScriptProjectAuthorityMetadata } from './typescript-package-projection.ts'
 
 const compareAuthorityStrings = (left: string, right: string): number =>
   left < right ? -1 : left > right ? 1 : 0
 
-/** Buck TypeScript projection input plus editor publication and optional authority admission. */
+/** Buck TypeScript projection input plus editor publication. */
 export type Buck2TypeScriptAdmission = Buck2TypeScriptPackageProjection & {
   readonly editorViewConsumer: boolean
-  readonly authority?: Buck2TypeScriptAuthorityMetadata
 }
 
-/** Derived command and manifest data for a Buck-authoritative TypeScript package. */
-export type AuthoritativeBuck2TypeScriptAdmission = Buck2TypeScriptAuthorityMetadata & {
+/** Derived command and root-project data for every Buck-authoritative TypeScript project. */
+export type AuthoritativeBuck2TypeScriptProject = Buck2TypeScriptProjectAuthorityMetadata & {
   readonly packagePath: string
-  readonly sourceRoots: readonly string[]
-  readonly typecheckTarget: `//${string}:typecheck`
+  readonly projectPath: string
+  readonly typecheckTarget: `//${string}:${string}`
+}
+
+/** Declaration-producing subset consumed by the dist publisher and member manifest. */
+export type AuthoritativeBuck2TypeScriptDeclaration = AuthoritativeBuck2TypeScriptProject & {
+  readonly declarationEntrypoint: string
   readonly distTarget: `//${string}:dist`
 }
 
 /** Semantic registry for every package admitted to the Buck TypeScript projection. */
 export const buck2TypeScriptAdmissions = {
+  effectSocket: effectSocketAdmission,
+  opentui: opentuiAdmission,
   agentSessionIngest: agentSessionIngestAdmission,
+  buck2Tools: buck2ToolsAdmission,
   ciTools: ciToolsAdmission,
   contentAddress: contentAddressAdmission,
   effectAiClaudeCli: effectAiClaudeCliAdmission,
@@ -70,7 +82,9 @@ export const buck2TypeScriptAdmissions = {
   effectPath: effectPathAdmission,
   effectReact: effectReactAdmission,
   effectRpcTanstack: effectRpcTanstackAdmission,
+  effectRpcTanstackBasic: effectRpcTanstackBasicAdmission,
   effectSchemaForm: effectSchemaFormAdmission,
+  effectSchemaFormAria: effectSchemaFormAriaAdmission,
   genie: genieAdmission,
   kdl: kdlAdmission,
   kdlEffect: kdlEffectAdmission,
@@ -97,39 +111,55 @@ export const buck2TypeScriptAdmissions = {
   utilsDev: utilsDevAdmission,
 } as const satisfies Record<string, Buck2TypeScriptAdmission>
 
-/** Derives labels rather than duplicating them in package-local authority metadata. */
+/** Derives labels and project identity rather than duplicating them in package-local metadata. */
 export const deriveBuck2TypeScriptAuthority = ({
   authority,
   packagePath,
-  sourceRoots,
-}: Buck2TypeScriptAdmission & {
-  readonly authority: Buck2TypeScriptAuthorityMetadata
-}): AuthoritativeBuck2TypeScriptAdmission => ({
-  declarationEntrypoint: authority.declarationEntrypoint,
-  distTarget: `//${packagePath}:dist`,
-  packagePath,
-  projectFile: authority.projectFile,
-  sourceRoots,
-  typecheckTarget: `//${packagePath}:typecheck`,
-})
+}: Pick<Buck2TypeScriptAdmission, 'packagePath'> & {
+  readonly authority: Buck2TypeScriptProjectAuthorityMetadata
+}): AuthoritativeBuck2TypeScriptProject => {
+  const projectPath = authority.projectPath ?? packagePath
+  const typecheckTargetName =
+    authority.typecheckTargetName ?? (projectPath === packagePath ? 'typecheck' : undefined)
+  if (typecheckTargetName === undefined) {
+    throw new Error(`Additional TypeScript project ${projectPath} must name its typecheck target`)
+  }
+  return {
+    ...authority,
+    packagePath,
+    projectPath,
+    typecheckTarget: `//${packagePath}:${typecheckTargetName}`,
+  }
+}
 
-/** Registry-ordered packages whose TypeScript checking and declarations are Buck-owned. */
-export const authoritativeBuck2TypeScriptAdmissions = Object.values(
-  buck2TypeScriptAdmissions,
-).flatMap(
-  (admission: Buck2TypeScriptAdmission): readonly AuthoritativeBuck2TypeScriptAdmission[] =>
-    admission.authority === undefined
+/** Registry-ordered root projects whose TypeScript checking is Buck-owned. */
+export const authoritativeBuck2TypeScriptProjects: readonly AuthoritativeBuck2TypeScriptProject[] =
+  Object.values(buck2TypeScriptAdmissions).flatMap(
+    (admission: Buck2TypeScriptAdmission): readonly AuthoritativeBuck2TypeScriptProject[] =>
+      admission.authorities.map((authority) =>
+        deriveBuck2TypeScriptAuthority({
+          authority,
+          packagePath: admission.packagePath,
+        }),
+      ),
+  )
+
+/** Projects whose authority includes one published declaration surface. */
+export const authoritativeBuck2TypeScriptDeclarations: readonly AuthoritativeBuck2TypeScriptDeclaration[] =
+  authoritativeBuck2TypeScriptProjects.flatMap((project) =>
+    project.declarationEntrypoint === undefined
       ? []
       : [
-          deriveBuck2TypeScriptAuthority({
-            ...admission,
-            authority: admission.authority,
-          }),
+          {
+            ...project,
+            declarationEntrypoint: project.declarationEntrypoint,
+            distTarget: `//${project.packagePath}:dist`,
+          },
         ],
-)
+  )
 
-/** Dist overlays derived from the same package-local authority declarations. */
-export const buck2TypeScriptDistOverlays = authoritativeBuck2TypeScriptAdmissions
+/** Dist overlays derived from the declaration-producing project subset. */
+export const buck2TypeScriptDistOverlays = authoritativeBuck2TypeScriptDeclarations
   .map(({ distTarget, packagePath }) => ({
     target: distTarget,
     destination: `${packagePath}/dist`,

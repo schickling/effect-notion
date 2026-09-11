@@ -89,7 +89,7 @@ effect_tsgo_toolchain(
     name = "effect_tsgo",
     capabilities = CAPABILITIES,
     generation = GENERATION,
-    runner = "//:packages/@overeng/buck2-tools/src/typescript-runner.ts",
+    runner = "//packages/@overeng/buck2-tools:typescript-runner.ts",
     visibility = ["PUBLIC"],
 )
 

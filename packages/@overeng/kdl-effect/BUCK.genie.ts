@@ -20,6 +20,7 @@ export const buck2TypeScriptAdmission = {
     },
   ],
   editorViewConsumer: false,
+  authorities: [{ declarationEntrypoint: 'src/mod.d.ts', projectFile: 'tsconfig.json' }],
   tests: [
     {
       name: 'test',

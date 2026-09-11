@@ -138,27 +138,21 @@ RENAME_EXCHANGE advance.
 
 ## Phase 3 — TypeScript surface widening
 
-- Remaining TS package checks/builds are admitted in dependency order, with one
-  PR per dependency layer rather than one PR per package. Within each layer,
-  every package retains its own authority flip, deletion-ledger entry, and
-  package-specific evidence; its devenv/pnpm build-path consumers are deleted
-  with that package's admission.
-- Workspace-sibling live links (symlink-back) are part of the standard rule.
-- The coverage-asserted registry in `genie/tsconfig-projects.ts` has 39 root
-  projects. Root-solution membership is the exact complement of Buck authority:
-  `isRootTsconfigCheckProject` and `isRootTsconfigEmitProject` both read the
-  project's `buck2Authority`, which is derived from
-  `authoritativeBuck2TypeScriptAdmissions`, so no project can have two
-  producers and no second registry can drift from the first. 29 projects are
-  admitted. The 10 that remain are exactly the projects no Buck target owns:
-  `@overeng/buck2-tools`, `@overeng/genie`, `@overeng/kdl-effect`,
-  `@overeng/megarepo`, `@overeng/tui-stories`,
-  `@overeng/effect-schema-form-aria`, the `@overeng/effect-rpc-tanstack` basic
-  example, the two `context/` example projects, and the
-  `@overeng/react-inspector` strict-consumer project. They consume
-  Buck-owned declarations through the dist overlays that
-  `buck2:typescript:materialize-dist` publishes, so root checking is ordered
-  after that materialization rather than reproducing it.
+- TypeScript authority is complete: the package-local projection registry names
+  all 39 projects, including the independent React Inspector strict-consumer
+  project. Each project has one Buck typecheck target; emitting projects also
+  have one Buck `dist` target.
+- `genie/tsconfig-projects.ts` coverage-checks the same 39 project paths against
+  workspace membership and refuses any project without Buck authority.
+  `tsconfig.lint.json` retains that project graph solely as a type-aware lint
+  input; it is not a compiler producer.
+- The root `tsconfig.check.json` and `tsconfig.emit.json` producers and their
+  `ts:*` devenv tasks are deleted. CI and both aggregate check gates invoke
+  `buck2:check` as the sole TypeScript check authority.
+- Emitting packages expose Buck-published declarations through their package
+  export `types` conditions. `buck2:typescript:materialize-dist` atomically
+  publishes those products for source-side consumers and refuses to run outside
+  a reciprocal composed megarepo worktree; there is no source-compiler fallback.
 - Per-package unit-test lanes are DECLARED on the same authority registry
   (decision [0026](./.decisions/0026-buck-owned-unit-tests.md)): 32 admitted
   packages emit a `//<packagePath>:test` target over their bounded suites, and

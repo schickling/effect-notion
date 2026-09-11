@@ -17,6 +17,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   copyDeclarationSources,
+  formatError,
   hashDeclaredInputRoots,
   linkStagedWorkspaceProjects,
   parseEmitOptions,
@@ -38,6 +39,15 @@ const createFixture = () => {
 
 afterEach(() => {
   for (const directory of scratchDirectories.splice(0)) rmSync(directory, { recursive: true })
+})
+
+it('preserves an error message when the runtime stack omits it', () => {
+  const error = new Error('expected declaration entrypoint was not emitted: mod.d.ts')
+  error.stack = 'Error\n    at validateOutput (typescript-runner.ts:471:7)'
+
+  expect(formatError(error)).toContain(
+    'expected declaration entrypoint was not emitted: mod.d.ts\nError',
+  )
 })
 
 describe('TypeScript emit declaration command', () => {
