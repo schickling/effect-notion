@@ -233,6 +233,22 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **pnpm**: move the ecosystem pin from pnpm 12.3.4 to 12.4.1. pnpm 12.3.4
+  rejects `pnpm install --frozen-lockfile` with `ERR_PNPM_OUTDATED_LOCKFILE` on
+  workspaces whose root `overrides` carry a `file:` specifier consumed by a
+  nested importer: the root-relative override path is not rebased per importer,
+  so the recomputed importer specifier never matches the lockfile
+  (pnpm/pnpm#9216). 12.4.1 resolves the same tree cleanly, so the pin moves
+  forward rather than pinning downstream repos to a lockfile-rewriting
+  workaround. `nix/pnpm.nix` carries the new wrapper and all six
+  `@pnpm/exe.<target>` hashes, and the version is synced through
+  `DEFAULT_AGGREGATE_PACKAGE_MANAGER` (hence the generated root `package.json`
+  and `pnpm-install-contract.json`), the lock-mutator evaluation allowlist, and
+  the pnpm fixture manifests. Verified on the built package: `pnpm --version`
+  reports 12.4.1, the store layout stays `v11`, and `pnpm install
+  --frozen-lockfile --ignore-scripts` over all 39 workspace projects succeeds
+  with the lockfile unchanged.
+
 - **pnpm**: move the ecosystem pin from pnpm 11.8.0 to 12.3.4 and retire the
   separate lock mutator. pnpm 12 ships the CLI as a native Rust executable, so
   `nix/pnpm.nix` no longer overrides `pkgs.pnpm`: it assembles the published
