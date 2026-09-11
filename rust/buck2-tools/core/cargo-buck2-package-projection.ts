@@ -35,9 +35,11 @@ const repo = defineRepoContext({ name: 'effect-utils', importMetaUrl: import.met
  */
 export const cargoBuck2PackageProjection = ({
   buildProduct = false,
+  cliBuildStamp = false,
   sourceUrl,
 }: {
   readonly buildProduct?: boolean
+  readonly cliBuildStamp?: boolean
   readonly sourceUrl: string
 }): GenieOutput<unknown> => {
   const projectionSource = path
@@ -217,6 +219,7 @@ export const cargoBuck2PackageProjection = ({
   const semanticData = {
     binaries,
     compileEnv,
+    cliBuildStamp,
     conditionalDevDependencies,
     conditionalNormalDependencies,
     devDependencies,
@@ -244,6 +247,9 @@ export const cargoBuck2PackageProjection = ({
     ...Object.entries(compileEnv).map(
       ([name, value]) => `        ${starlarkString(name)}: ${starlarkString(value)},`,
     ),
+    ...(cliBuildStamp === true
+      ? ['        "CLI_BUILD_STAMP": read_config("build_identity", "cli_build_stamp", ""),']
+      : []),
     '    },',
   ]
   const normalConditional = conditionalNormalDependencies
