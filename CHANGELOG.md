@@ -159,6 +159,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **@overeng/genie**: YAML block scalars no longer indent empty lines, keeping
+  generated workflows free of trailing whitespace.
+
 - **CI**: keep draft assistant PRs mergeable by completing the auto-review job
   successfully when no review request is needed.
 - **CI**: stop requiring `main`-only Notion integration, live-deploy, and
