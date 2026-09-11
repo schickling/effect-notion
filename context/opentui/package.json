@@ -10,10 +10,10 @@
   "type": "module",
   "private": true,
   "dependencies": {
-    "@effect/atom-react": "4.0.0-rc.111",
+    "@effect/atom-react": "4.0.0-rc.112",
     "@opentui/core": "0.5.11",
     "@opentui/react": "0.5.11",
-    "effect": "4.0.0-rc.111",
+    "effect": "4.0.0-rc.112",
     "react": "19.2.8"
   },
   "devDependencies": {

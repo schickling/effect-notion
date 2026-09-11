@@ -19,6 +19,14 @@ const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url))
  * version-string content, log timing, and machine-specific paths are not gated
  * by this baseline.
  */
+const normalizeOutput = (input: string): string =>
+  normalizeCliOutput({
+    input,
+    ansi: true,
+    time: true,
+    repoRoot,
+    effectCliInternals: true,
+  })
 
 const runCli = (...args: ReadonlyArray<string>) => {
   const result = spawnSync('bun', [cliPath, ...args], {
@@ -29,8 +37,8 @@ const runCli = (...args: ReadonlyArray<string>) => {
   return {
     status: result.status,
     signal: result.signal,
-    stdout: normalizeCliOutput({ input: result.stdout, ansi: true, time: true, repoRoot }),
-    stderr: normalizeCliOutput({ input: result.stderr, ansi: true, time: true, repoRoot }),
+    stdout: normalizeOutput(result.stdout),
+    stderr: normalizeOutput(result.stderr),
   }
 }
 

@@ -42,7 +42,7 @@
     "@vitejs/plugin-react": "6.1.1",
     "@vitest/browser": "4.1.9",
     "@vitest/browser-playwright": "4.1.9",
-    "effect": "4.0.0-rc.111",
+    "effect": "4.0.0-rc.112",
     "playwright": "1.63.0",
     "storybook": "10.6.0",
     "typescript": "7.0.2",
@@ -50,7 +50,7 @@
     "vitest": "4.1.9"
   },
   "peerDependencies": {
-    "effect": "^4.0.0-rc.111",
+    "effect": "^4.0.0-rc.112",
     "react": "^19.2.8",
     "react-aria-components": "^1.21.1",
     "react-dom": "^19.2.8"

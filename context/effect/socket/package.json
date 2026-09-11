@@ -10,8 +10,8 @@
   "type": "module",
   "private": true,
   "dependencies": {
-    "@effect/platform-node": "4.0.0-rc.111",
-    "effect": "4.0.0-rc.111"
+    "@effect/platform-node": "4.0.0-rc.112",
+    "effect": "4.0.0-rc.112"
   },
   "devDependencies": {
     "@types/node": "26.5.0"

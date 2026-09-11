@@ -28,12 +28,12 @@
   "devDependencies": {
     "@overeng/utils-dev": "workspace:^",
     "@types/node": "26.5.0",
-    "effect": "4.0.0-rc.111",
+    "effect": "4.0.0-rc.112",
     "typescript": "7.0.2",
     "vitest": "4.1.9"
   },
   "peerDependencies": {
-    "effect": "^4.0.0-rc.111"
+    "effect": "^4.0.0-rc.112"
   },
   "publishConfig": {
     "access": "public",

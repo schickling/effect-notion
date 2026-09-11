@@ -16,6 +16,10 @@ const LOG_TIME_PATTERN = /^\[\d{2}:\d{2}:\d{2}\.\d{3}\]/gmu
 
 /** Version suffix appended by locally checked-out CLIs (` — running from local source (...)`). */
 const LOCAL_SOURCE_SUFFIX_PATTERN = / — running from local source \([^)]+\)/gu
+const EFFECT_CLI_FIBER_PATTERN = /(?<=ERROR \(#)\d+(?=\): ~effect\/cli\/)/gu
+
+const EFFECT_CLI_FRAME_PATTERN =
+  /effect@4\.0\.0-rc\.\d+\/node_modules\/effect\/dist\/unstable\/cli\/Command\.js:\d+:\d+/gu
 
 /** Replacement token written into the baseline in place of a log timestamp. */
 export const TIME_TOKEN = '[time]'
@@ -43,6 +47,11 @@ export interface NormalizeCliOutputPolicy {
    * the baseline. Root discovery stays caller-specific. Default: not applied.
    */
   readonly repoRoot?: string | undefined
+  /**
+   * Mask volatile Effect CLI fiber ids, package prerelease versions, and
+   * internal source positions. Default: `false`.
+   */
+  readonly effectCliInternals?: boolean | undefined
 }
 
 /**
@@ -59,6 +68,7 @@ export const normalizeCliOutput = ({
   ansi = false,
   time = false,
   repoRoot,
+  effectCliInternals = false,
 }: NormalizeCliOutputPolicy): string => {
   let output = input
   if (ansi === true) output = output.replace(ANSI_PATTERN, '')
@@ -66,6 +76,14 @@ export const normalizeCliOutput = ({
   if (repoRoot !== undefined) {
     if (repoRoot === '') throw new Error('normalizeCliOutput: repoRoot must be non-empty')
     output = output.replaceAll(repoRoot, REPO_TOKEN)
+  }
+  if (effectCliInternals === true) {
+    output = output
+      .replace(EFFECT_CLI_FIBER_PATTERN, '<fiber>')
+      .replace(
+        EFFECT_CLI_FRAME_PATTERN,
+        'effect@<version>/node_modules/effect/dist/unstable/cli/Command.js:<line>:<column>',
+      )
   }
   return output.replace(LOCAL_SOURCE_SUFFIX_PATTERN, '')
 }
