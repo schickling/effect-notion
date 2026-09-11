@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/kdl/BUCK.genie.ts
-# Projection schema version: 9
+# Projection schema version: 10
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:5f77b4f3cc8b0195efdb90d64d5f79a991adc0565b1d36f95f6a740eec3b5280
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/kdl/BUCK.genie.ts, packages/@overeng/kdl/BUCK.genie.ts, packages/@overeng/kdl/package.json.genie.ts, packages/@overeng/kdl/src/**/*.cts, packages/@overeng/kdl/src/**/*.js, packages/@overeng/kdl/src/**/*.mts, packages/@overeng/kdl/src/**/*.spec.cjs, packages/@overeng/kdl/src/**/*.spec.jsx, packages/@overeng/kdl/src/**/*.spec.mjs, packages/@overeng/kdl/src/**/*.test.cjs, packages/@overeng/kdl/src/**/*.test.jsx, packages/@overeng/kdl/src/**/*.test.mjs, packages/@overeng/kdl/src/**/*.ts, packages/@overeng/kdl/src/**/*.tsx, packages/@overeng/kdl/src/**/__snapshots__/*.snap, packages/@overeng/kdl/test-fixtures/**/*.kdl, packages/@overeng/kdl/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
+# Semantic fingerprint: sha256:b68daaf9440dcd440436a9de7908db88754b13b47f0b7496580ba73e2f50bb09
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/kdl/BUCK.genie.ts, packages/@overeng/kdl/BUCK.genie.ts, packages/@overeng/kdl/package.json.genie.ts, packages/@overeng/kdl/src/**/*.cts, packages/@overeng/kdl/src/**/*.js, packages/@overeng/kdl/src/**/*.mts, packages/@overeng/kdl/src/**/*.spec.cjs, packages/@overeng/kdl/src/**/*.spec.jsx, packages/@overeng/kdl/src/**/*.spec.mjs, packages/@overeng/kdl/src/**/*.test.cjs, packages/@overeng/kdl/src/**/*.test.jsx, packages/@overeng/kdl/src/**/*.test.mjs, packages/@overeng/kdl/src/**/*.ts, packages/@overeng/kdl/src/**/*.tsx, packages/@overeng/kdl/src/**/__snapshots__/*.snap, packages/@overeng/kdl/test-fixtures/**/*.kdl, packages/@overeng/kdl/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
@@ -46,6 +47,14 @@ export_materialization_inputs([
     "src/string-utils.ts",
     "src/upstream.test.ts",
 ])
+
+static_source_set(
+    name = "static_sources",
+    node_modules = ":node_modules",
+    prefix = "packages/@overeng/kdl",
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    visibility = ["PUBLIC"],
+)
 
 alias(
     name = "node_modules",

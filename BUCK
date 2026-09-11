@@ -1,4 +1,5 @@
 load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 
 # Conventional prelude toolchain targets, owned by the platform hub.
 #
@@ -40,6 +41,34 @@ system_genrule_toolchain(
     name = "genrule",
     visibility = ["PUBLIC"],
 )
+static_source_set(
+    name = "static_sources",
+    prefix = "",
+    srcs = glob(
+        [
+            root + "/" + pattern
+            for root in ["context", "packages", "scripts"]
+            for pattern in STATIC_SOURCE_GLOBS
+        ],
+        exclude = [
+            root + "/" + pattern
+            for root in ["context", "packages", "scripts"]
+            for pattern in STATIC_SOURCE_EXCLUDES
+        ],
+    ) + [
+        ".oxfmtrc.json",
+        ".oxlintrc.json",
+        "devenv.lock",
+        "devenv.yaml",
+        "flake.lock",
+        "flake.nix",
+        "megarepo.kdl",
+        "megarepo.lock",
+        "tsconfig.lint.json",
+    ],
+    visibility = ["PUBLIC"],
+)
+
 
 # Workspace patches are declared inputs to the generated pnpm extraction actions.
 export_file(

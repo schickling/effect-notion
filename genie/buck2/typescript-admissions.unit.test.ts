@@ -161,8 +161,7 @@ describe('Buck2 test lane registry', () => {
       'src/browser/__tests__/BroadcastLogger.pw.test.ts',
     )
 
-    // A named lane still derives an addressable task, but the published authority rejects
-    // multiple lanes for one package until overlap semantics exist.
+    // Named lanes derive distinct addressable tasks without making package identity unique.
     expect(
       deriveBuck2TestLane({
         packagePath: 'packages/@example/widget',
@@ -183,6 +182,20 @@ describe('Buck2 test lane registry', () => {
       unboundedAfter: [],
       unboundedFiles: [],
     })
+    expect(
+      buck2TestLanes
+        .filter(({ packagePath }) => packagePath === 'packages/@overeng/pty-effect')
+        .map(({ taskName, target }) => ({ taskName, target })),
+    ).toEqual([
+      {
+        taskName: 'test:pty-effect:bundle_smoke',
+        target: 'effect_utils//packages/@overeng/pty-effect:bundle_smoke',
+      },
+      {
+        taskName: 'test:pty-effect',
+        target: 'effect_utils//packages/@overeng/pty-effect:test',
+      },
+    ])
   })
 
   it('publishes the derived registry verbatim as the generated bridge', () => {

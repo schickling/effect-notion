@@ -1171,20 +1171,51 @@
       "unboundedFiles": []
     },
     {
+      "collectionTarget": "effect_utils//packages/@overeng/pty-effect:bundle_smoke_collect",
+      "excludes": [],
+      "packageName": "pty-effect",
+      "packagePath": "packages/@overeng/pty-effect",
+      "runner": "vitest",
+      "selectedTestFiles": ["src/bundle-smoke.unit.test.ts"],
+      "sourceOwners": {
+        "src/client.test.ts": "test:pty-effect:unbounded",
+        "src/client.unit.test.ts": "test:pty-effect",
+        "src/PtySession.test.ts": "test:pty-effect:unbounded"
+      },
+      "target": "effect_utils//packages/@overeng/pty-effect:bundle_smoke",
+      "taskName": "test:pty-effect:bundle_smoke",
+      "testFiles": [
+        "src/PtySession.test.ts",
+        "src/bundle-smoke.unit.test.ts",
+        "src/client.test.ts",
+        "src/client.unit.test.ts"
+      ],
+      "unboundedAfter": [],
+      "unboundedFiles": []
+    },
+    {
       "collectionTarget": "effect_utils//packages/@overeng/pty-effect:test_collect",
-      "excludes": ["src/PtySession.test.ts", "src/client.test.ts"],
+      "excludes": ["src/PtySession.test.ts", "src/bundle-smoke.unit.test.ts", "src/client.test.ts"],
       "packageName": "pty-effect",
       "packagePath": "packages/@overeng/pty-effect",
       "runner": "vitest",
       "selectedTestFiles": [
         "src/PtySession.test.ts",
+        "src/bundle-smoke.unit.test.ts",
         "src/client.test.ts",
         "src/client.unit.test.ts"
       ],
-      "sourceOwners": {},
+      "sourceOwners": {
+        "src/bundle-smoke.unit.test.ts": "bundle:smoke"
+      },
       "target": "effect_utils//packages/@overeng/pty-effect:test",
       "taskName": "test:pty-effect",
-      "testFiles": ["src/PtySession.test.ts", "src/client.test.ts", "src/client.unit.test.ts"],
+      "testFiles": [
+        "src/PtySession.test.ts",
+        "src/bundle-smoke.unit.test.ts",
+        "src/client.test.ts",
+        "src/client.unit.test.ts"
+      ],
       "unboundedAfter": ["pnpm:link-native-node-packages"],
       "unboundedFiles": ["src/PtySession.test.ts", "src/client.test.ts"],
       "unboundedTaskName": "test:pty-effect:unbounded"

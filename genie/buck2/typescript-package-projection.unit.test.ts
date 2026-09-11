@@ -254,12 +254,15 @@ describe('same-cell label projection', () => {
     for (const admitted of admittedPackages) {
       expect(admitted.output).not.toMatch(/@?effect_utils\/\//u)
       expect(admitted.output).toContain('load("//buck2:materialization.bzl"')
+      expect(admitted.output).toContain('load("//buck2:static_checks.bzl"')
+      expect(admitted.output).toContain('    name = "static_sources",')
       expect(admitted.output).toContain('//buck2/dependencies:view_')
       expect(admitted.output).toContain('//packages/@overeng/buck2-tools:package_tree_runtime')
     }
 
     const hubSources = [
       'buck2/materialization.bzl',
+      'buck2/static_checks.bzl',
       'buck2/platforms/defs.bzl',
       'buck2/products/defs.bzl',
       'buck2/toolchains/configured.bzl',
@@ -550,7 +553,7 @@ describe('declared test lanes', () => {
       tests: [{ name: 'test', runner: 'vitest', timeoutMs: 60_000 }],
     }).stringify(genieContext)
 
-    expect(outputsByAdmission.kdl).toContain('# Projection schema version: 9')
+    expect(outputsByAdmission.kdl).toContain('# Projection schema version: 10')
     expect(fingerprintOf(outputsByAdmission.kdl)).not.toBe(fingerprintOf(withoutTests))
     expect(fingerprintOf(outputsByAdmission.kdl)).not.toBe(fingerprintOf(withLongerTimeout))
   })

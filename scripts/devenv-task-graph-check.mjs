@@ -156,9 +156,10 @@ ok({
   condition: testRunDependencies.some((name) => name.startsWith('test:run:batch:') === true),
   name: 'test:run executes the source-owned complement partition',
 })
-// `mr apply` both reconciles the workspace and installs the `.buck2/capabilities`
-// projection that Buck analysis of `//buck2/toolchains` reads, so it is the single
-// ordering barrier for every task that invokes Buck.
+// `genie:check` is the source-side stage-zero guard against a graph proving its own stale
+// projection. `mr apply` runs only after that proof, then reconciles the workspace and
+// installs the `.buck2/capabilities` projection Buck analysis reads. Together they are the
+// ordering barriers for every public task that invokes Buck.
 const buck2TestAuthority = JSON.parse(readFileSync(`${root}/buck2-test-authority.json`, 'utf8'))
 if (buck2TestAuthority.schemaVersion !== 2 || Array.isArray(buck2TestAuthority.lanes) === false) {
   throw new Error('buck2-test-authority.json does not match schemaVersion 2')
@@ -193,12 +194,21 @@ for (const name of [
   'buck2:tui-core:publish-editor',
   'buck2:tui-core:check-editor',
   'buck2:nix-bridge:check',
+  'lint:check:asset-import-needs-type-reference',
+  'lint:check:format',
+  'lint:check:genie:coverage',
+  'lint:check:oxlint',
+  'workspace:check',
   'test:buck2:unit',
   ...buck2TestLaneTaskNames,
 ]) {
   ok({
     condition: reaches({ start: name, target: 'mr:apply' }),
     name: `${name} waits for workspace reconciliation and the capability projection`,
+  })
+  ok({
+    condition: reaches({ start: name, target: 'genie:check' }),
+    name: `${name} waits for source-side generation freshness`,
   })
 }
 

@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/notion-datasource-sync/BUCK.genie.ts
-# Projection schema version: 9
+# Projection schema version: 10
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:17be95cb939b281bf99328e8fe4ef76e0bb6c31bf65ac010d74fc21053312497
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/content-address/BUCK.genie.ts, packages/@overeng/content-address/package.json.genie.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-datasource-sync/BUCK.genie.ts, packages/@overeng/notion-datasource-sync/BUCK.genie.ts, packages/@overeng/notion-datasource-sync/package.json.genie.ts, packages/@overeng/notion-datasource-sync/src/**/*.cts, packages/@overeng/notion-datasource-sync/src/**/*.js, packages/@overeng/notion-datasource-sync/src/**/*.mts, packages/@overeng/notion-datasource-sync/src/**/*.spec.cjs, packages/@overeng/notion-datasource-sync/src/**/*.spec.jsx, packages/@overeng/notion-datasource-sync/src/**/*.spec.mjs, packages/@overeng/notion-datasource-sync/src/**/*.test.cjs, packages/@overeng/notion-datasource-sync/src/**/*.test.jsx, packages/@overeng/notion-datasource-sync/src/**/*.test.mjs, packages/@overeng/notion-datasource-sync/src/**/*.ts, packages/@overeng/notion-datasource-sync/src/**/*.tsx, packages/@overeng/notion-datasource-sync/src/**/__snapshots__/*.snap, packages/@overeng/notion-datasource-sync/tsconfig.json.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/package.json.genie.ts, packages/@overeng/notion-property-write/BUCK.genie.ts, packages/@overeng/notion-property-write/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:11353b7dae5882e10b02808e8cb31b26586f0ee1759088b08bc28e601b62e9fa
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/content-address/BUCK.genie.ts, packages/@overeng/content-address/package.json.genie.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-datasource-sync/BUCK.genie.ts, packages/@overeng/notion-datasource-sync/BUCK.genie.ts, packages/@overeng/notion-datasource-sync/package.json.genie.ts, packages/@overeng/notion-datasource-sync/src/**/*.cts, packages/@overeng/notion-datasource-sync/src/**/*.js, packages/@overeng/notion-datasource-sync/src/**/*.mts, packages/@overeng/notion-datasource-sync/src/**/*.spec.cjs, packages/@overeng/notion-datasource-sync/src/**/*.spec.jsx, packages/@overeng/notion-datasource-sync/src/**/*.spec.mjs, packages/@overeng/notion-datasource-sync/src/**/*.test.cjs, packages/@overeng/notion-datasource-sync/src/**/*.test.jsx, packages/@overeng/notion-datasource-sync/src/**/*.test.mjs, packages/@overeng/notion-datasource-sync/src/**/*.ts, packages/@overeng/notion-datasource-sync/src/**/*.tsx, packages/@overeng/notion-datasource-sync/src/**/__snapshots__/*.snap, packages/@overeng/notion-datasource-sync/tsconfig.json.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/package.json.genie.ts, packages/@overeng/notion-property-write/BUCK.genie.ts, packages/@overeng/notion-property-write/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
@@ -112,6 +113,14 @@ export_materialization_inputs([
     "src/webhook/tailscale.ts",
     "src/webhook/tailscale.unit.test.ts",
 ])
+
+static_source_set(
+    name = "static_sources",
+    node_modules = ":node_modules",
+    prefix = "packages/@overeng/notion-datasource-sync",
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    visibility = ["PUBLIC"],
+)
 
 alias(
     name = "node_modules",

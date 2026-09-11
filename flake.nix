@@ -142,6 +142,9 @@
             buck2-rust-shell = buck2-rust-toolchain-capability.packages.rust-shell;
             cli-build-stamp = cliBuildStamp.package;
             effect-tsgo = tsgo.packages.${system}.effect-tsgo;
+            # Static-check executables projected as Buck capabilities. Nix realizes
+            # third-party tools; Buck owns source inputs and check execution.
+            oxfmt = pkgs.oxfmt;
             # The oxlint plugin bundle keeps its pnpm FOD as first-class outputs:
             # `nix/oxlint-npm.nix` needs the pnpm-built plugin bundle, which the
             # `oxc-config` JavaScript product does not replace. The bundle exposes

@@ -2,14 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/buck2-tools/BUCK.genie.ts
-# Projection schema version: 9
+# Projection schema version: 10
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:905cbede5c9e62b8f0c2eef77d431f36dc13d7d47895c090c4550e5390fb315f
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/BUCK.genie.ts, packages/@overeng/buck2-tools/BUCK.genie.ts, packages/@overeng/buck2-tools/package.json.genie.ts, packages/@overeng/buck2-tools/src/**/*.cts, packages/@overeng/buck2-tools/src/**/*.js, packages/@overeng/buck2-tools/src/**/*.mts, packages/@overeng/buck2-tools/src/**/*.spec.cjs, packages/@overeng/buck2-tools/src/**/*.spec.jsx, packages/@overeng/buck2-tools/src/**/*.spec.mjs, packages/@overeng/buck2-tools/src/**/*.test.cjs, packages/@overeng/buck2-tools/src/**/*.test.jsx, packages/@overeng/buck2-tools/src/**/*.test.mjs, packages/@overeng/buck2-tools/src/**/*.ts, packages/@overeng/buck2-tools/src/**/*.tsx, packages/@overeng/buck2-tools/src/**/__snapshots__/*.snap, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/buck2-tools/tsconfig.json.genie.ts
+# Semantic fingerprint: sha256:7d17507a5ad266af917ef2d4d9450afcd70d931a06ed725a1e057f65ada67a3c
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/BUCK.genie.ts, packages/@overeng/buck2-tools/BUCK.genie.ts, packages/@overeng/buck2-tools/package.json.genie.ts, packages/@overeng/buck2-tools/src/**/*.cts, packages/@overeng/buck2-tools/src/**/*.js, packages/@overeng/buck2-tools/src/**/*.mts, packages/@overeng/buck2-tools/src/**/*.spec.cjs, packages/@overeng/buck2-tools/src/**/*.spec.jsx, packages/@overeng/buck2-tools/src/**/*.spec.mjs, packages/@overeng/buck2-tools/src/**/*.test.cjs, packages/@overeng/buck2-tools/src/**/*.test.jsx, packages/@overeng/buck2-tools/src/**/*.test.mjs, packages/@overeng/buck2-tools/src/**/*.ts, packages/@overeng/buck2-tools/src/**/*.tsx, packages/@overeng/buck2-tools/src/**/__snapshots__/*.snap, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/buck2-tools/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -40,9 +41,20 @@ export_materialization_inputs([
     "src/package-tree.ts",
     "src/package-tree.unit.test.ts",
     "src/real-path.ts",
+    "src/repository-policy-runner.ts",
+    "src/repository-policy-runner.unit.test.ts",
+    "src/static-check-runner.ts",
     "src/typescript-runner.ts",
     "src/typescript-runner.unit.test.ts",
 ])
+
+static_source_set(
+    name = "static_sources",
+    node_modules = ":node_modules",
+    prefix = "packages/@overeng/buck2-tools",
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    visibility = ["PUBLIC"],
+)
 
 alias(
     name = "node_modules",
@@ -82,6 +94,9 @@ package_view(
         "src/package-tree.ts": "src/package-tree.ts",
         "src/package-tree.unit.test.ts": "src/package-tree.unit.test.ts",
         "src/real-path.ts": "src/real-path.ts",
+        "src/repository-policy-runner.ts": "src/repository-policy-runner.ts",
+        "src/repository-policy-runner.unit.test.ts": "src/repository-policy-runner.unit.test.ts",
+        "src/static-check-runner.ts": "src/static-check-runner.ts",
         "src/typescript-runner.ts": "src/typescript-runner.ts",
         "src/typescript-runner.unit.test.ts": "src/typescript-runner.unit.test.ts",
         "tsconfig.json": "tsconfig.json",

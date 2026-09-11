@@ -23,6 +23,7 @@
  * ```
  */
 
+
 import type { GitHubWorkflowArgs } from '../packages/@overeng/genie/src/runtime/mod.ts'
 import {
   defaultRefPolicyCheckStep,
@@ -34,7 +35,7 @@ import { bashShellDefaults, linuxX64Runner, standardCIEnv } from './ci-workflow/
 type GitHubWorkflowJob = GitHubWorkflowArgs['jobs'][string]
 type GitHubWorkflowStep = GitHubWorkflowJob['steps'][number]
 
-/** Options for wrapping the default-ref policy check in a dedicated CI job. */
+/** Options for wrapping the pre-composition default-ref policy check in a dedicated CI job. */
 export type DefaultRefPolicyCheckJobOptions = DefaultRefPolicyCheckStepOptions & {
   readonly name?: string
   readonly runsOn?: GitHubWorkflowJob['runs-on']
@@ -45,15 +46,7 @@ export type DefaultRefPolicyCheckJobOptions = DefaultRefPolicyCheckStepOptions &
   readonly postSteps?: readonly GitHubWorkflowStep[]
 }
 
-/**
- * Dedicated CI job for first-party default-ref policy.
- *
- * We intentionally keep this out of lint/typecheck/test jobs. Downstream PRs
- * often validate against temporary first-party branches while an upstream PR is
- * still open, and that should fail in one authority/policy job without hiding
- * whether the actual product jobs are green. Before merge, repos must retarget
- * those first-party inputs back to their default refs and refresh locks.
- */
+/** Keep the trust gate checkout-only: invalid refs must fail before repository code executes. */
 export const defaultRefPolicyCheckJob = (opts: DefaultRefPolicyCheckJobOptions = {}) => {
   const { name, runsOn, env, permissions, defaults, preSteps, postSteps, ...stepOpts } = opts
 
@@ -72,7 +65,6 @@ export const defaultRefPolicyCheckJob = (opts: DefaultRefPolicyCheckJobOptions =
     ],
   } satisfies GitHubWorkflowJob
 }
-
 export {
   RUNNER_PROFILES,
   bashShellDefaults,
@@ -219,14 +211,12 @@ export {
 } from './ci-workflow/setup.ts'
 export {
   applyMegarepoLockStep,
-  defaultRefPolicyCheckStep,
   cacheableMegarepoStore,
   installMegarepoStep,
   jobLocalMegarepoStore,
   restoreMegarepoStoreStep,
   saveMegarepoStoreStep,
   syncMegarepoWorkspaceStep,
-  type DefaultRefPolicyCheckStepOptions,
 } from './ci-workflow/megarepo.ts'
 export {
   fullPullRequestCiEvent,

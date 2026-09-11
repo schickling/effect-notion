@@ -132,9 +132,7 @@ They assume the effect-utils repo structure and are not exported in flake.nix.
 
 ### Available Modules:
 
-- `asset-import-type-reference.nix` - effect-utils package export policy check for asset side-effect imports
 - `devenv-module-tests.nix` - CI task that runs shell tests for reusable task modules
-- `workspace-check.nix` - Validates `allPackages` in devenv.nix matches filesystem
 
 ## `lib/` - Shared Utilities
 

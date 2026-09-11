@@ -322,10 +322,6 @@ export const buck2TestLanes: readonly Buck2TestLane[] = Object.values(buck2TypeS
     )
   })
   .toSorted((left, right) => compareAuthorityStrings(left.target, right.target))
-const testLanePackagePaths = buck2TestLanes.map(({ packagePath }) => packagePath)
-if (new Set(testLanePackagePaths).size !== testLanePackagePaths.length) {
-  throw new Error('Buck test authority does not yet support more than one lane per package')
-}
 for (const parent of buck2TestLanes) {
   const child = buck2TestLanes.find(
     (candidate) =>

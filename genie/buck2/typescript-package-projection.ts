@@ -68,6 +68,7 @@ const snapshotBaselineFor = (testModule: string): string =>
 
 const commonSemanticInputs = [
   'buck2/dependencies/BUCK.genie.ts',
+  'buck2/static_checks.bzl',
   'buck2/dependencies/pnpm-lock.sha256.json.genie.ts',
   'genie/buck2/mod.ts',
   'genie/buck2/typescript-package-projection.ts',
@@ -812,6 +813,7 @@ export const buck2TypeScriptPackageProjection = ({
     'node_modules',
     'package.json',
     'package_tree',
+    'static_sources',
     'test_package_tree',
     ...testTargets.flatMap(({ collectName, name }) =>
       collectName === undefined ? [name] : [name, collectName],
@@ -983,7 +985,7 @@ export const buck2TypeScriptPackageProjection = ({
   }
   const fingerprint = buck2SemanticFingerprint({
     generator: 'effect-utils/genie/buck2-typescript-package-projection',
-    schemaVersion: 9,
+    schemaVersion: 10,
     semanticData: data,
   })
 
@@ -1042,7 +1044,7 @@ export const buck2TypeScriptPackageProjection = ({
   const stringify = (): string => {
     const lines = [
       `# Projection source: ${projectionSource}`,
-      '# Projection schema version: 9',
+      '# Projection schema version: 10',
       '# Projection generator: effect-utils/genie/buck2-typescript-package-projection',
       `# Semantic fingerprint: ${fingerprint}`,
       `# Semantic inputs: ${semanticInputs.join(', ')}`,
@@ -1050,6 +1052,7 @@ export const buck2TypeScriptPackageProjection = ({
       '',
       'load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")',
       'load("//buck2:editor_view.bzl", "editor_view_inputs")',
+      'load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")',
       ...(testTargets.length === 0
         ? []
         : [
@@ -1080,6 +1083,14 @@ export const buck2TypeScriptPackageProjection = ({
       'export_materialization_inputs([',
       ...packageSources.map((source) => `    ${starlarkString(source)},`),
       '])',
+      '',
+      'static_source_set(',
+      '    name = "static_sources",',
+      '    node_modules = ":node_modules",',
+      `    prefix = ${starlarkString(packagePath)},`,
+      '    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),',
+      renderBuck2Visibility({ visibility }),
+      ')',
       '',
       'alias(',
       '    name = "node_modules",',

@@ -64,20 +64,23 @@ export const planTypeScriptDistMaterialization = ({
 /**
  * Plans the single Buck build used by buck2:check, preserving target order.
  *
- * Every declared lane contributes both its execution target and its inventory target. The
- * inventory is what the source-side bounded task reads, so an inventory that stops
- * analysing has to fail the check rather than quietly fall back to a source-side census.
+ * Every declared test lane contributes both its execution target and its inventory target. The
+ * static aggregate is included here as another governed authority surface rather than a parallel
+ * source-side producer.
  */
-export const planBuck2TypeScriptBuild = ({
+export const planBuck2AuthorityBuild = ({
   admissions = authoritativeBuck2TypeScriptProjects,
   buck2Bin,
   collectionTargets = buck2TypeScriptTestCollectionTargets,
+  staticTargets = ['effect_utils//buck2/static:check'],
   testTargets = buck2TypeScriptTestTargets,
 }: {
   readonly admissions?: readonly AuthoritativeBuck2TypeScriptProject[]
   readonly buck2Bin: string
   /** Fully qualified inventory labels. */
   readonly collectionTargets?: readonly string[]
+  /** Fully qualified static-operation labels. */
+  readonly staticTargets?: readonly string[]
   /** Fully qualified execution labels. */
   readonly testTargets?: readonly string[]
 }): CommandArgv => [
@@ -86,6 +89,7 @@ export const planBuck2TypeScriptBuild = ({
   ...admissions.map(({ typecheckTarget }) => qualifyEffectUtilsLabel(typecheckTarget)),
   ...testTargets,
   ...collectionTargets,
+  ...staticTargets,
   'effect_utils//buck2/toolchains:archive_tool',
   'effect_utils//buck2/toolchains:product_tool',
   '--local-only',
@@ -166,7 +170,7 @@ const main = async (): Promise<CommandOutcome> => {
     unexpectedArguments.length === 0
   ) {
     return executeCommandPlan({
-      commands: [planBuck2TypeScriptBuild({ buck2Bin: firstArgument })],
+      commands: [planBuck2AuthorityBuild({ buck2Bin: firstArgument })],
     })
   }
   console.error(

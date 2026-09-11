@@ -5,14 +5,15 @@ load("//buck2:package_tools.bzl", "package_bin_artifact")
 load("//buck2/products:defs.bzl", "javascript_product")
 
 # Projection source: packages/@overeng/genie/BUCK.genie.ts
-# Projection schema version: 9
+# Projection schema version: 10
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:a62db647a2a38df25c12ba50fd484074cfa3e8ae24f42b174def1202756a003d
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/genie/BUCK.genie.ts, packages/@overeng/genie/BUCK.genie.ts, packages/@overeng/genie/bin/**/*.cts, packages/@overeng/genie/bin/**/*.js, packages/@overeng/genie/bin/**/*.mts, packages/@overeng/genie/bin/**/*.spec.cjs, packages/@overeng/genie/bin/**/*.spec.jsx, packages/@overeng/genie/bin/**/*.spec.mjs, packages/@overeng/genie/bin/**/*.test.cjs, packages/@overeng/genie/bin/**/*.test.jsx, packages/@overeng/genie/bin/**/*.test.mjs, packages/@overeng/genie/bin/**/*.ts, packages/@overeng/genie/bin/**/*.tsx, packages/@overeng/genie/bin/**/__snapshots__/*.snap, packages/@overeng/genie/package.json.genie.ts, packages/@overeng/genie/src/**/*.cts, packages/@overeng/genie/src/**/*.js, packages/@overeng/genie/src/**/*.mts, packages/@overeng/genie/src/**/*.spec.cjs, packages/@overeng/genie/src/**/*.spec.jsx, packages/@overeng/genie/src/**/*.spec.mjs, packages/@overeng/genie/src/**/*.test.cjs, packages/@overeng/genie/src/**/*.test.jsx, packages/@overeng/genie/src/**/*.test.mjs, packages/@overeng/genie/src/**/*.ts, packages/@overeng/genie/src/**/*.tsx, packages/@overeng/genie/src/**/__snapshots__/*.snap, packages/@overeng/genie/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:ddd1e155605fbbde909a56cc0491ba29c284a9162c3a417fba7fe9225eef9825
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/genie/BUCK.genie.ts, packages/@overeng/genie/BUCK.genie.ts, packages/@overeng/genie/bin/**/*.cts, packages/@overeng/genie/bin/**/*.js, packages/@overeng/genie/bin/**/*.mts, packages/@overeng/genie/bin/**/*.spec.cjs, packages/@overeng/genie/bin/**/*.spec.jsx, packages/@overeng/genie/bin/**/*.spec.mjs, packages/@overeng/genie/bin/**/*.test.cjs, packages/@overeng/genie/bin/**/*.test.jsx, packages/@overeng/genie/bin/**/*.test.mjs, packages/@overeng/genie/bin/**/*.ts, packages/@overeng/genie/bin/**/*.tsx, packages/@overeng/genie/bin/**/__snapshots__/*.snap, packages/@overeng/genie/package.json.genie.ts, packages/@overeng/genie/src/**/*.cts, packages/@overeng/genie/src/**/*.js, packages/@overeng/genie/src/**/*.mts, packages/@overeng/genie/src/**/*.spec.cjs, packages/@overeng/genie/src/**/*.spec.jsx, packages/@overeng/genie/src/**/*.spec.mjs, packages/@overeng/genie/src/**/*.test.cjs, packages/@overeng/genie/src/**/*.test.jsx, packages/@overeng/genie/src/**/*.test.mjs, packages/@overeng/genie/src/**/*.ts, packages/@overeng/genie/src/**/*.tsx, packages/@overeng/genie/src/**/__snapshots__/*.snap, packages/@overeng/genie/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
@@ -125,6 +126,14 @@ export_materialization_inputs([
     "src/runtime/workspace-graph.ts",
     "src/sdk/mod.ts",
 ])
+
+static_source_set(
+    name = "static_sources",
+    node_modules = ":node_modules",
+    prefix = "packages/@overeng/genie",
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    visibility = ["PUBLIC"],
+)
 
 alias(
     name = "node_modules",
