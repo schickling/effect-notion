@@ -61,7 +61,7 @@ const quoteString = ({
     const linePrefix = INDENT.repeat(indent)
     return `|\n${str
       .split('\n')
-      .map((line) => linePrefix + line)
+      .map((line) => (line === '' ? '' : linePrefix + line))
       .join('\n')}`
   }
   if (needsQuoting({ str, flow }) === true) {
