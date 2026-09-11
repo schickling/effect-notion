@@ -310,6 +310,9 @@ describe('otel-scrape profile links', () => {
             attrValue(candidate.attributes ?? [], otelScrapeAttributeKeys.processExecutableName) ===
               'node',
         ) ?? {}
+      expect(
+        (span.attributes as ReadonlyArray<{ readonly key?: unknown }>).map((attribute) => attribute.key),
+      ).not.toContain('process.command_args')
       const event = span.events.find(
         (candidate: { readonly name?: unknown }) => candidate.name === 'otel_scrape.profile.link',
       )
@@ -331,10 +334,8 @@ describe('otel-scrape profile links', () => {
       const otlpJson = JSON.stringify(otlpPayload)
       expect(summaryJson).not.toContain(privateArg)
       expect(summaryJson).not.toContain(root)
-      expect(summaryJson).not.toContain('100000')
       expect(otlpJson).not.toContain(privateArg)
       expect(otlpJson).not.toContain(root)
-      expect(otlpJson).not.toContain('100000')
       expect(otlpJson).not.toContain(new TextDecoder().decode(profileBytes))
     } finally {
       await rm(root, { recursive: true, force: true })
