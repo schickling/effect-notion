@@ -23,12 +23,12 @@
     "./server": "./src/server.ts"
   },
   "devDependencies": {
-    "@effect/platform-node": "4.0.0-rc.111",
+    "@effect/platform-node": "4.0.0-rc.112",
     "@overeng/utils": "workspace:^",
     "@tanstack/react-router": "1.170.33",
     "@tanstack/react-start": "1.168.50",
     "@types/react": "19.2.18",
-    "effect": "4.0.0-rc.111",
+    "effect": "4.0.0-rc.112",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "typescript": "7.0.2",
@@ -36,10 +36,10 @@
     "vitest": "4.1.9"
   },
   "peerDependencies": {
-    "@effect/platform-node": "^4.0.0-rc.111",
+    "@effect/platform-node": "^4.0.0-rc.112",
     "@tanstack/react-router": "^1.170.33",
     "@tanstack/react-start": "^1.168.50",
-    "effect": "^4.0.0-rc.111",
+    "effect": "^4.0.0-rc.112",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

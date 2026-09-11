@@ -85,12 +85,10 @@ const isRequestEncoded = (
   typeof message === 'object' && message !== null && '_tag' in message && message._tag === 'Request'
 
 const withRequestIdPolicy = (serialization: SerializationService): SerializationService =>
-  // `RpcSerialization.of` exists only in the rc.111 sources, not the compiled
-  // package, so the wrapped plain object is asserted to the nominal Service
-  // shape; its members are checked against the parameter above.
-  ({
+  RpcSerialization.RpcSerialization.of({
     contentType: serialization.contentType,
     includesFraming: serialization.includesFraming,
+    codecFor: serialization.codecFor,
     makeUnsafe: () => {
       const parser = serialization.makeUnsafe()
       return {
@@ -103,7 +101,7 @@ const withRequestIdPolicy = (serialization: SerializationService): Serialization
         },
       }
     },
-  }) as unknown as SerializationService
+  })
 
 const requestIdPolicyLayer = (
   base: Layer.Layer<RpcSerialization.RpcSerialization, never, never>,

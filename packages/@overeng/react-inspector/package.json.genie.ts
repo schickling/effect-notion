@@ -26,7 +26,7 @@ const catalog = defineCatalog({
     'vite',
     'vitest',
   ),
-  effect: '4.0.0-rc.111',
+  effect: '4.0.0-rc.112',
 })
 
 const peerDepNames = ['effect', 'react'] as const
@@ -59,7 +59,7 @@ const workspaceDeps = catalog.compose({
   },
   peerDependencies: {
     external: {
-      effect: '^4.0.0-rc.111',
+      effect: '^4.0.0-rc.112',
       ...catalog.pick('react'),
     },
   },

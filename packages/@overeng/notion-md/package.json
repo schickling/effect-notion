@@ -41,10 +41,10 @@
     "@overeng/utils": "workspace:^"
   },
   "devDependencies": {
-    "@effect/atom-react": "4.0.0-rc.111",
-    "@effect/opentelemetry": "4.0.0-rc.111",
-    "@effect/platform-node": "4.0.0-rc.111",
-    "@effect/vitest": "4.0.0-rc.111",
+    "@effect/atom-react": "4.0.0-rc.112",
+    "@effect/opentelemetry": "4.0.0-rc.112",
+    "@effect/platform-node": "4.0.0-rc.112",
+    "@effect/vitest": "4.0.0-rc.112",
     "@overeng/tui-react": "workspace:^",
     "@overeng/utils-dev": "workspace:^",
     "@playwright/test": "1.63.0",
@@ -54,7 +54,7 @@
     "@types/react": "19.2.18",
     "@types/react-reconciler": "0.33.0",
     "@vitejs/plugin-react": "6.1.1",
-    "effect": "4.0.0-rc.111",
+    "effect": "4.0.0-rc.112",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-reconciler": "0.33.0",
@@ -64,10 +64,10 @@
     "vitest": "4.1.9"
   },
   "peerDependencies": {
-    "@effect/opentelemetry": "^4.0.0-rc.111",
-    "@effect/platform-node": "^4.0.0-rc.111",
+    "@effect/opentelemetry": "^4.0.0-rc.112",
+    "@effect/platform-node": "^4.0.0-rc.112",
     "@playwright/test": "^1.63.0",
-    "effect": "^4.0.0-rc.111"
+    "effect": "^4.0.0-rc.112"
   },
   "publishConfig": {
     "access": "public",

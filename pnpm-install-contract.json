@@ -11,7 +11,7 @@
       "unix-dgram": false
     },
     "overrides": {
-      "@effect/platform-node-shared": "4.0.0-rc.111"
+      "@effect/platform-node-shared": "4.0.0-rc.112"
     },
     "packageExtensions": {
       "storybook": {

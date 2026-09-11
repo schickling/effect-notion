@@ -1,6 +1,6 @@
 {
   "schema": "effect-utils/buck2-pnpm-sha256/v1",
-  "lockfileFingerprint": "sha256:2eb92198e041871736284c44b32b50f5b9ae00cf3622d5f5331af31334ddbfc4",
+  "lockfileFingerprint": "sha256:060e5e9fb28f721b7c1687819160ab7057672afd6321bb2ff40a523ec2802bb3",
   "source": "pnpm-lock.yaml",
   "generator": "buck2/dependencies/pnpm-lock.sha256.json.genie.ts",
   "regenerate": "devenv tasks run genie:run",
@@ -147,30 +147,30 @@
       "integrity": "sha512-id+7YRUgoUX6CgV0DtuhirQWodeeA7Lf4i2x71JS/vtA5pRb/hIGWlw+G6MeXvsM+MXrz0VAydTGElX1rAfgPg==",
       "sha256": "49b42379de2656cbe21fa32c6c054686a7d48813be33b981b125731fa6dd9226"
     },
-    "@effect/atom-react@4.0.0-rc.111": {
+    "@effect/atom-react@4.0.0-rc.112": {
       "bins": {},
-      "integrity": "sha512-MQgX2+ayms/J686g19vV2AkLSocMaubZmFf2VFrWN3fwPg60XXsaPtlQKdcsIy/McxVGZYgYUPXBVVtcmUjjSA==",
-      "sha256": "74c4735c9d776b0550278eb665f464b3fdaf7f5118224b8f3ab5f069e3d528e3"
+      "integrity": "sha512-Ksf90KQa6D4UDnMj4M84arlVKNIuwxxF2GvgXBzuaYi2LsgririsUhKQ5SYaK1euf8oIYeamEuthoZSbUQmIhw==",
+      "sha256": "6afda847413eb07982a406c6e8a87d1b9b30604a110663939c7219a62cd24bfd"
     },
-    "@effect/opentelemetry@4.0.0-rc.111": {
+    "@effect/opentelemetry@4.0.0-rc.112": {
       "bins": {},
-      "integrity": "sha512-bztAYpWoipn/a4tFjECMNvtWLkf2TS+Qn23PBI+f4q5DP9cBKfV00uhX8cwEVcfAtZd+lflSbGURHa4xlSewOA==",
-      "sha256": "483616bab9f507262f01137a8c5d88d7d0c95e46f45036dece81ee304e95d829"
+      "integrity": "sha512-OTRv1DxTHUmnakgJ6XVM8wVgF1KgZH4UXnOemwSLUwUjXO+RCikzF8oR/rlVmOGq81KtQzj1URM4M4nchlQOuQ==",
+      "sha256": "9133c4195230ee012fef3bd9d30d3ae9b0e2113ce1fb3e53ba9414173b93b562"
     },
-    "@effect/platform-node-shared@4.0.0-rc.111": {
+    "@effect/platform-node-shared@4.0.0-rc.112": {
       "bins": {},
-      "integrity": "sha512-iES0Q9vmjhaUKqeW9ceonuD45MUg/Ouk08LzRSptZ+B5qB0w9WlRjDmUz5TJmY2betNop5FRI5k4AD4mtQt3Bw==",
-      "sha256": "f153a242ca71616c8693e32bef22d0c59cd0c2832e3cdebfceea09d00e108740"
+      "integrity": "sha512-ttjz0xKamFN7vL8pNDYVwddJLjZvqKePc05djlz2VcdaKbLsnYbtMnL1rbOfHgEnIUSHGh7FkjaN4DM1Ov81sQ==",
+      "sha256": "723e9184a24adc29ecc6e0a2306192af5aeea57a6a73bf4243dde9af7d215295"
     },
-    "@effect/platform-node@4.0.0-rc.111": {
+    "@effect/platform-node@4.0.0-rc.112": {
       "bins": {},
-      "integrity": "sha512-oy1i7HsOGg/5r+DuBe5+ddmnUhnXmyZFPFPXZCBdO/RQpHK3PIFe1/2UMGxZE+ngDymrSksuQTSgQLF6P+MLqw==",
-      "sha256": "ecd85e36b7845df3a0eb3694c4eeb949962e9e7acb9c7e58ad67ec16773ab60f"
+      "integrity": "sha512-/BMAcdNGQQskLmI0Zoa95KfTZkr9HV9N4NSxaSrusG6GeW6Ulp9KvZ+Rlaiw8lnOt43CXjFLdfll5/k5rxL4hQ==",
+      "sha256": "ea001615c52be24a3c0ff7490cf16ed64bee2865a5eb0799c44463afee65be2c"
     },
-    "@effect/vitest@4.0.0-rc.111": {
+    "@effect/vitest@4.0.0-rc.112": {
       "bins": {},
-      "integrity": "sha512-YDaEVT+grREBVMzykRNFtJwGxy02achzT0WXZYwMJA4ukzuB9krkgQ5roc3N6zhC3NQq/j4IyM32/Pcov7AhHw==",
-      "sha256": "eaa755d92c8101e35851caa1fca5b074ca6b293348681ae08f5d1be58868b059"
+      "integrity": "sha512-mEKh/FI64mt8JK1/v9mpOrJYdnp+UFZdRUBMEdZMiKz7klg6NPqVgg/oeAGH6wOOQc2iAPcfc2H9BbAv1KyzMQ==",
+      "sha256": "a88faf61817789273c5caebfd2c28ca21a0d241cd209bf845787e1a4ec2c843e"
     },
     "@emnapi/core@1.11.0": {
       "bins": {},
@@ -1932,10 +1932,10 @@
       "integrity": "sha512-7ZgogeTnjuHbo+ct10G9Ffp0mif17idi0IyWNVA/wcwcm7NPOD/WEHVP3n7n3MhXqxoIYm8d6MuZohYWIZ4T3w==",
       "sha256": "90bce27325f3cfedad2acd0dc83b39b69989d437d2342d7b5419b49768a99031"
     },
-    "effect@4.0.0-rc.111": {
+    "effect@4.0.0-rc.112": {
       "bins": {},
-      "integrity": "sha512-ASd5L58EIR0CUNueZNKKjSsyOCd+2alxOAIaTcHaqkJkPsaYSsw5Cg/cfANk5K4Jr2YsX756xvX11shzqsreWA==",
-      "sha256": "fa1f3406011528b80afaaa3cf3f7dd4b9337b52e536a7b9308181407a4b5a637"
+      "integrity": "sha512-wXxwuh1Ywnv4cPRM3Wfa0vDwuOHnZ1TsTgHJkG9XgzND6inhBH9n1vBxhg3iIXOia/OrpmvVmd3lrD4vq6bF3A==",
+      "sha256": "8ce8e4a5f65987c11f1efa094bc7a36730d989437946932314c9e8321fcc073f"
     },
     "electron-to-chromium@1.5.418": {
       "bins": {},
@@ -3447,5 +3447,5 @@
       "sha256": "2c162e000f5fb5a816987d6f8ad7aad295203f777a5992d514ae4660778a51a4"
     }
   },
-  "fingerprint": "sha256:ff29ee951507fc0bd05cc6869bd4b53fc92596407c83a5316d27f386129678ba"
+  "fingerprint": "sha256:7ad9d6c5a4eb25816555a2905eebdae9585140c42bf147d2c9944638649f8318"
 }
