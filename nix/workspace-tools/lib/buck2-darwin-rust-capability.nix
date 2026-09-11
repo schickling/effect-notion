@@ -30,6 +30,9 @@ let
     export MACOSX_DEPLOYMENT_TARGET=${lib.escapeShellArg deploymentTarget}
     export PATH=${
       lib.makeBinPath [
+        # Buck's Rust prelude emits linker wrappers with `#!/usr/bin/env bash`.
+        # Keep bash visible after this wrapper replaces the action's PATH.
+        pkgs.bash
         pkgs.coreutils
         sigtool
         cctools
