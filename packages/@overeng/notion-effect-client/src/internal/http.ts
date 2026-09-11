@@ -104,11 +104,33 @@ export const NotionTracerHeaderFilterLive: Layer.Layer<never> = Layer.succeed(
   notionTracerHeaderFilter,
 )
 
+/**
+ * Request payload for a Notion API call.
+ *
+ * `json` bodies are encoded with an explicit `Content-Type: application/json`.
+ * `form-data` bodies deliberately carry NO client-set content type: the
+ * transport derives `multipart/form-data; boundary=...` from the `FormData`
+ * value, and a hand-set header would strip the boundary and corrupt the body
+ * (RFC 2388).
+ */
+export type NotionRequestBody =
+  | { readonly _tag: 'json'; readonly value: unknown }
+  | { readonly _tag: 'form-data'; readonly formData: FormData }
+
+/** JSON request payload. */
+export const jsonBody = (value: unknown): NotionRequestBody => ({ _tag: 'json', value })
+
+/** Multipart form-data request payload (used by the file-upload `send` route). */
+export const formDataBody = (formData: FormData): NotionRequestBody => ({
+  _tag: 'form-data',
+  formData,
+})
+
 /** Options for building a Notion API request */
 export interface BuildRequestOptions {
   readonly method: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   readonly path: string
-  readonly body?: unknown
+  readonly body?: NotionRequestBody
 }
 
 /** Options for executing a Notion API request */
@@ -116,7 +138,7 @@ export interface ExecuteRequestOptions<A, I, R> {
   readonly method: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   readonly path: string
   readonly responseSchema: Schema.Codec<A, I, R>
-  readonly body?: unknown
+  readonly body?: NotionRequestBody
 }
 
 const parseNonNegativeInt = (input: string | undefined): number => {
@@ -152,6 +174,8 @@ const routeTokenForPreviousSegment = (previous: string | undefined): string => {
       return '{data_source_id}'
     case 'databases':
       return '{database_id}'
+    case 'file_uploads':
+      return '{file_upload_id}'
     case 'pages':
       return '{page_id}'
     case 'properties':
@@ -190,6 +214,14 @@ const operationForRoute = (route: string): string => {
       return 'databases.create'
     case '/databases/{database_id}':
       return 'databases.object'
+    case '/file_uploads':
+      return 'file_uploads.create'
+    case '/file_uploads/{file_upload_id}':
+      return 'file_uploads.retrieve'
+    case '/file_uploads/{file_upload_id}/send':
+      return 'file_uploads.send'
+    case '/file_uploads/{file_upload_id}/complete':
+      return 'file_uploads.complete'
     case '/pages':
       return 'pages.create'
     case '/pages/{page_id}':
@@ -325,14 +357,24 @@ export const buildRequest = ({
     const config = yield* NotionConfig
     const requestUrl = `${NOTION_API_BASE_URL}${path}`
 
-    const baseRequest = HttpClientRequest.make(method)(requestUrl).pipe(
+    const authenticatedRequest = HttpClientRequest.make(method)(requestUrl).pipe(
       HttpClientRequest.setHeader('Authorization', `Bearer ${Redacted.value(config.authToken)}`),
       HttpClientRequest.setHeader('Notion-Version', NOTION_API_VERSION),
-      HttpClientRequest.setHeader('Content-Type', 'application/json'),
     )
 
+    /* Form-data requests must NOT carry a client-set `Content-Type`: the
+     * transport emits `multipart/form-data` with the generated boundary. */
+    if (body?._tag === 'form-data') {
+      return HttpClientRequest.bodyFormData(authenticatedRequest, body.formData)
+    }
+
+    const baseRequest = HttpClientRequest.setHeader(
+      'Content-Type',
+      'application/json',
+    )(authenticatedRequest)
+
     if (body !== undefined) {
-      return yield* HttpClientRequest.bodyJson(body)(baseRequest).pipe(
+      return yield* HttpClientRequest.bodyJson(body.value)(baseRequest).pipe(
         Effect.mapError(
           (cause) =>
             new NotionApiError({
@@ -479,7 +521,11 @@ export const executeRequest = <A, I, R>({
     const makeRequest = () =>
       Effect.gen(function* () {
         const attempt = (yield* Schedule.CurrentMetadata).attempt
-        const request = yield* buildRequest({ method, path, body })
+        const request = yield* buildRequest({
+          method,
+          path,
+          ...(body === undefined ? {} : { body }),
+        })
         /* HTTP-attempt PRESSURE counter (decision 0017 Half 2): incremented once
          * per INITIATED HTTP attempt — after the request is built, BEFORE the
          * call — so every wire attempt counts, including the initial try, each
@@ -515,7 +561,7 @@ export const executeRequest = <A, I, R>({
           rateLimit,
         })
 
-        if (response.status >= 400) {
+        if (response.status < 200 || response.status >= 300) {
           const error = yield* parseErrorResponse({
             response,
             requestUrl: `${NOTION_API_BASE_URL}${path}`,
@@ -661,14 +707,36 @@ export const get = <A, I, R>({
   executeRequest({ method: 'GET', path, responseSchema })
 
 /**
- * POST request helper.
+ * POST request helper with a JSON body.
  */
 export const post = <A, I, R>({
   path,
   body,
   responseSchema,
 }: PostRequestOptions<A, I, R>): Effect.Effect<A, NotionApiError, NotionConfig | HttpClient | R> =>
-  executeRequest({ method: 'POST', path, responseSchema, body })
+  executeRequest({ method: 'POST', path, responseSchema, body: jsonBody(body) })
+
+/** Options for a multipart form-data POST request */
+export interface PostFormDataRequestOptions<A, I, R> {
+  readonly path: string
+  readonly formData: FormData
+  readonly responseSchema: Schema.Codec<A, I, R>
+}
+
+/**
+ * POST request helper with a `multipart/form-data` body (Notion file-upload
+ * `send` route). Goes through {@link executeRequest} so retry, throttling,
+ * telemetry, spans, and Notion error decoding stay identical to JSON routes.
+ */
+export const postFormData = <A, I, R>({
+  path,
+  formData,
+  responseSchema,
+}: PostFormDataRequestOptions<A, I, R>): Effect.Effect<
+  A,
+  NotionApiError,
+  NotionConfig | HttpClient | R
+> => executeRequest({ method: 'POST', path, responseSchema, body: formDataBody(formData) })
 
 /**
  * PATCH request helper.
@@ -678,7 +746,7 @@ export const patch = <A, I, R>({
   body,
   responseSchema,
 }: PatchRequestOptions<A, I, R>): Effect.Effect<A, NotionApiError, NotionConfig | HttpClient | R> =>
-  executeRequest({ method: 'PATCH', path, responseSchema, body })
+  executeRequest({ method: 'PATCH', path, responseSchema, body: jsonBody(body) })
 
 /** Options for DELETE request */
 export interface DeleteRequestOptions<A, I, R> {

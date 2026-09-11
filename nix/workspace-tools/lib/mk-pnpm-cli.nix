@@ -1613,6 +1613,10 @@ pkgs.stdenv.mkDerivation {
   ];
 
   dontUnpack = true;
+  # Preserve Bun's embedded Mach-O signature. Stripping or patching the
+  # compiled executable makes Darwin reject it with SIGKILL.
+  dontStrip = true;
+  dontPatchELF = true;
   dontFixup = true;
   passthru = {
     depsSrc = rootDepsSrc;

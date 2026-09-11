@@ -12,7 +12,9 @@ import { NotionApiError } from '../error.ts'
 import { createTestLayer, type MockResponse, sampleResponses } from '../test/test-utils.ts'
 import {
   buildRequest,
+  formDataBody,
   get,
+  jsonBody,
   notionTracerHeaderFilter,
   NotionHttpTelemetry,
   notionHttpRouteInfo,
@@ -165,6 +167,33 @@ Vitest.describe('notionHttpRouteInfo', () => {
       })
     }),
   )
+
+  Vitest.it.effect('keeps file-upload sub-routes distinct', () =>
+    Effect.sync(() => {
+      expect(notionHttpRouteInfo({ method: 'POST', path: '/file_uploads' })).toEqual({
+        route: '/file_uploads',
+        operation: 'file_uploads.create',
+        spanLabel: 'POST file_uploads.create',
+      })
+      expect(
+        notionHttpRouteInfo({
+          method: 'POST',
+          path: '/file_uploads/2d4e3d41-f4a3-8000-bf14-f64cdf1c7501/send',
+        }),
+      ).toEqual({
+        route: '/file_uploads/{file_upload_id}/send',
+        operation: 'file_uploads.send',
+        spanLabel: 'POST file_uploads.send',
+      })
+      expect(
+        notionHttpRouteInfo({ method: 'POST', path: '/file_uploads/upload-1/complete' }),
+      ).toEqual({
+        route: '/file_uploads/{file_upload_id}/complete',
+        operation: 'file_uploads.complete',
+        spanLabel: 'POST file_uploads.complete',
+      })
+    }),
+  )
 })
 
 Vitest.describe('buildRequest', () => {
@@ -195,7 +224,7 @@ Vitest.describe('buildRequest', () => {
       const error = yield* buildRequest({
         method: 'POST',
         path: '/databases/123/query',
-        body,
+        body: jsonBody(body),
       }).pipe(Effect.flip)
 
       expect(error).toBeInstanceOf(NotionApiError)
@@ -218,11 +247,33 @@ Vitest.describe('buildRequest', () => {
       const request = yield* buildRequest({
         method: 'POST',
         path: '/databases/123/query',
-        body,
+        body: jsonBody(body),
       })
 
       expect(request.method).toBe('POST')
       // Body is set but we can't easily inspect it without reading the stream
+    }).pipe(
+      Effect.provideService(NotionConfig, {
+        authToken: Redacted.make('test-token'),
+      }),
+    ),
+  )
+
+  Vitest.it.effect('omits the JSON content type for form-data bodies', () =>
+    Effect.gen(function* () {
+      const formData = new FormData()
+      formData.append('part_number', '1')
+
+      const request = yield* buildRequest({
+        method: 'POST',
+        path: '/file_uploads/upload-1/send',
+        body: formDataBody(formData),
+      })
+
+      // The transport owns `multipart/form-data; boundary=...`.
+      expect(request.headers['content-type']).toBeUndefined()
+      expect(request.body._tag).toBe('FormData')
+      expect(request.headers['notion-version']).toBe(NOTION_API_VERSION)
     }).pipe(
       Effect.provideService(NotionConfig, {
         authToken: Redacted.make('test-token'),
@@ -349,6 +400,25 @@ Vitest.describe('executeRequest', () => {
         createTestLayer(() => ({
           status: 404,
           body: sampleResponses.error(404, 'object_not_found', 'Database not found'),
+        })),
+      ),
+    ),
+  )
+
+  Vitest.it.effect('returns NotionApiError for redirect responses', () =>
+    Effect.gen(function* () {
+      const result = yield* get({
+        path: '/databases/123',
+        responseSchema: TestSchema,
+      }).pipe(Effect.flip)
+
+      expect(result).toBeInstanceOf(NotionApiError)
+      expect(result.status).toBe(302)
+    }).pipe(
+      Effect.provide(
+        createTestLayer(() => ({
+          status: 302,
+          body: sampleResponses.error(302, 'invalid_request', 'Unexpected redirect'),
         })),
       ),
     ),
