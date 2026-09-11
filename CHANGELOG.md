@@ -171,6 +171,10 @@ All notable changes to this project will be documented in this file.
   until their resolution handles are released, preventing automatic Nix GC from
   deleting projected executables during long aggregate overlay publication.
 
+- **nix/oxlint-with-plugins.nix**: include `tsgolint` in the wrapper's runtime
+  closure so type-aware linting remains hermetic inside Buck actions rather than
+  depending on the developer shell's `PATH`.
+
 - **CI**: keep draft assistant PRs mergeable by completing the auto-review job
   successfully when no review request is needed.
 - **CI**: stop requiring `main`-only Notion integration, live-deploy, and
