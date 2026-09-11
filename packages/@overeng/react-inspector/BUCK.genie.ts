@@ -7,7 +7,6 @@ export const buck2TypeScriptAdmission = {
   packagePath: 'packages/@overeng/react-inspector',
   projectionSource: 'packages/@overeng/react-inspector/BUCK.genie.ts',
   sourceRoots: ['src', 'test-d'],
-  editorViewConsumer: false,
   authorities: [
     { declarationEntrypoint: 'src/index.d.ts', projectFile: 'tsconfig.json' },
     {

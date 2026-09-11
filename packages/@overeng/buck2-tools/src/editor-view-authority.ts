@@ -55,11 +55,12 @@ const requirePackagePaths = (value: unknown): readonly string[] => {
     isUnknownArray(value) === true
       ? value
       : fail('editor consumer admission registry must be an array')
-  const paths = entries.map((entry) =>
-    typeof entry === 'string'
+  const paths = entries.map((entry) => {
+    if (entry === '.') return entry
+    return typeof entry === 'string'
       ? requireRepositoryRelativePath(entry)
-      : fail('editor consumer admission registry contains a non-string package path'),
-  )
+      : fail('editor consumer admission registry contains a non-string package path')
+  })
   if (paths.length === 0) fail('editor consumer admission registry must not be empty')
   const sorted = paths.toSorted((left, right) => compareBytes({ left, right }))
   if (new Set(sorted).size !== sorted.length)
@@ -130,8 +131,9 @@ export const writeEditorViewAuthority = async ({
     fail(`cell must be a portable Buck cell name: ${cell}`)
   if (isAbsolute(buck2) === false) fail(`Buck2 must be an absolute path: ${buck2}`)
   if (isAbsolute(git) === false) fail(`Git must be an absolute path: ${git}`)
-  const canonicalRepoRoot = realpathSync(repoRoot)
-  const canonicalWorkspaceRoot = realpathSync(workspaceRoot)
+  const logicalRepoRoot = resolve(repoRoot)
+  const logicalWorkspaceRoot = resolve(workspaceRoot)
+  const canonicalRepoRoot = realpathSync(logicalRepoRoot)
   // `output` may arrive as an absolute path in a different namespace than the
   // canonical repository root (macOS `/tmp` vs `/private/tmp`), in which case
   // `resolve` returns it unchanged and the containment check below compares two
@@ -145,7 +147,7 @@ export const writeEditorViewAuthority = async ({
     outputFromRepo.startsWith('../') === true
   )
     fail(`authority output escapes repository: ${outputPath}`)
-  const pathFromWorkspace = relative(canonicalWorkspaceRoot, canonicalRepoRoot)
+  const pathFromWorkspace = relative(logicalWorkspaceRoot, logicalRepoRoot)
   if (
     isAbsolute(pathFromWorkspace) === true ||
     pathFromWorkspace === '..' ||
@@ -163,8 +165,8 @@ export const writeEditorViewAuthority = async ({
   })
   requireCommandSuccess({ command: git, result: gitResult })
   const trackedPaths = new Set(parseGitCandidatePaths(gitResult.stdout))
-  const repositoryPackageManifests = requiredPackages.map(
-    (packagePath) => `${packagePath}/package.json`,
+  const repositoryPackageManifests = requiredPackages.map((packagePath) =>
+    packagePath === '.' ? 'package.json' : `${packagePath}/package.json`,
   )
   for (const manifest of repositoryPackageManifests)
     if (trackedPaths.has(manifest) === false)
@@ -177,7 +179,7 @@ export const writeEditorViewAuthority = async ({
     const ownershipResult = runCommand({
       command: buck2,
       args: ['uquery', '--output-format', 'json', 'owner(%s)', `@${argumentFile}`],
-      cwd: canonicalWorkspaceRoot,
+      cwd: logicalWorkspaceRoot,
     })
     requireCommandSuccess({ command: buck2, result: ownershipResult })
     const ownersByCandidate = parseBuckOwnershipQuery({
@@ -188,7 +190,9 @@ export const writeEditorViewAuthority = async ({
       const candidate = candidates[index] ?? fail(`missing ownership candidate for ${packagePath}`)
       const owners =
         ownersByCandidate.get(candidate) ?? fail(`missing Buck ownership for ${candidate}`)
-      return owners.includes(`${cell}//${packagePath}:package.json`)
+      const expectedOwner =
+        packagePath === '.' ? `${cell}//:package.json` : `${cell}//${packagePath}:package.json`
+      return owners.includes(expectedOwner)
     })
     const missing = requiredPackages.filter(
       (packagePath) => ownedPackages.includes(packagePath) === false,

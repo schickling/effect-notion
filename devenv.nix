@@ -584,6 +584,29 @@ let
       printf "%s\n" "$workspace_root"
     }
   '';
+  editorViewExec =
+    mode:
+    trace.exec "buck2:editor:${mode}" ''
+      set -euo pipefail
+      ${composedWorkspaceRootPredicate}
+      root="''${DEVENV_ROOT:-$PWD}"
+      workspace_root="$(composed_workspace_root "$root")" || {
+        identity_status=$?
+        echo "buck2:editor:${mode} requires a composed megarepo workspace" >&2
+        exit "$identity_status"
+      }
+      exec ${pkgs.bun}/bin/bun "$root/scripts/editor-view-authority.ts" ${mode} \
+        --repo-root "$root" \
+        --workspace-root "$workspace_root" \
+        --cell effect_utils \
+        --buck2 "$workspace_root/.megarepo/bin/buck2" \
+        --git ${pkgs.git}/bin/git \
+        --output "$root/.devenv/editor-workspace-authority.json" \
+        --publisher "$root/packages/@overeng/buck2-tools/src/editor-view.ts" \
+        --cp ${pkgs.coreutils}/bin/cp \
+        --mv ${pkgs.coreutils}/bin/mv \
+        --snapshot-retention 3
+    '';
 in
 {
   imports = [
@@ -618,7 +641,6 @@ in
           "mr:lock-sync-check"
           "mr:source-policy-check"
           "nix:flake:check"
-          "pnpm:install"
           "test:run"
           "weaver:check"
           "weaver:diff"
@@ -676,17 +698,19 @@ in
     (taskModules.weaver-version-smoke { })
     { tasks."check:all".after = [ "weaver:version-smoke" ]; }
     (taskModules.clean { packages = allPackages; })
-    # Repo-root pnpm install task
-    # NOTE: Using pnpm temporarily. See: context/workarounds/bun-issues.md
+    # Pnpm remains only as a lockfile authoring tool. It cannot materialize a
+    # workspace dependency graph or publish node_modules.
     (taskModules.pnpm {
       packages = allPackages;
       inherit pnpmPkg;
+      materialize = false;
     })
     # Source-side Vitest is now only what Buck does not execute: packages outside the Buck
     # test registry and each admitted lane's exact excluded files. Retained JSON therefore
     # exists exactly where the baseline gate still needs a source report.
     (taskModules.test-playwright {
       playwrightPkg = inputs.playwright.packages.${currentSystem}.playwright;
+      installTask = "buck2:editor:publish";
       packages = [
         {
           path = "packages/@overeng/utils";
@@ -699,6 +723,7 @@ in
       ];
     })
     (taskModules.test {
+      installTask = "buck2:editor:publish";
       packages = sourceTestPackages;
       extraTests = [
         "devenv-modules:test"
@@ -710,6 +735,7 @@ in
     # Per-lane Buck `test:<package>` tasks, each pulling in its unbounded complement.
     { tasks = buck2TestLaneTasks; }
     (taskModules.storybook {
+      installTask = "buck2:editor:publish";
       packages = packagesWithStorybook;
     })
     (taskModules.netlify {
@@ -766,12 +792,14 @@ in
       # Reuse the Genie semantic-input SSOT in the cheap Git-index outer
       # fingerprint so a warm shell cannot bypass projection invalidation.
       extraFingerprintGlobs = genieExtraInputGlobs;
-      # Keep shell entry resilient (R12): optional tasks run via @complete.
-      # Ordering ensures source CLIs have deps before use.
+      # Bootstrap the source-generator closure from committed projections,
+      # regenerate, recompose the fresh graph, then publish authoritative views.
       optionalTasks = [
-        "pnpm:install"
+        "mr:setup"
+        "buck2:editor:bootstrap"
         "genie:run"
         "mr:apply"
+        "buck2:editor:publish"
       ];
       completionsCliNames = [
         "genie"
@@ -779,7 +807,10 @@ in
       ];
     })
     # Nix CLI build and hash management
-    (taskModules.nix-cli { cliPackages = nixCliPackages; })
+    (taskModules.nix-cli {
+      cliPackages = nixCliPackages;
+      dependencyTask = null;
+    })
     (taskModules.secretspec { })
     taskModules.devenv-module-tests
     # Notion integration tests (requires NOTION_API_TOKEN)
@@ -792,13 +823,36 @@ in
   # Genie product, which is also what downstream consumers set here.
   effectUtils.genie.package = genieCli;
 
-  # Design-time generators import the workspace dependency graph. The packaged
-  # CLI is self-contained, but the generator sources it loads still require
-  # pnpm's package links.
-  tasks."genie:run".after = [ "pnpm:install" ];
-  tasks."genie:check".after = [ "pnpm:install" ];
-  tasks."lint:check:genie".after = [ "pnpm:install" ];
-  tasks."genie:watch".after = [ "pnpm:install" ];
+  # The packaged Genie CLI is self-contained; generator sources resolve their
+  # external imports through the committed-graph bootstrap editor views. This
+  # stage-zero publication cannot report governed Buck evidence: genie:check
+  # must first prove the graph fresh, then mr:apply and the authoritative
+  # publisher replay it.
+  tasks."genie:run".after = [ "buck2:editor:bootstrap" ];
+  tasks."genie:check".after = [ "buck2:editor:bootstrap" ];
+  tasks."lint:check:genie".after = [ "buck2:editor:bootstrap" ];
+  tasks."genie:watch".after = [ "buck2:editor:bootstrap" ];
+  tasks."lint:check:lockfile".description =
+    lib.mkForce "Verify lockfile and package specifiers through source-side Genie freshness";
+  tasks."lint:check:lockfile".after = lib.mkForce [ "genie:check" ];
+  tasks."lint:check:lockfile".exec = lib.mkForce (
+    trace.exec "lint:check:lockfile" "exec genie --check"
+  );
+  tasks."lint:fix:oxlint".after = [ "buck2:editor:publish" ];
+  tasks."devenv-modules:test".after = lib.mkForce [ "buck2:editor:publish" ];
+  tasks."test:restate-integration".after = lib.mkForce [ "buck2:editor:publish" ];
+  tasks."test:notion-integration:notion-effect-client".after = lib.mkForce [ "buck2:editor:publish" ];
+  tasks."test:notion-integration:notion-cli".after = lib.mkForce [ "buck2:editor:publish" ];
+  tasks."test:notion-integration:notion-datasource-sync".after = lib.mkForce [
+    "buck2:editor:publish"
+  ];
+  tasks."test:notion-integration:notion-md".after = lib.mkForce [ "buck2:editor:publish" ];
+  tasks."test:notion-integration:notion-react".after = lib.mkForce [ "buck2:editor:publish" ];
+  tasks."weaver:live-check".after = [ "buck2:editor:publish" ];
+  tasks."test:pty-effect:unbounded".env = {
+    NODE_PTY_NATIVE_PACKAGE = "${nodePtyNative}/node_modules/node-pty";
+    NODE_OPTIONS = "--import=${./. + "/packages/@overeng/pty-effect/test/node-pty-native-hook.ts"}";
+  };
 
   # Read-only formatting and linting are Buck actions over the exact generated
   # source manifest. Mutation remains source-side under lint:fix.
@@ -925,7 +979,7 @@ in
   # Bun: the pnpm-lock projection it imports reads Bun.YAML.
   tasks."genie:buck2:test" = {
     description = "Run the Buck2 genie projection and staged-runtime guards under pinned Bun";
-    after = [ "pnpm:install" ];
+    after = [ "buck2:editor:publish" ];
     exec = trace.exec "genie:buck2:test" ''
       set -euo pipefail
       cd "''${DEVENV_ROOT:-$PWD}"
@@ -940,24 +994,11 @@ in
     ];
   };
 
-  # NOTE (decision 0004): there is deliberately NO `genie:bootstrap`-before-`pnpm:install` edge.
-  # An earlier form wired `pnpm:install.after = [ "genie:bootstrap" ]` so install would run
-  # `genie --phase bootstrap` first. Verified during implementation that this does NOT arbitrate
-  # bootstrap-safety: the source-mode `genie` on PATH needs `node_modules` (it cold-guarded to a
-  # no-op on a fresh clone), and committed outputs (T01) mean install succeeds with the on-disk
-  # `package.json` regardless — so the edge enforced nothing while adding cost to every warm install
-  # and a new failure mode. Bootstrap-safety is instead demonstrated empirically by
-  # `bootstrap:cold-proof` (R32, below), with `bootstrap-closure:check` as fast local feedback.
-
-  # bootstrap:cold-proof (R32) — the EMPIRICAL bootstrap-safety authority. In a fresh, no-node_modules
-  # tree of the committed source it runs the self-contained packaged Genie CLI
-  # (`.#genie`, deps baked into the store) with `--phase bootstrap`, then
-  # `pnpm install --frozen-lockfile`, asserting both succeed.
-  # This exercises the exact pre-install path and turns bootstrap-safety from asserted into
-  # demonstrated. Heavy (nix build + full install) so it is a dedicated task/CI lane, NOT in
-  # `check:all`. Set GENIE_COLD_PROOF_BIN to reuse an already-built genie and skip the nix build.
+  # Empirical authority for the minimal generator phase that must run before
+  # any dependency view exists. The design-time source closure is proven by
+  # buck2:editor:bootstrap followed by genie:check.
   tasks."bootstrap:cold-proof" = {
-    description = "Prove bootstrap-phase genie + pnpm install run cold (no node_modules) — R32 authority";
+    description = "Prove the marked bootstrap Genie generators run without node_modules";
     exec = trace.exec "bootstrap:cold-proof" ''
       set -euo pipefail
       root="''${DEVENV_ROOT:-$PWD}"
@@ -965,34 +1006,8 @@ in
     '';
   };
 
-  tasks."pnpm:link-native-node-packages" = {
-    after = [ "pnpm:install" ];
-    description = "Link Nix-built native Node packages into the pnpm projection";
-    exec = trace.exec "pnpm:link-native-node-packages" ''
-      set -euo pipefail
-      source ${lib.escapeShellArg pnpmTaskHelpersScript}
-
-      link_native_package() {
-        local package_name="$1"
-        local package_path="$2"
-        local rel_path="$package_name"
-        local search_roots=(node_modules)
-
-        if [[ "$package_name" == @*/* ]]; then
-          rel_path="$(dirname "$package_name")/$(basename "$package_name")"
-        fi
-
-        find "''${search_roots[@]}" \
-          -path "*/node_modules/$rel_path" \
-          -exec sh -c 'package_path="$1"; shift; for target do rm -rf "$target"; ln -s "$package_path" "$target"; done' sh "$package_path" {} +
-      }
-
-      link_native_package "node-pty" "${nodePtyNative}/node_modules/node-pty"
-    '';
-  };
-
   tasks."test:megarepo-cold-gc" = {
-    after = [ "pnpm:install" ];
+    after = [ "buck2:editor:publish" ];
     description = "Run isolated megarepo cold-GC integration tests";
     cwd = "packages/@overeng/megarepo";
     exec = trace.exec "test:megarepo-cold-gc" ''
@@ -1147,109 +1162,40 @@ in
     '';
   };
 
-  tasks."buck2:editor-authority" = {
-    description = "Derive exact whole-workspace editor dependency authority from semantic and Buck ownership";
-    # Buck analysis of //buck2/toolchains reads the `.buck2/capabilities`
-    # projection, so every task that invokes Buck must be ordered after it.
+  tasks."buck2:editor:bootstrap" = {
+    description = "Bootstrap source-generator dependencies from the committed Buck graph";
+    after = [ "mr:setup" ];
+    exec = editorViewExec "bootstrap";
+  };
+
+  tasks."buck2:editor:authority" = {
+    description = "Prove complete Buck ownership of every workspace editor dependency view";
     after = [ "mr:apply" ];
-    exec = trace.exec "buck2:editor-authority" ''
-      set -euo pipefail
-      root="''${DEVENV_ROOT:-$PWD}"
-      workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
-      buck="$workspace_root/.megarepo/bin/buck2"
-      ${pkgs.bun}/bin/bun "$root/scripts/editor-view-authority.ts" \
-        --repo-root "$root" \
-        --workspace-root "$workspace_root" \
-        --cell effect_utils \
-        --buck2 "$buck" \
-        --git ${pkgs.git}/bin/git \
-        --output "$root/.devenv/editor-workspace-authority.json"
-    '';
+    exec = editorViewExec "authority";
   };
 
-  tasks."buck2:tui-core:publish-editor" = {
-    description = "Publish the admitted Buck tui-core node_modules tree to the scoped editor view";
-    after = [ "buck2:editor-authority" ];
-    exec = trace.exec "buck2:tui-core:publish-editor" ''
-      set -euo pipefail
-      root="''${DEVENV_ROOT:-$PWD}"
-      authority="$root/.devenv/editor-workspace-authority.json"
-      scratch="$(${pkgs.coreutils}/bin/mktemp -d "$root/.devenv/editor-publish-inputs.XXXXXX")"
-      cleanup_editor_publish() {
-        status=$?
-        ${pkgs.coreutils}/bin/rm -rf -- "$scratch" || status=$?
-        trap - EXIT
-        exit "$status"
-      }
-      trap cleanup_editor_publish EXIT
-      workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
-      buck="$workspace_root/.megarepo/bin/buck2"
-      (
-        cd "$workspace_root"
-        "$buck" build effect_utils//packages/@overeng/tui-core:editor_inputs --out "$scratch/editor_inputs"
-        "$buck" build effect_utils//packages/@overeng/tui-core:node_modules --out "$scratch/node_modules"
-      )
-      ${pkgs.bun}/bin/bun "$root/packages/@overeng/buck2-tools/src/editor-view.ts" publish \
-        --repo-root "$root" \
-        --package packages/@overeng/tui-core \
-        --cell tui-core \
-        --target //packages/@overeng/tui-core:editor_inputs \
-        --editor-inputs "$scratch/editor_inputs" \
-        --node-modules "$scratch/node_modules" \
-        --cp ${pkgs.coreutils}/bin/cp \
-        --workspace-authority "$authority" \
-        --consumer-cache "$root/.devenv/vite-cache/tui-core" \
-        --snapshot-retention 3 \
-        --mv ${pkgs.coreutils}/bin/mv
-    '';
+  tasks."buck2:editor:publish" = {
+    description = "Atomically publish every Buck-owned workspace editor dependency view";
+    after = [ "mr:apply" ];
+    exec = editorViewExec "publish";
   };
 
-  tasks."buck2:tui-core:check-editor" = {
-    description = "Check the scoped tui-core editor view against current admitted Buck outputs";
-    after = [ "buck2:editor-authority" ];
-    exec = trace.exec "buck2:tui-core:check-editor" ''
-      set -euo pipefail
-      root="''${DEVENV_ROOT:-$PWD}"
-      authority="$root/.devenv/editor-workspace-authority.json"
-      scratch="$(${pkgs.coreutils}/bin/mktemp -d "$root/.devenv/editor-check-inputs.XXXXXX")"
-      cleanup_editor_check() {
-        status=$?
-        ${pkgs.coreutils}/bin/rm -rf -- "$scratch" || status=$?
-        trap - EXIT
-        exit "$status"
-      }
-      trap cleanup_editor_check EXIT
-      workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
-      buck="$workspace_root/.megarepo/bin/buck2"
-      (
-        cd "$workspace_root"
-        "$buck" build effect_utils//packages/@overeng/tui-core:editor_inputs --out "$scratch/editor_inputs"
-        "$buck" build effect_utils//packages/@overeng/tui-core:node_modules --out "$scratch/node_modules"
-      )
-      ${pkgs.bun}/bin/bun "$root/packages/@overeng/buck2-tools/src/editor-view.ts" check \
-        --repo-root "$root" \
-        --package packages/@overeng/tui-core \
-        --cell tui-core \
-        --target //packages/@overeng/tui-core:editor_inputs \
-        --editor-inputs "$scratch/editor_inputs" \
-        --node-modules "$scratch/node_modules" \
-        --cp ${pkgs.coreutils}/bin/cp \
-        --workspace-authority "$authority" \
-        --consumer-cache "$root/.devenv/vite-cache/tui-core" \
-        --snapshot-retention 3 \
-        --mv ${pkgs.coreutils}/bin/mv
-    '';
+  tasks."buck2:editor:check" = {
+    description = "Fail when any published workspace editor dependency view is stale";
+    after = [ "mr:apply" ];
+    exec = editorViewExec "check";
   };
 
-  tasks."buck2:tui-core:recover-editor-lock" = {
-    description = "Recover the scoped tui-core editor publication lock with its exact owner token";
-    exec = trace.exec "buck2:tui-core:recover-editor-lock" ''
+  tasks."buck2:editor:recover-lock" = {
+    description = "Recover the shared editor publication lock with its exact owner token";
+    exec = trace.exec "buck2:editor:recover-lock" ''
       set -euo pipefail
       root="''${DEVENV_ROOT:-$PWD}"
+      package="''${EDITOR_VIEW_PACKAGE:?set EDITOR_VIEW_PACKAGE to a workspace package path}"
       token="''${EDITOR_VIEW_LOCK_TOKEN:?set EDITOR_VIEW_LOCK_TOKEN to the owner token printed by publish}"
       ${pkgs.bun}/bin/bun "$root/packages/@overeng/buck2-tools/src/editor-view.ts" recover-lock \
         --repo-root "$root" \
-        --package packages/@overeng/tui-core \
+        --package "$package" \
         --token "$token"
     '';
   };

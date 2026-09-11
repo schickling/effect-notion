@@ -20,7 +20,6 @@ export const buck2TypeScriptAdmission = {
       distTarget: '//packages/@overeng/stylex-tokens:dist',
     },
   ],
-  editorViewConsumer: false,
   authorities: [{ declarationEntrypoint: 'mod.d.ts', projectFile: 'tsconfig.json' }],
 } as const satisfies Buck2TypeScriptAdmission
 

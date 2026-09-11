@@ -117,13 +117,12 @@ describe('JavaScript product registry', () => {
     }
   })
 
-  it('keeps product package admissions editor non-consumers with targets clear of authority', () => {
+  it('keeps product targets clear of TypeScript authority targets', () => {
     const admissions = Object.values(buck2TypeScriptAdmissions)
     const authorityTargetNames: Record<string, true> = { typecheck: true, dist: true }
     for (const packagePath of productPackagePaths) {
       const admission = admissions.find((candidate) => candidate.packagePath === packagePath)
       expect(admission, `missing TypeScript admission for ${packagePath}`).toBeDefined()
-      expect(admission?.editorViewConsumer).toBe(false)
       for (const product of javaScriptProductsFor(
         packagePath as keyof typeof javaScriptProductRegistry,
       )) {

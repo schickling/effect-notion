@@ -7,7 +7,6 @@ export const buck2TypeScriptAdmission = {
   packagePath: 'packages/@overeng/stylex-tokens',
   projectionSource: 'packages/@overeng/stylex-tokens/BUCK.genie.ts',
   sourceRoots: ['src'],
-  editorViewConsumer: false,
   authorities: [{ declarationEntrypoint: 'src/tokens.stylex.d.ts', projectFile: 'tsconfig.json' }],
 } as const satisfies Buck2TypeScriptAdmission
 

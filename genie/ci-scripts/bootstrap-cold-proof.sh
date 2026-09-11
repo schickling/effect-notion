@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# bootstrap:cold-proof (R32) — EMPIRICAL bootstrap-safety proof.
+# bootstrap:cold-proof (R32) — empirical bootstrap-generator safety proof.
 #
-# Demonstrates (not merely asserts) that the bootstrap-phase generators run BEFORE install in a
-# fresh, no-`node_modules` environment and produce a state `pnpm install` accepts. This is the
-# authority for the bootstrap contract; `bootstrap-closure:check` (static) is fast local feedback.
+# Demonstrates that the bootstrap-phase generators run in a fresh,
+# no-`node_modules` environment. This is the authority for the bootstrap
+# contract; `bootstrap-closure:check` is its fast static pre-check.
 #
 # Mechanism:
 #   1. Realize the packaged Genie CLI (`.#genie`) — a wrapper over the reviewed,
@@ -12,20 +12,17 @@
 #      it needs no `node_modules` to run. (Override with
 #      GENIE_COLD_PROOF_BIN=/path/to/genie to reuse an already-built product and
 #      skip the Nix build.)
-#   2. Materialize a `node_modules`-free tree of the COMMITTED repo source via `git archive HEAD`
-#      into a temp dir OUTSIDE the repo (so bun/pnpm cannot walk up into the repo's node_modules).
-#   3. Run `genie --phase bootstrap` COLD in that tree. Success proves every bootstrap generator's
-#      transitive runtime closure is importable pre-install (a reach into `effect`/`@effect/*`/
-#      `@overeng/otel-contract` would throw on import and fail this step). Non-vacuity: assert it
-#      selected exactly the `// @genie-bootstrap`-marked set (independently counted from the tree).
-#   4. Run `pnpm install --frozen-lockfile` in that tree. Success proves the cold-regenerated install
-#      inputs match the committed lockfile exactly.
+#   2. Materialize a `node_modules`-free tree of the committed repo source via
+#      `git archive HEAD` outside the repo.
+#   3. Run `genie --phase bootstrap` cold. Success proves every bootstrap
+#      generator's transitive runtime closure is importable without a dependency
+#      view. Non-vacuity asserts the exact `// @genie-bootstrap`-marked set.
 #
 # Usage:
 #   genie/ci-scripts/bootstrap-cold-proof.sh
 #   GENIE_COLD_PROOF_BIN=./result/bin/genie genie/ci-scripts/bootstrap-cold-proof.sh
 #
-# Exit 0 iff BOTH the cold `genie --phase bootstrap` and the cold `pnpm install` succeed.
+# Exit 0 iff the complete marked bootstrap generator set succeeds cold.
 
 set -euo pipefail
 
@@ -145,24 +142,3 @@ if (files.length !== expected) {
 }
 console.error(`[cold-proof] cold genie --phase bootstrap OK — ${files.length} generators ran, none errored`)
 NODE
-
-# --- 4. Cold `pnpm install --frozen-lockfile` ------------------------------------------------------
-# Mirror the repo's canonical install (see nix/devenv-modules/tasks/lib/effect-utils-install.nix):
-# frozen (asserts the cold-regenerated inputs match the committed lockfile), scripts ignored, and
-# resolving against the shared/warm pnpm store so the proof is offline-ish and CI-cache-friendly.
-store_dir="${PNPM_STORE_DIR:-${PNPM_CONFIG_STORE_DIR:-${repo}/.devenv/pnpm-store-pure-v1}}"
-command -v pnpm >/dev/null 2>&1 || fail "pnpm not on PATH (run inside the devenv shell / task)"
-log "running pnpm install --frozen-lockfile COLD (store: ${store_dir}) ..."
-if ! DEVENV_TASK_PASSTHROUGH=1 pnpm install \
-  --force \
-  --frozen-lockfile \
-  --ignore-scripts \
-  --config.store-dir="$store_dir" \
-  --dir "$tree" >"${work}/pnpm.log" 2>&1; then
-  log "cold pnpm install log (tail):"
-  tail -40 "${work}/pnpm.log" >&2 || true
-  fail "cold 'pnpm install --frozen-lockfile' failed against the cold-regenerated inputs"
-fi
-[ -d "${tree}/node_modules" ] || fail "pnpm install reported success but produced no node_modules"
-
-log "PASS — cold 'genie --phase bootstrap' (${expected} generators) + cold 'pnpm install' both succeeded"

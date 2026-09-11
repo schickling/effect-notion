@@ -19,7 +19,6 @@ export const buck2TypeScriptAdmission = {
       distTarget: '//packages/@overeng/utils-dev:dist',
     },
   ],
-  editorViewConsumer: false,
   authorities: [{ declarationEntrypoint: 'src/mod.d.ts', projectFile: 'tsconfig.json' }],
   tests: [
     {
@@ -29,7 +28,6 @@ export const buck2TypeScriptAdmission = {
       // The Vite contract gets a separate Buck lane so CI retains its bundle-specific signal.
       excludes: ['src/PtySession.test.ts', 'src/bundle-smoke.unit.test.ts', 'src/client.test.ts'],
       sourceOwners: { 'src/bundle-smoke.unit.test.ts': 'bundle:smoke' },
-      unboundedAfter: ['pnpm:link-native-node-packages'],
     },
     {
       name: 'bundle_smoke',

@@ -9,7 +9,7 @@
 // Main tasks tracked:
 //   - check:quick (the most common developer workflow)
 //   - buck2:check (bounded TypeScript, test, and product authority)
-//   - pnpm:install (dependency installation)
+//   - buck2:editor:* (dependency projection)
 //   - genie:run (config generation)
 //   - lint:check (linting)
 //   - test:run (test execution)
@@ -82,9 +82,9 @@ local y = {
   // Row 2: check:quick (most common workflow)
   checkQuickRow: 9,
   checkQuickContent: 10,
-  // Row 3: Install + Genie
-  installRow: 18,
-  installContent: 19,
+  // Row 3: Dependency views + Genie
+  editorRow: 18,
+  editorContent: 19,
   // Row 4: Lint Components
   lintRow: 27,
   lintContent: 28,
@@ -100,9 +100,9 @@ local y = {
   // Row 8: Shell Entry Performance
   shellRow: 63,
   shellContent: 64,
-  // Row 9: Per-Package Install Times
-  pkgInstallRow: 72,
-  pkgInstallContent: 73,
+  // Row 9: Per-package editor view times
+  packageEditorRow: 72,
+  packageEditorContent: 73,
 };
 
 g.dashboard.new('devenv task Duration Trends')
@@ -168,18 +168,18 @@ g.dashboard.new('devenv task Duration Trends')
   ),
 
   // =========================================================================
-  // Row 3: Install + Genie
+  // Row 3: Dependency Views + Genie
   // =========================================================================
-  at(g.panel.row.new('Install + Config Generation'), 0, y.installRow, 24, 1),
+  at(g.panel.row.new('Dependency Views + Config Generation'), 0, y.editorRow, 24, 1),
 
   at(
-    taskDurationPanel('pnpm:install (aggregate) (p50 / p95 / p99)', 'pnpm:install.*'),
-    0, y.installContent, 12, 8,
+    taskDurationPanel('Editor dependency views (p50 / p95 / p99)', 'buck2:editor:bootstrap|buck2:editor:publish|buck2:editor:check'),
+    0, y.editorContent, 12, 8,
   ),
 
   at(
     taskDurationPanel('genie:run duration (p50 / p95 / p99)', 'genie:run'),
-    12, y.installContent, 12, 8,
+    12, y.editorContent, 12, 8,
   ),
 
   // =========================================================================
@@ -287,22 +287,22 @@ g.dashboard.new('devenv task Duration Trends')
   at(
     taskDurationPanel(
       'Shell entry sub-tasks (p50 / p95)',
-      'setup:gate|pnpm:install|genie:run|mr:fetch-apply|setup:completions|devenv:.*',
+      'setup:gate|buck2:editor:bootstrap|genie:run|mr:apply|buck2:editor:publish|setup:completions|devenv:.*',
     ),
     12, y.shellContent, 12, 8,
   ),
 
   // =========================================================================
-  // Row 9: Per-Package Install Times
+  // Row 9: Per-Package Editor Views
   // =========================================================================
-  at(g.panel.row.new('Per-Package Install Times'), 0, y.pkgInstallRow, 24, 1),
+  at(g.panel.row.new('Per-Package Editor View Times'), 0, y.packageEditorRow, 24, 1),
 
   at(
     taskDurationPanel(
-      'pnpm:install per-package (p50 / p95)',
-      'pnpm:install:tui-react|pnpm:install:megarepo|pnpm:install:genie|pnpm:install:notion-cli|pnpm:install:utils|pnpm:install:effect-path|pnpm:install:effect-react|pnpm:install:effect-rpc-tanstack|pnpm:install:effect-schema-form|pnpm:install:effect-schema-form-aria|pnpm:install:effect-ai-claude-cli|pnpm:install:react-inspector|pnpm:install:tui-core|pnpm:install:notion-effect-client|pnpm:install:notion-effect-schema|pnpm:install:oxc-config|pnpm:install:utils-dev',
+      'Editor dependency view publication (p50 / p95)',
+      'buck2:editor:publish|buck2:editor:check',
     ),
-    0, y.pkgInstallContent, 24, 8,
+    0, y.packageEditorContent, 24, 8,
   ),
 
 ])
