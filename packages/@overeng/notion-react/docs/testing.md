@@ -108,7 +108,7 @@ Missing either env var silently skips the whole E2E suite via
 
 ## Pointing at a different Notion workspace
 
-Export `NOTION_API_TOKEN` and `NOTION_TEST_PARENT_PAGE_ID` in the local shell, or add op-proxy references for them under `[x-op-proxy.refs]` in `secretspec.toml`.
+Export `NOTION_API_TOKEN` and `NOTION_TEST_PARENT_PAGE_ID` in the local shell, or declare them in `secretspec.toml` with a provider-backed `ref` so the configured SecretSpec provider resolves them.
 
 Notes:
 

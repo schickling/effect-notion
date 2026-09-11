@@ -1,8 +1,20 @@
-# SecretSpec tasks and op-proxy-backed runtime injection.
+# SecretSpec tasks — a thin composition over SecretSpec 0.20.
 #
-# Repos commit a `secretspec.toml` with standard SecretSpec declarations.
-# Optional `[x-op-proxy.refs]` entries map env names to `op://...` references for
-# local development without using raw `op` or plaintext dotenv files.
+# Repos commit a `secretspec.toml` with standard SecretSpec declarations. Native
+# SecretSpec owns everything about them: manifest loading and `extends`, profile
+# compilation, requiredness, deterministic planning, provider selection,
+# resolved-over-ambient environment semantics, and reason/caller policy. This
+# module only names three task-shaped compositions on top of it:
+#
+#   secrets:check    -> secretspec check --explain   (value-free resolution report)
+#   secrets:prefetch -> secretspec run -- true       (one resolution of the selected profile)
+#   secrets-run CMD  -> secretspec run -- CMD        (direct run through the provider)
+#
+# Nothing here parses the manifest, discovers it by walking up from the cwd,
+# reads individual references, skips or filters environment variables, exports
+# values, or re-implements provider/profile/reason precedence. Provider-backed
+# values (e.g. the op-proxy provider) are resolved in one call per selected
+# profile; the op-proxy server, not this module or the provider, owns cache policy.
 {
   file ? "secretspec.toml",
 }:
@@ -11,118 +23,34 @@ let
   trace = import ../lib/trace.nix { inherit lib; };
   secretspec = "${pkgs.secretspec}/bin/secretspec";
   escapedFile = lib.escapeShellArg file;
+
+  # `secrets-run` is a passthrough into `secretspec run`: every native flag
+  # (-P/--profile, -p/--provider, -S/--scope, --reason, --caller*, -f/--file)
+  # and every SECRETSPEC_* environment channel keeps its own precedence. The one
+  # thing this wrapper owns is defaulting the manifest to the repo's, and only
+  # when the caller did not select one and the repo actually has it.
   secretsRun = pkgs.writeShellApplication {
     name = "secrets-run";
-    runtimeInputs = [
-      pkgs.gawk
-      pkgs.secretspec
-    ];
     text = ''
       set -euo pipefail
 
-      secrets_file=""
-      profile_args=()
-      reason="run command with repo secrets"
-      cache="1d"
-
-      usage() {
-        cat >&2 <<'EOF'
-      Usage: secrets-run [--file secretspec.toml] [--profile name] [--reason text] [--cache ttl] -- command [args...]
-
-      Loads missing variables declared in [x-op-proxy.refs] via op-proxy, then
-      runs the command through `secretspec run --provider env`.
-      EOF
-      }
-
-      while [ "$#" -gt 0 ]; do
-        case "$1" in
-          -f|--file)
-            secrets_file="''${2:-}"
-            shift 2
-            ;;
-          -P|--profile)
-            profile_args+=(--profile "''${2:-}")
-            shift 2
-            ;;
-          --reason)
-            reason="''${2:-}"
-            shift 2
-            ;;
-          --cache)
-            cache="''${2:-}"
-            shift 2
-            ;;
-          --)
-            shift
-            break
-            ;;
-          -h|--help)
-            usage
-            exit 0
-            ;;
-          -*)
-            echo "Unknown option: $1" >&2
-            usage
-            exit 2
-            ;;
-          *)
-            break
-            ;;
-        esac
-      done
-
       if [ "$#" -eq 0 ]; then
-        usage
+        printf '%s\n' \
+          'Usage: secrets-run [secretspec flags] [--] command [args...]' \
+          "" \
+          'Runs a command through "secretspec run", resolving the selected profile' \
+          'once through the configured provider. Flags are forwarded verbatim to' \
+          'SecretSpec, for example:' \
+          '  -P, --profile NAME    -p, --provider NAME    -S, --scope NAME' \
+          '      --reason TEXT         --caller NAME      -f, --file PATH' >&2
         exit 2
       fi
 
-      if [ -z "$secrets_file" ]; then
-        dir="$PWD"
-        while true; do
-          if [ -f "$dir/secretspec.toml" ]; then
-            secrets_file="$dir/secretspec.toml"
-            break
-          fi
-          if [ "$dir" = "/" ]; then
-            echo "No secretspec.toml found; pass --file explicitly." >&2
-            exit 1
-          fi
-          dir="$(dirname "$dir")"
-        done
+      if [ -z "''${SECRETSPEC_FILE:-}" ] && [ -f ${escapedFile} ]; then
+        export SECRETSPEC_FILE=${escapedFile}
       fi
 
-      refs="$(gawk '
-        /^\[x-op-proxy\.refs\][[:space:]]*$/ { in_refs = 1; next }
-        /^\[/ { in_refs = 0 }
-        in_refs && /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=/ {
-          key = $0
-          sub(/^[[:space:]]*/, "", key)
-          sub(/[[:space:]]*=.*/, "", key)
-          value = $0
-          sub(/^[^=]*=[[:space:]]*"/, "", value)
-          sub(/"[[:space:]]*(#.*)?$/, "", value)
-          if (value ~ /^op:\/\//) {
-            printf "%s\t%s\n", key, value
-          }
-        }
-      ' "$secrets_file")"
-
-      if [ -n "$refs" ]; then
-        while IFS="$(printf '\t')" read -r name ref; do
-          [ -n "$name" ] || continue
-          if [ -n "''${!name:-}" ]; then
-            continue
-          fi
-          if ! command -v op-proxy >/dev/null 2>&1; then
-            echo "op-proxy is required to resolve missing [x-op-proxy.refs] entry: $name" >&2
-            exit 1
-          fi
-          value="$(op-proxy read "$ref" --reason "$reason" --cache "$cache")"
-          export "$name=$value"
-        done <<< "$refs"
-      fi
-
-      exec secretspec -f "$secrets_file" run --provider env "''${profile_args[@]}" -- "$@"
+      exec ${secretspec} run "$@"
     '';
   };
 in
@@ -134,26 +62,28 @@ in
 
   tasks = {
     "secrets:check" = {
-      description = "Check required secrets against the current process environment";
+      description = "Value-free SecretSpec resolution report for the selected profile";
       exec = trace.exec "secrets:check" ''
         set -euo pipefail
         if [ ! -f ${escapedFile} ]; then
           echo "No ${file}; nothing to check."
           exit 0
         fi
-        ${secretspec} -f ${escapedFile} check --provider env --no-prompt
+        export SECRETSPEC_REASON="''${SECRETSPEC_REASON:-devenv secrets:check}"
+        ${secretspec} --file ${escapedFile} check --explain
       '';
     };
 
     "secrets:prefetch" = {
-      description = "Resolve op-proxy-backed secrets into the op-proxy cache";
+      description = "Resolve the selected profile once so later commands reuse the approval";
       exec = trace.exec "secrets:prefetch" ''
         set -euo pipefail
         if [ ! -f ${escapedFile} ]; then
           echo "No ${file}; nothing to prefetch."
           exit 0
         fi
-        secrets-run --file ${escapedFile} --reason "prefetch repo secrets" -- true
+        export SECRETSPEC_REASON="''${SECRETSPEC_REASON:-devenv secrets:prefetch}"
+        ${secretspec} --file ${escapedFile} run -- true
       '';
     };
   };
