@@ -103,7 +103,7 @@
       "descriptor": {
         "externalCapabilities": ["buck2", "coreutils", "git", "nix", "watchman"],
         "externalModules": [],
-        "integrity": "sha256-Ph9i2X0KOR3fp5AwxzQbxuRgcfDvffOGO+E3HcJ0myI=",
+        "integrity": "sha256-fRCG84LhmTrwCLZXVHs57hR+eSSQVlom/7uHbm6iMRA=",
         "modulePath": "mr.js",
         "platform": {
           "abi": "any",
@@ -124,12 +124,12 @@
         "sizeBytes": 3738243,
         "target": "effect_utils//packages/@overeng/megarepo:megarepo-candidate"
       },
-      "descriptorSha256": "72ff43ae40e0310b09fdc0dc569b5e3ae69cec46c1f5a43388c54c6f22effa09",
+      "descriptorSha256": "5c6154207641ef5f5fd528f16bdf9b8007e0fd5d4602cc717c86a2998acb8009",
       "release": {
-        "hash": "sha256-Ph9i2X0KOR3fp5AwxzQbxuRgcfDvffOGO+E3HcJ0myI=",
-        "name": "3e1f62d97d0a391ddfa79030c7341bc6e46071f0ef7df3863be1371dc2749b22-mr.js",
-        "tag": "buck2-product-v3-megarepo-3e1f62d97d0a391ddfa79030c7341bc6e46071f0ef7df3863be1371dc2749b22",
-        "url": "https://github.com/overengineeringstudio/effect-utils/releases/download/buck2-product-v3-megarepo-3e1f62d97d0a391ddfa79030c7341bc6e46071f0ef7df3863be1371dc2749b22/3e1f62d97d0a391ddfa79030c7341bc6e46071f0ef7df3863be1371dc2749b22-mr.js"
+        "hash": "sha256-fRCG84LhmTrwCLZXVHs57hR+eSSQVlom/7uHbm6iMRA=",
+        "name": "7d1086f382e1993af008b657547b39ee147e792490565a26ffbb876e6ea23110-mr.js",
+        "tag": "buck2-product-v3-megarepo-7d1086f382e1993af008b657547b39ee147e792490565a26ffbb876e6ea23110",
+        "url": "https://github.com/overengineeringstudio/effect-utils/releases/download/buck2-product-v3-megarepo-7d1086f382e1993af008b657547b39ee147e792490565a26ffbb876e6ea23110/7d1086f382e1993af008b657547b39ee147e792490565a26ffbb876e6ea23110-mr.js"
       }
     },
     {
