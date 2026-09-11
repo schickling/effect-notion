@@ -306,7 +306,7 @@ const protectImmutableSource = async (path: string): Promise<void> => {
     await Promise.all(
       (await readdir(path)).map((child) => protectImmutableSource(NodePath.join(path, child))),
     )
-    await chmod(path, 0o555)
+    await chmod(path, 0o755)
     return
   }
   if (info.isFile() === true) {
