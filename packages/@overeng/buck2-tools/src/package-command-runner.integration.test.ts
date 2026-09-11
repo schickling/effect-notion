@@ -46,7 +46,7 @@ writeFileSync(process.argv[2]!, 'mutated')
       })
       const [exitCode, stderr] = await Promise.all([
         child.exited,
-        Bun.readableStreamToText(child.stderr),
+        new Response(child.stderr).text(),
       ])
 
       expect(exitCode).toBe(1)
