@@ -144,7 +144,7 @@ describe('locked composition sources', () => {
       })
       const rootInfo = yield* Effect.promise(() => lstat(commitRoot))
       const gitInfo = yield* Effect.promise(() => lstat(NodePath.join(commitRoot, '.git')))
-      expect(rootInfo.mode & 0o777).toBe(0o555)
+      expect(rootInfo.mode & 0o777).toBe(0o755)
       expect(gitInfo.mode & 0o777).toBe(0o444)
       yield* fs.chmod(EffectPath.unsafe.absoluteDir(`${commitRoot}/`), 0o755)
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
