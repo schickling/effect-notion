@@ -188,7 +188,7 @@ rewrite_unrealized_tool_paths() {
   perl -0pi -e '
     s#/nix/store/[^"\s]*/bin/flock#'"$tmpdir"'/bin/flock#g;
     s#/nix/store/[^"\s]*/bin/node#node#g;
-    s#/nix/store/[^"\s]*-pnpm-12\.3\.4/bin/pnpm#'"$tmpdir"'/bin/pnpm-lock-mutator#g;
+    s#/nix/store/[^"\s]*-pnpm-12\.4\.1/bin/pnpm#'"$tmpdir"'/bin/pnpm-lock-mutator#g;
     s#/nix/store/[^"\s]*-pnpm-task-helpers\.sh#'"$ROOT"'/nix/devenv-modules/tasks/shared/pnpm-task-helpers.sh#g;
     s#/nix/store/[^"\s]*-check-node-modules-projection-health\.cjs#'"$ROOT"'/nix/devenv-modules/tasks/shared/check-node-modules-projection-health.cjs#g;
     s#/nix/store/[^"\s]*-stage-pnpm-source-inputs\.mjs#'"$ROOT"'/nix/devenv-modules/tasks/shared/stage-pnpm-source-inputs.mjs#g;
@@ -329,7 +329,7 @@ set -euo pipefail
 printf '%s\n' "$*" >> "${TEST_PNPM_MUTATOR_LOG:?}"
 printf 'PWD=%s\n' "$PWD" >> "${TEST_PNPM_MUTATOR_LOG:?}"
 if [ "${1:-}" = "--version" ]; then
-  echo "12.3.4"
+  echo "12.4.1"
   exit 0
 fi
 if [ "${1:-}" = "install" ]; then

@@ -1146,7 +1146,7 @@ const mergePackageJsonOptions = ({
  * Aggregates are repository coordination files, not package-level authoring
  * surfaces, so this stays centralized instead of being repeated by callers.
  */
-const DEFAULT_AGGREGATE_PACKAGE_MANAGER = 'pnpm@12.3.4'
+const DEFAULT_AGGREGATE_PACKAGE_MANAGER = 'pnpm@12.4.1'
 
 /**
  * Project an aggregate manifest from package metadata for an explicit repo view.

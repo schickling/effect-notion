@@ -20,7 +20,7 @@
 # lifecycle script or network access at build time.
 let
   lib = pkgs.lib;
-  version = "12.3.4";
+  version = "12.4.1";
 
   platform = pkgs.stdenv.hostPlatform;
 
@@ -38,17 +38,17 @@ let
       unsupportedPlatform;
 
   exeHashes = {
-    "linux-x64" = "sha256-mxyV/EE2AMp1pR6+gzLXAZ3DVo/UGH9aXy30oVbvtlw=";
-    "linux-arm64" = "sha256-q1Nm6VLbwoETQhp8fd/bBMm7ZClYuPU+pVg4VEJr1I0=";
-    "linux-x64-musl" = "sha256-SsTn+4Czuk/7DkQ62rVTnedYHV2g8pUBhZsweFcxqg4=";
-    "linux-arm64-musl" = "sha256-CF9jicQSEF2+GKQgmsNaKzVehXRM1bhGlwvCH6pJoiw=";
-    "darwin-x64" = "sha256-3kEPwxUxsbekQMjoDeHPdmPMMp/lMKUjJIIT8bL5bK8=";
-    "darwin-arm64" = "sha256-9UrTZ9ikLa+dhIMOS9akXAlX4OMoekXaCMOguNBOx/c=";
+    "linux-x64" = "sha256-YU0YvcsSGoRMAmCzFddrc35oc0bAAbjgk/0KkyAsLWs=";
+    "linux-arm64" = "sha256-79UEsfvqNGHdoyIESBE3Q0VXz8HtcKsD8Nxvlt0r6EU=";
+    "linux-x64-musl" = "sha256-nfj+T4u+WBXRafC4cC2niEQtJplT4gZYawUYlSdCjJg=";
+    "linux-arm64-musl" = "sha256-mD9RMUbOd4mBXx2I8dXkN12zO4DkS+lUrBhtx0EdMrY=";
+    "darwin-x64" = "sha256-/4zVEgEpiwOvh/QkJ/w53LcA/w8dZCT6u9CF039RjLQ=";
+    "darwin-arm64" = "sha256-nI4gCXq7OtTzC/oxw+WT016REfuGdaBq1rOR/N17yKA=";
   };
 
   wrapperSrc = pkgs.fetchurl {
     url = "https://registry.npmjs.org/pnpm/-/pnpm-${version}.tgz";
-    hash = "sha256-CKPS1Tmzd6a36iRpthJnIlXKccMKYmmFMFgsudNcJo8=";
+    hash = "sha256-YnYpjpr1dren9ekES/r74meCCSUM0QsXBepdOqZNSII=";
   };
 
   exeSrc = pkgs.fetchurl {
