@@ -184,8 +184,8 @@ describe('translatePnpmLock', () => {
     const second = translatePnpmLock(options)
 
     expect(second).toEqual(first)
-    expect(Object.keys(first.packages)).toHaveLength(648)
-    expect(Object.keys(first.snapshots)).toHaveLength(652)
+    expect(Object.keys(first.packages)).toHaveLength(671)
+    expect(Object.keys(first.snapshots)).toHaveLength(672)
     expect(Object.keys(first.importers)).toHaveLength(39)
     expect(first.packages['@myobie/pty@0.10.0']!.patch?.path).toBe(
       'packages/@overeng/utils/patches/@myobie__pty@0.10.0.patch',
@@ -221,6 +221,40 @@ describe('translatePnpmLock', () => {
     expect(
       metadata.importers['packages/@overeng/restate-effect']!.devDependencies['@overeng/utils'],
     ).toEqual({ kind: 'workspace', path: 'packages/@overeng/utils' })
+  })
+
+  it('resolves every OpenTUI importer against the single catalog compiler', () => {
+    // `@opentui/core` peers TypeScript. An importer that does not declare the
+    // peer lets pnpm satisfy it from `bun-ffi-structs`'s `^5` range, which
+    // installs a second compiler and splits `@opentui/core` into two store
+    // entries built against different TypeScript versions — the shape
+    // `context/opentui` had before it declared the dependency.
+    // The other compiler in the lock is `@overeng/oxc-config`'s deliberate
+    // 5.9.3 rule-tester pin, which no OpenTUI importer may resolve against.
+    const metadata = translatePnpmLock({
+      lockfileText: readFileSync('pnpm-lock.yaml', 'utf8'),
+      workspaceText: readFileSync('pnpm-workspace.yaml', 'utf8'),
+    })
+
+    const compilers = Object.keys(metadata.packages).filter((key) => key.startsWith('typescript@'))
+    expect(compilers).toEqual(['typescript@5.9.3', 'typescript@7.0.2'])
+
+    const openTuiCores = Object.keys(metadata.snapshots).filter((key) =>
+      key.startsWith('@opentui/core@'),
+    )
+    expect(openTuiCores).toHaveLength(1)
+    expect(openTuiCores[0]).toContain('typescript@7.0.2')
+
+    const openTuiImporters = Object.entries(metadata.importers).filter(
+      ([, importer]) =>
+        '@opentui/core' in importer.dependencies === true ||
+        '@opentui/core' in importer.devDependencies === true,
+    )
+    expect(openTuiImporters.length).toBeGreaterThan(0)
+    for (const [path, importer] of openTuiImporters) {
+      const declared = importer.dependencies['typescript'] ?? importer.devDependencies['typescript']
+      expect(declared, `${path} must declare the catalog compiler`).toBeDefined()
+    }
   })
 
   it('rejects malformed integrity and unsupported lifecycle builds', () => {

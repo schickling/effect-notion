@@ -590,7 +590,7 @@ export const makeFakeNotionDataSourceGateway = (
             page.row = RowPageSnapshot.make({ ...page.row, propertiesHash })
             for (const [propertyId, value] of Object.entries(command.propertyPatch)) {
               if (value._tag !== 'relation') continue
-              const decodedPropertyId = Schema.decodeUnknownSync(PropertyId)(propertyId)
+              const decodedPropertyId = Schema.decodeSync(PropertyId)(propertyId)
               const mutablePropertyItems = page.propertyItems as Array<
                 (typeof page.propertyItems)[number]
               >
@@ -644,7 +644,7 @@ export const makeFakeNotionDataSourceGateway = (
               command.initialProperties,
             )}`,
           )
-          const lastEditedTime = Schema.decodeUnknownSync(Schema.DateTimeUtcFromString)(
+          const lastEditedTime = Schema.decodeSync(Schema.DateTimeUtcFromString)(
             new Date().toISOString(),
           )
           pages.set(pageKey(pageId), {
@@ -774,7 +774,7 @@ export const makeFakeNotionDataSourceGateway = (
                   descriptionPlainText: snapshot.metadataDescriptionPlainText ?? '',
                   icon: { _tag: 'none' },
                 } satisfies CanonicalDataSourceMetadata)
-              : Schema.decodeUnknownSync(Schema.fromJsonString(CanonicalDataSourceMetadata))(
+              : Schema.decodeSync(Schema.fromJsonString(CanonicalDataSourceMetadata))(
                   snapshot.metadataJson,
                 )
           const nextMetadata: CanonicalDataSourceMetadata = {
@@ -836,7 +836,7 @@ export const makeFakeNotionDataSourceGateway = (
                   descriptionPlainText: snapshot.metadataDescriptionPlainText ?? '',
                   icon: { _tag: 'none' },
                 } satisfies CanonicalDataSourceMetadata)
-              : Schema.decodeUnknownSync(Schema.fromJsonString(CanonicalDataSourceMetadata))(
+              : Schema.decodeSync(Schema.fromJsonString(CanonicalDataSourceMetadata))(
                   snapshot.metadataJson,
                 )
           const nextMetadata: CanonicalDataSourceMetadata = {

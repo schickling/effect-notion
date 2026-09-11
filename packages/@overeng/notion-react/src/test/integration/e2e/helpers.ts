@@ -151,10 +151,9 @@ const retrieveChildrenSettled = (
   expectChildren: boolean,
 ): Effect.Effect<{ results: ReadonlyArray<unknown> }, NotionApiError, E2EEnv> =>
   NotionBlocks.retrieveChildren({ blockId }).pipe(
-    Effect.flatMap((res) =>
-      expectChildren && res.results.length === 0
-        ? Effect.fail(new NotionSyncError({ reason: 'children-not-yet-visible', cause: blockId }))
-        : Effect.succeed(res),
+    Effect.filterOrFail(
+      (res) => !(expectChildren && res.results.length === 0),
+      () => new NotionSyncError({ reason: 'children-not-yet-visible', cause: blockId }),
     ),
     Effect.retry(childrenSettleSchedule),
     // If the paradox never resolves within the budget, fall through with an

@@ -276,7 +276,7 @@ export const decodeMegarepoConfigContent = ({
   readonly content: string
   readonly format: ConfigFormat
 }) =>
-  Schema.decodeUnknownEffect(
+  Schema.decodeEffect(
     format === 'kdl' ? MegarepoConfigFromKdl : Schema.fromJsonString(MegarepoConfig),
   )(content)
 
@@ -297,7 +297,7 @@ export const readMegarepoConfig = (megarepoRoot: AbsoluteDirPath) =>
       const content = yield* fs.readFileString(configPath)
       const format: ConfigFormat = fileName.endsWith('.kdl') === true ? 'kdl' : 'json'
 
-      const config = yield* Schema.decodeUnknownEffect(
+      const config = yield* Schema.decodeEffect(
         format === 'kdl' ? MegarepoConfigFromKdl : Schema.fromJsonString(MegarepoConfig),
       )(content)
 

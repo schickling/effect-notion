@@ -4560,9 +4560,9 @@ export const replicaChangesToPlannerIntents = ({
             databaseId = decode({ schema: DatabaseId, value: change.databaseId })
             dataSourceId = decode({ schema: DataSourceId, value: dataSourceIdString })
             baseMetadataHash = decode({ schema: Hash, value: change.baseHash })
-            currentMetadata = Schema.decodeUnknownSync(
-              Schema.fromJsonString(CanonicalDataSourceMetadata),
-            )(metadataJson)
+            currentMetadata = Schema.decodeSync(Schema.fromJsonString(CanonicalDataSourceMetadata))(
+              metadataJson,
+            )
           } catch {
             markChange({
               replicaPath,
@@ -4679,9 +4679,9 @@ export const replicaChangesToPlannerIntents = ({
         try {
           dataSourceId = decode({ schema: DataSourceId, value: change.dataSourceId })
           baseMetadataHash = decode({ schema: Hash, value: change.baseHash })
-          currentMetadata = Schema.decodeUnknownSync(
-            Schema.fromJsonString(CanonicalDataSourceMetadata),
-          )(metadataJson)
+          currentMetadata = Schema.decodeSync(Schema.fromJsonString(CanonicalDataSourceMetadata))(
+            metadataJson,
+          )
         } catch {
           markChange({
             replicaPath,
@@ -5074,10 +5074,11 @@ export const replicaChangesToPlannerIntents = ({
         continue
       }
       let pageId: PageId
-      let _dataSourceId: DataSourceId
       try {
         pageId = decode({ schema: PageId, value: change.pageId })
-        _dataSourceId = decode({ schema: DataSourceId, value: change.dataSourceId })
+        /* Validation only: a malformed `data_source_id` rejects the change below;
+         * the decoded id itself is not needed on this path. */
+        decode({ schema: DataSourceId, value: change.dataSourceId })
       } catch {
         markChange({
           replicaPath,
@@ -5266,9 +5267,7 @@ export const replicaChangesToPlannerIntents = ({
         }
         let value: CanonicalPropertyValue
         try {
-          value = Schema.decodeUnknownSync(Schema.fromJsonString(CanonicalPropertyValue))(
-            change.valueJson,
-          )
+          value = Schema.decodeSync(Schema.fromJsonString(CanonicalPropertyValue))(change.valueJson)
         } catch {
           markChange({
             replicaPath,
@@ -5314,7 +5313,7 @@ export const replicaChangesToPlannerIntents = ({
           }
           let baseValue: CanonicalPropertyValue
           try {
-            baseValue = Schema.decodeUnknownSync(Schema.fromJsonString(CanonicalPropertyValue))(
+            baseValue = Schema.decodeSync(Schema.fromJsonString(CanonicalPropertyValue))(
               readString({ row: cell, key: 'value_json' }),
             )
           } catch {

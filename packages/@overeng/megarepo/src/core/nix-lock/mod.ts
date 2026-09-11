@@ -218,7 +218,7 @@ export const fetchNixFlakeMetadata = ({
     }
 
     // Attempt to parse the JSON output
-    const parsed = yield* Schema.decodeUnknownEffect(NixFlakePrefetchOutput)(result).pipe(
+    const parsed = yield* Schema.decodeEffect(NixFlakePrefetchOutput)(result).pipe(
       Effect.mapError((parseError) => {
         // Check if output looks like a nix error message (shouldn't normally happen
         // since nix errors go to stderr, but handle defensively)
@@ -346,7 +346,7 @@ const syncSingleLockFile = ({
 
     // Read and parse the lock file (Schema.parseJson handles both parsing and validation)
     const content = yield* fs.readFileString(lockPath)
-    const rawJson = yield* Schema.decodeUnknownEffect(RawFlakeLockJson)(content)
+    const rawJson = yield* Schema.decodeEffect(RawFlakeLockJson)(content)
 
     // First pass: collect all nodes that need metadata fetching
     const nodesToUpdate: NodeUpdateInfo[] = []
@@ -381,8 +381,9 @@ const syncSingleLockFile = ({
     }
 
     // Second pass: fetch all metadata in parallel (concurrency: 8)
-    const metadataResults = yield* Effect.all(
-      nodesToUpdate.map((info) =>
+    const metadataResults = yield* Effect.forEach(
+      nodesToUpdate,
+      (info) =>
         Effect.gen(function* () {
           if (info.flakeRef !== undefined) {
             const result = yield* fetchNixFlakeMetadata({
@@ -407,7 +408,6 @@ const syncSingleLockFile = ({
           }
           return { nodeName: info.nodeName, metadata: { _tag: 'None' as const } }
         }),
-      ),
       { concurrency: 8 },
     )
 
@@ -774,7 +774,7 @@ const validateSharedInputSource = ({
     }
 
     const sourceContent = yield* fs.readFileString(sourceLockPath)
-    const sourceJson = yield* Schema.decodeUnknownEffect(RawLockJson)(sourceContent).pipe(
+    const sourceJson = yield* Schema.decodeEffect(RawLockJson)(sourceContent).pipe(
       Effect.catchTag(
         'SchemaError',
         () =>
@@ -858,7 +858,7 @@ const applySharedInputSource = ({
       if ((yield* fs.exists(lockPath)) === false) continue
 
       const content = yield* fs.readFileString(lockPath)
-      const parsedOpt = Schema.decodeUnknownOption(RawLockJson)(content)
+      const parsedOpt = Schema.decodeOption(RawLockJson)(content)
       if (Option.isNone(parsedOpt) === true) continue
       const parsed = parsedOpt.value
 
@@ -1035,7 +1035,7 @@ const syncMemberRefs = ({
           if (member === undefined) continue
 
           /** Check original.ref in the lock file node */
-          const parsedOpt = Schema.decodeUnknownOption(RawLockJson)(content)
+          const parsedOpt = Schema.decodeOption(RawLockJson)(content)
           if (Option.isNone(parsedOpt) === true) return
           const parsed = parsedOpt.value as { nodes?: Record<string, Record<string, unknown>> }
 
@@ -1070,7 +1070,7 @@ const syncMemberRefs = ({
         }
 
         // Normalize all git GitHub nodes to github: scheme
-        const lockJsonOpt = Schema.decodeUnknownOption(RawLockJson)(currentContent)
+        const lockJsonOpt = Schema.decodeOption(RawLockJson)(currentContent)
         if (Option.isNone(lockJsonOpt) === true) {
           if (currentContent !== content) {
             yield* fs.writeFileString(filePath, currentContent)
@@ -1158,8 +1158,9 @@ export const syncNixLocks = Effect.fn('megarepo/nix-lock/sync')((options: NixLoc
       options.recursiveMegarepoMembers ??
       (scope === 'recursive'
         ? yield* Effect.map(
-            Effect.all(
-              memberNames.map((name) =>
+            Effect.forEach(
+              memberNames,
+              (name) =>
                 Effect.gen(function* () {
                   const memberPath = getMemberPath({
                     megarepoRoot: options.megarepoRoot,
@@ -1170,7 +1171,6 @@ export const syncNixLocks = Effect.fn('megarepo/nix-lock/sync')((options: NixLoc
                   )
                   return nestedConfig !== undefined ? name : undefined
                 }),
-              ),
               { concurrency: 'unbounded' },
             ),
             (results) => new Set(results.filter((n): n is string => n !== undefined)),
@@ -1188,8 +1188,9 @@ export const syncNixLocks = Effect.fn('megarepo/nix-lock/sync')((options: NixLoc
         : undefined
 
     // Process all members in parallel
-    const allMemberResults = yield* Effect.all(
-      memberNames.map((memberName) =>
+    const allMemberResults = yield* Effect.forEach(
+      memberNames,
+      (memberName) =>
         Effect.gen(function* () {
           const memberPath = getMemberPath({
             megarepoRoot: options.megarepoRoot,
@@ -1336,7 +1337,6 @@ export const syncNixLocks = Effect.fn('megarepo/nix-lock/sync')((options: NixLoc
           }
           return undefined
         }),
-      ),
       { concurrency: 8 },
     )
 

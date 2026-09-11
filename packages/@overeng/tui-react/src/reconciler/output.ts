@@ -266,6 +266,20 @@ const renderElementSimple = ({
   return lines
 }
 
+/** Depth-first search for the first Static element in a tree. */
+const findStaticElement = (node: TuiNode): TuiElement | null => {
+  if (isStaticElement(node) === true) {
+    return node
+  }
+  if (isBoxElement(node) === true || isTextElement(node) === true) {
+    for (const child of node.children) {
+      const found = findStaticElement(child)
+      if (found !== null) return found
+    }
+  }
+  return null
+}
+
 /**
  * Extract static items from a tree.
  *
@@ -280,20 +294,7 @@ export const extractStaticContent = ({
   width: number
 }): { lines: string[]; newItemCount: number; element: TuiElement | null } => {
   // Find the first static element
-  const findStatic = (node: TuiNode): TuiElement | null => {
-    if (isStaticElement(node) === true) {
-      return node
-    }
-    if (isBoxElement(node) === true || isTextElement(node) === true) {
-      for (const child of node.children) {
-        const found = findStatic(child)
-        if (found !== null) return found
-      }
-    }
-    return null
-  }
-
-  const staticElement = findStatic(root)
+  const staticElement = findStaticElement(root)
   if (staticElement === null || isStaticElement(staticElement) === false) {
     return { lines: [], newItemCount: 0, element: null }
   }

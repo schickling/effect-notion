@@ -24,7 +24,6 @@ const runtimeDeps = catalog.compose({
       '@storybook/react',
       // Story-gate stack; see @overeng/utils/node/storybook/gate.
       '@storybook/addon-a11y',
-      '@storybook/addon-vitest',
       '@vitest/browser',
       '@vitest/browser-playwright',
       'playwright',

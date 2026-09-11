@@ -6,27 +6,46 @@
  * runtime-only package — e.g. through a wide barrel that `export *`s a module importing `effect` — pulls
  * that package into the generator's bootstrap import closure and breaks `genie:run` on a fresh clone.
  *
- * This walker reuses TypeScript's own parser (`ts.createSourceFile`) and resolver (`ts.resolveModuleName`)
- * — the bug-prone parts — and injects genie's OWN `#`/`#mr` resolution ({@link resolveImportMapSpecifierForImporterSync})
- * so lock-pinned megarepo-member imports resolve exactly as genie resolves them at bootstrap. It owns only
- * the transitive walk and the bootstrap policy. It never descends into `node_modules`: a bare (non-relative,
- * non-`#`, non-`node:`-builtin) specifier is a closure boundary — the reported violation — not an edge to
- * follow, so the check has no dependency on install state and never parses a `.d.ts` closure.
+ * This walker reuses TypeScript's own parser and module resolution through the TypeScript 7 compiler API
+ * ({@link runTsFileAnalysis}) — the bug-prone parts — and injects genie's OWN `#`/`#mr` resolution
+ * ({@link resolveImportMapSpecifierForImporterSync}) so lock-pinned megarepo-member imports resolve exactly as
+ * genie resolves them at bootstrap. It owns only the transitive walk and the bootstrap policy. It never descends
+ * into `node_modules`: a bare (non-relative, non-`#`, non-`node:`-builtin) specifier is a closure boundary — the
+ * reported violation — not an edge to follow, so the check has no dependency on install state and never parses a
+ * `.d.ts` closure.
  *
  * Type-only edges (`import type`, `export type`, and per-specifier `{ type X }`) are erased at runtime and
  * are excluded from the closure.
  */
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readdirSync, realpathSync } from 'node:fs'
 import { isBuiltin } from 'node:module'
 import path from 'node:path'
 
-import ts from 'typescript'
+import type {
+  NamedExportBindings,
+  NamedImportBindings,
+  Node,
+  SourceFile,
+  StringLiteral,
+} from 'typescript/unstable/ast'
+import {
+  isCallExpression,
+  isExportDeclaration,
+  isImportDeclaration,
+  isNamedExports,
+  isNamedImports,
+  isNamespaceImport,
+  isStringLiteral,
+  SyntaxKind,
+} from 'typescript/unstable/ast'
 
 import {
   isImportMapSpecifier,
   resolveImportMapSpecifierForImporterSync,
 } from '../../core/import-map/sync-resolver.ts'
+import { runTsFileAnalysis } from './ts-api.ts'
+import type { TsFileAnalysis, TsFileAnalysisSession } from './ts-api.ts'
 
 /** A transitive edge from a `.genie.ts` source to a runtime-only package, with the importer chain. */
 export type BootstrapClosureViolation = {
@@ -44,12 +63,6 @@ export type BootstrapClosureResult = {
   violations: readonly BootstrapClosureViolation[]
   /** Every `.genie.ts` source that was walked. */
   checkedSources: readonly string[]
-}
-
-const RESOLUTION_OPTIONS: ts.CompilerOptions = {
-  moduleResolution: ts.ModuleResolutionKind.Bundler,
-  allowImportingTsExtensions: true,
-  resolveJsonModule: true,
 }
 
 const isRelativeSpecifier = (specifier: string): boolean =>
@@ -71,126 +84,231 @@ const isViolationSpecifier = (specifier: string): boolean =>
 
 /** True when every named binding carries an inline `type` keyword (`import { type A, type B }`), making the whole edge type-only. */
 const allNamedBindingsAreTypeOnly = (
-  bindings: ts.NamedImportBindings | ts.NamedExportBindings | undefined,
+  bindings: NamedImportBindings | NamedExportBindings | undefined,
 ): boolean => {
   if (bindings === undefined) return false
-  if (ts.isNamedImports(bindings) === true) {
-    const elements = (bindings as ts.NamedImports).elements
-    return elements.length > 0 && elements.every((element) => element.isTypeOnly === true)
-  }
-  if (ts.isNamedExports(bindings) === true) {
-    const elements = (bindings as ts.NamedExports).elements
+  if (isNamedImports(bindings) === true || isNamedExports(bindings) === true) {
+    const { elements } = bindings
     return elements.length > 0 && elements.every((element) => element.isTypeOnly === true)
   }
   return false
 }
 
-/** Extract the RUNTIME (value, non-type-only) module specifiers a source file imports/re-exports/dynamically-imports. */
-const runtimeSpecifiersOf = ({
-  fileName,
-  sourceText,
-}: {
-  fileName: string
-  sourceText: string
-}): readonly string[] => {
-  const sourceFile = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.ESNext, true)
-  const specifiers: string[] = []
+/** Extract the RUNTIME (value, non-type-only) module specifier literals a source file imports/re-exports/dynamically-imports. */
+const runtimeSpecifiersOf = (sourceFile: SourceFile): readonly StringLiteral[] => {
+  const specifiers: StringLiteral[] = []
 
-  const visit = (node: ts.Node): void => {
+  const visit = (node: Node): void => {
     // import ... from 'x'
-    if (
-      ts.isImportDeclaration(node) === true &&
-      ts.isStringLiteral(node.moduleSpecifier) === true
-    ) {
+    if (isImportDeclaration(node) === true && isStringLiteral(node.moduleSpecifier) === true) {
       const clause = node.importClause
       // `import type ...` (phaseModifier === TypeKeyword) is fully type-only; `import defer ...`
-      // (DeferKeyword) is a runtime edge. `ImportClause.isTypeOnly` is deprecated in favor of `phaseModifier`.
-      // A value default binding (`import helper, { type X }`) or a namespace import (`import * as x`) is a
-      // runtime edge even when every named binding is inline-`type`, so those must NOT be skipped.
+      // (DeferKeyword) is a runtime edge. A value default binding (`import helper, { type X }`) or a
+      // namespace import (`import * as x`) is a runtime edge even when every named binding is
+      // inline-`type`, so those must NOT be skipped.
       const hasValueDefault = clause?.name !== undefined
-      const isNamespaceImport =
-        clause?.namedBindings !== undefined && ts.isNamespaceImport(clause.namedBindings) === true
+      const isNamespaceBinding =
+        clause?.namedBindings !== undefined && isNamespaceImport(clause.namedBindings) === true
       const typeOnly =
-        clause?.phaseModifier === ts.SyntaxKind.TypeKeyword ||
+        clause?.phaseModifier === SyntaxKind.TypeKeyword ||
         (hasValueDefault === false &&
-          isNamespaceImport === false &&
+          isNamespaceBinding === false &&
           allNamedBindingsAreTypeOnly(clause?.namedBindings) === true)
-      if (typeOnly === false) specifiers.push((node.moduleSpecifier as ts.StringLiteral).text)
+      if (typeOnly === false) specifiers.push(node.moduleSpecifier)
     }
 
     // export ... from 'x'  (covers `export * from` and `export { ... } from`)
     if (
-      ts.isExportDeclaration(node) === true &&
+      isExportDeclaration(node) === true &&
       node.moduleSpecifier !== undefined &&
-      ts.isStringLiteral(node.moduleSpecifier) === true
+      isStringLiteral(node.moduleSpecifier) === true
     ) {
       const typeOnly = node.isTypeOnly === true || allNamedBindingsAreTypeOnly(node.exportClause)
-      if (typeOnly === false) specifiers.push((node.moduleSpecifier as ts.StringLiteral).text)
+      if (typeOnly === false) specifiers.push(node.moduleSpecifier)
     }
 
     // dynamic import('x') with a string-literal argument
-    if (
-      ts.isCallExpression(node) === true &&
-      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.length > 0 &&
-      ts.isStringLiteral(node.arguments[0]!) === true
-    ) {
-      specifiers.push((node.arguments[0] as ts.StringLiteral).text)
+    if (isCallExpression(node) === true && node.expression.kind === SyntaxKind.ImportKeyword) {
+      const [first] = node.arguments
+      if (first !== undefined && isStringLiteral(first) === true) specifiers.push(first)
     }
 
-    ts.forEachChild(node, visit)
+    node.forEachChild((child) => {
+      visit(child)
+      return undefined
+    })
   }
 
   visit(sourceFile)
   return specifiers
 }
 
+/** One directory read back from disk: its entries, plus the case-folded index used to restore spelling. */
+export type DirectoryEntries = {
+  readonly names: ReadonlySet<string>
+  readonly byLowerCase: ReadonlyMap<string, string>
+}
+
+/**
+ * Directory listings memoized for one walk. Scoped to the call so a long-lived `genie:watch` process
+ * can never answer from a stale listing.
+ */
+export type DirectoryListings = Map<string, DirectoryEntries>
+
+const directoryListing = ({
+  directory,
+  listings,
+}: {
+  directory: string
+  listings: DirectoryListings
+}): DirectoryEntries => {
+  const cached = listings.get(directory)
+  if (cached !== undefined) return cached
+  const names = new Set<string>()
+  const byLowerCase = new Map<string, string>()
+  for (const entry of readdirSync(directory)) {
+    names.add(entry)
+    byLowerCase.set(entry.toLowerCase(), entry)
+  }
+  const entries: DirectoryEntries = { names, byLowerCase }
+  listings.set(directory, entries)
+  return entries
+}
+
+/**
+ * Which on-disk entry a resolved path component names.
+ *
+ * An exact hit is authoritative — a case-sensitive filesystem may hold `Leaf.ts` AND `leaf.ts`, and
+ * rewriting one to the other would name a different file. Only when no entry carries that exact
+ * spelling does the case-folded index answer, which is what restores the spelling a case-insensitive
+ * filesystem folded away. An unknown component is returned unchanged: the path simply is not there.
+ *
+ * Pure, so both branches are testable on any filesystem — the case-sensitive one cannot be staged on
+ * macOS, which refuses to hold the two spellings as distinct files.
+ */
+export const canonicalSegment = ({
+  segment,
+  entries,
+}: {
+  segment: string
+  entries: DirectoryEntries
+}): string =>
+  entries.names.has(segment) === true
+    ? segment
+    : (entries.byLowerCase.get(segment.toLowerCase()) ?? segment)
+
+/** Build the lookup shape {@link canonicalSegment} reads from a plain list of directory entries. */
+export const directoryEntriesOf = (names: readonly string[]): DirectoryEntries => ({
+  names: new Set(names),
+  byLowerCase: new Map(names.map((name) => [name.toLowerCase(), name])),
+})
+
+/**
+ * The single on-disk identity of a file the compiler resolved FROM `importer`: symlinks resolved, and
+ * the real spelling restored.
+ *
+ * TypeScript canonicalizes resolved paths on a case-insensitive filesystem by lower-casing them, so the
+ * same file comes back as a DIFFERENT string than the importer chain that reached it (measured on macOS:
+ * `/private/tmp/genie-bootstrap-closure-gfbwY6/barrel.ts` resolved as `...-gfbwy6/barrel.ts`), and
+ * `realpath` does not restore case. Everything the resolution shares with `importer` — which is already
+ * canonical, by induction from the walk root — keeps the importer's spelling; only the components below
+ * the divergence are read back from their directory. That bound matters: canonicalizing from the
+ * filesystem root would `readdir` ancestors such as the Nix store root.
+ */
+export const canonicalResolvedPath = ({
+  file,
+  importer,
+  listings,
+}: {
+  file: string
+  importer: string
+  listings: DirectoryListings
+}): string => {
+  const { root } = path.parse(file)
+  const segments = file
+    .slice(root.length)
+    .split(path.sep)
+    .filter((segment) => segment.length > 0)
+  const importerSegments = path
+    .dirname(importer)
+    .slice(root.length)
+    .split(path.sep)
+    .filter((segment) => segment.length > 0)
+
+  let canonical = root
+  let index = 0
+  while (
+    index < segments.length &&
+    index < importerSegments.length &&
+    segments[index]!.toLowerCase() === importerSegments[index]!.toLowerCase()
+  ) {
+    canonical = path.join(canonical, importerSegments[index]!)
+    index += 1
+  }
+  for (; index < segments.length; index += 1) {
+    canonical = path.join(
+      canonical,
+      canonicalSegment({
+        segment: segments[index]!,
+        entries: directoryListing({ directory: canonical, listings }),
+      }),
+    )
+  }
+  return canonical
+}
+
+/**
+ * Symlink-resolved identity of a walk root. The caller's spelling is authoritative for case (nothing
+ * upstream folded it), so only the symlink hop is resolved; a root that does not exist is kept as given
+ * and fails later in the walk, exactly as before.
+ */
+const canonicalRootPath = (file: string): string =>
+  existsSync(file) === true ? realpathSync.native(file) : file
+
 /**
  * Resolve a bootstrap-safe specifier (relative or `#`/`#mr`) to an absolute file path, using genie's own
- * resolver for `#`/`#mr` and TypeScript's resolver for relative paths. Bare specifiers are never resolved
+ * resolver for `#`/`#mr` and the compiler's resolution for relative paths. Bare specifiers are never resolved
  * (they are violations, not edges to follow) so this never touches `node_modules`.
  */
-const resolveFollowableSpecifier = ({
+const resolveFollowableSpecifier = async ({
   specifier,
   importerFile,
-  moduleResolutionHost,
-  moduleResolutionCache,
+  analysis,
+  listings,
 }: {
-  specifier: string
+  specifier: StringLiteral
   importerFile: string
-  moduleResolutionHost: ts.ModuleResolutionHost
-  moduleResolutionCache: ts.ModuleResolutionCache
-}): string | undefined => {
-  if (isImportMapSpecifier(specifier) === true) {
-    return resolveImportMapSpecifierForImporterSync({ specifier, importerPath: importerFile })
-  }
-  const resolved = ts.resolveModuleName(
-    specifier,
-    importerFile,
-    RESOLUTION_OPTIONS,
-    moduleResolutionHost,
-    moduleResolutionCache,
-  )
-  return resolved.resolvedModule?.resolvedFileName
+  analysis: TsFileAnalysis
+  listings: DirectoryListings
+}): Promise<string | undefined> => {
+  const resolved =
+    isImportMapSpecifier(specifier.text) === true
+      ? resolveImportMapSpecifierForImporterSync({
+          specifier: specifier.text,
+          importerPath: importerFile,
+        })
+      : await analysis.resolveModuleSpecifier(specifier)
+
+  // A resolution with no file behind it is reported as the compiler spelled it: the walk finds no
+  // analysis for it and contributes no edges, which is the pre-existing missing-file behaviour.
+  if (resolved === undefined || existsSync(resolved) === false) return resolved
+  return canonicalResolvedPath({
+    file: realpathSync.native(resolved),
+    importer: importerFile,
+    listings,
+  })
 }
 
 /**
  * Walk the transitive runtime import closure of each `.genie.ts` source and report those that reach a
  * runtime-only package, with the shortest importer chain to the offending edge.
  */
-export const checkBootstrapClosure = ({
+export const checkBootstrapClosure = async ({
   genieFiles,
 }: {
   /** Absolute paths of the `.genie.ts` sources to check. */
   genieFiles: readonly string[]
-}): BootstrapClosureResult => {
-  const moduleResolutionHost: ts.ModuleResolutionHost = ts.sys
-  const moduleResolutionCache = ts.createModuleResolutionCache(
-    ts.sys.getCurrentDirectory(),
-    (fileName) => fileName,
-    RESOLUTION_OPTIONS,
-  )
-
+}): Promise<BootstrapClosureResult> => {
   /** Per-file analysis, memoized globally — the runtime import graph is identical across all roots. */
   type FileEdges = {
     /** Bare runtime-only specifiers directly imported by this file (closure boundaries). */
@@ -199,30 +317,42 @@ export const checkBootstrapClosure = ({
     readonly followTargets: readonly string[]
   }
   const edgesCache = new Map<string, FileEdges>()
-  const edgesOf = (file: string): FileEdges => {
+  const listings: DirectoryListings = new Map()
+  const edgesOf = async ({
+    file,
+    session,
+  }: {
+    file: string
+    session: TsFileAnalysisSession
+  }): Promise<FileEdges> => {
     const cached = edgesCache.get(file)
     if (cached !== undefined) return cached
     const violationSpecifiers: string[] = []
     const followTargets: string[] = []
-    if (moduleResolutionHost.fileExists(file) === true) {
-      for (const specifier of runtimeSpecifiersOf({
-        fileName: file,
-        sourceText: readFileSync(file, 'utf8'),
-      })) {
-        if (isViolationSpecifier(specifier) === true) {
-          violationSpecifiers.push(specifier)
-        } else if (
-          isRelativeSpecifier(specifier) === true ||
-          isImportMapSpecifier(specifier) === true
-        ) {
-          const resolved = resolveFollowableSpecifier({
-            specifier,
-            importerFile: file,
-            moduleResolutionHost,
-            moduleResolutionCache,
-          })
-          if (resolved !== undefined) followTargets.push(resolved)
-        }
+    // A file the session declines contributes no edges. The bootstrap check does not turn that into a
+    // violation itself: `nix/bootstrap-closure-check.nix` carries a negative fixture whose expected
+    // violation disappears the moment the session cannot open projects, so a dead session fails there.
+    const outcome = existsSync(file) === true ? await session.analyze(file) : undefined
+    if (outcome?.kind === 'analyzed') {
+      const { analysis } = outcome
+      const resolutions = await Promise.all(
+        runtimeSpecifiersOf(analysis.sourceFile).map(async (specifier) => ({
+          specifier: specifier.text,
+          resolved:
+            isRelativeSpecifier(specifier.text) === true ||
+            isImportMapSpecifier(specifier.text) === true
+              ? await resolveFollowableSpecifier({
+                  specifier,
+                  importerFile: file,
+                  analysis,
+                  listings,
+                })
+              : undefined,
+        })),
+      )
+      for (const { specifier, resolved } of resolutions) {
+        if (isViolationSpecifier(specifier) === true) violationSpecifiers.push(specifier)
+        else if (resolved !== undefined) followTargets.push(resolved)
       }
     }
     const edges: FileEdges = { violationSpecifiers, followTargets }
@@ -231,16 +361,26 @@ export const checkBootstrapClosure = ({
   }
 
   /** BFS from a root; returns the shortest chain to the first runtime-only specifier, or undefined. */
-  const findViolation = (root: string): BootstrapClosureViolation | undefined => {
+  const findViolation = async ({
+    root,
+    session,
+  }: {
+    root: string
+    session: TsFileAnalysisSession
+  }): Promise<BootstrapClosureViolation | undefined> => {
     const seen = new Set<string>()
     const queue: (readonly string[])[] = [[root]]
-    while (queue.length > 0) {
-      const chain = queue.shift()!
+    let nextIndex = 0
+    while (nextIndex < queue.length) {
+      const chain = queue[nextIndex]!
+      nextIndex += 1
       const current = chain[chain.length - 1]!
       if (seen.has(current) === true) continue
       seen.add(current)
 
-      const { violationSpecifiers, followTargets } = edgesOf(current)
+      // Graph discovery is intentionally serial because the analysis session advances one mutable snapshot.
+      // eslint-disable-next-line no-await-in-loop
+      const { violationSpecifiers, followTargets } = await edgesOf({ file: current, session })
       if (violationSpecifiers.length > 0) {
         return { source: root, specifier: violationSpecifiers[0]!, chain }
       }
@@ -251,12 +391,22 @@ export const checkBootstrapClosure = ({
     return undefined
   }
 
-  const sortedGenieFiles = [...genieFiles].toSorted()
-  const violations: BootstrapClosureViolation[] = []
-  for (const root of sortedGenieFiles) {
-    const violation = findViolation(root)
-    if (violation !== undefined) violations.push(violation)
-  }
+  // Every path this walk reports — roots included — is the file's on-disk identity, so a chain link is
+  // comparable to its own root and to anything else derived from the filesystem.
+  const sortedGenieFiles = genieFiles.map(canonicalRootPath).toSorted()
+  const violations = await runTsFileAnalysis({
+    cwd: process.cwd(),
+    use: async (session) => {
+      const found: BootstrapClosureViolation[] = []
+      for (const root of sortedGenieFiles) {
+        // Roots share the same mutable analysis snapshot and graph cache, so preserve source order.
+        // eslint-disable-next-line no-await-in-loop
+        const violation = await findViolation({ root, session })
+        if (violation !== undefined) found.push(violation)
+      }
+      return found
+    },
+  })
 
   return { violations, checkedSources: sortedGenieFiles }
 }

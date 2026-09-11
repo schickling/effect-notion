@@ -50,7 +50,7 @@ const simulateSyncFlow = (
   }
 
   // Validate with schema (like real code does)
-  Schema.decodeUnknownSync(FlakeLock)(rawJson)
+  Schema.decodeSync(FlakeLock)(rawJson)
 
   // Process each node
   for (const [nodeName, node] of Object.entries(rawJson.nodes)) {
@@ -106,7 +106,7 @@ describe('nix-lock schema', () => {
         root: 'root',
         version: 7,
       }
-      const result = Schema.decodeUnknownSync(FlakeLock)(input)
+      const result = Schema.decodeSync(FlakeLock)(input)
       expect(result.version).toBe(7)
       expect(result.root).toBe('root')
     })
@@ -139,7 +139,7 @@ describe('nix-lock schema', () => {
         root: 'root',
         version: 7,
       }
-      const result = Schema.decodeUnknownSync(FlakeLock)(input)
+      const result = Schema.decodeSync(FlakeLock)(input)
       expect(result.nodes['nixpkgs']?.locked?.['owner']).toBe('NixOS')
       expect(result.nodes['nixpkgs']?.locked?.['repo']).toBe('nixpkgs')
     })
@@ -167,7 +167,7 @@ describe('nix-lock schema', () => {
         root: 'root',
         version: 7,
       }
-      const result = Schema.decodeUnknownSync(FlakeLock)(input)
+      const result = Schema.decodeSync(FlakeLock)(input)
       expect(result.nodes['my-repo']?.locked?.['type']).toBe('git')
       expect(result.nodes['my-repo']?.locked?.['url']).toBe('https://github.com/owner/my-repo')
     })

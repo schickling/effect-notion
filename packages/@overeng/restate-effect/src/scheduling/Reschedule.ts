@@ -67,4 +67,4 @@ export const reschedule = <
       input: opts.input,
       opts: { delayMillis: opts.delayMillis },
     })
-  }).pipe(withRestateOperation({ name: 'restate.reschedule', label: String(opts.method) }))
+  }).pipe(withRestateOperation({ name: 'restate.reschedule', label: opts.method }))

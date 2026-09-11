@@ -14,10 +14,12 @@ const Arrow: FC<any> = ({ expanded, styles }) => (
   </span>
 )
 
+const DefaultNodeRenderer: FC<any> = ({ name }) => <span>{name}</span>
+
 export const TreeNode: FC<any> = memo((props) => {
   props = {
     expanded: true,
-    nodeRenderer: ({ name }: any) => <span>{name}</span>,
+    nodeRenderer: DefaultNodeRenderer,
     onClick: () => {},
     shouldShowArrow: false,
     shouldShowPlaceholder: true,

@@ -673,7 +673,7 @@ export class NotionSyncStore {
       const plannedEvent = decodeEventFromJson(readString({ row: row, key: 'event_json' }))
       const attemptEvent = this.#appendOutboxAttemptStateInTransaction({
         rootId: options.rootId,
-        commandId: Schema.decodeUnknownSync(CommandId)(commandId),
+        commandId: Schema.decodeSync(CommandId)(commandId),
         commandKey,
         surface,
         attempt,
@@ -686,7 +686,7 @@ export class NotionSyncStore {
 
       return {
         rootId: options.rootId,
-        commandId: Schema.decodeUnknownSync(CommandId)(commandId),
+        commandId: Schema.decodeSync(CommandId)(commandId),
         commandKey,
         intentEventId: decodeSyncEventId(readString({ row: row, key: 'intent_event_id' })),
         surface,
@@ -755,7 +755,7 @@ export class NotionSyncStore {
       const bodyPointer =
         input.bodyPointer === undefined ? undefined : encodeBodyPointer(input.bodyPointer)
       const event = this.#appendEventInTransaction(
-        Schema.decodeUnknownSync(SyncEvent)({
+        Schema.decodeSync(SyncEvent)({
           _tag: 'RemoteWriteSettled',
           eventId: makeEventId(['settled', input.commandId, input.settlementKind]),
           rootId: input.rootId,
@@ -1882,7 +1882,7 @@ export class NotionSyncStore {
 
     const sequence = this.#nextSequence(event.rootId)
     const encodedOriginalEvent = encodeEvent(event)
-    const eventWithAssignedFields = Schema.decodeUnknownSync(SyncEvent)({
+    const eventWithAssignedFields = Schema.decodeSync(SyncEvent)({
       ...encodedOriginalEvent,
       sequence: sequence.toString(),
       payloadHash: computePayloadHash(event),
@@ -1932,7 +1932,7 @@ export class NotionSyncStore {
     input: OutboxAttemptStateInput,
   ): Extract<SyncEvent, { readonly _tag: 'RemoteWriteAttempted' }> {
     const event = this.#appendEventInTransaction(
-      Schema.decodeUnknownSync(SyncEvent)({
+      Schema.decodeSync(SyncEvent)({
         _tag: 'RemoteWriteAttempted',
         eventId: makeEventId(['attempt', input.commandId, input.attempt, input.attemptState]),
         rootId: input.rootId,
@@ -1993,11 +1993,9 @@ export class NotionSyncStore {
 
     return {
       rootId,
-      signalId: Schema.decodeUnknownSync(SignalId)(readString({ row, key: 'signal_id' })),
-      provider: Schema.decodeUnknownSync(SignalProvider)(readString({ row, key: 'provider' })),
-      externalId: Schema.decodeUnknownSync(SignalExternalId)(
-        readString({ row, key: 'external_id' }),
-      ),
+      signalId: Schema.decodeSync(SignalId)(readString({ row, key: 'signal_id' })),
+      provider: Schema.decodeSync(SignalProvider)(readString({ row, key: 'provider' })),
+      externalId: Schema.decodeSync(SignalExternalId)(readString({ row, key: 'external_id' })),
       kind: Schema.decodeUnknownSync(SignalKind)(readString({ row, key: 'kind' })),
       payloadJson: readString({ row, key: 'payload_json' }),
       state: readSignalState({ row, key: 'state' }),

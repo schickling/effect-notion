@@ -293,10 +293,7 @@ const archiveScratchPage = (pageId: string) =>
   Effect.andThen(
     NotionPages.update({ pageId, is_locked: false }).pipe(Effect.ignore),
     NotionPages.archive({ pageId }),
-  ).pipe(
-    Effect.asVoid,
-    Effect.catch(() => Effect.void),
-  )
+  ).pipe(Effect.asVoid, Effect.ignore)
 
 const withScratchPage = async <A>(label: string, body: (pageId: string) => Promise<A>) => {
   const pageId = await runLive(createScratchPage(label))

@@ -51,7 +51,7 @@ const globFiles = ({
 const importStoryFile = (filePath: string): Effect.Effect<ParsedStoryModule | undefined, never> =>
   Effect.tryPromise({
     try: async () => {
-      // oxlint-disable-next-line eslint-plugin-import(no-dynamic-require)
+      // oxlint-disable-next-line import/no-dynamic-require -- story discovery loads modules by globbed path; the specifier is computed by design
       const moduleExports = (await import(filePath)) as RawStoryModuleExports
       return parseStoryModule({ exports: moduleExports, filePath })
     },
@@ -90,10 +90,9 @@ export const discoverStories = (options: {
        @overeng/tui-react/storybook dependency this caused ~100% TDZ failure rate.
        Performance is unaffected — shared modules are cached after first evaluation.
        See: https://github.com/oven-sh/bun/issues/20489 */
-    const results = yield* Effect.all(
-      filePaths.map((fp) => importStoryFile(fp)),
-      { concurrency: 1 },
-    )
+    const results = yield* Effect.forEach(filePaths, (fp) => importStoryFile(fp), {
+      concurrency: 1,
+    })
 
     const modules = results.filter((m): m is ParsedStoryModule => m !== undefined)
     const skippedCount = results.length - modules.length

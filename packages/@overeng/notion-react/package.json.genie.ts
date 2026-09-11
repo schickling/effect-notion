@@ -31,7 +31,6 @@ const workspaceDeps = catalog.compose({
         '@effect/vitest',
         '@storybook/react',
         '@storybook/react-vite',
-        '@types/katex',
         '@types/node',
         '@types/react',
         '@types/react-dom',

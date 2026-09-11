@@ -180,7 +180,7 @@ const wrapWithAnnotations = (opts: {
   if (annotations.color !== 'default') {
     state.diagnostics.push({
       kind: 'color-dropped',
-      message: `text color ${String(annotations.color)} dropped`,
+      message: `text color ${annotations.color} dropped`,
     })
   }
   let wrapped: string

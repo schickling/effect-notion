@@ -195,6 +195,15 @@ let
   # Type-aware linting flags (enabled when tsconfig is provided)
   typeAwareFlags = if tsconfig != null then "--type-aware --tsconfig ${tsconfig}" else "";
   warningsFlag = if denyWarnings then "--deny-warnings" else "";
+
+  # Since oxlint 1.60 an invocation whose targets are ALL removed by the config's
+  # ignorePatterns exits 1 with "No files found to lint" (oxc #21144). The lint
+  # surface here is `git ls-files` filtered by extension only, so oxlint's own
+  # ignorePatterns (e.g. `**/nix/**`) can empty a whole xargs batch — a
+  # selection outcome, not a lint failure. This flag keeps that outcome exit 0
+  # while genuine diagnostics still exit non-zero, matching the module's own
+  # "No lint files matched" short-circuit.
+  unmatchedPatternFlag = "--no-error-on-unmatched-pattern";
   resolvedOxfmtPkg = if oxfmtPkg == null then pkgs.oxfmt else oxfmtPkg;
 
   # Plugin injection is handled by oxlint-with-plugins wrapper on PATH.
@@ -213,7 +222,7 @@ let
       instrName ? null,
     }:
     let
-      flags = "${warningsFlag} ${extraFlags}";
+      flags = "${warningsFlag} ${unmatchedPatternFlag} ${extraFlags}";
     in
     mkLintExec {
       command =

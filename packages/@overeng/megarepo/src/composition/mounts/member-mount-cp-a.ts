@@ -345,6 +345,11 @@ interface SourceSnapshot {
   readonly entries: ReadonlyArray<SourceEntrySnapshot>
 }
 
+const captureSourceEntry = async (path: string): Promise<SourceEntrySnapshot> => {
+  const info = await lstat(path)
+  return { path, dev: info.dev, ino: info.ino, mode: info.mode & 0o7777 }
+}
+
 const sourceSnapshot = ({
   root,
   scan,
@@ -356,18 +361,14 @@ const sourceSnapshot = ({
     path: root,
     message: `Cannot capture immutable source identities at '${root}'`,
     reason: 'SourceInvalid',
-    try: async () => {
-      const capture = async (path: string): Promise<SourceEntrySnapshot> => {
-        const info = await lstat(path)
-        return { path, dev: info.dev, ino: info.ino, mode: info.mode & 0o7777 }
-      }
-      return {
-        root: await capture(root),
-        entries: await Promise.all(
-          scan.repository.manifest.entries.map((entry) => capture(NodePath.join(root, entry.path))),
+    try: async () => ({
+      root: await captureSourceEntry(root),
+      entries: await Promise.all(
+        scan.repository.manifest.entries.map((entry) =>
+          captureSourceEntry(NodePath.join(root, entry.path)),
         ),
-      }
-    },
+      ),
+    }),
   })
 
 const sourceEntriesEqual = ({
@@ -623,7 +624,7 @@ const readTransaction = (
     recoveryPaths: [path],
     try: async () => {
       const content = await readFile(path, 'utf8')
-      return Schema.decodeUnknownSync(TransactionJson, strictParseOptions)(content)
+      return Schema.decodeSync(TransactionJson, strictParseOptions)(content)
     },
   })
 
@@ -945,41 +946,39 @@ const restoreTransactionRootProtection = ({
   })
 }
 
+const unprotectDirectoryTree = async (path: string): Promise<void> => {
+  const info = await lstat(path)
+  if (info.isSymbolicLink() === true || info.isDirectory() === false) return
+  await chmod(path, 0o755)
+  const children = await readdir(path)
+  await Promise.all(children.map((child) => unprotectDirectoryTree(NodePath.join(path, child))))
+}
+
 const unprotectDirectories = (root: string): Effect.Effect<void, CpAMemberMountError> =>
   io({
     path: root,
     message: `Cannot unprotect directories under '${root}'`,
-    try: async () => {
-      const visit = async (path: string): Promise<void> => {
-        const info = await lstat(path)
-        if (info.isSymbolicLink() === true || info.isDirectory() === false) return
-        await chmod(path, 0o755)
-        const children = await readdir(path)
-        await Promise.all(children.map((child) => visit(NodePath.join(path, child))))
-      }
-      await visit(root)
-    },
+    try: () => unprotectDirectoryTree(root),
   })
+
+const protectEntryTree = async (path: string): Promise<void> => {
+  const info = await lstat(path)
+  if (info.isSymbolicLink() === true) return
+  if (info.isDirectory() === true) {
+    const children = await readdir(path)
+    await Promise.all(children.map((child) => protectEntryTree(NodePath.join(path, child))))
+    await chmod(path, 0o555)
+  } else if (info.isFile() === true) {
+    await chmod(path, (info.mode & 0o111) === 0 ? 0o444 : 0o555)
+  }
+}
 
 const protectTree = (root: string): Effect.Effect<void, CpAMemberMountError> =>
   io({
     path: root,
     message: `Cannot protect cp-a candidate '${root}'`,
     reason: 'StageInvalid',
-    try: async () => {
-      const visit = async (path: string): Promise<void> => {
-        const info = await lstat(path)
-        if (info.isSymbolicLink() === true) return
-        if (info.isDirectory() === true) {
-          const children = await readdir(path)
-          await Promise.all(children.map((child) => visit(NodePath.join(path, child))))
-          await chmod(path, 0o555)
-        } else if (info.isFile() === true) {
-          await chmod(path, (info.mode & 0o111) === 0 ? 0o444 : 0o555)
-        }
-      }
-      await visit(root)
-    },
+    try: () => protectEntryTree(root),
   })
 
 const teardownBoundDirectory = ({

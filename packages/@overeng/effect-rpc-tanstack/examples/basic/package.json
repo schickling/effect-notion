@@ -30,13 +30,13 @@
   },
   "devDependencies": {
     "@overeng/utils": "workspace:^",
-    "@playwright/test": "1.61.0",
+    "@playwright/test": "1.63.0",
     "@tanstack/router-plugin": "1.168.36",
     "@types/node": "26.5.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "@vitejs/plugin-react": "6.1.1",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "vite": "8.2.2"
   }
 }

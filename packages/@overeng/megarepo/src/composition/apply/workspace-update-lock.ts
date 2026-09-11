@@ -69,7 +69,7 @@ const decodeCanonicalOwner = ({
 }) => {
   let owner: WorkspaceUpdateLockOwner
   try {
-    owner = Schema.decodeUnknownSync(LockOwnerJson, strictParseOptions)(bytes)
+    owner = Schema.decodeSync(LockOwnerJson, strictParseOptions)(bytes)
   } catch (cause) {
     throw failure({
       reason: 'RecoveryRefused',

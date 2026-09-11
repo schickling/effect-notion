@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import { nixGraftedStoreOverridePackages } from '../../genie/native-dependency-policy.ts'
-
 import {
   decodePnpmSha256Sidecar,
   generatePnpmSha256Sidecar,
@@ -54,7 +53,6 @@ ${packages}
 snapshots:
 ${snapshots}
 `
-
 
 const platformVaryingLock = lock({
   importers: `  packages/app:
@@ -237,8 +235,7 @@ describe('normalized store projection', () => {
       ...projection,
       entries: projection.entries.map((entry) =>
         entry === left
-          ? {
-              ...entry,
+          ? Object.assign({}, entry, {
               variants: [
                 {
                   edges: { right: { kind: 'entry', storeKey: 'left@1.0.0' } },
@@ -249,7 +246,7 @@ describe('normalized store projection', () => {
                   platforms: pnpmPlatforms.filter((platform) => platform === 'macos_aarch64'),
                 },
               ],
-            }
+            })
           : entry,
       ),
     }
@@ -356,7 +353,9 @@ describe('normalized store projection', () => {
 
   it("links a peer's type companion into the entry that declares the peer", async () => {
     const projection = await projectionOf(peerTypesLock)
-    const widget = projection.entries.find((entry) => entry.storeKey === 'widget@1.0.0_react@19.0.0')!
+    const widget = projection.entries.find(
+      (entry) => entry.storeKey === 'widget@1.0.0_react@19.0.0',
+    )!
 
     // `widget` never declares `@types/react`; it declares `react` as a peer,
     // and its own declaration files resolve `react` types through the
@@ -404,19 +403,18 @@ describe('normalized store projection of the real lockfile', () => {
     expect(projection.sccs.map((scc) => scc.members)).toEqual([
       ['@babel+core@7.29.7', '@babel+helper-module-transforms@7.29.7_@babel+core@7.29.7'],
       [
-        '@eslint-community+eslint-utils@4.10.1_eslint@10.5.0_jiti@2.7.0',
-        'eslint@10.5.0_jiti@2.7.0',
+        '@eslint-community+eslint-utils@4.10.1_eslint@10.10.0_jiti@2.7.0',
+        'eslint@10.10.0_jiti@2.7.0',
       ],
       [
-        '@storybook+builder-vite@10.5.10_esbuild@0.28.2_storybook@10.5.10_@types+react-dom@19.2.7_@types+react@1_8f3a049df5e2e14f',
-        '@storybook+csf-plugin@10.5.10_esbuild@0.28.2_storybook@10.5.10_@types+react-dom@19.2.7_@types+react@19._ae2ff0465f1148c9',
-        '@storybook+react-dom-shim@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_rea_10292ccbfa8b078d',
-        '@storybook+react-vite@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_esbuild_59d007e1aba3c552',
-        '@storybook+react@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_react-dom@19_d74d5c5cec4f359a',
-        'storybook@10.5.10_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_prettier@3.9.6_reac_4f0491fa4743bd62',
+        '@storybook+builder-vite@10.6.0_storybook@10.6.0_@types+react-dom@19.2.7_@types+react@19.2.18_@types+rea_27cb05be65527c5a',
+        '@storybook+react-dom-shim@10.6.0_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_reac_690867bbf0498919',
+        '@storybook+react-vite@10.6.0_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_react-do_9b5eccc39f239997',
+        '@storybook+react@10.6.0_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_react-dom@19._c8fa65d991fb5130',
+        'storybook@10.6.0_@types+react-dom@19.2.7_@types+react@19.2.18_@types+react@19.2.18_prettier@3.9.6_react_da9aab27e30e1021',
       ],
       [
-        '@vitest+browser-playwright@4.1.9_playwright@1.61.0_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9',
+        '@vitest+browser-playwright@4.1.9_playwright@1.63.0_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9',
         '@vitest+browser@4.1.9_vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0_vitest@4.1.9',
         'vitest@4.1.9_@opentelemetry+api@1.9.1_@types+node@26.5.0_@vitest+browser-playwright@4.1.9_happy-dom@20._f830263be88a0e28',
       ],
@@ -428,9 +426,7 @@ describe('normalized store projection of the real lockfile', () => {
   })
 
   it('resolves the React type companions every peer-typed entry needs', () => {
-    const typesReact = projection.entries.find(
-      (entry) => entry.packageName === '@types/react',
-    )!
+    const typesReact = projection.entries.find((entry) => entry.packageName === '@types/react')!
     const ariaComponents = projection.entries.find(
       (entry) => entry.packageName === 'react-aria-components',
     )!
@@ -468,28 +464,30 @@ describe('normalized store projection of the real lockfile', () => {
     const varying = platformVaryingEntries(projection).map((entry) => entry.storeKey)
 
     // Decision 0030 recorded nine such packages; `oxlint-tsgolint` became the
-    // tenth, and pnpm 12 resolves `@opentui/core` against two TypeScript
-    // versions, so the same package contributes two platform-varying entries.
-    // The count is derived here so a new platform-selected dependency needs no
-    // edit to admit it.
+    // tenth. TypeScript 7 itself is the eleventh: the compiler now ships as
+    // per-platform `@typescript/typescript-<platform>` optional packages, so
+    // `typescript` is platform-selected too. Playwright 1.63 no longer depends
+    // on Darwin-only `fsevents`, so it drops back out, and `@opentui/core`
+    // contributes exactly one entry because every OpenTUI importer now
+    // declares the catalog compiler. The count is derived here so a new
+    // platform-selected dependency needs no edit to admit it.
     expect(varying).toEqual([
-      '@opentui+core@0.4.1_typescript@5.9.3_web-tree-sitter@0.25.10',
-      '@opentui+core@0.4.1_typescript@6.0.3_web-tree-sitter@0.25.10',
+      '@opentui+core@0.5.11_typescript@7.0.2_web-tree-sitter@0.25.10',
       'esbuild@0.28.2',
       'lightningcss@1.33.0',
       'msgpackr-extract@3.0.4',
       'oxc-parser@0.127.0',
       'oxc-resolver@11.21.2',
-      'oxlint-tsgolint@0.23.0',
-      'playwright@1.61.0',
+      'oxlint-tsgolint@7.0.2001',
       'rolldown@1.2.7',
+      'typescript@7.0.2',
       'vite@8.2.2_@types+node@26.5.0_esbuild@0.28.2_jiti@2.7.0',
     ])
   })
 
   it('declares one entry per snapshot and one view per importer', () => {
-    expect(projection.entries).toHaveLength(652)
-    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(652)
+    expect(projection.entries).toHaveLength(672)
+    expect(new Set(projection.entries.map((entry) => entry.storeKey)).size).toBe(672)
     expect(projection.views).toHaveLength(Object.keys(metadata.importers).length)
     expect(computeStoreSccs({ metadata })).toEqual(projection.sccs.map((scc) => scc.members))
   })
@@ -529,9 +527,7 @@ describe('normalized store projection of the real lockfile', () => {
     const [entry] = grafted
     expect(entry!.sccIndex).toBeUndefined()
     expect(rendered.match(new RegExp(`^ {4}name = "${entry!.target}",$`, 'gm'))).toHaveLength(1)
-    expect(
-      rendered.match(new RegExp(`": ":${entry!.target}",$`, 'gm'))!.length,
-    ).toBeGreaterThan(1)
+    expect(rendered.match(new RegExp(`": ":${entry!.target}",$`, 'gm'))!.length).toBeGreaterThan(1)
   })
 })
 

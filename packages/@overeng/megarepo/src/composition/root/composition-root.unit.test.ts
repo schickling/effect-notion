@@ -147,7 +147,7 @@ describe('buck2 member manifest', () => {
 
     expect(decoded.remoteCache).toEqual(remoteCache)
     expect(
-      Schema.decodeUnknownSync(BuckMemberRemoteCacheSchema, {
+      Schema.decodeSync(BuckMemberRemoteCacheSchema, {
         errors: 'all',
         onExcessProperty: 'error',
       })(remoteCache),
@@ -791,7 +791,7 @@ describe('generation manifest and output schema', () => {
     ).toThrow()
 
     expect(() =>
-      Schema.decodeUnknownSync(CompositionGenerationManifestSchema, {
+      Schema.decodeSync(CompositionGenerationManifestSchema, {
         onExcessProperty: 'error',
       })({
         schemaVersion: 1,
@@ -815,7 +815,7 @@ describe('generation manifest and output schema', () => {
 
   it('strictly decodes output bytes and rejects unknown output fields', () => {
     const output = generateCompositionRoot(input({ members: [alphaMember] }))
-    expect(Schema.decodeUnknownSync(CompositionRootOutputSchema)(output)).toEqual(output)
+    expect(Schema.decodeSync(CompositionRootOutputSchema)(output)).toEqual(output)
     expect(() =>
       Schema.decodeUnknownSync(CompositionRootOutputSchema, { onExcessProperty: 'error' })({
         ...output,

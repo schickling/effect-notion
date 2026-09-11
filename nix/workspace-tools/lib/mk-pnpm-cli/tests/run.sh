@@ -278,6 +278,10 @@ run_downstream_pure_eval_regression() {
   )"
   local install_phase
   install_phase="$(nix derivation show "$drv" | jq -r '.derivations | to_entries[0].value.env.installPhase')"
+  if [[ "$install_phase" != *'align-aggregate-manifest-specifiers.cjs pnpm-workspace.yaml'* ]]; then
+    echo "error: aggregate prepared deps install does not align source-input manifest specifiers with the lockfile: $drv" >&2
+    exit 1
+  fi
   if [[ "$install_phase" != *'install --frozen-lockfile --no-optional --ignore-scripts'* ]]; then
     echo "error: prepared deps derivation does not use --frozen-lockfile: $drv" >&2
     exit 1

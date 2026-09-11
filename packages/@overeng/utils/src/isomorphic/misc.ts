@@ -97,10 +97,10 @@ export const assertNever = ({
   msg?: string | (() => string)
 }): void => {
   if (condition === false) {
-    const msg_ = typeof msg === 'function' ? msg() : msg
+    const resolvedMsg = typeof msg === 'function' ? msg() : msg
     // oxlint-disable-next-line no-debugger -- intentional for dev debugging
     debugger
-    throw new Error(`This should never happen ${msg_}`)
+    throw new Error(`This should never happen ${resolvedMsg}`)
   }
 }
 
@@ -223,7 +223,7 @@ export const isNonEmptyString = (str: string | undefined | null): str is string 
 }
 
 /** Debug utility that logs a value and returns it unchanged */
-export const __debugPassthroughLog = <T>({ val, key = '' }: { val: T; key?: string }): T => {
+export const debugPassthroughLog = <T>({ val, key = '' }: { val: T; key?: string }): T => {
   console.log(key, val)
   return val
 }

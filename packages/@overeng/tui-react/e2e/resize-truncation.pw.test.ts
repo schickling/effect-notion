@@ -182,9 +182,7 @@ test.describe('Resize and Truncation', () => {
     ]
 
     for (const size of viewportSizes) {
-      // oxlint-disable-next-line eslint(no-await-in-loop) -- intentionally sequential test steps
       await page.setViewportSize(size)
-      // oxlint-disable-next-line eslint(no-await-in-loop) -- intentionally sequential test steps
       await page.waitForTimeout(300) // Brief wait between resizes
     }
 
@@ -221,9 +219,7 @@ test.describe('Resize and Truncation', () => {
     // Rapid resize cycle
     for (let i = 0; i < 10; i++) {
       const width = 600 + (i % 2) * 400 // Alternate between 600 and 1000
-      // oxlint-disable-next-line eslint(no-await-in-loop) -- intentionally sequential test steps
       await page.setViewportSize({ width, height: 600 })
-      // oxlint-disable-next-line eslint(no-await-in-loop) -- intentionally sequential test steps
       await page.waitForTimeout(100)
     }
 

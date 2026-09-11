@@ -591,6 +591,9 @@ export const SyncedBlock = ({ content }: PassthroughProps) => (
 export const ChildDatabase = ({ content }: PassthroughProps) => (
   <Raw type="child_database" content={content} />
 )
-export const Breadcrumb = ({ content = {} }: BreadcrumbProps) => (
+
+const EMPTY_BREADCRUMB_CONTENT: unknown = Object.freeze({})
+
+export const Breadcrumb = ({ content = EMPTY_BREADCRUMB_CONTENT }: BreadcrumbProps) => (
   <Raw type="breadcrumb" content={content} />
 )

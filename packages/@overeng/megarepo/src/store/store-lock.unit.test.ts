@@ -90,7 +90,7 @@ describe('StoreLock', () => {
           const creationOrder: number[] = []
 
           /** Simulates two nested megarepos trying to create the same worktree */
-          yield* Effect.all(
+          yield* Effect.forEach(
             Array.from(
               { length: 5 },
               (_, i) => () =>
@@ -100,7 +100,8 @@ describe('StoreLock', () => {
                     creationOrder.push(i)
                   }),
                 ),
-            ).map((f) => f()),
+            ),
+            (f) => f(),
             { concurrency: 'unbounded' },
           )
 

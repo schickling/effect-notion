@@ -13,7 +13,7 @@ import {
 import { SurfaceKey } from './events.ts'
 
 /** Decode an arbitrary string into a branded `SurfaceKey` — throws on malformed input. */
-export const surfaceKey = (value: string): SurfaceKey => Schema.decodeUnknownSync(SurfaceKey)(value)
+export const surfaceKey = (value: string): SurfaceKey => Schema.decodeSync(SurfaceKey)(value)
 
 /** Surface key for a page's top-level property surface (`page:<id>`). */
 export const pageSurfaceKey = (pageId: PageId): SurfaceKey => surfaceKey(`page:${pageId}`)

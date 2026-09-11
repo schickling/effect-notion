@@ -38,8 +38,8 @@ const fingerprint = () => {
     num: hostname
       .split('')
       .reduce((prev, char) => {
-        return +prev + char.charCodeAt(0)
-      }, +length + 36)
+        return prev + char.charCodeAt(0)
+      }, length + 36)
       .toString(36),
     size: padding,
   })

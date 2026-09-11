@@ -151,6 +151,78 @@ describe('validateCatalogDuplicates', () => {
     expect(issues[0]!.message).toContain('permits exactly: 3.21.4, 4.0.0-beta.99')
   })
 
+  /*
+   * Regression: the repo blesses exactly one TypeScript duplicate — the catalog
+   * compiler beside the `@overeng/oxc-config` rule-tester harness pin. The
+   * exception carries that pair as an exact set, so a harness pin that moves
+   * (6.0.3 was the previous value) fails the gate instead of being absorbed,
+   * and so does a THIRD compiler creeping in beside the blessed two.
+   */
+  const typescriptCatalog = { typescript: '7.0.2' }
+  const typescriptIsolation = {
+    package: 'typescript',
+    versions: ['7.0.2', '5.9.3'],
+    reason: '@overeng/oxc-config pins TypeScript 5.9.3 for the @typescript-eslint rule-tester',
+    issue: '#821',
+  } as const
+
+  it('accepts the oxc-config TypeScript harness isolation as the exact duplicate set', () => {
+    const yaml = makeLockfileYaml(['typescript@5.9.3', 'typescript@7.0.2'])
+    const issues = validateCatalogDuplicates({
+      catalog: typescriptCatalog,
+      lockfileContent: yaml,
+      exceptions: [typescriptIsolation],
+    })
+    expect(issues).toHaveLength(1)
+    expect(issues[0]!.severity).toBe('warning')
+    expect(issues[0]!.rule).toBe('catalog-duplicate-version-acknowledged')
+    expect(issues[0]!.message).toContain('@typescript-eslint rule-tester')
+  })
+
+  it('errors when the oxc-config TypeScript harness pin drifts off the blessed set', () => {
+    const yaml = makeLockfileYaml(['typescript@6.0.3', 'typescript@7.0.2'])
+    const issues = validateCatalogDuplicates({
+      catalog: typescriptCatalog,
+      lockfileContent: yaml,
+      exceptions: [typescriptIsolation],
+    })
+    expect(issues).toHaveLength(1)
+    expect(issues[0]!.severity).toBe('error')
+    expect(issues[0]!.rule).toBe('catalog-duplicate-exception-version-drift')
+    expect(issues[0]!.message).toContain('permits exactly: 7.0.2, 5.9.3')
+  })
+
+  it('flags the TypeScript isolation as stale once the harness rejoins the catalog compiler', () => {
+    const yaml = makeLockfileYaml(['typescript@7.0.2'])
+    const issues = validateCatalogDuplicates({
+      catalog: typescriptCatalog,
+      lockfileContent: yaml,
+      exceptions: [typescriptIsolation],
+    })
+    expect(issues).toHaveLength(1)
+    expect(issues[0]!.rule).toBe('catalog-duplicate-stale-exception')
+  })
+
+  // An unpinned exception blesses whatever the lock happens to hold, so the pin is what makes a
+  // THIRD compiler — the retired 6.0.3 harness pin creeping back in beside the blessed pair — fail
+  // closed rather than ride along on the acknowledgement.
+  it('errors when an extra version joins an exactly pinned compiler cohort', () => {
+    const drifted = validateCatalogDuplicates({
+      catalog: typescriptCatalog,
+      lockfileContent: makeLockfileYaml([
+        'typescript@5.9.3',
+        'typescript@6.0.3',
+        'typescript@7.0.2',
+      ]),
+      exceptions: [typescriptIsolation],
+    })
+    expect(drifted).toHaveLength(1)
+    expect(drifted[0]!.severity).toBe('error')
+    expect(drifted[0]!.rule).toBe('catalog-duplicate-exception-version-drift')
+    expect(drifted[0]!.message).toContain('7.0.2, 6.0.3, 5.9.3')
+    expect(drifted[0]!.message).toContain('permits exactly: 7.0.2, 5.9.3')
+  })
+
   it('errors when an importer-only version leaks into a snapshot peer graph', () => {
     const yaml = [
       makeLockfileYaml(['effect@3.21.4', 'effect@4.0.0-beta.99']),

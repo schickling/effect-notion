@@ -44,7 +44,7 @@ const withTempDir = <A>(prefix: string, f: (dir: string) => A) => {
   }
 }
 
-const decodeName = (s: string) => Schema.decodeUnknownSync(PtyName)(s) as PtyName
+const decodeName = (s: string) => Schema.decodeSync(PtyName)(s) as PtyName
 
 /** Keep names short — macOS Unix sockets cap at 104 bytes including the
  *  parent directory. With `/var/folders/.../T/.../<name>.sock` we burn ~85

@@ -14,12 +14,12 @@ import { baselineDirEnvVar, createStoryGateConfig } from './project.ts'
 const marker = { name: 'test-marker-plugin' }
 
 /**
- * Stand-in for the Storybook plugin.
+ * Stand-in for the Portable Stories integration.
  *
- * The real one eagerly loads a Storybook config directory, which this package
- * does not have and should not need in order to check where plugins land.
+ * The real plugin loads a Storybook config directory eagerly. This package
+ * should not need a fixture config merely to check plugin placement.
  */
-const fakeStorybookPluginFor = () => ({ name: 'fake-storybook-test' })
+const fakeStorybookPluginFor = () => ({ name: 'fake-storybook-portable-stories' })
 
 /** Read a `plugins` member without asserting a shape onto the value. */
 const readPlugins = (value: unknown): unknown =>

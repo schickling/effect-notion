@@ -230,7 +230,7 @@ const startGitProcess = ({ args, cwd }: { args: ReadonlyArray<string>; cwd?: str
         const isRunning = yield* process.isRunning.pipe(Effect.orElseSucceed(() => false))
         if (isRunning === false) return
 
-        yield* process.kill({ killSignal: 'SIGKILL' }).pipe(Effect.catch(() => Effect.void))
+        yield* process.kill({ killSignal: 'SIGKILL' }).pipe(Effect.ignore)
       }),
     )
     return process
@@ -494,7 +494,7 @@ export const getRemoteUrl = ({
     args: ['remote', 'get-url', remote],
     cwd: repoPath,
   }).pipe(
-    Effect.map(Option.some),
+    Effect.asSome,
     Effect.orElseSucceed(() => Option.none()),
   )
 

@@ -202,7 +202,7 @@ describe('emitSyncEndOnInterrupt', () => {
     await Effect.runPromise(
       Effect.fail('boom').pipe(
         emitSyncEndOnInterrupt({ pageId: ROOT, onEvent: handler }),
-        Effect.catch(() => Effect.void),
+        Effect.ignore,
       ),
     )
 

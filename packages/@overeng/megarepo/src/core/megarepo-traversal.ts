@@ -79,7 +79,7 @@ const canonicalizeRoot = Effect.fn('megarepo/traversal/canonicalize-root')(funct
     Effect.map(stripTrailingSlashesPreservingRoot),
     Effect.orElseSucceed(() => normalizedRoot),
   )
-  const key = yield* Schema.decodeUnknownEffect(MegarepoTraversalNodeKey)(resolvedRoot)
+  const key = yield* Schema.decodeEffect(MegarepoTraversalNodeKey)(resolvedRoot)
   return { key, resolvedRoot }
 })
 

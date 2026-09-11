@@ -460,6 +460,7 @@ describe('cp-a member mount lifecycle', () => {
         resolveBPair = resolve
       })
       const reader = (async () => {
+        // oxlint-disable-next-line eslint/no-unmodified-loop-condition -- `reading` is flipped to false by the enclosing effect (after `bPair` resolves) to stop this detached sampler loop
         while (reading === true) {
           const directory = await open(
             fixture.destinationPath,

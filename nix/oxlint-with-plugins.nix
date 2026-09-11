@@ -56,14 +56,16 @@ pkgs.writeShellApplication {
 
     # If config has overeng rules, inject the Nix-built plugin path (replaces any existing jsPlugins)
     if [ -n "$config_file" ] && grep -q '"overeng/' "$config_file" 2>/dev/null; then
-      # oxlint 1.39.0's experimental JS-plugin rules only apply to files located
-      # UNDER the (injected) config file's directory. Writing the merged config to
-      # the default mktemp location (/tmp, outside the repo tree) silently drops
-      # every overeng/* plugin rule for files enumerated deeper in the repo (the CI
-      # path passes explicit deep file paths). So we write the injected copy into
-      # the SAME directory as the source config (repo root for the default
-      # .oxlintrc.json), keeping it an ancestor of the lint targets so plugin rules
-      # apply. The published copy DELIBERATELY outlives the process; see below.
+      # The injected copy is written into the SAME directory as the source config
+      # (repo root for the default .oxlintrc.json). Under oxlint 1.39 this was
+      # load-bearing for correctness: plugin rules only applied to files located
+      # UNDER the injected config's directory, so a /tmp copy silently dropped
+      # every overeng/* rule for the deep file paths CI passes. oxlint 1.82 applies
+      # plugin rules to targets outside the config directory (verified against
+      # 1.82.0 with a config in one directory and the target in another), so the
+      # location is now only a cache decision: a repo-root copy stays stable across
+      # runs and keeps the hash-crawler-safe atomic publish below. The published
+      # copy DELIBERATELY outlives the process; see below.
       config_dir=$(dirname "$config_file")
 
       # Publish a persistent, git-ignored root cache atomically, and serialize

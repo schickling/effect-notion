@@ -2455,7 +2455,7 @@ describe('watch daemon surface', () => {
     const fiber = Effect.runFork(notifier.awaitWake(5_000))
     // A blocked awaitWake never settles: racing its completion against a short
     // timeout fails with TimeoutError while the waiter stays registered.
-    const early = await Effect.runPromise(Effect.exit(Fiber.await(fiber).pipe(Effect.timeout(20))))
+    const early = await Effect.runPromiseExit(Fiber.await(fiber).pipe(Effect.timeout(20)))
     expect(early._tag === 'Failure').toBe(true) // still blocked — pendingWake was fully consumed above
 
     // A fresh single wake() unblocks the waiting fiber

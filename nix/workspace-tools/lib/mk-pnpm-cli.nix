@@ -337,6 +337,82 @@ let
         inheritedEntries.map((entry) => entry.key).join(",")
     );
   '';
+  alignAggregateManifestSpecifiersScript = pkgs.writeText "align-aggregate-manifest-specifiers.cjs" ''
+    const fs = require("node:fs");
+    const path = require("node:path");
+
+    const importers = JSON.parse(fs.readFileSync(0, "utf8"));
+    const [workspaceYamlPath, lockfilePath] = process.argv.slice(2);
+    if (!workspaceYamlPath || !lockfilePath) {
+      console.error(
+        "usage: align-aggregate-manifest-specifiers.cjs <pnpm-workspace.yaml> <pnpm-lock.yaml>"
+      );
+      process.exit(1);
+    }
+    const sourceInputSegment = ".devenv/pnpm-source-inputs/current/";
+    const workspaceRoot = process.cwd();
+    const isWithin = (parentPath, childPath) => {
+      const relativePath = path.relative(parentPath, childPath);
+      return (
+        relativePath === "" ||
+        (!relativePath.startsWith(`..''${path.sep}`) && relativePath !== ".." && !path.isAbsolute(relativePath))
+      );
+    };
+    const dependencySections = ["dependencies", "devDependencies", "optionalDependencies"];
+
+    for (const [importerPath, importer] of Object.entries(importers)) {
+      const manifestPath = path.resolve(
+        importerPath === "." ? "package.json" : path.join(importerPath, "package.json")
+      );
+      if (!isWithin(workspaceRoot, manifestPath)) {
+        throw new Error(`lockfile importer escaped staged workspace: ''${importerPath}`);
+      }
+      if (!fs.existsSync(manifestPath)) continue;
+
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      let changed = false;
+      for (const section of dependencySections) {
+        const lockedDependencies = importer[section];
+        const manifestDependencies = manifest[section];
+        if (lockedDependencies === undefined || manifestDependencies === undefined) continue;
+
+        for (const [dependencyName, lockedDependency] of Object.entries(lockedDependencies)) {
+          const specifier = lockedDependency?.specifier;
+          const manifestSpecifier = manifestDependencies[dependencyName];
+          if (
+            typeof specifier === "string" &&
+            specifier.includes(sourceInputSegment) &&
+            typeof manifestSpecifier === "string"
+          ) {
+            manifestDependencies[dependencyName] = specifier;
+            changed = true;
+          }
+        }
+      }
+
+      if (changed) fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+    }
+
+    const stripSourceInputOverrides = (yamlPath) => {
+      const lines = fs.readFileSync(yamlPath, "utf8").split("\n");
+      let inOverrides = false;
+      const filteredLines = lines.filter((line) => {
+        if (line === "overrides:") {
+          inOverrides = true;
+          return true;
+        }
+        if (inOverrides && line.trim() !== "" && /^\S/.test(line)) inOverrides = false;
+        return !(
+          inOverrides &&
+          /^\s{2}.+:\s*['"]?file:\.devenv\/pnpm-source-inputs\/current\//.test(line)
+        );
+      });
+      fs.writeFileSync(yamlPath, filteredLines.join("\n"));
+    };
+
+    stripSourceInputOverrides(workspaceYamlPath);
+    stripSourceInputOverrides(lockfilePath);
+  '';
 
   isDerivationOutput =
     sourceRoot: builtins.isAttrs sourceRoot && sourceRoot ? outPath && sourceRoot ? drvPath;
@@ -1248,8 +1324,7 @@ let
       sourceRoot = ".";
       lockfilePaths = [ "pnpm-lock.yaml" ];
       # The staged root workspace is already narrowed to `$genie.workspaceClosureDirs`.
-      # Ask pnpm to materialize the target package's dependency closure, not every
-      # importer visible in that staged workspace.
+      # Ask pnpm to materialize the target package's dependency closure.
       pnpmFilters = [ "${packageJson.name}..." ];
       includeOptionalDependencies = includeOptionalDependenciesForInstallRoot ".";
       # Fixed-output dependency preparation must be a pure materialization of
@@ -1258,6 +1333,19 @@ let
       frozenLockfile = true;
       preInstall = ''
         chmod -R +w .
+      '';
+      postWorkspacePolicyScrub = ''
+        find . -name package.json -print0 \
+          | ${pkgs.gnutar}/bin/tar --null --files-from=- -cf "$NIX_BUILD_TOP/aggregate-manifests.tar"
+        cp pnpm-workspace.yaml "$NIX_BUILD_TOP/aggregate-pnpm-workspace.yaml"
+        cp pnpm-lock.yaml "$NIX_BUILD_TOP/aggregate-pnpm-lock.yaml"
+        ${pkgs.yq-go}/bin/yq -o=json '.importers' pnpm-lock.yaml \
+          | ${pkgs.nodejs}/bin/node ${alignAggregateManifestSpecifiersScript} pnpm-workspace.yaml pnpm-lock.yaml
+      '';
+      postPnpmInstall = ''
+        ${pkgs.gnutar}/bin/tar -xf "$NIX_BUILD_TOP/aggregate-manifests.tar"
+        cp "$NIX_BUILD_TOP/aggregate-pnpm-workspace.yaml" pnpm-workspace.yaml
+        cp "$NIX_BUILD_TOP/aggregate-pnpm-lock.yaml" pnpm-lock.yaml
       '';
     };
   };

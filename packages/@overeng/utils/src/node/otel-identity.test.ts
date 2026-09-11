@@ -178,7 +178,7 @@ Vitest.describe('makeOtelCliLayer — typed ServiceIdentity', () => {
       // A raw string is not a branded ServiceIdentity.name: names must pass
       // through the ServiceIdentity schema, and malformed names fail at the edge.
       const result = yield* Effect.result(
-        Schema.decodeUnknownEffect(ServiceIdentity)({
+        Schema.decodeEffect(ServiceIdentity)({
           name: '1identity-cli',
           namespace: 'overeng',
           version: '1.0.0',

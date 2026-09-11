@@ -149,7 +149,9 @@ Full-screen interactive application using alternate screen buffer. **Implemented
 
 **Runtime Requirements:**
 
-- **Bun runtime required** - OpenTUI uses native bindings
+- **Bun runtime required** - OpenTUI uses native bindings. `@opentui/core@0.5.x`
+  also publishes a Node entry point, but it requires Node >= 26.4.0 while this
+  workspace runs Node 24, so Bun remains the only supported runtime.
 - Install: `bun add @opentui/core @opentui/react`
 
 **Behavior:**

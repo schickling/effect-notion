@@ -38,7 +38,7 @@ Vitest.describe('parseMcpToolName', () => {
 
 Vitest.describe('translateClaudeRecord', () => {
   Vitest.it('translates assistant record with text, thinking, and tool_use blocks', () => {
-    const record = Schema.decodeUnknownSync(ClaudeSessionRecord)({
+    const record = Schema.decodeSync(ClaudeSessionRecord)({
       type: 'assistant',
       parentUuid: null,
       isSidechain: false,
@@ -84,7 +84,7 @@ Vitest.describe('translateClaudeRecord', () => {
   })
 
   Vitest.it('translates user record with string content', () => {
-    const record = Schema.decodeUnknownSync(ClaudeSessionRecord)({
+    const record = Schema.decodeSync(ClaudeSessionRecord)({
       type: 'user',
       parentUuid: null,
       isSidechain: false,
@@ -107,7 +107,7 @@ Vitest.describe('translateClaudeRecord', () => {
   })
 
   Vitest.it('translates user record with tool_result blocks', () => {
-    const record = Schema.decodeUnknownSync(ClaudeSessionRecord)({
+    const record = Schema.decodeSync(ClaudeSessionRecord)({
       type: 'user',
       parentUuid: null,
       isSidechain: false,
@@ -136,7 +136,7 @@ Vitest.describe('translateClaudeRecord', () => {
   })
 
   Vitest.it('translates system record', () => {
-    const record = Schema.decodeUnknownSync(ClaudeSessionRecord)({
+    const record = Schema.decodeSync(ClaudeSessionRecord)({
       type: 'system',
       parentUuid: null,
       isSidechain: false,
@@ -157,7 +157,7 @@ Vitest.describe('translateClaudeRecord', () => {
   })
 
   Vitest.it('translates progress record as GenericEvent', () => {
-    const record = Schema.decodeUnknownSync(ClaudeSessionRecord)({
+    const record = Schema.decodeSync(ClaudeSessionRecord)({
       type: 'progress',
       parentUuid: null,
       isSidechain: false,
@@ -181,7 +181,7 @@ Vitest.describe('translateClaudeRecord', () => {
 
 Vitest.describe('translateCodexRecord', () => {
   Vitest.it('translates session_meta to SessionMeta', () => {
-    const record = Schema.decodeUnknownSync(CodexSessionRecord)({
+    const record = Schema.decodeSync(CodexSessionRecord)({
       type: 'session_meta',
       timestamp: ts,
       payload: { id: 'thread-1', timestamp: ts, cwd: '/project', cli_version: '0.25.0' },
@@ -199,7 +199,7 @@ Vitest.describe('translateCodexRecord', () => {
   })
 
   Vitest.it('translates response_item message to UserMessage/AssistantText', () => {
-    const record = Schema.decodeUnknownSync(CodexSessionRecord)({
+    const record = Schema.decodeSync(CodexSessionRecord)({
       type: 'response_item',
       timestamp: ts,
       payload: {
@@ -218,7 +218,7 @@ Vitest.describe('translateCodexRecord', () => {
   })
 
   Vitest.it('translates function_call to ToolCallStart', () => {
-    const record = Schema.decodeUnknownSync(CodexSessionRecord)({
+    const record = Schema.decodeSync(CodexSessionRecord)({
       type: 'response_item',
       timestamp: ts,
       payload: {
@@ -240,7 +240,7 @@ Vitest.describe('translateCodexRecord', () => {
   })
 
   Vitest.it('translates function_call_output to ToolCallEnd', () => {
-    const record = Schema.decodeUnknownSync(CodexSessionRecord)({
+    const record = Schema.decodeSync(CodexSessionRecord)({
       type: 'response_item',
       timestamp: ts,
       payload: {
@@ -260,7 +260,7 @@ Vitest.describe('translateCodexRecord', () => {
   })
 
   Vitest.it('translates turn_context to SessionMeta with model', () => {
-    const record = Schema.decodeUnknownSync(CodexSessionRecord)({
+    const record = Schema.decodeSync(CodexSessionRecord)({
       type: 'turn_context',
       timestamp: ts,
       payload: { cwd: '/project', model: 'o3', effort: 'high' },
@@ -276,7 +276,7 @@ Vitest.describe('translateCodexRecord', () => {
   })
 
   Vitest.it('translates reasoning to Thinking', () => {
-    const record = Schema.decodeUnknownSync(CodexSessionRecord)({
+    const record = Schema.decodeSync(CodexSessionRecord)({
       type: 'response_item',
       timestamp: ts,
       payload: {

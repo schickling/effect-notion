@@ -50,12 +50,12 @@ const hasActionlint = (() => {
 })()
 
 describe('githubWorkflow', () => {
-  it('accepts valid string runner labels', () => {
-    expect(getValidationIssues(['ubuntu-latest', 'nix'])).toEqual([])
+  it('accepts valid string runner labels', async () => {
+    expect(await getValidationIssues(['ubuntu-latest', 'nix'])).toEqual([])
   })
 
-  it('rejects empty runs-on arrays', () => {
-    expect(getValidationIssues([])).toContainEqual({
+  it('rejects empty runs-on arrays', async () => {
+    expect(await getValidationIssues([])).toContainEqual({
       severity: 'error',
       packageName: '.github/workflows/ci.yml',
       dependency: 'jobs.test.runs-on',
@@ -64,8 +64,8 @@ describe('githubWorkflow', () => {
     })
   })
 
-  it('rejects non-string runner labels', () => {
-    expect(getValidationIssues([null])).toContainEqual({
+  it('rejects non-string runner labels', async () => {
+    expect(await getValidationIssues([null])).toContainEqual({
       severity: 'error',
       packageName: '.github/workflows/ci.yml',
       dependency: 'jobs.test.runs-on[0]',
@@ -74,8 +74,8 @@ describe('githubWorkflow', () => {
     })
   })
 
-  it('rejects empty runner labels', () => {
-    expect(getValidationIssues(['  '])).toContainEqual({
+  it('rejects empty runner labels', async () => {
+    expect(await getValidationIssues(['  '])).toContainEqual({
       severity: 'error',
       packageName: '.github/workflows/ci.yml',
       dependency: 'jobs.test.runs-on[0]',
@@ -84,8 +84,10 @@ describe('githubWorkflow', () => {
     })
   })
 
-  it('rejects placeholder runner labels', () => {
-    expect(getValidationIssues(['namespace-features:github.run-id=undefined'])).toContainEqual({
+  it('rejects placeholder runner labels', async () => {
+    expect(
+      await getValidationIssues(['namespace-features:github.run-id=undefined']),
+    ).toContainEqual({
       severity: 'error',
       packageName: '.github/workflows/ci.yml',
       dependency: 'jobs.test.runs-on[0]',
@@ -95,9 +97,9 @@ describe('githubWorkflow', () => {
     })
   })
 
-  it('rejects static matrix expansion above GitHub Actions documented matrix job limit', () => {
+  it('rejects static matrix expansion above GitHub Actions documented matrix job limit', async () => {
     expect(
-      getWorkflowValidationIssues({
+      await getWorkflowValidationIssues({
         name: 'CI',
         on: { pull_request: githubWorkflowEvent.all },
         jobs: {
@@ -122,9 +124,9 @@ describe('githubWorkflow', () => {
     )
   })
 
-  it('rejects static check-run expansion above GitHub Actions documented check-suite limit', () => {
+  it('rejects static check-run expansion above GitHub Actions documented check-suite limit', async () => {
     expect(
-      getWorkflowValidationIssues({
+      await getWorkflowValidationIssues({
         name: 'CI',
         on: { pull_request: githubWorkflowEvent.all },
         jobs: {
@@ -149,24 +151,26 @@ describe('githubWorkflow', () => {
     )
   })
 
-  it('warns when explicit job timeout exceeds documented runner execution limits', () => {
+  it('warns when explicit job timeout exceeds documented runner execution limits', async () => {
     expect(
-      getWorkflowValidationIssues({
-        name: 'CI',
-        on: { pull_request: githubWorkflowEvent.all },
-        jobs: {
-          hosted: {
-            'runs-on': 'ubuntu-latest',
-            'timeout-minutes': 361,
-            steps: [{ run: 'echo ok' }],
+      (
+        await getWorkflowValidationIssues({
+          name: 'CI',
+          on: { pull_request: githubWorkflowEvent.all },
+          jobs: {
+            hosted: {
+              'runs-on': 'ubuntu-latest',
+              'timeout-minutes': 361,
+              steps: [{ run: 'echo ok' }],
+            },
+            selfHosted: {
+              'runs-on': 'namespace-profile-linux-x86-64',
+              'timeout-minutes': 7_201,
+              steps: [{ run: 'echo ok' }],
+            },
           },
-          selfHosted: {
-            'runs-on': 'namespace-profile-linux-x86-64',
-            'timeout-minutes': 7_201,
-            steps: [{ run: 'echo ok' }],
-          },
-        },
-      }).filter((issue) => issue.rule === 'github-workflow-job-timeout-limit'),
+        })
+      ).filter((issue) => issue.rule === 'github-workflow-job-timeout-limit'),
     ).toEqual([
       expect.objectContaining({
         severity: 'warning',
@@ -179,29 +183,31 @@ describe('githubWorkflow', () => {
     ])
   })
 
-  it('does not warn for explicit timeouts within documented runner execution limits', () => {
+  it('does not warn for explicit timeouts within documented runner execution limits', async () => {
     expect(
-      getWorkflowValidationIssues({
-        name: 'CI',
-        on: { pull_request: githubWorkflowEvent.all },
-        jobs: {
-          hosted: {
-            'runs-on': 'ubuntu-latest',
-            'timeout-minutes': 360,
-            steps: [{ run: 'echo ok' }],
+      (
+        await getWorkflowValidationIssues({
+          name: 'CI',
+          on: { pull_request: githubWorkflowEvent.all },
+          jobs: {
+            hosted: {
+              'runs-on': 'ubuntu-latest',
+              'timeout-minutes': 360,
+              steps: [{ run: 'echo ok' }],
+            },
+            selfHosted: {
+              'runs-on': 'namespace-profile-linux-x86-64',
+              'timeout-minutes': 7_200,
+              steps: [{ run: 'echo ok' }],
+            },
           },
-          selfHosted: {
-            'runs-on': 'namespace-profile-linux-x86-64',
-            'timeout-minutes': 7_200,
-            steps: [{ run: 'echo ok' }],
-          },
-        },
-      }).filter((issue) => issue.rule === 'github-workflow-job-timeout-limit'),
+        })
+      ).filter((issue) => issue.rule === 'github-workflow-job-timeout-limit'),
     ).toEqual([])
   })
 
-  it('rejects generated workflow YAML above the observed GitHub Actions admission size limit', () => {
-    const issues = getWorkflowValidationIssues({
+  it('rejects generated workflow YAML above the observed GitHub Actions admission size limit', async () => {
+    const issues = await getWorkflowValidationIssues({
       name: 'CI',
       on: { pull_request: githubWorkflowEvent.all },
       jobs: {
@@ -222,8 +228,8 @@ describe('githubWorkflow', () => {
     )
   })
 
-  it('warns when generated workflow YAML is close to the observed admission size limit', () => {
-    const issues = getWorkflowValidationIssues({
+  it('warns when generated workflow YAML is close to the observed admission size limit', async () => {
+    const issues = await getWorkflowValidationIssues({
       name: 'CI',
       on: { pull_request: githubWorkflowEvent.all },
       jobs: {
@@ -247,8 +253,8 @@ describe('githubWorkflow', () => {
     )
   })
 
-  it('rejects prepared CI runtime script use without the preparation step', () => {
-    const issues = getWorkflowValidationIssues({
+  it('rejects prepared CI runtime script use without the preparation step', async () => {
+    const issues = await getWorkflowValidationIssues({
       name: 'CI',
       on: { pull_request: githubWorkflowEvent.all },
       jobs: {
@@ -277,8 +283,8 @@ describe('githubWorkflow', () => {
     )
   })
 
-  it('accepts prepared CI runtime script use after the preparation step', () => {
-    const issues = getWorkflowValidationIssues({
+  it('accepts prepared CI runtime script use after the preparation step', async () => {
+    const issues = await getWorkflowValidationIssues({
       name: 'CI',
       on: { pull_request: githubWorkflowEvent.all },
       jobs: {
@@ -306,13 +312,13 @@ describe('githubWorkflow', () => {
     ).toEqual([])
   })
 
-  it('rejects every prepared CI runtime helper after a measurement-baseline checkout', () => {
+  it('rejects every prepared CI runtime helper after a measurement-baseline checkout', async () => {
     for (const helperPath of [
       'run-with-nix-gc-race-retry.sh',
       'resolve-devenv.sh',
       'prepare-job-local-rust-state.sh',
     ]) {
-      const issues = getWorkflowValidationIssues({
+      const issues = await getWorkflowValidationIssues({
         name: 'CI',
         on: { pull_request: githubWorkflowEvent.all },
         jobs: {
@@ -347,8 +353,8 @@ describe('githubWorkflow', () => {
     }
   })
 
-  it('rejects prepared CI runtime helper use when Nix installation follows preparation', () => {
-    const issues = getWorkflowValidationIssues({
+  it('rejects prepared CI runtime helper use when Nix installation follows preparation', async () => {
+    const issues = await getWorkflowValidationIssues({
       name: 'CI',
       on: { pull_request: githubWorkflowEvent.all },
       jobs: {
@@ -372,11 +378,11 @@ describe('githubWorkflow', () => {
     )
   })
 
-  it('rejects every prepared CI retry script use after a destructive checkout', () => {
+  it('rejects every prepared CI retry script use after a destructive checkout', async () => {
     const retryStep = {
       run: "bash '${{ github.workspace }}/.genie-ci-runtime/run-with-nix-gc-race-retry.sh' test true",
     }
-    const issues = getWorkflowValidationIssues({
+    const issues = await getWorkflowValidationIssues({
       name: 'CI',
       on: { pull_request: githubWorkflowEvent.all },
       jobs: {
@@ -401,12 +407,12 @@ describe('githubWorkflow', () => {
     )
   })
 
-  it('accepts prepared CI retry script use after non-destructive checkouts', () => {
+  it('accepts prepared CI retry script use after non-destructive checkouts', async () => {
     for (const checkout of [
       { uses: 'actions/checkout@v6', with: { path: 'vendor/tool' } },
       { uses: 'actions/checkout@v6', with: { clean: false } },
     ]) {
-      const issues = getWorkflowValidationIssues({
+      const issues = await getWorkflowValidationIssues({
         name: 'CI',
         on: { pull_request: githubWorkflowEvent.all },
         jobs: {
@@ -432,8 +438,8 @@ describe('githubWorkflow', () => {
 })
 
 describe('determinate-nix-action extra-conf validation', () => {
-  it('no warning when determinate-nix-action has experimental-features in extra-conf', () => {
-    const issues = getWorkflowValidationIssues({
+  it('no warning when determinate-nix-action has experimental-features in extra-conf', async () => {
+    const issues = await getWorkflowValidationIssues({
       name: 'CI',
       on: { push: { branches: ['main'] } },
       jobs: {
@@ -455,8 +461,8 @@ describe('determinate-nix-action extra-conf validation', () => {
     )
   })
 
-  it('warns when determinate-nix-action is missing experimental-features in extra-conf', () => {
-    const issues = getWorkflowValidationIssues({
+  it('warns when determinate-nix-action is missing experimental-features in extra-conf', async () => {
+    const issues = await getWorkflowValidationIssues({
       name: 'CI',
       on: { push: { branches: ['main'] } },
       jobs: {
@@ -484,8 +490,8 @@ describe('determinate-nix-action extra-conf validation', () => {
     })
   })
 
-  it('no warning when workflow does not use determinate-nix-action', () => {
-    const issues = getWorkflowValidationIssues({
+  it('no warning when workflow does not use determinate-nix-action', async () => {
+    const issues = await getWorkflowValidationIssues({
       name: 'CI',
       on: { push: { branches: ['main'] } },
       jobs: {
@@ -503,8 +509,8 @@ describe('determinate-nix-action extra-conf validation', () => {
 })
 
 describe('GitHub expression validation', () => {
-  it('rejects nested GitHub expressions inside a single expression string', () => {
-    const issues = getWorkflowValidationIssues({
+  it('rejects nested GitHub expressions inside a single expression string', async () => {
+    const issues = await getWorkflowValidationIssues({
       name: 'CI',
       on: { push: { branches: ['main'] } },
       jobs: {
@@ -533,8 +539,8 @@ describe('GitHub expression validation', () => {
     })
   })
 
-  it('allows plain strings that concatenate multiple top-level GitHub expressions', () => {
-    const issues = getWorkflowValidationIssues({
+  it('allows plain strings that concatenate multiple top-level GitHub expressions', async () => {
+    const issues = await getWorkflowValidationIssues({
       name: 'CI',
       on: { push: { branches: ['main'] } },
       jobs: {
@@ -637,8 +643,8 @@ describe('GitHub expression validation', () => {
 })
 
 describe.runIf(hasActionlint)('actionlint integration', () => {
-  it('passes a clean workflow', () => {
-    const issues = getFullValidationIssues({
+  it('passes a clean workflow', async () => {
+    const issues = await getFullValidationIssues({
       name: 'CI',
       on: { push: { branches: ['main'] } },
       jobs: {
@@ -652,8 +658,8 @@ describe.runIf(hasActionlint)('actionlint integration', () => {
     expect(issues.filter((i) => i.rule.startsWith('actionlint-'))).toEqual([])
   })
 
-  it('catches script injection via untrusted input in run step', () => {
-    const issues = getFullValidationIssues({
+  it('catches script injection via untrusted input in run step', async () => {
+    const issues = await getFullValidationIssues({
       name: 'CI',
       on: { pull_request: githubWorkflowEvent.all },
       jobs: {
@@ -671,8 +677,8 @@ describe.runIf(hasActionlint)('actionlint integration', () => {
     expect(actionlintErrors[0]!.message).toContain('untrusted')
   })
 
-  it('accepts custom self-hosted runner labels via config', () => {
-    const issues = getFullValidationIssues({
+  it('accepts custom self-hosted runner labels via config', async () => {
+    const issues = await getFullValidationIssues({
       actionlint: { selfHostedRunnerLabels: ['my-custom-runner', 'nix'] },
       name: 'CI',
       on: { push: githubWorkflowEvent.all },
@@ -687,8 +693,8 @@ describe.runIf(hasActionlint)('actionlint integration', () => {
     expect(issues.filter((i) => i.rule === 'actionlint-runner-label')).toEqual([])
   })
 
-  it('reports unknown runner labels without config', () => {
-    const issues = getFullValidationIssues({
+  it('reports unknown runner labels without config', async () => {
+    const issues = await getFullValidationIssues({
       name: 'CI',
       on: { push: githubWorkflowEvent.all },
       jobs: {
@@ -702,8 +708,8 @@ describe.runIf(hasActionlint)('actionlint integration', () => {
     expect(issues.filter((i) => i.rule === 'actionlint-runner-label').length).toBeGreaterThan(0)
   })
 
-  it('can be disabled with actionlint: false', () => {
-    const issues = getFullValidationIssues({
+  it('can be disabled with actionlint: false', async () => {
+    const issues = await getFullValidationIssues({
       actionlint: false,
       name: 'CI',
       on: { pull_request: githubWorkflowEvent.all },

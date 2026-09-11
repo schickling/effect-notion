@@ -19,8 +19,7 @@ const OXC_PLUGIN_PATH = './packages/@overeng/oxc-config/src/mod.ts'
  * only resolves from the root `node_modules`, which this aggregate root cannot
  * carry a dependency in. See that file's header.
  */
-const STYLEX_UPSTREAM_PLUGIN_PATH =
-  './packages/@overeng/oxc-config/src/stylex-upstream-plugin.ts'
+const STYLEX_UPSTREAM_PLUGIN_PATH = './packages/@overeng/oxc-config/src/stylex-upstream-plugin.ts'
 
 export default oxlintConfig({
   plugins: baseOxlintPlugins,
@@ -57,12 +56,14 @@ export default oxlintConfig({
       rules: { 'overeng/no-external-imports': 'off' },
     },
     {
-      // The bootstrap-closure checker is post-install node tooling (a CI/check
-      // capability), not bootstrap-generation code: it legitimately needs the
-      // TypeScript compiler API (`ts.createSourceFile` / `ts.resolveModuleName`)
-      // to walk each generator's runtime import closure, so it is exempt from
-      // the dependency-free rule the rest of `genie/src/runtime/**` carries.
-      files: ['**/genie/src/runtime/node/bootstrap-closure.ts'],
+      // These post-install node tools legitimately use the TypeScript compiler
+      // API: ts-api owns the process-backed session and bootstrap-closure uses
+      // it to walk each generator's runtime import closure. Neither belongs to
+      // the dependency-free bootstrap-generation runtime.
+      files: [
+        '**/genie/src/runtime/node/bootstrap-closure.ts',
+        '**/genie/src/runtime/node/ts-api.ts',
+      ],
       rules: { 'overeng/no-external-imports': 'off' },
     },
     // jsdoc-require-exports is ENFORCED as `error` (base rule, oxlint-base.ts):
@@ -81,6 +82,17 @@ export default oxlintConfig({
     {
       files: ['packages/@overeng/genie/src/**'],
       rules: { 'overeng/jsdoc-require-exports': 'warn' },
+    },
+    // oxlint 1.82's `no-underscore-dangle` reports the repo's `_x` marker for a
+    // binding that exists for its shape but is intentionally unused — which
+    // `no-unused-vars` requires to be underscore-prefixed. Two surfaces are
+    // built almost entirely out of such bindings: `*.types.ts` files, whose
+    // whole content is type-level inference assertions (`const _runOk: Expect<...>`),
+    // and `examples/`, where a binding illustrates a shape it never uses. The
+    // base config relaxes the same rule for tests and story fixtures.
+    {
+      files: ['**/*.types.ts', '**/examples/**'],
+      rules: { 'no-underscore-dangle': 'off' },
     },
     // The otelite test-assertion harness is a fluent matcher DSL
     // (`attr.predicate('label', pred)`, `expectTrace(...).expectOne(...)`) where

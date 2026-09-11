@@ -13,7 +13,7 @@ import { Vitest } from '@overeng/utils-dev/node-vitest'
 import { SchemaHelpers } from './schema-helpers.ts'
 
 const makeDatabase = (properties: Record<string, unknown>) =>
-  Schema.decodeUnknownSync(DatabaseSchema)({
+  Schema.decodeSync(DatabaseSchema)({
     object: 'database',
     id: 'db-id',
     created_time: '2025-01-01T00:00:00.000Z',
@@ -33,7 +33,7 @@ const makeDatabase = (properties: Record<string, unknown>) =>
   })
 
 const makeDataSource = (properties: Record<string, unknown>) =>
-  Schema.decodeUnknownSync(DataSourceSchema)({
+  Schema.decodeSync(DataSourceSchema)({
     object: 'data_source',
     id: 'data-source-id',
     title: [],

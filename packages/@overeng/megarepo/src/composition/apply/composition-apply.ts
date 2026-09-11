@@ -310,7 +310,7 @@ const failure = ({
   message,
   path,
   memberKey,
-  recoveryPaths = [],
+  recoveryPaths,
   primaryFailure,
   cleanupFailures,
   updateLockRecovery,
@@ -653,10 +653,7 @@ const applyComposition = async ({
 }): Promise<CompositionApplyOutput> => {
   let request: CompositionApplyRequest
   try {
-    request = Schema.decodeUnknownSync(
-      CompositionApplyRequestSchema,
-      strictParseOptions,
-    )(untrustedRequest)
+    request = Schema.decodeSync(CompositionApplyRequestSchema, strictParseOptions)(untrustedRequest)
     validateRuntime(runtime)
   } catch (cause) {
     throw normalizeFailure({

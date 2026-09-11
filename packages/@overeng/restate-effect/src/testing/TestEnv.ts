@@ -287,6 +287,10 @@ const classifyMockExit = ({
   )
 }
 
+/* A `SerdeFailed` mapper for the state proxy's encode/decode boundaries. */
+const stateErr = (method: string) => (cause: unknown) =>
+  new RestateError({ reason: 'SerdeFailed', method, cause })
+
 /**
  * A typed `StateProxy` over an in-memory per-key State `Map` (the mock backend). The
  * inner `Map` is the SAME one the in-memory handler `ctx` reads/writes, which stores
@@ -305,8 +309,6 @@ const mockStateProxy = <S extends StateSchemas>({
 }): StateProxy<S> => {
   const schemas = contract.state
   const schemaFor = (key: string) => normalizeStateSchema(schemas[key]!)
-  const stateErr = (method: string) => (cause: unknown) =>
-    new RestateError({ reason: 'SerdeFailed', method, cause })
   return {
     get: (key) =>
       state.has(key) === true

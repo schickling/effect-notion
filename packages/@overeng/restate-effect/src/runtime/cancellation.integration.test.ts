@@ -55,7 +55,7 @@ const observe = (key: string): Lifecycle => {
 const gateFor = (key: string): Deferred.Deferred<void> => {
   let g = acquireGate.get(key)
   if (g === undefined) {
-    g = Effect.runSync(Deferred.make<void>())
+    g = Deferred.makeUnsafe<void>()
     acquireGate.set(key, g)
   }
   return g
@@ -135,8 +135,10 @@ describe('restate-effect cancellation ↔ interruption', () => {
        * the durable timer) before cancelling — otherwise we'd race the start. */
       await Effect.runPromise(
         Deferred.await(gateFor(key)).pipe(
-          Effect.timeout('30 seconds'),
-          Effect.catchTag('TimeoutError', () => Effect.fail(new HandlerNeverAcquired())),
+          Effect.timeoutOrElse({
+            duration: '30 seconds',
+            orElse: () => Effect.fail(new HandlerNeverAcquired()),
+          }),
         ),
       )
       expect(observe(key).acquired).toBe(1)

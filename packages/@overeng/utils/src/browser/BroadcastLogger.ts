@@ -205,8 +205,7 @@ const makeBroadcastLoggerFromChannel = ({
       source,
     })
 
-    // BroadcastChannel.postMessage doesn't need targetOrigin (unlike window.postMessage)
-    // oxlint-disable-next-line eslint-plugin-unicorn(require-post-message-target-origin)
+    // oxlint-disable-next-line unicorn/require-post-message-target-origin -- `channel` is a `BroadcastChannel`, whose `postMessage(message)` takes no `targetOrigin` (it is same-origin by spec); the rule targets `window`/worker `postMessage`
     channel.postMessage(encodeBroadcastLogEntry(entry))
   })
 
@@ -271,7 +270,7 @@ export const logStream: Stream.Stream<BroadcastLogEntry, never, Scope.Scope> = S
       Effect.gen(function* () {
         const channel = yield* Effect.acquireRelease(
           Effect.sync(() => new BroadcastChannel(BROADCAST_CHANNEL_NAME)),
-          (channel) => Effect.sync(() => channel.close()),
+          (acquiredChannel) => Effect.sync(() => acquiredChannel.close()),
         )
 
         return Stream.fromEventListener<MessageEvent<unknown>>(channel, 'message').pipe(

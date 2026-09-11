@@ -69,7 +69,7 @@ export const validateTsconfigReferences = ({
   }
 
   const workspaceDeps = Object.entries(allDeps).filter(
-    ([_, version]) => version === 'workspace:*' || version.startsWith('workspace:'),
+    ([_depName, version]) => version === 'workspace:*' || version.startsWith('workspace:'),
   )
 
   // Check each workspace dep has a corresponding tsconfig reference

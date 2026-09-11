@@ -220,6 +220,10 @@ const mapRetryPolicy = (p: RetryPolicyOptions): Record<string, unknown> => ({
   ...(p.exponentiationFactor !== undefined ? { exponentiationFactor: p.exponentiationFactor } : {}),
 })
 
+/* Millis for a `Duration.Input` (the SDK retention options take a number = millis). */
+const durationToMillis = (d: Duration.Input): number =>
+  Duration.toMillis(Duration.fromInputUnsafe(d))
+
 /* Map a `Restate.retention` annotation (decision 0011) to the SDK retention
  * options. `workflow` is dropped unless the construct is a Workflow (the caller
  * decides via `includeWorkflow`). Builder `options` win over the annotation. */
@@ -229,18 +233,17 @@ const mapRetention = ({
 }: {
   retention: RetentionOptions
   includeWorkflow: boolean
-}): Record<string, unknown> => {
-  const toMillis = (d: Duration.Input): number => Duration.toMillis(Duration.fromInputUnsafe(d))
-  return {
-    ...(retention.idempotency !== undefined
-      ? { idempotencyRetention: toMillis(retention.idempotency) }
-      : {}),
-    ...(retention.journal !== undefined ? { journalRetention: toMillis(retention.journal) } : {}),
-    ...(includeWorkflow === true && retention.workflow !== undefined
-      ? { workflowRetention: toMillis(retention.workflow) }
-      : {}),
-  }
-}
+}): Record<string, unknown> => ({
+  ...(retention.idempotency !== undefined
+    ? { idempotencyRetention: durationToMillis(retention.idempotency) }
+    : {}),
+  ...(retention.journal !== undefined
+    ? { journalRetention: durationToMillis(retention.journal) }
+    : {}),
+  ...(includeWorkflow === true && retention.workflow !== undefined
+    ? { workflowRetention: durationToMillis(retention.workflow) }
+    : {}),
+})
 
 /**
  * Map a handler spec's serde (R07) + surfaced R35/retry options into the SDK opts

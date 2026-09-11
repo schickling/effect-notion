@@ -49,7 +49,7 @@ describe('cp-a lifecycle schemas', () => {
   })
 
   it('strictly decodes the identity-bound transaction envelope', () => {
-    const transaction = Schema.decodeUnknownSync(CpAMemberMountTransaction, {
+    const transaction = Schema.decodeSync(CpAMemberMountTransaction, {
       errors: 'all',
       onExcessProperty: 'error',
     })({

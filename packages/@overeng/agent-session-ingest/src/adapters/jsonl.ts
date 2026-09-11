@@ -68,7 +68,7 @@ export const makeAppendOnlyJsonlAdapter = <A, I>(
         })
 
         const records = yield* Effect.forEach(splitCompleteJsonlRecords(read.text), (line) =>
-          Schema.decodeUnknownEffect(Schema.fromJsonString(options.recordSchema))(line).pipe(
+          Schema.decodeEffect(Schema.fromJsonString(options.recordSchema))(line).pipe(
             Effect.mapError(
               (cause) =>
                 new SessionArtifactDecodeError({
@@ -85,7 +85,7 @@ export const makeAppendOnlyJsonlAdapter = <A, I>(
         return {
           artifact,
           records,
-          checkpoint: yield* Schema.decodeUnknownEffect(IngestionCheckpointSchema)({
+          checkpoint: yield* Schema.decodeEffect(IngestionCheckpointSchema)({
             sourceId: artifact.sourceId,
             artifactId: artifact.artifactId,
             path: artifact.path,

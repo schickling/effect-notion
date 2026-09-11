@@ -393,8 +393,8 @@ const scanError = ({
 })
 
 class WalkFailure extends Error {
-  constructor(readonly scanError: R6ScanError) {
-    super(scanError.message)
+  constructor(readonly error: R6ScanError) {
+    super(error.message)
   }
 }
 
@@ -787,7 +787,7 @@ const scanMount = ({
     },
     catch: (cause): R6ScanError =>
       cause instanceof WalkFailure
-        ? cause.scanError
+        ? cause.error
         : scanError({
             reason: 'IoFailure',
             path: NodePath.resolve(root),
@@ -813,7 +813,7 @@ export const scanR6BuildArtifactTree = ({
       ).scan,
     catch: (cause): R6ScanError =>
       cause instanceof WalkFailure
-        ? cause.scanError
+        ? cause.error
         : scanError({
             reason: 'IoFailure',
             path: NodePath.resolve(root),
@@ -839,7 +839,7 @@ export const scanR6SourceTree = ({
       ).scan,
     catch: (cause): R6ScanError =>
       cause instanceof WalkFailure
-        ? cause.scanError
+        ? cause.error
         : scanError({
             reason: 'IoFailure',
             path: NodePath.resolve(root),
@@ -865,7 +865,7 @@ export const scanR6ProtectedTree = ({
       ).scan,
     catch: (cause): R6ScanError =>
       cause instanceof WalkFailure
-        ? cause.scanError
+        ? cause.error
         : scanError({
             reason: 'IoFailure',
             path: NodePath.resolve(root),
@@ -1036,7 +1036,7 @@ export const readOwnedCpAMountMetadata = ({
     const fs = yield* FileSystem.FileSystem
     const path = ownedCpAMountMetadataPath({ workspaceRoot, member })
     const content = yield* fs.readFileString(path)
-    const metadata = yield* Schema.decodeUnknownEffect(MetadataJson, strictParseOptions)(content)
+    const metadata = yield* Schema.decodeEffect(MetadataJson, strictParseOptions)(content)
     const expectedPublishedPath = canonicalAbsolutePath(publishedPath)
     if (metadata.member !== member || metadata.publishedPath !== expectedPublishedPath) {
       return yield* new OwnedCpAMountMetadataError({

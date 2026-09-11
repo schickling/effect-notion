@@ -399,7 +399,7 @@ export const createTuiApp = <S, A>(config: TuiAppConfig<S, A>): TuiApp<S, A> => 
 
   // Check once if schema has Interrupted variant
   const interruptedAction = createInterruptedAction(config.actionSchema)
-  const run_ = (
+  const runApp = (
     view?: ReactElement,
   ): Effect.Effect<TuiAppApi<S, A>, never, Scope.Scope | OutputModeTag> =>
     Effect.gen(function* () {
@@ -523,7 +523,7 @@ export const createTuiApp = <S, A>(config: TuiAppConfig<S, A>): TuiApp<S, A> => 
   return {
     [TuiAppTypeId]: TuiAppTypeId,
     stateAtom,
-    run: run_,
+    run: runApp,
     config,
   }
 }

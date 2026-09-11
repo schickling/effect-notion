@@ -397,6 +397,15 @@ const decodeEvent =
         }),
     })
 
+/* Put back the env entries captured before an override batch (absent = delete). */
+const restoreEnv = (saved: ReadonlyArray<readonly [string, string | undefined]>) =>
+  Effect.sync(() => {
+    for (const [key, previous] of saved) {
+      if (previous === undefined) delete process.env[key]
+      else process.env[key] = previous
+    }
+  })
+
 const withEnvOverrides = <A, E, R>({
   env,
   effect,
@@ -407,21 +416,13 @@ const withEnvOverrides = <A, E, R>({
   const envOverrides = env !== undefined ? Object.entries(env) : []
   if (envOverrides.length === 0) return effect
 
-  const restore = (saved: ReadonlyArray<readonly [string, string | undefined]>) =>
-    Effect.sync(() => {
-      for (const [key, previous] of saved) {
-        if (previous === undefined) delete process.env[key]
-        else process.env[key] = previous
-      }
-    })
-
   return Effect.sync(() => {
     const saved = envOverrides.map(([key]) => [key, process.env[key]] as const)
     for (const [key, value] of envOverrides) {
       process.env[key] = value
     }
     return saved
-  }).pipe(Effect.flatMap((saved) => effect.pipe(Effect.ensuring(restore(saved)))))
+  }).pipe(Effect.flatMap((saved) => effect.pipe(Effect.ensuring(restoreEnv(saved)))))
 }
 
 const includesTags = ({

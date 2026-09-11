@@ -57,7 +57,7 @@ const Basic = RestateScheduled.make<typeof CounterState>({
       const n = (yield* C.get('n')) ?? 0
       yield* Restate.run({
         name: `work(${key}@${n})`,
-        effect: Effect.sync(() => n),
+        effect: Effect.succeed(n),
         options: { maxRetryAttempts: 1 },
       })
       yield* C.set({ key: 'n', value: n + 1 })

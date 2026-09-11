@@ -1,6 +1,8 @@
-import ts from 'typescript'
+import path from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
+import { runTsVirtualProject } from '../node/ts-api.ts'
 import type { Provenance, Registry } from './mod.ts'
 import { renderRustConstants, renderTsConstants } from './mod.ts'
 import { otelScrapeFixtureRegistry } from './otel-scrape.fixture.ts'
@@ -12,32 +14,32 @@ const FIXTURE_PROVENANCE: Provenance = {
   fingerprint: 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
 }
 
-const typecheck = (files: ReadonlyMap<string, string>, rootNames: ReadonlyArray<string>): void => {
-  const options: ts.CompilerOptions = {
-    allowImportingTsExtensions: true,
-    module: ts.ModuleKind.NodeNext,
-    moduleResolution: ts.ModuleResolutionKind.NodeNext,
-    noEmit: true,
-    strict: true,
-    target: ts.ScriptTarget.ES2024,
-  }
-  const host = ts.createCompilerHost(options)
-  const fallbackGetSourceFile = host.getSourceFile.bind(host)
-  const fallbackFileExists = host.fileExists.bind(host)
-  const fallbackReadFile = host.readFile.bind(host)
-  host.getSourceFile = (fileName, languageVersion) => {
-    const text = files.get(fileName)
-    if (text !== undefined) return ts.createSourceFile(fileName, text, languageVersion, true)
-    return fallbackGetSourceFile(fileName, languageVersion)
-  }
-  host.fileExists = (fileName) => files.has(fileName) || fallbackFileExists(fileName)
-  host.readFile = (fileName) => files.get(fileName) ?? fallbackReadFile(fileName)
-  host.writeFile = () => undefined
+const typecheck = async (
+  files: ReadonlyMap<string, string>,
+  rootNames: ReadonlyArray<string>,
+): Promise<void> => {
+  const root = path.resolve('/genie-virtual/weaver')
+  const normalizedFiles = new Map(
+    [...files].map(([file, text]) => [path.resolve(root, file.replace(/^\/+/, '')), text]),
+  )
+  const normalizedRootNames = rootNames.map((file) => path.resolve(root, file.replace(/^\/+/, '')))
 
-  const program = ts.createProgram(rootNames, options, host)
-  const diagnostics = ts.getPreEmitDiagnostics(program)
-
-  expect(diagnostics.map((d) => ts.flattenDiagnosticMessageText(d.messageText, '\n'))).toEqual([])
+  await runTsVirtualProject({
+    root,
+    files: normalizedFiles,
+    rootFiles: normalizedRootNames,
+    compilerOptions: {
+      allowImportingTsExtensions: true,
+      module: 'nodenext',
+      moduleResolution: 'nodenext',
+      noEmit: true,
+      strict: true,
+      target: 'es2024',
+    },
+    use: async (project) => {
+      expect(await project.diagnosticMessages()).toEqual([])
+    },
+  })
 }
 
 describe('renderTsConstants (otel-scrape fixture)', () => {
@@ -76,7 +78,7 @@ describe('renderTsConstants (otel-scrape fixture)', () => {
     expect(source).not.toContain(`export const ATTRIBUTE_Otel_scrapeStatus`)
   })
 
-  it('type-checks consumers importing generated METRIC_ and SPAN_ constants', () => {
+  it('type-checks consumers importing generated METRIC_ and SPAN_ constants', async () => {
     const constantsFile = '/constants.ts'
     const consumerFile = '/consumer.ts'
     const consumer = [
@@ -92,7 +94,7 @@ describe('renderTsConstants (otel-scrape fixture)', () => {
       [constantsFile, source],
       [consumerFile, consumer],
     ])
-    typecheck(files, [consumerFile])
+    await typecheck(files, [consumerFile])
   })
 
   it('throws a clear error when folded metric identifiers collide', () => {
@@ -167,7 +169,7 @@ describe('renderTsConstants (otel-scrape fixture)', () => {
     )
   })
 
-  it('renders empty span-name unions as never for metrics-only registries', () => {
+  it('renders empty span-name unions as never for metrics-only registries', async () => {
     const metricsOnlyRegistry: Registry = {
       ...registry,
       signals: [
@@ -189,6 +191,6 @@ describe('renderTsConstants (otel-scrape fixture)', () => {
     })
     expect(constants).toContain('export type SpanName = never')
     expect(constants).toContain(`export const METRIC_OtelScrapeScrapes = 'otel_scrape.scrapes'`)
-    typecheck(new Map([['/constants.ts', constants]]), ['/constants.ts'])
+    await typecheck(new Map([['/constants.ts', constants]]), ['/constants.ts'])
   })
 })

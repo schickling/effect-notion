@@ -10,7 +10,7 @@ test.describe('Effect RPC + TanStack Start', () => {
         yield* Pw.Page.goto({ url: '/' })
 
         const userList = yield* Pw.Locator.getByTestId('user-list')
-        yield* Pw.Locator.waitFor({ locator: userList })
+        yield* Pw.Locator.waitForVisible({ locator: userList })
 
         const user1 = yield* Pw.Locator.getByTestId('user-1')
         yield* Pw.expect(
@@ -32,9 +32,11 @@ test.describe('Effect RPC + TanStack Start', () => {
         yield* Pw.Page.goto({ url: '/' })
 
         const nameInput = yield* Pw.Locator.getByTestId('name-input')
+        // oxlint-disable-next-line unicorn/no-array-fill-with-reference-type -- `Pw.Locator.fill` is the Playwright locator helper, not `Array#fill`; the rule matches on the method name alone.
         yield* Pw.Locator.fill({ locator: nameInput, value: 'Charlie' })
 
         const emailInput = yield* Pw.Locator.getByTestId('email-input')
+        // oxlint-disable-next-line unicorn/no-array-fill-with-reference-type -- `Pw.Locator.fill` is the Playwright locator helper, not `Array#fill`; the rule matches on the method name alone.
         yield* Pw.Locator.fill({
           locator: emailInput,
           value: 'charlie@example.com',
@@ -44,7 +46,7 @@ test.describe('Effect RPC + TanStack Start', () => {
         yield* Pw.Locator.click({ locator: submitButton })
 
         const user3 = yield* Pw.Locator.getByTestId('user-3')
-        yield* Pw.Locator.waitFor({ locator: user3 })
+        yield* Pw.Locator.waitForVisible({ locator: user3 })
 
         const user3Text = yield* Pw.Locator.textContent({ locator: user3 })
         yield* Pw.expect('user-3-contains-charlie', expect(user3Text).toContain('Charlie'))
@@ -86,7 +88,7 @@ test.describe('Effect RPC + TanStack Start', () => {
         yield* Pw.Page.goto({ url: '/users/999' })
 
         const errorText = yield* Pw.Locator.getByText('User not found: 999')
-        yield* Pw.Locator.waitFor({ locator: errorText })
+        yield* Pw.Locator.waitForVisible({ locator: errorText })
       }),
     ))
 })

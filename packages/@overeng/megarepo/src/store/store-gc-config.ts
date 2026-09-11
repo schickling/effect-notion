@@ -185,7 +185,7 @@ export const loadStoreGcConfig = ({
     const path = gcConfigPath(storeBasePath)
     const override = yield* fs.readFileString(path).pipe(
       Effect.flatMap((content) =>
-        Schema.decodeUnknownEffect(Schema.fromJsonString(StoreGcConfigOverride))(content),
+        Schema.decodeEffect(Schema.fromJsonString(StoreGcConfigOverride))(content),
       ),
       Effect.orElseSucceed(() => ({}) as StoreGcConfigOverride),
     )

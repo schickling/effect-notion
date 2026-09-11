@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 
 import { parseGeneratorPhase } from '../../core/phase.ts'
@@ -50,7 +50,12 @@ const parseArgs = ({
     throw new Error(`unknown argument: ${arg}`)
   }
 
-  return { repoRoot, help }
+  // The walk reports every path as its on-disk identity, so the root the diagnostics are made relative
+  // to has to be that same identity — otherwise a symlinked checkout renders every chain as `../..`.
+  return {
+    repoRoot: existsSync(repoRoot) === true ? realpathSync.native(repoRoot) : repoRoot,
+    help,
+  }
 }
 
 /** Discover source-tree `.genie.ts` files without requiring Git or package-manager install state. */
@@ -80,13 +85,13 @@ export const discoverGenieFiles = (repoRoot: string): readonly string[] => {
 /**
  * Runs the standalone bootstrap import-closure checker CLI.
  */
-export const bootstrapClosureCheckMain = ({
+export const bootstrapClosureCheckMain = async ({
   argv,
   defaultRepoRoot,
 }: {
   argv: readonly string[]
   defaultRepoRoot: string
-}): void => {
+}): Promise<void> => {
   try {
     const { repoRoot, help } = parseArgs({ argv, defaultRepoRoot })
     if (help === true) {
@@ -99,7 +104,9 @@ export const bootstrapClosureCheckMain = ({
       (file) => parseGeneratorPhase(readFileSync(file, 'utf8')) === 'bootstrap',
     )
 
-    const { violations, checkedSources } = checkBootstrapClosure({ genieFiles: bootstrapFiles })
+    const { violations, checkedSources } = await checkBootstrapClosure({
+      genieFiles: bootstrapFiles,
+    })
 
     if (violations.length > 0) {
       console.error(

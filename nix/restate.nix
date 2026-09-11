@@ -39,7 +39,7 @@ let
   lib = pkgs.lib;
 
   # https://github.com/restatedev/restate/releases for the latest version.
-  version = "1.6.2";
+  version = "1.7.9";
 
   baseUrl = "https://github.com/restatedev/restate/releases/download/v${version}";
 
@@ -56,20 +56,20 @@ let
   # the rest are derived from the assets' `.sha256` sidecars.
   hashes = {
     x86_64-linux = {
-      server = "sha256-DQIui+7+TmHdpzVFCEg5WsYOWBrdN+rQI9j4E9NxK+E=";
-      cli = "sha256-1nG/JDS0EN3wPPc/c5FMzs7dYL/D1m6EGj1/klgTnlQ=";
+      server = "sha256-w25mCaWRqqWRTdIRQySednRXBLVx1KVzXBymwgsTvc8=";
+      cli = "sha256-qwW8Y9FrZGotwntTinkNm0SURW8hDHkljhxt2nQACEY=";
     };
     aarch64-linux = {
-      server = "sha256-w11Uiz6+wToxg8asu93Bw2VqHyZCPX0TrxQXc6CcbPE=";
-      cli = "sha256-Fq1qKWTDmFU66NqRD3bTazvorZqKwwGWORjwb4rRhp0=";
+      server = "sha256-W2nHwKblW7cIApJM6CLqCUPYLZtsrBV/JOuF14jTWXY=";
+      cli = "sha256-KqMeIY6yoAcmYY3PZlknuQdIq9qAi/Tqn5rd3HFogAs=";
     };
     x86_64-darwin = {
-      server = "sha256-RMnJPsvnwPsR8eVQ2ZxJZE1fmsksPvXMl5Zh63U3LtU=";
-      cli = "sha256-bM/zQ+NFqtsNQPj9DywJ6Ei8aaRIaaO07LWj6FF0i1w=";
+      server = "sha256-z8fNLoZwvsBivx53H2fuKDQuvxNm6e3K8MBydPCZfLo=";
+      cli = "sha256-kANn4FvAbtXMchwGPvp250MWSxFGciG7g7m0hsy9i/E=";
     };
     aarch64-darwin = {
-      server = "sha256-EmtLA883y1mYxpypQ4atMhgGEk65t2SzuKM2MDww72E=";
-      cli = "sha256-jBsd+4KUrUSRaBkoMGW8ipi56rDKhWRyRilHfZxufuw=";
+      server = "sha256-7bK3N1Jf/cXc0kSdB0IVr78EFKx7Qf/+Dwu3h4UixYw=";
+      cli = "sha256-VY2ZoGLFeGLJryo5Di2yEKGZ/YNmo+BAH82maiHcRYw=";
     };
   };
 

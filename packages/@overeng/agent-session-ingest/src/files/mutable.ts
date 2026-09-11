@@ -37,13 +37,13 @@ export const readMutableTextFileIfChanged = Effect.fn(
           const handle = await openFile(options.path, 'r')
           try {
             const before = await handle.stat()
-            const sizeBytes = Number(before.size)
+            const sizeBytes = before.size
             const buffer = Buffer.alloc(sizeBytes)
             const { bytesRead } = await handle.read(buffer, 0, sizeBytes, 0)
             const after = await handle.stat()
 
             if (
-              Number(after.size) !== sizeBytes ||
+              after.size !== sizeBytes ||
               Math.trunc(after.mtimeMs) !== Math.trunc(before.mtimeMs)
             ) {
               return readStableSnapshot(attempt + 1)

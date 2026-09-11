@@ -94,7 +94,7 @@ type GenieOutputBase<T> = {
   /** Serialize the data to a string for file output */
   stringify: (ctx: GenieContext) => string
   /** Optional validation hook — runs during both generation and check */
-  validate?: (ctx: GenieContext) => GenieValidationIssue[]
+  validate?: (ctx: GenieContext) => GenieValidationIssue[] | Promise<GenieValidationIssue[]>
 }
 
 /** Standard output shape for Genie generators, with canonical emitted `data` and optional non-emitted `meta`. */

@@ -18,7 +18,15 @@ const composition = catalog.compose({
     ),
   },
   devDependencies: {
-    external: catalog.pick('@types/node', '@types/react'),
+    // `typescript` is declared even though this package has no build script of
+    // its own: it is type-checked as a composite project of
+    // `tsconfig.check.json` and emits nothing. `@opentui/core` peers
+    // TypeScript, and this was the only OpenTUI importer that left that peer
+    // undeclared. pnpm then satisfied it from `bun-ffi-structs`'s `^5` range
+    // and installed a second compiler (5.9.3) beside the catalog's, splitting
+    // `@opentui/core` into two store entries and adding a third TypeScript to
+    // a repo whose duplicate exception admits exactly two.
+    external: catalog.pick('@types/node', '@types/react', 'typescript'),
   },
 })
 

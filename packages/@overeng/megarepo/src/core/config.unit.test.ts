@@ -431,7 +431,7 @@ describe('config', () => {
           'local-lib': './packages/local',
         },
       }
-      const result = Schema.decodeUnknownSync(MegarepoConfig)(input)
+      const result = Schema.decodeSync(MegarepoConfig)(input)
       expect(result.members['effect']).toBe('effect-ts/effect')
       expect(result.members['effect-v3']).toBe('effect-ts/effect#v3.0.0')
       expect(result.members['local-lib']).toBe('./packages/local')
@@ -450,7 +450,7 @@ describe('config', () => {
           },
         },
       }
-      const result = Schema.decodeUnknownSync(MegarepoConfig)(input)
+      const result = Schema.decodeSync(MegarepoConfig)(input)
       expect(result.generators?.vscode?.enabled).toBe(true)
       expect(result.generators?.vscode?.exclude).toEqual(['docs'])
       expect(result.generators?.composition?.enabled).toBe(true)
@@ -474,7 +474,7 @@ describe('config', () => {
         $schema: './schema/megarepo.schema.json',
         members: {},
       }
-      const result = Schema.decodeUnknownSync(MegarepoConfig)(input)
+      const result = Schema.decodeSync(MegarepoConfig)(input)
       expect(result.$schema).toBe('./schema/megarepo.schema.json')
     })
 

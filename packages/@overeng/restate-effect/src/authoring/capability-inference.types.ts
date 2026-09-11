@@ -118,12 +118,12 @@ const _runNestedSleep = Restate.run({ name: 'bad', effect: Restate.sleep({ milli
 const _runTypedFail = Restate.run({ name: 'bad', effect: Effect.fail(new EmptyName({})) })
 
 /* POSITIVE: `run` erases the typed failure channel — the result `E` is `never`. */
-const _runCleanE = Restate.run({ name: 'gen', effect: Effect.sync(() => 1) })
+const _runCleanE = Restate.run({ name: 'gen', effect: Effect.succeed(1) })
 type _R1 = Assert<Equals<Effect.Error<typeof _runCleanE>, never>>
 
 /* POSITIVE: `runExit` honestly OBSERVES the outcome as `Exit<A>` (failure channel
  * `never` — an observed failure is a defect/interrupt `Cause`, not a typed `E`). */
-const _runExitObserve = Restate.runExit({ name: 'gen', effect: Effect.sync(() => 'value') })
+const _runExitObserve = Restate.runExit({ name: 'gen', effect: Effect.succeed('value') })
 type _R2 = Assert<Equals<Effect.Success<typeof _runExitObserve>, Exit.Exit<string, never>>>
 type _R3 = Assert<Equals<Effect.Error<typeof _runExitObserve>, never>>
 

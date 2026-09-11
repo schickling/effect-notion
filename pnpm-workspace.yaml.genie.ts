@@ -10,37 +10,31 @@ export default pnpmWorkspaceYaml.root({
   catalogDuplicateExceptions: [
     {
       package: 'typescript',
-      // @opentui/core's bun-ffi-structs dependency peers on TypeScript ^5, so
-      // pnpm must retain 5.9.3 alongside the catalog compiler. See #821.
+      // Two cohorts, both intentional and both present in the lock at this
+      // commit: production compiles with the catalog's TypeScript 7, and
+      // @overeng/oxc-config keeps its own 5.9.3 because @typescript-eslint's
+      // rule-tester harness still imports the classic compiler API that 7
+      // removed. Pinned to exactly the resolved set, so a third compiler fails
+      // closed (drift) instead of riding along on this acknowledgement; a
+      // cohort move must update this list in the same change.
+      versions: ['7.0.2', '5.9.3'],
       reason:
-        '@opentui/core@0.4.1 depends on bun-ffi-structs@0.2.3, whose TypeScript ^5 peer resolves to 5.9.3 alongside the catalog compiler',
+        'production compiles with catalog typescript@7.0.2 while @overeng/oxc-config keeps typescript@5.9.3 for the @typescript-eslint rule-tester, which imports the classic compiler API removed in 7',
       issue: '#821',
     },
     {
       package: 'string-width',
-      // @opentui/core@0.4.1 (latest) pins string-width@7.2.0 exactly, so pnpm
+      // @opentui/core@0.5.11 (latest) pins string-width@7.2.0 exactly, so pnpm
       // dedupe cannot collapse it onto the catalog 8.x. We deliberately do NOT
       // force it via an override: string-width 8 changed wide-char/emoji width
       // computation (dropped emoji-regex, bumped get-east-asian-width), and
       // @opentui/core is a terminal renderer that depends on that width logic —
       // forcing 8.x risks subtle rendering breakage. Blessed instead; revisit
-      // when @opentui/core moves to string-width 8.x. See #821.
+      // when @opentui/core moves to string-width 8.x. Re-checked against
+      // 0.5.11: the 0.4 -> 0.5 bump keeps the exact 7.2.0 pin. See #821.
       reason:
-        '@opentui/core@0.4.1 exact-pins string-width@7.2.0; not force-overridden because string-width 8 changes emoji/wide-char width logic that the TUI renderer relies on',
+        '@opentui/core@0.5.11 exact-pins string-width@7.2.0; not force-overridden because string-width 8 changes emoji/wide-char width logic that the TUI renderer relies on',
       issue: '#821',
-    },
-    {
-      package: 'unplugin',
-      // @storybook/csf-plugin@10.5.10 still declares unplugin ^2.3.5, which
-      // resolves to 2.3.11, while our StyleX build integration uses v3. Both
-      // majors are required until Storybook updates. Checked against 10.5.10
-      // rather than assumed: the bump does not retire this exception. The
-      // consuming package is deliberately not named — it is moving as part of
-      // the StyleX work, and the exception is keyed by `unplugin` regardless.
-      // See #1155.
-      reason:
-        '@storybook/csf-plugin@10.5.10 declares unplugin ^2.3.5 (resolves 2.3.11) while our StyleX build integration uses catalog unplugin@3.0.0',
-      issue: '#1155',
     },
   ],
   ...commonPnpmWorkspaceData,

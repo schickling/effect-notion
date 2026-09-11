@@ -5,12 +5,12 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+
 - **@overeng/megarepo**: composition-enabled branch worktrees are now created
   directly at their final `P/repos/<owned>` path and use Git registration as
   identity authority. Routine commands refuse legacy flat roots without
   mutation, composed roots are protected from every GC mode, and the permanent
   migration lifecycle commands and metadata have been removed.
-
 
 - **Buck2 (inert)**: added sandbox-free package, editor-view, and product
   actions; normalized dependency views; tracked remote-cache configuration with
@@ -42,7 +42,7 @@ All notable changes to this project will be documented in this file.
   unusable baseline. It subtracts failures present at both refs so it answers
   "did this change make it worse" on packages carrying drift — but with no
   floor, a run where every story failed at the baseline produced an empty
-  regression list *by construction* and reported no regressions over a total
+  regression list _by construction_ and reported no regressions over a total
   loss of styling. Measured at 212/212 failed on one app and 708/942 on another.
   Now: missing-reference is detected before the pre-existing skip that swallowed
   it; stories whose baseline image does not exist are `uncovered`, derived from
@@ -112,7 +112,7 @@ All notable changes to this project will be documented in this file.
   fifth is `@overeng/stylex-tokens/preflight.css`.
   **That last one is why "Tailwind-free" was not sufficient.** The reset was
   unlayered and sets `box-sizing`, `margin`, `padding` and `border` on `*`.
-  Layered CSS loses to *any* unlayered CSS, so flipping layers on without
+  Layered CSS loses to _any_ unlayered CSS, so flipping layers on without
   touching it would have handed those four properties to the reset on every
   component in the package — silently, and in the direction the migration is
   supposed to prevent. The reset now declares itself in `overeng.reset` and the
@@ -122,13 +122,13 @@ All notable changes to this project will be documented in this file.
   same "do not depend on injection order" rule the token layer already follows.
 - **genie**: the CI workflow generator proves that every helper script a
   generated step invokes is a script it actually emits. `prepareCiScriptsStep`
-  copies the *consuming* repository's `genie/ci-scripts/` into the job-local
+  copies the _consuming_ repository's `genie/ci-scripts/` into the job-local
   `composition-state/ci-runtime/`, and only `ciWorkflowSupportFiles` puts files
   there, so a step naming a script that merely happens to be hand-committed in
   this repo resolves here and exits 127 in every consumer. That is how
   `.../ci-runtime/resolve-devenv-ci.sh` failed 14 of 15 jobs on
   schickling/schickling.dev#178 (run 33752627726) while this repo's own CI
-  stayed green: the assertion that existed checked the step *mentioned* the
+  stayed green: the assertion that existed checked the step _mentioned_ the
   script, never that a consumer could resolve it. Three scans now close the
   class — generator-source references through any `*ScriptsDir`,
   `composition-state/ci-runtime/...` references in the generated workflows, and
@@ -147,6 +147,7 @@ All notable changes to this project will be documented in this file.
   the two dropped members. No behavior change.
 
 ### Fixed
+
 - **CI**: keep draft assistant PRs mergeable by completing the auto-review job
   successfully when no review request is needed.
 - **CI**: stop requiring `main`-only Notion integration, live-deploy, and
@@ -212,7 +213,7 @@ All notable changes to this project will be documented in this file.
   Adjudicated against the gate: 20 stories changed, 18 of them the intended
   `43,127,255 -> 21,93,252` recolour confined to selected segments, checkbox
   boxes and the accent tick. The other two are the gate's own sub-pixel fringe,
-  proven by recapturing the *unchanged* baseline tree and reproducing both
+  proven by recapturing the _unchanged_ baseline tree and reproducing both
   diffs identically (689 and 693 pixels, max channel delta 2). Zero
   accessibility failures remain, and the condition-nesting, ordered-argument and
   landmark changes moved no pixels at all. Closes #1171.
@@ -283,6 +284,211 @@ All notable changes to this project will be documented in this file.
   `buck2/dependencies/pnpm-lock.unit.test.ts` guards both properties against
   the real lock.
 
+- **TypeScript 7**: move the npm compiler/API package from 6.0.3 to 7.0.2 and
+  refresh the Effect-TS `tsgo` flake input. The existing nixpkgs
+  `tsgolint` 7.0.2001 pin is already the latest release built against
+  TypeScript 7.0.2. The five classic compiler-API consumers now use TypeScript
+  7's process-backed `typescript/unstable/async` project snapshots and
+  `typescript/unstable/ast` nodes: Genie import-closure resolution,
+  export-environment syntax scans, and generated-constant type proofs share an
+  explicitly closed native compiler session; the OTEL boundary uses the new
+  scanner API; and JSONC validation uses `jsonc-parser` because the classic
+  config-text parser was removed.
+
+  The `@overeng/oxc-config` rule-test harness is pinned to TypeScript 5.9.3
+  because `@typescript-eslint/typescript-estree` still imports the removed
+  classic compiler API; production compilers and toolchains remain on 7.0.2.
+  That pin is what the `typescript` catalog-duplicate exception blesses: its
+  permitted set is exact (`7.0.2`, `5.9.3`), so a harness pin that drifts or a
+  third compiler entering the graph is a hard
+  `catalog-duplicate-exception-version-drift` error rather than a silently
+  widened blessing.
+
+  Genie now canonicalizes followed bootstrap paths through the filesystem for
+  case-insensitive hosts, and its compiled-staging proof supplies the explicit
+  platform TypeScript API server required by bundled executables.
+
+  Three gates that the migration would otherwise have hollowed out are held by
+  their own regression tests. The raw-OTEL boundary drives the scanner's
+  `reScanSlashToken`/`reScanTemplateToken` re-scans, because a context-free
+  `scan()` loop reads a regex literal such as `/https?:\/\//` as a line comment
+  (blanking real code out of the gate's view — measured at 9.7k and 28k
+  characters in two production files) and stops a template at its first `${`
+  (leaving a real comment unblanked in 167 of the 750 scanned files). The
+  synthesized virtual project collects `getGlobalDiagnostics` alongside the
+  per-file ones, because project-wide errors such as `Cannot find global type
+'Array'` belong to no file and would let a broken lib pass vacuously. And the
+  export-environment walk now distinguishes "extension carries no program" from
+  "the session declined the file": the latter raises a
+  `package-json-export-environment-analysis` error and withholds the `.ok`
+  proof-cache entry, so a stale `GENIE_TYPESCRIPT_API_SERVER` or a
+  project-inference miss can no longer report a clean, cached closure that was
+  never scanned.
+
+  One pnpm 12 resolution change needed a source decision: with the repo's
+  load-bearing `injectWorkspacePackages: true`, pnpm 12 resolved
+  `packages/@overeng/restate-effect`'s `@overeng/utils` edge as an injected
+  `file:` copy instead of a workspace link, because that importer's peer graph
+  binds a `@overeng/utils` peer utils itself satisfies only through its own
+  `devDependencies`, which blocks `dedupeInjectedDeps` from collapsing the
+  injected instance. An injected copy is materialized once at install time, so
+  tsc and vitest in that package would have read a frozen snapshot of utils.
+  pnpm 12 ignores `dependenciesMeta.<dep>.injected: false` while the
+  workspace-wide setting is on (its resolver computes
+  `inject_workspace_packages || injected`), so the opt-out is expressed where
+  pnpm honors it: `catalog.compose` gained `liveWorkspaceLinks`, which emits a
+  path-based `workspace:../utils` specifier for a named same-repo dependency.
+  That keeps the workspace protocol (and its publish rewriting) while routing
+  the edge through pnpm's local link resolution. The lockfile now has no
+  injected importer edge at all — four synthetic `file:` package/snapshot
+  entries disappeared — and
+  `buck2/dependencies/pnpm-lock.unit.test.ts` guards both properties against
+  the real lock.
+
+  The API server is now wired separately from the type-proof compiler. The npm
+  client's JSON-RPC protocol is versioned with its compiler binary, so the
+  session server is the official `@typescript/typescript-<platform>` executable
+  of the same 7.0.2 release — resolved by the client itself in source mode, and
+  pinned explicitly by the Nix wrappers (`GENIE_TYPESCRIPT_API_SERVER`) for the
+  packaged CLI and the standalone bootstrap-closure checker, whose closures
+  cannot resolve the optional package on disk. `tsgo` is no longer discovered
+  from `PATH` for the API: the dev shell exposes the Effect-TS fork, whose
+  revision answers `updateSnapshot` with zero projects (`no project found for
+file`). Effect-TS `tsgo` remains the export type-proof compiler
+  (`GENIE_EXPORT_TYPE_PROOF_COMPILER`). The checker derivation
+  (`packages/@overeng/genie/nix/bootstrap-closure-check.nix`) owns the pinned
+  platform packages and hashes and publishes the server path through its
+  passthru, so the CLI wrapper reuses that single table without building the
+  checker; its build smoke now analyzes a real bootstrap `.genie.ts` closure
+  instead of only printing `--help`.
+
+- **deps, nix/playwright-flake**: Playwright moves to 1.63.0 on both sides of
+  the split at once. The npm clients (`@playwright/test` and the `playwright`
+  peer that `@vitest/browser-playwright` requires) go 1.61.0 -> 1.63.0 in
+  `genie/external.ts`, and the Nix-managed browser closure follows to
+  `pietdevries94/playwright-web-flake` `56d390a` — whose `playwright-driver`
+  declares `version = "1.63.0"`, so driver and client stay exactly matched
+  (a mismatch is what makes the driver refuse to launch the browsers).
+  No source change was needed: the repo's wrappers
+  (`@overeng/utils/node/playwright`) use no API touched by 1.62 or 1.63 — no
+  `:visible` pseudo-class (superseded by `locator.visible()`, still
+  supported), no `@playwright/experimental-ct-*` package (frozen upstream in
+  favour of the stories model). The dropped-platform announcements (Debian 11
+  in 1.62, Ubuntu 20.04 in 1.63) do not affect our runners, and
+  `@vitest/browser-playwright@4.1.9` peers `playwright` at `*`, so the welded
+  Vitest cohort is unaffected by the client bump.
+
+- **deps/oxlint**: align the split oxlint pins on 1.82.0. The workspace pin was
+  `oxlint` 1.70.0 while `nix/oxlint-npm.nix` — the linter that actually runs,
+  because only the npm NAPI build executes our `@overeng/oxc-config` JS plugin
+  — was still 1.39.0, so the config schema and JS-plugin rule API in use were
+  two versions apart from the declared pin. Both are now 1.82.0, and the
+  tsgolint peer moves `0.23.0` → `7.0.2001` (oxlint 1.82 requires
+  `oxlint-tsgolint >=7.0.2001`; the pinned nixpkgs already ships tsgolint
+  7.0.2001 for `--type-aware`, so that side was already ahead of the 1.39
+  binary). Three coupled changes: the NAPI binding packages are fetched under
+  their post-1.45 names (`@oxlint/binding-<target>`, previously
+  `@oxlint/<target>`, which stopped publishing at 1.43.0); `lint:{check,fix}:oxlint`
+  pass `--no-error-on-unmatched-pattern`, because since oxlint 1.60 a batch whose
+  targets are all removed by `ignorePatterns` exits 1 ("No files found to lint")
+  and this module's lint surface is `git ls-files` filtered by extension only,
+  so oxlint's own ignores (e.g. `**/nix/**`) can empty a whole `xargs` batch —
+  a selection outcome, not a lint failure; and the injected-config location note
+  in `nix/oxlint-with-plugins.nix` is corrected, since 1.82 applies JS-plugin
+  rules to targets outside the config directory and the repo-root copy is now a
+  cache decision rather than a correctness requirement.
+
+  Moving the binary that actually runs from 1.39 to 1.82 also changed what the
+  gate reports: 1.82 implements rules 1.39 did not and places some of them in
+  categories this repo enables, so `lint:check` — fatal on any warning — went
+  from zero diagnostics to 1955 across 21 rules with the config unchanged.
+  Verified by running both binaries over the same file set with the same config
+  (1.39: zero; 1.82: 1955). That fallout is resolved as a policy decision per
+  rule, not by relaxing the gate:
+  - `no-underscore-dangle` (new, `suspicious`) accounted for 1833 of them, 1774
+    on Effect's `_tag` discriminant. The rule stays enabled with an explicit
+    `allow` list — `_tag`, the Notion/NDS wire names `_page_id`/`_nds_outbox`,
+    the Node internals the active-handle debugger reads, StyleX's
+    `__stylexCollectCss` global, and the trailing-underscore
+    keyword/type-collision names (`try_`, `expect_`, `PtySpec_`) — so a newly
+    invented pseudo-private name in `src` is still reported. The repo's other
+    underscore idiom, `_x` for a binding kept for its shape but intentionally
+    unused (which `no-unused-vars` requires), is relaxed per file class: tests,
+    story fixtures, `examples/`, and the type-level assertion `*.types.ts` files.
+  - all nine React Compiler rules that report here are disabled, and none of
+    them was disabled before this change: at the base ref the config named only
+    `react-in-jsx-scope`, `rules-of-hooks` and `exhaustive-deps`. Two of the
+    nine — `immutability` and `set-state-in-effect` — sit in `correctness`,
+    which this config raises to `error`, so this is a real loss of error-level
+    signal, taken deliberately: the codebase has not adopted compiler-compatible
+    component idioms, and these rules read ordinary Effect/TUI code as compiler
+    input. Only `hooks` and `exhaustive-effect-dependencies` are redundant
+    rather than merely unadopted — they are strict supersets of the classic
+    `rules-of-hooks`/`exhaustive-deps` pair the repo keeps enabled, so leaving
+    them on reported every hooks defect twice under two rule ids. The other
+    five (`globals`, `immutability`, `purity`, `refs`, `set-state-in-effect`)
+    have no retained equivalent.
+  - `no-shadow` (new) is kept for `src` and relaxed only in test files, where the
+    reported shadows are the harness idiom of handing a scoped `it`/`resolve`
+    back into a callback.
+  - the remaining ~120 diagnostics were fixed in code, not configured away:
+    21 `consistent-function-scoping` helpers hoisted out of their closures, the
+    `ci-tools` barrel import cycle broken by deep imports, stable module-level
+    defaults for six `no-object-type-as-default-prop` props, a hoisted default
+    renderer for `no-unstable-nested-components`, `import * as themes` replaced
+    with an explicit exported record, `sort` → `toSorted` where nothing observes
+    the mutation, `func-style` conversions, and `useOKeyboard` now returning its
+    key handler instead of parking it on the hook function as an untyped
+    `_handler` property that nothing read. Two were real defects: three
+    `Pw.Locator.waitFor(...)` calls in the rpc example named a function that
+    module never exported — the locator wrapper's export is `waitForVisible` —
+    so they resolved to `undefined` at runtime, and a write-only
+    `_dataSourceId` binding hid that its `decode` was validation-only.
+    Sixteen suppression comments in the tree were also dead: they used 1.39-era
+    rule ids (`eslint-plugin-import(no-dynamic-require)`,
+    `typescript-eslint(triple-slash-reference)`, `eslint(no-await-in-loop)`)
+    which 1.82 does not match, so the rules they named were never actually
+    suppressed. The six that still had something to suppress now use
+    `plugin/rule` form with their reason; the ten `eslint(no-await-in-loop)`
+    ones in `tui-react` tests are deleted outright, because the test-file
+    override already disables that rule and a comment that suppresses nothing
+    is exactly the trap being removed. The policy
+    itself is covered by `nix/devenv-modules/tasks/shared/tests/oxlint-rule-policy.test.sh`,
+    which asserts against the real generated config and the real binary that
+    `_tag` is allowed while an unlisted dangling name is still reported, that the
+    test-file relaxations do not leak into `src`, that the classic hooks rules
+    still fail the build, that no Compiler-family rule reports beside them, and
+    — because an absence assertion is worthless against a silent fixture — that
+    the same fixture really does report all eight of those rules when they are
+    force-enabled on the command line.
+
+  A second, independent surface only became visible once the binary could drive
+  it: type-aware linting. `lint:check:oxlint` runs `--type-aware --tsconfig
+tsconfig.check.json`, but oxlint 1.39 cannot speak the tsgolint 7 protocol, so
+  with the nixpkgs `tsgolint` 7.0.2001 on `PATH` it reported nothing at all;
+  1.82 reports 317 diagnostics over the same file set (verified both ways).
+  `typescript/consistent-return` (252) and `typescript/no-unnecessary-type-parameters`
+  (50) are disabled with reasons specific to this codebase: the former's reports
+  are exhaustive `switch`es over Effect tagged unions, where TypeScript's
+  exhaustiveness analysis plus `noImplicitReturns` already rule out a path that
+  falls off the end — which is the narrower guarantee, and why `tsgo` is green
+  while the rule still asks for an unreachable trailing `return`. The other half
+  of what the rule covers, mixing bare `return;` with `return value`, is not
+  policed by that flag; here it is constrained by the declared return types and
+  the packages' own tests. The latter starts with the `TypeEq<A, B>`
+  identity trick, where the single-use type parameter IS the mechanism, and its
+  remaining reports are generic signatures whose parameter counts are public
+  API. The 15 actionable ones are fixed: 14 no-op conversions removed after
+  checking each expression's declared type (two kept — one guarding parsed
+  Restate state at an untrusted boundary, whose `as number` cast was widened to
+  `as unknown` so the conversion is honest, and one `Boolean(...)` on an
+  optional Node `isRaw` replaced by `=== true`), and one dead
+  `no-useless-default-assignment` default removed. This also means the earlier
+  "zero diagnostics" claim for the non-type-aware run was measured over
+  `*.ts`/`*.tsx` only; the gate is now proven over every lintable extension in
+  `packages`, `scripts`, `context` (1640 files) with `--type-aware` and
+  `--deny-warnings`.
+
 - **deps**: update the compatible patch and minor dependency cohort, including
   React 19.2.8, OpenTelemetry SDK 2.11, Vite 8.2.2, current TanStack router
   packages, Tailwind CSS 4.3.3, and supporting type, test, formatting, crypto,
@@ -302,6 +508,138 @@ All notable changes to this project will be documented in this file.
   asset list is unchanged — upstream's `binaries` set still ends at
   `starlark_fmt` — and toolchain identity is in the action key, so this
   invalidates cached Buck actions once.
+- **deps/storybook**: move the Storybook cohort from 10.5.10 to 10.6.0
+  (`storybook`, `@storybook/react`, `@storybook/react-vite`,
+  `@storybook/addon-a11y`). Storybook 10.6 folds the CSF Vite plugin into core,
+  removing `@storybook/csf-plugin` and the tree's last `unplugin@2.x` source.
+
+- **deps/vitest**: keep `vitest`, `@vitest/browser`, and
+  `@vitest/browser-playwright` on the supported 4.1.9 cohort while replacing
+  the headless Storybook gate's `@storybook/addon-vitest` integration. The gate
+  now indexes the real Storybook config, applies its Vite/preview/addon
+  pipeline, composes every CSF export with `@storybook/react-vite` Portable
+  Stories, and runs each story lifecycle in Vitest browser mode. Per-theme
+  projects, interaction execution, fail-closed accessibility checks, render
+  settling, and screenshot comparison remain gate responsibilities without a
+  peer override.
+
+  Two things the addon used to do for the gate had to be done explicitly.
+  A themed project pins its toolbar globals through the `initialGlobals`
+  project annotation, not `globals`: Storybook 10.6 ignores the latter, so
+  every theme project rendered the preview default and the light and dark runs
+  produced identical screenshots. And the composed module now carries the
+  title the story index would have given it, computed with `getStoryTitle`
+  from the same `stories` specifiers: `composeStory` otherwise falls back to
+  the literal `ComposedStory` title, and every CSF file relying on
+  Storybook's auto-title collapses onto `composedstory--<export>` — three
+  untitled files in `@overeng/notion-react` today — so one story's screenshot
+  baseline and settle record overwrite another's. A file that no specifier can
+  title now fails the run instead of taking a shared placeholder.
+
+- **deps/opentui**: update `@opentui/core` and `@opentui/react` from 0.4.1 to
+  0.5.11, together with the six `@opentui/core-<platform>` prebuilt tarballs
+  pinned in `nix/opentui-core-native.nix`. The APIs we consume are unchanged:
+  `createCliRenderer`, `createRoot`, `Root`, `useKeyboard(handler, { release })`,
+  `useOnResize`, `useTerminalDimensions`, `KeyEvent` and `CliRendererConfig` all
+  keep their 0.4.1 signatures, and 0.5.11 only adds surface (`image` component,
+  Kitty image transport options, `render:error`/`handler:error` renderer events,
+  clipboard helpers, a `./node-assets` export). `@opentui/core` now also
+  publishes a Node entry point, but it declares `engines.node >= 26.4.0` while
+  this workspace runs Node 24, so the Bun-only runtime gate in
+  `OpenTuiRenderer.ts` stands and is now documented as a deliberate choice
+  rather than an upstream limitation. The transitive `bun-ffi-structs` pin moves
+  0.2.3 -> 0.3.1; `@opentui/core` still exact-pins `string-width@7.2.0`, so the
+  `#821` catalog-duplicate exception stays and was re-checked against 0.5.11.
+  `context/opentui` now declares `typescript` like every other OpenTUI
+  importer. It was the only one that did not, and `@opentui/core` peers
+  TypeScript, so pnpm satisfied that peer from `bun-ffi-structs@0.3.1`'s `^5`
+  range and installed 5.9.3 beside the catalog compiler — a third TypeScript
+  in a repo whose duplicate exception admits exactly two, and a second
+  `@opentui/core` store entry built against it. Declaring the dependency
+  collapses both back onto the catalog's 7.0.2.
+
+- **deps/@overeng/oxc-config**: update the ESLint rule-testing cohort — the only
+  ESLint surface left in the repo, since runtime linting is oxlint and stays
+  that way. `eslint` 10.5.0 -> 10.10.0 and `@typescript-eslint/parser`,
+  `/rule-tester` and `/utils` 8.61.1 -> 8.69.0, all four inside 8.69.0's
+  `eslint ^8.57 || ^9 || ^10` and `typescript >=4.8.4 <6.1.0` peer windows. The
+  repo compiler is TypeScript 7.0.2, which that window excludes, so
+  `@overeng/oxc-config` keeps its own `typescript` pin at 5.9.3 — the isolation
+  the oxlint cohort introduced, because @typescript-eslint does not yet support
+  the TypeScript 7 package API. That per-package pin is what satisfies the peer
+  range, so no exception is needed and `strictPeerDependencies` resolves clean
+  with the rest of the workspace still on 7.0.2. 8.70.0 exists but was published
+  the same day; taking it made pnpm's release-age gate write nine
+  `minimumReleaseAgeExclude` entries into generated `pnpm-workspace.yaml`, and a
+  routine bump does not get to weaken a supply-chain policy, so the cohort lands
+  one weekly release back.
+  Neither upstream changed a rule-tester API across this window, and the 187
+  rule-tester cases for `explicit-boolean-compare`, `exports-first`,
+  `jsdoc-require-exports` and `named-args` pass unchanged against the new
+  cohort, so no test needed a compatibility edit. Two catalog entries are
+  removed rather than carried forward at their old pins: `@types/eslint`
+  (9.6.1, last published for the ESLint 9 API in 2024) is dead weight because
+  `eslint/package.json` declares `types`, so TypeScript never consults
+  DefinitelyTyped for it — the rule sources typecheck with it absent, and the
+  `@types/estree` and `@types/json-schema` it dragged along are still in the
+  lock on their own account: `@types/estree` as a direct dependency of `eslint`
+  itself (and of `eslint-scope`, `@rollup/pluginutils`, `estree-walker`), and
+  `@types/json-schema` through its single dependent `@eslint/core`; and
+  `typescript-eslint` (the flat-config meta-package) had no consumer in this
+  repo or in any megarepo member. `pnpm-lock.yaml` and `buck2/dependencies/`
+  are regenerated, and all eight root CLI dependency-closure hashes are
+  remeasured locally against the regenerated lockfile (`evergreen fod refresh`,
+  x86_64-linux): every one moved, because eslint 10.10.0 replaces keyv 4 with
+  the cacheable/keyv v5 chain in the workspace-wide store.
+- **@overeng/notion-react**: KaTeX 0.17.0 → 0.18.7 (optional `katex` peer dep,
+  now `^0.18.7`). KaTeX 0.18.0 prefixed twenty-one generic internal CSS class
+  names — `.accent`, `.base`, `.fix`, `.hdashline`, `.hline`, `.inner`,
+  `.newline`, `.overlay`, `.overline`, `.root`, `.rule`, `.sizing`, `.smash`,
+  `.sout`, `.stretchy`, `.strut`, `.tag`, `.thinbox`, `.underline`, `.vbox`
+  became `katex-`-prefixed and `.hbox` is gone. Nothing in this repo selects
+  KaTeX internals (`web/katex.css` only re-exports `katex/dist/katex.min.css`,
+  and `web/styles.css` plus the vendored Notion stylesheet stay inside
+  `.notion-*`), so the renderer is unchanged: the
+  `renderToString(expression, { displayMode, throwOnError: false, output: 'html' })`
+  call in `src/web/katex.tsx` is API-identical in 0.18. Downstream consumers who
+  override KaTeX internals from their own CSS must re-prefix their selectors.
+  `@types/katex` is dropped from the catalog and from `notion-react`'s
+  devDependencies: KaTeX ships its own `types/katex.d.ts` through its exports
+  map, so the DefinitelyTyped stub was a shadowing duplicate frozen at the
+  0.16 API. KaTeX's `commander` dependency moves 8.3.0 → 15.0.0 in the lock
+  (CLI-only, and the only `commander` consumer in the graph). `commander` 15
+  advertises `engines.node >= 22.12`, but that is an install-time advisory
+  rather than a runtime floor — the render path never loads it, so
+  `notion-react`'s documented Node 20+ / Bun 1.1+ baseline is unchanged.
+  `pnpm-lock.yaml` and `buck2/dependencies/` are regenerated, and all eight
+  root CLI dependency-closure hashes are remeasured locally against the
+  regenerated lockfile (`evergreen fod refresh`, x86_64-linux). All eight move
+  even though none of those closures contains KaTeX or `commander`: each
+  staged FOD source includes the root `pnpm-lock.yaml` and fingerprints it
+  into the derivation name, so any lockfile change rotates every
+  prepared-deps hash.
+- **deps (Restate)**: update the Restate cohort — the JavaScript SDK
+  (`@restatedev/restate-sdk`, `-sdk-clients`, `-sdk-opentelemetry`, and the
+  transitive `-sdk-core`) 1.14.5 -> 1.17.0, and the prebuilt `restate-server` /
+  `restate` CLI in `nix/restate.nix` 1.6.2 -> 1.7.9. The SDK bump carries one
+  breaking change — Node 22 is now the SDK's minimum supported version, which
+  the repo's `nodejs_24` already satisfies — plus `restate.iface` typed service
+  interfaces (1.17), ingress auto-retry and scoped virtual-object clients
+  (1.16), and signals/`InvocationReference`, `PauseError`, and flow-control
+  scopes (1.15); none of the deprecated or renamed surfaces
+  (`@restatedev/restate-sdk-gen`'s `clients` adapter, `restate-sdk-tunnel`
+  reconnect options) are used here. `@restatedev/restate-sdk-opentelemetry@1.17`
+  peers on `@opentelemetry/api >=1.9.0` and `@opentelemetry/core >=2.6.0`, both
+  satisfied by the existing pinned OTel cohort, so the OTel catalog is
+  unchanged. The 1.7 server's breaking configuration changes (snapshot
+  `num-retained`, per-database RocksDB background budgets, enforced ingress
+  request-size limit) touch no key the `./testing` harness sets — it configures
+  only bind/advertised addresses, request identity, log filter, invoker
+  inactivity timeout, and the default retry policy. `./admin` remains written
+  against admin-api-version 3, whose per-id invocation verbs 1.7.9 still
+  serves; its "verified against 1.6.2" notes are left as the last
+  hand-verified point and are re-checked by the `test-integration-restate`
+  lane against the new server rather than by an unverifiable doc edit.
 
 - **CI**: normalize the repository-local CI VRS under `context/ci/` and make
   workflow event admission semantic. Pull requests now trigger only for

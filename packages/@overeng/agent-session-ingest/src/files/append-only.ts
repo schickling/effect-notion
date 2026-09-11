@@ -23,7 +23,7 @@ const buildContentVersion = (options: {
   headHash?: string
   tailSample: string
 }) =>
-  Schema.decodeUnknownSync(ContentVersionSchema)({
+  Schema.decodeSync(ContentVersionSchema)({
     sizeBytes: options.sizeBytes,
     modifiedAtEpochMs: options.modifiedAtEpochMs,
     ...(options.headHash !== undefined && { headHash: options.headHash }),

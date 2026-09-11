@@ -302,7 +302,7 @@ export const catalog = defineCatalog({
   'react-aria-components': '1.21.1',
 
   // Notion rendering (optional peer deps)
-  katex: '0.17.0',
+  katex: '0.18.7',
   shiki: '4.4.3',
 
   // Markdown (notion-md canonical markdown pipeline)
@@ -321,23 +321,23 @@ export const catalog = defineCatalog({
   '@myobie/pty': '0.10.0',
 
   // Restate (durable execution) — see packages/@overeng/restate-effect
-  '@restatedev/restate-sdk': '1.14.5',
-  '@restatedev/restate-sdk-clients': '1.14.5',
-  '@restatedev/restate-sdk-opentelemetry': '1.14.5',
+  '@restatedev/restate-sdk': '1.17.0',
+  '@restatedev/restate-sdk-clients': '1.17.0',
+  '@restatedev/restate-sdk-opentelemetry': '1.17.0',
 
   // Type definitions
   '@types/react': '19.2.18',
   '@types/react-dom': '19.2.7',
   '@types/node': '26.5.0',
   '@types/bun': '1.4.1',
-  '@types/eslint': '9.6.1',
   '@types/is-dom': '1.1.2',
-  '@types/katex': '0.16.8',
 
   // Build tools
-  // npm TypeScript is kept for JS compiler API consumers; ts:check uses Nix-managed tsgo.
-  typescript: '6.0.3',
-  '@playwright/test': '1.61.0',
+  // TypeScript 7's npm package provides the native compiler plus its process-backed unstable API.
+  typescript: '7.0.2',
+  // TypeScript 7 removed its classic in-process JSONC helper; this is VS Code's zero-dependency parser.
+  'jsonc-parser': '3.3.1',
+  '@playwright/test': '1.63.0',
   vite: '8.2.2',
   vitest: '4.1.9',
   '@vitejs/plugin-react': '6.1.1',
@@ -384,27 +384,33 @@ export const catalog = defineCatalog({
   '@babel/plugin-syntax-typescript': '7.29.7',
 
   // Storybook
-  // 10.5.x is the floor for the visual gate: `storybookTest({ initialGlobals })`
-  // defines one Vitest project per theme, which is how light and dark are both
-  // covered. Verified absent from 10.4.6's plugin options.
-  storybook: '10.5.10',
-  '@storybook/react': '10.5.10',
-  '@storybook/react-vite': '10.5.10',
-  /** Per-story render/interaction/a11y coverage. Peers `storybook@^10.5.10`, so the cohort moves together. */
-  '@storybook/addon-vitest': '10.5.10',
+  // 10.6.0 supplies the Vite builder and Portable Stories API used by the
+  // visual gate. The gate deliberately does not install addon-vitest: its
+  // manager integration peers only Vitest 3/4, while the headless gate needs
+  // neither its panel nor its runner wrapper. CSF collection now composes each
+  // story through @storybook/react-vite and executes its documented `run()`
+  // lifecycle directly.
+  //
+  // 10.6.0 also retires the separate `@storybook/csf-plugin` package:
+  // `@storybook/builder-vite@10.6.0` declares `ts-dedent` as its only dependency,
+  // so the CSF Vite plugin now lives inside storybook core. csf-plugin was the
+  // only `unplugin@2.x` source in the tree, which is why the `unplugin`
+  // catalog-duplicate exception is retired together with this bump.
+  storybook: '10.6.0',
+  '@storybook/react': '10.6.0',
+  '@storybook/react-vite': '10.6.0',
   /**
    * Required, not optional: `parameters.a11y.test` has no effect unless this
    * addon is registered, and it defaults to `'todo'` (warn-only), so the gate
    * must override it to `'error'`.
    */
-  '@storybook/addon-a11y': '10.5.10',
+  '@storybook/addon-a11y': '10.6.0',
   /**
    * Browser-mode runner for the story tests.
    *
-   * WELDED TO THE `vitest` PIN. `@vitest/browser` and `@vitest/browser-playwright`
-   * peer `vitest` at the *exact* version, not a range, so bumping `vitest` is a
-   * four-package move — these two and `playwright` must move with it or the
-   * install fails under `strictPeerDependencies`.
+   * WELDED TO THE `vitest` PIN. `@vitest/browser` and
+   * `@vitest/browser-playwright` peer `vitest` at the exact version, so all
+   * three move together or installation fails under strict peer checks.
    *
    * `playwright` is pinned because `@vitest/browser-playwright` declares it as a
    * non-optional peer. It is the same version as `@playwright/test` and is
@@ -413,13 +419,13 @@ export const catalog = defineCatalog({
    * `playwright-core` tarballs declare no scripts at all, and `ignoreScripts`
    * is on fleet-wide regardless.
    *
-   * The versions matter, not just the names: `@vitest/browser@4.1.9` ships
-   * pixelmatch defaults of `threshold: 0.1` and `includeAA: false`, which pass
-   * real regressions silently. The gate must override both.
+   * The versions matter, not just the names: browser screenshot defaults can
+   * pass real regressions silently, so the gate overrides threshold, anti-alias
+   * handling, and mismatched-pixel budget explicitly.
    */
   '@vitest/browser': '4.1.9',
   '@vitest/browser-playwright': '4.1.9',
-  playwright: '1.61.0',
+  playwright: '1.63.0',
 
   // xterm (terminal emulator for browser/testing)
   '@xterm/xterm': '6.0.0',
@@ -433,15 +439,26 @@ export const catalog = defineCatalog({
   'happy-dom': '20.14.0',
 
   // Linting
-  /** Kept for rule-tester/types used by our custom lint rules even though runtime linting is oxlint. */
-  eslint: '10.5.0',
-  '@typescript-eslint/parser': '8.61.1',
-  '@typescript-eslint/rule-tester': '8.61.1',
-  '@typescript-eslint/utils': '8.61.1',
-  'typescript-eslint': '8.61.1',
+  /**
+   * Kept for the rule-tester/types used by our custom lint rules even though
+   * runtime linting is oxlint. ESLint itself ships its own `.d.ts` bundle, so
+   * there is deliberately no `@types/eslint` entry: the DefinitelyTyped package
+   * stopped at the ESLint 9 API in 2024 and TypeScript never consults it while
+   * `eslint/package.json` declares `types`.
+   *
+   * The three `@typescript-eslint/*` entries move as one weekly release train
+   * and stay one release behind the newest tag when that tag is younger than
+   * pnpm's release-age gate — taking a same-day release forces
+   * `minimumReleaseAgeExclude` entries into the generated workspace policy.
+   */
+  eslint: '10.10.0',
+  '@typescript-eslint/parser': '8.69.0',
+  '@typescript-eslint/rule-tester': '8.69.0',
+  '@typescript-eslint/utils': '8.69.0',
   prettier: '3.9.6',
-  oxlint: '1.70.0',
-  'oxlint-tsgolint': '0.23.0',
+  oxlint: '1.82.0',
+  /** oxlint 1.82 requires the tsgolint peer at `>=7.0.2001` (the TS-7-aligned line). */
+  'oxlint-tsgolint': '7.0.2001',
 
   // Crypto
   '@noble/hashes': '2.4.0',
@@ -452,8 +469,8 @@ export const catalog = defineCatalog({
   // OpenTUI / Effect Atom (experimental)
   // Effect 4 moved Atom reactivity into core (`effect/unstable/reactivity`);
   // only the React bindings remain a separate package, under the @effect scope.
-  '@opentui/core': '0.4.1',
-  '@opentui/react': '0.4.1',
+  '@opentui/core': '0.5.11',
+  '@opentui/react': '0.5.11',
 
   // Pi-tui (terminal UI framework)
   '@mariozechner/pi-tui': '0.73.1',
@@ -502,8 +519,10 @@ export const commonPnpmPolicySettings = {
   strictPeerDependencies: true as const,
   peerDependencyRules: {
     allowedVersions: {
-      // bun-ffi-structs@0.2.3 (via @myobie/pty) declares typescript ^5 but the
-      // repo compiles with TS 6; resolution is proven fine.
+      // Shared floor for every megarepo, including the ones still compiling with TS 6 (e.g.
+      // bun-ffi-structs@0.2.3 via @myobie/pty declares typescript ^5 there). This repo compiles with
+      // TS 7 and raises its own floor to `>=7.0.0` in `genie/internal.ts`, which is what the
+      // generated `pnpm-workspace.yaml` carries.
       typescript: '>=6.0.0',
       eslint: '>=10.0.0',
       vitest: '>=4.0.0',

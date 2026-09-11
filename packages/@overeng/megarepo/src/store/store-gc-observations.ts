@@ -87,7 +87,7 @@ export const readObservationLedger = ({
     const path = ledgerPath(storeBasePath)
     return yield* fs.readFileString(path).pipe(
       Effect.flatMap((content) =>
-        Schema.decodeUnknownEffect(Schema.fromJsonString(GcObservationLedger))(content),
+        Schema.decodeEffect(Schema.fromJsonString(GcObservationLedger))(content),
       ),
       Effect.orElseSucceed(() => ({}) as GcObservationLedger),
     )

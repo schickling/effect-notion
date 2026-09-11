@@ -704,7 +704,7 @@ const atomicWriteFile = ({
     // Make target writable if it exists (for read-only files)
     const targetExists = yield* fs.exists(targetFilePath)
     if (targetExists === true) {
-      yield* fs.chmod(targetFilePath, 0o644).pipe(Effect.catch(() => Effect.void))
+      yield* fs.chmod(targetFilePath, 0o644).pipe(Effect.ignore)
     }
 
     // Write to temp file first
@@ -723,7 +723,7 @@ const atomicWriteFile = ({
         // Clean up temp file on failure
         const fs = yield* FileSystem.FileSystem
         const tempPath = `${targetFilePath}.genie.tmp`
-        yield* fs.remove(tempPath, { force: true }).pipe(Effect.catch(() => Effect.void))
+        yield* fs.remove(tempPath, { force: true }).pipe(Effect.ignore)
         return yield* error
       }),
     ),
@@ -820,7 +820,7 @@ export const generateFile = ({
       // Restore read-only permissions if needed (e.g. after a --writeable run or manual chmod)
       const mode = generatedFileMode({ readOnly, targetFilePath })
       if (mode !== undefined) {
-        yield* fs.chmod(targetFilePath, mode).pipe(Effect.catch(() => Effect.void))
+        yield* fs.chmod(targetFilePath, mode).pipe(Effect.ignore)
       }
       return { _tag: 'unchanged', targetFilePath } as const
     }

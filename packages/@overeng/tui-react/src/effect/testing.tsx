@@ -161,7 +161,7 @@ export const runTestCommand = async <S, Args, E>({
   // Parse and validate JSON output using schema
   const parsedStates = jsonOutput
     .map((line) => {
-      const result = Schema.decodeUnknownExit(Schema.fromJsonString(options.schema))(line)
+      const result = Schema.decodeExit(Schema.fromJsonString(options.schema))(line)
       return Exit.isSuccess(result) === true ? result.value : null
     })
     .filter((s): s is S => s !== null)

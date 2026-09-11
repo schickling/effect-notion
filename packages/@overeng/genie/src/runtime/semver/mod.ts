@@ -68,9 +68,11 @@ const satisfiesSingle = (version: string, range: string): boolean => {
 
   /* `>=X.Y.Z <A.B.C` compound range */
   if (trimmed.startsWith('>=') === true && trimmed.includes('<') === true) {
-    const parts = trimmed.split(/\s+/)
-    const lo = parseVersion(parts[0]!.slice(2))
-    const hiPart = parts.find((p) => p.startsWith('<') === true && p.startsWith('<=') === false)
+    const comparators = trimmed.split(/\s+/)
+    const lo = parseVersion(comparators[0]!.slice(2))
+    const hiPart = comparators.find(
+      (p) => p.startsWith('<') === true && p.startsWith('<=') === false,
+    )
     if (hiPart !== undefined) return gte(v, lo) && lt(v, parseVersion(hiPart.slice(1)))
   }
 

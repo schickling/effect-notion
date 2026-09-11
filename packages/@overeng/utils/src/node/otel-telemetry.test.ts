@@ -146,9 +146,7 @@ Vitest.describe('sampleGauge / telemetryEnabled — sampler primitive', () => {
   Vitest.it.effect('telemetryEnabled is true when an endpoint is configured', () =>
     Effect.gen(function* () {
       const enabled = yield* telemetryEnabled.pipe(
-        Effect.provide(
-          Layer.succeed(OtelConfig, { endpoint: Option.some('http://127.0.0.1:4318') }),
-        ),
+        Effect.provideService(OtelConfig, { endpoint: Option.some('http://127.0.0.1:4318') }),
       )
       expect(enabled).toBe(true)
     }),
@@ -157,7 +155,7 @@ Vitest.describe('sampleGauge / telemetryEnabled — sampler primitive', () => {
   Vitest.it.effect('telemetryEnabled is false when the endpoint is None', () =>
     Effect.gen(function* () {
       const enabled = yield* telemetryEnabled.pipe(
-        Effect.provide(Layer.succeed(OtelConfig, { endpoint: Option.none() })),
+        Effect.provideService(OtelConfig, { endpoint: Option.none() }),
       )
       expect(enabled).toBe(false)
     }),

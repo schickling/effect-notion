@@ -288,10 +288,10 @@ export const annotateValidation = ({
   })
 
 /** Annotates the current span with a single `genie.path` attribute; label defaults to the path's basename. */
-export const annotatePath = ({ label, path }: { label?: string; path: string }) =>
+export const annotatePath = ({ label, path: filePath }: { label?: string; path: string }) =>
   trustedAnnotate({
     operation: pathOperation,
-    attributes: { label: label ?? basename(path), path },
+    attributes: { label: label ?? basename(filePath), path: filePath },
   })
 
 /** Annotates the current span with `genie/target-lock` attributes, labelled by the cwd-relative target path. */

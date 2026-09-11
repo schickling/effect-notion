@@ -96,16 +96,16 @@ describe('DataSourceId brand', () => {
   })
 
   it('rejects empty / whitespace input', () => {
-    expect(isFailure(decode(Schema.decodeUnknownEffect(DataSourceId)('')))).toBe(true)
-    expect(isFailure(decode(Schema.decodeUnknownEffect(DataSourceId)('  ')))).toBe(true)
+    expect(isFailure(decode(Schema.decodeEffect(DataSourceId)('')))).toBe(true)
+    expect(isFailure(decode(Schema.decodeEffect(DataSourceId)('  ')))).toBe(true)
   })
 })
 
 describe('ConfigHash brand', () => {
   it('accepts a sha256 hash and rejects other shapes', () => {
-    expect(Schema.decodeUnknownSync(ConfigHash)(hashOf(7))).toBe(hashOf(7))
-    expect(isFailure(decode(Schema.decodeUnknownEffect(ConfigHash)('md5:abc')))).toBe(true)
-    expect(isFailure(decode(Schema.decodeUnknownEffect(ConfigHash)('sha256:XYZ')))).toBe(true)
+    expect(Schema.decodeSync(ConfigHash)(hashOf(7))).toBe(hashOf(7))
+    expect(isFailure(decode(Schema.decodeEffect(ConfigHash)('md5:abc')))).toBe(true)
+    expect(isFailure(decode(Schema.decodeEffect(ConfigHash)('sha256:XYZ')))).toBe(true)
   })
 })
 

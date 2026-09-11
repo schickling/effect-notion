@@ -361,7 +361,7 @@ export const encodeBuckMemberManifest = (
 /** Strictly decode the tracked JSON representation. */
 export const decodeBuckMemberManifestJson = (json: string): BuckMemberManifest =>
   decodeBuckMemberManifest(
-    Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown), strictParseOptions)(json),
+    Schema.decodeSync(Schema.fromJsonString(Schema.Unknown), strictParseOptions)(json),
   )
 
 /** Canonical tracked JSON bytes, including one trailing newline. */

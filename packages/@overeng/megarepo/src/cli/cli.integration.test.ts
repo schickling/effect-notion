@@ -505,7 +505,7 @@ const runRootWithCwd = ({ cwdPath }: { cwdPath: string }) =>
 
     let state: RootState | undefined
     if (stdout.trim() !== '') {
-      state = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(RootState))(stdout)
+      state = yield* Schema.decodeEffect(Schema.fromJsonString(RootState))(stdout)
     }
 
     return {

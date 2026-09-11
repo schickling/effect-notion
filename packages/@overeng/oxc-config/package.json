@@ -16,13 +16,12 @@
   },
   "devDependencies": {
     "@stylexjs/eslint-plugin": "0.19.0",
-    "@types/eslint": "9.6.1",
-    "@typescript-eslint/parser": "8.61.1",
-    "@typescript-eslint/rule-tester": "8.61.1",
-    "@typescript-eslint/utils": "8.61.1",
-    "eslint": "10.5.0",
-    "oxlint-tsgolint": "0.23.0",
-    "typescript": "6.0.3",
+    "@typescript-eslint/parser": "8.69.0",
+    "@typescript-eslint/rule-tester": "8.69.0",
+    "@typescript-eslint/utils": "8.69.0",
+    "eslint": "10.10.0",
+    "oxlint-tsgolint": "7.0.2001",
+    "typescript": "5.9.3",
     "vitest": "4.1.9"
   }
 }

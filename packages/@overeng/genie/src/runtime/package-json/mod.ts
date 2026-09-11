@@ -216,11 +216,11 @@ export type PackageJsonValidationRuntime = {
     exports: Record<string, ExportsEntry>
     publishExports?: Record<string, ExportsEntry>
     contracts: Record<string, readonly ExportEnvironmentContract[]>
-  }) => {
+  }) => Promise<{
     issues: ValidationIssue[]
     durationMs: number
     cache?: { hits: number; misses: number }
-  }
+  }>
 }
 
 type ExportEntryContract = {
@@ -511,7 +511,7 @@ const packageJsonValidationRuntime = (
   return undefined
 }
 
-const validateExportEnvironmentContracts = ({
+const validateExportEnvironmentContracts = async ({
   ctx,
   data,
   contracts,
@@ -521,7 +521,7 @@ const validateExportEnvironmentContracts = ({
   data: PackageJsonData
   contracts: Record<string, readonly ExportEnvironmentContract[]> | undefined
   options: PackageJsonExportEnvironmentContractValidationOptions | undefined
-}): ValidationIssue[] => {
+}): Promise<ValidationIssue[]> => {
   const packageName = data.name ?? '(anonymous package)'
   const issues: ValidationIssue[] = []
   const exportContracts = contracts ?? {}
@@ -581,7 +581,7 @@ const validateExportEnvironmentContracts = ({
   )
     return issues
 
-  const result = runtime.validateExportEnvironments({
+  const result = await runtime.validateExportEnvironments({
     cwd: ctx.cwd,
     location: ctx.location,
     packageName,
@@ -1019,7 +1019,7 @@ function createPackageJson<const T extends PackageJsonInputData, const TMeta>(
         ) + '\n'
       )
     },
-    validate: (ctx: GenieContext) => [
+    validate: async (ctx: GenieContext) => [
       ...(effectiveData.name !== undefined
         ? validatePackageRecompositionForPackage({ ctx, pkgName: effectiveData.name })
         : []),
@@ -1034,12 +1034,12 @@ function createPackageJson<const T extends PackageJsonInputData, const TMeta>(
             data: effectiveData,
             metadata: effectiveWorkspaceMeta,
           })),
-      ...validateExportEnvironmentContracts({
+      ...(await validateExportEnvironmentContracts({
         ctx,
         data: effectiveData,
         contracts: packageJsonValidationMeta?.exportContracts,
         options: packageJsonValidationMeta?.validation?.exportEnvironmentContracts,
-      }),
+      })),
       ...(hasManualDepsWithComposition === true
         ? [
             {

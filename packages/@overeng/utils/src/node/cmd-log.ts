@@ -56,7 +56,7 @@ export const prepareCmdLogging: (
             name,
             mtimeMs: fs.statSync(path.join(archiveDir, name)).mtimeMs,
           }))
-          .sort((a, b) => b.mtimeMs - a.mtimeMs),
+          .toSorted((a, b) => b.mtimeMs - a.mtimeMs),
       ),
       Effect.flatMap((entries) =>
         Effect.forEach(entries.slice(logRetention), (entry) =>

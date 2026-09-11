@@ -21,7 +21,7 @@ Vitest.describe('playwright/otel', () => {
           spanId: 'b7ad6b7169203331',
         }
 
-        const result = yield* Schema.decodeUnknownEffect(ParentSpanContextSchema)(validContext)
+        const result = yield* Schema.decodeEffect(ParentSpanContextSchema)(validContext)
         expect(result).toEqual(validContext)
       }),
     )
@@ -34,7 +34,7 @@ Vitest.describe('playwright/otel', () => {
           spanId: 'any-span-id',
         }
 
-        const result = yield* Schema.decodeUnknownEffect(ParentSpanContextSchema)(context)
+        const result = yield* Schema.decodeEffect(ParentSpanContextSchema)(context)
         expect(result).toEqual(context)
       }),
     )

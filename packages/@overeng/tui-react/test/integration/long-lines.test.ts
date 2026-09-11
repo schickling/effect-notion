@@ -120,7 +120,6 @@ describe('Long Lines Handling (VirtualTerminal)', () => {
       for (let i = 0; i < states.length; i++) {
         // Pre-truncate lines (as createRoot would do)
         renderer.render(truncateLines({ lines: states[i]!, width: cols }))
-        // oxlint-disable-next-line eslint(no-await-in-loop) -- intentionally sequential test steps
         await terminal.flush()
 
         const lines = terminal.getVisibleLines()

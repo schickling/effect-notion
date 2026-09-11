@@ -559,7 +559,7 @@ const decodeJson = <T>({
   readonly reason: PublicationReason
 }): T => {
   try {
-    return Schema.decodeUnknownSync(
+    return Schema.decodeSync(
       Schema.fromJsonString(schema),
       strictParseOptions,
     )(Buffer.from(bytes).toString('utf8'))
@@ -1271,7 +1271,7 @@ const acquireLock = async ({
 }): Promise<{ readonly lock: CompositionPublisherLock; readonly snapshot: FileSnapshot }> => {
   let requested: CompositionPublisherLock
   try {
-    requested = Schema.decodeUnknownSync(
+    requested = Schema.decodeSync(
       CompositionPublisherLockSchema,
       strictParseOptions,
     )({
@@ -1768,7 +1768,7 @@ const makeTransaction = ({
       }),
     )
     .toSorted((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0))
-  return Schema.decodeUnknownSync(
+  return Schema.decodeSync(
     CompositionPublicationTransactionSchema,
     strictParseOptions,
   )({

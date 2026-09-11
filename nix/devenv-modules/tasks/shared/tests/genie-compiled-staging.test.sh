@@ -56,6 +56,24 @@ echo "Test 3: compiled Genie strict export proof uses explicit compiler executab
 strict_workspace="$tmpdir/strict-workspace"
 fake_compiler="$tmpdir/fake-tsgo"
 compiler_log="$tmpdir/fake-tsgo.log"
+typescript_package_dir="$(realpath "$ROOT/packages/@overeng/genie/node_modules/typescript")"
+typescript_node_modules="$(dirname "$typescript_package_dir")"
+case "$(uname -s)-$(uname -m)" in
+  Darwin-arm64) typescript_platform="darwin-arm64" ;;
+  Darwin-x86_64) typescript_platform="darwin-x64" ;;
+  Linux-aarch64) typescript_platform="linux-arm64" ;;
+  Linux-x86_64) typescript_platform="linux-x64" ;;
+  *)
+    echo "Unsupported TypeScript API server platform: $(uname -s)-$(uname -m)" >&2
+    exit 1
+    ;;
+esac
+typescript_api_server="$typescript_node_modules/@typescript/typescript-$typescript_platform/lib/tsc"
+if [ ! -x "$typescript_api_server" ]; then
+  echo "TypeScript API server is missing or not executable: $typescript_api_server" >&2
+  exit 1
+fi
+
 
 mkdir -p "$strict_workspace/src"
 
@@ -91,6 +109,7 @@ chmod +x "$fake_compiler"
 
 env -u OTEL_EXPORTER_OTLP_ENDPOINT \
   GENIE_EXPORT_TYPE_PROOF_COMPILER="$fake_compiler" \
+  GENIE_TYPESCRIPT_API_SERVER="$typescript_api_server" \
   TMPDIR="$tmp_root" \
   timeout 20s "$compiled_genie" --cwd "$strict_workspace" --output json >/dev/null
 

@@ -867,7 +867,7 @@ const checkCompositionCapabilityProjectionInternal = async ({
       const directory = NodePath.join(toolRoot, toolId)
       const manifestFile = NodePath.join(directory, 'manifest.json')
       const encoded = await readFile(manifestFile, 'utf8')
-      const manifest = Schema.decodeUnknownSync(
+      const manifest = Schema.decodeSync(
         ToolProjectionManifestJson,
         strictParseOptions,
       )(encoded.trimEnd())
@@ -895,7 +895,7 @@ const checkCompositionCapabilityProjectionInternal = async ({
     }),
   )
   const manifests = checked.map(({ manifest }) => manifest)
-  const files = checked.flatMap(({ files }) => files)
+  const files = checked.flatMap(({ files: toolFiles }) => toolFiles)
   if (
     computeGeneration(files) !== generation ||
     defs !== renderDefs({ generation, platform, manifests })
@@ -1037,7 +1037,7 @@ const resolveCompositionCapabilitiesInternal = async (
   let release: (() => Promise<void>) | undefined
   try {
     const manifest = decodeBuckMemberManifest(input.manifest)
-    const system = Schema.decodeUnknownSync(
+    const system = Schema.decodeSync(
       CompositionCapabilitySystemSchema,
       strictParseOptions,
     )(input.system)

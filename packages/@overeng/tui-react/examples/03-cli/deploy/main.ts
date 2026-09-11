@@ -89,13 +89,11 @@ const deploy = Command.make(
     }).pipe(
       Effect.provide(outputModeLayer(output)),
       Effect.scoped,
-      Effect.flatMap((result) => {
-        // Exit with appropriate code based on result
-        if (result.success === false) {
-          return Effect.fail(new DeployError({ message: result.error ?? 'Deployment failed' }))
-        }
-        return Effect.succeed(result)
-      }),
+      // Exit with appropriate code based on result
+      Effect.filterOrFail(
+        (result) => result.success !== false,
+        (result) => new DeployError({ message: result.error ?? 'Deployment failed' }),
+      ),
     ),
 )
 

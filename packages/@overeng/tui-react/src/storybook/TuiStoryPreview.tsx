@@ -34,7 +34,7 @@
 
 // Types the `*.css` side-effect import below via a referenced ambient (not a floating .d.ts) so the
 // declaration travels into downstream source-linked TS checks. See asset-modules.d.ts and #837.
-// oxlint-disable-next-line typescript-eslint(triple-slash-reference) -- intentional: an ambient-only .d.ts cannot be an ES import
+// oxlint-disable-next-line typescript/triple-slash-reference -- an ambient-only `.d.ts` cannot be an ES import; the reference is what carries `declare module '*.css'` into downstream programs (#837)
 /// <reference path="./asset-modules.d.ts" />
 
 import { FitAddon } from '@xterm/addon-fit'
@@ -42,7 +42,7 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { Terminal } from '@xterm/xterm'
 import { Schema } from 'effect'
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity'
-// oxlint-disable-next-line eslint-plugin-import(no-unassigned-import) -- deliberate bundler stylesheet
+// oxlint-disable-next-line import/no-unassigned-import -- deliberate side-effect import: the bundler injects xterm's stylesheet
 import '@xterm/xterm/css/xterm.css'
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 
@@ -119,7 +119,7 @@ export const TuiStoryPreview = <S, A>({
   app,
   View,
   initialState: initialStateProp,
-  timeline = [],
+  timeline = EMPTY_TIMELINE,
   height = 400,
   autoRun = true,
   playbackSpeed = 1,
@@ -465,7 +465,7 @@ const TabButton: React.FC<{
 /** Format action tag for display */
 const formatActionTag = (action: unknown): string => {
   if (action !== null && typeof action === 'object' && '_tag' in action) {
-    return String((action as { _tag: string })._tag)
+    return String(action._tag)
   }
   return 'Action'
 }
@@ -1442,3 +1442,6 @@ const FINAL_MODES: Set<OutputTab> = new Set(['log', 'json'])
 const isFinalMode = (tab: OutputTab): boolean => FINAL_MODES.has(tab)
 
 const DEFAULT_TABS: OutputTab[] = ['tty', 'ci', 'log', 'json', 'ndjson']
+
+/** Stable empty default for the optional `timeline` prop (avoids a fresh array each render) */
+const EMPTY_TIMELINE: never[] = []

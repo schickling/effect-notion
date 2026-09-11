@@ -33,7 +33,7 @@
     "@overeng/notion-effect-schema": "workspace:^",
     "@overeng/otel-contract": "workspace:^",
     "@overeng/utils": "workspace:^",
-    "@playwright/test": "1.61.0",
+    "@playwright/test": "1.63.0",
     "effect": "4.0.0-rc.111",
     "mdast-util-gfm-strikethrough": "2.0.0",
     "mdast-util-gfm-table": "2.0.0",
@@ -52,7 +52,7 @@
     "@overeng/utils-dev": "workspace:^",
     "@types/node": "26.5.0",
     "effect": "4.0.0-rc.111",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "vitest": "4.1.9"
   },
   "publishConfig": {

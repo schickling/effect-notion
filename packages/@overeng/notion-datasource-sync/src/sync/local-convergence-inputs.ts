@@ -54,10 +54,9 @@ import { convergenceFormHash, nmdPropertyCanonicalValue } from '../planner/nmd-p
 import type { ReplicaCellBase } from '../replica/replica.ts'
 import type { ReplicaLocalChange } from '../replica/replica.ts'
 
-const decodePageId = (value: string): PageId => Schema.decodeUnknownSync(PageIdSchema)(value)
-const decodePropertyId = (value: string): PropertyId =>
-  Schema.decodeUnknownSync(PropertyIdSchema)(value)
-const decodeHashLike = (value: string): Hash => Schema.decodeUnknownSync(HashSchema)(value)
+const decodePageId = (value: string): PageId => Schema.decodeSync(PageIdSchema)(value)
+const decodePropertyId = (value: string): PropertyId => Schema.decodeSync(PropertyIdSchema)(value)
+const decodeHashLike = (value: string): Hash => Schema.decodeSync(HashSchema)(value)
 
 /** A scanned `.nmd` file's relevant decoded surface. */
 export type NmdPageSurface = {

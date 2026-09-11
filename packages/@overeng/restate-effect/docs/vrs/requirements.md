@@ -55,7 +55,7 @@ the map of which subsystem owns which requirement. The global Assumptions
   (`@effect/opentelemetry`, `@restatedev/restate-sdk-opentelemetry`) are an
   opt-in subpath; the core stays dependency-light.
 - **A10 Server floor ≥1.6:** The binding targets `restate-server` ≥1.6
-  (`nix/restate.nix` pins 1.6.2). Features that need ≥1.6 (e.g. the
+  (`nix/restate.nix` pins 1.7.9). Features that need ≥1.6 (e.g. the
   `metadata._tag` best-effort extra on terminal errors) assume this floor.
 - **A11 Deployment immutability:** A `Deployment` is immutable and versioned; the
   `restate-server` owns deployment versioning and the replay/upgrade contract

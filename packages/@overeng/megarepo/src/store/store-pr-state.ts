@@ -118,7 +118,7 @@ const GhPrList = Schema.Array(GhPr)
  * non-zero leaving empty stdout) ⇒ `none`, which the caller maps to keep.
  */
 export const decodePrListJson = (raw: string): Option.Option<ReadonlyArray<GhPr>> =>
-  Schema.decodeUnknownOption(Schema.fromJsonString(GhPrList))(raw)
+  Schema.decodeOption(Schema.fromJsonString(GhPrList))(raw)
 
 /** ISO 8601 ⇒ epoch ms; `null`/unparseable ⇒ `undefined`. */
 const isoToMs = (iso: string | null): number | undefined => {

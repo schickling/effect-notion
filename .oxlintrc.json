@@ -55,6 +55,23 @@
     "import/no-commonjs": "error",
     "import/no-cycle": "warn",
     "no-await-in-loop": "error",
+    "no-underscore-dangle": [
+      "warn",
+      {
+        "allow": [
+          "_tag",
+          "_page_id",
+          "_nds_outbox",
+          "_idleTimeout",
+          "_getActiveHandles",
+          "_getActiveRequests",
+          "__stylexCollectCss",
+          "try_",
+          "expect_",
+          "PtySpec_"
+        ]
+      }
+    ],
     "func-style": [
       "error",
       "expression",
@@ -66,6 +83,8 @@
     "overeng/exports-first": "error",
     "overeng/jsdoc-require-exports": "error",
     "typescript/consistent-type-imports": "warn",
+    "typescript/consistent-return": "off",
+    "typescript/no-unnecessary-type-parameters": "off",
     "overeng/no-raw-otel-primitives": "off",
     "overeng/otel-contract-in-seam-file": "off",
     "typescript/consistent-type-definitions": "off",
@@ -86,6 +105,15 @@
     "typescript/no-unnecessary-template-expression": "off",
     "react/react-in-jsx-scope": "off",
     "react/rules-of-hooks": "error",
+    "react/globals": "off",
+    "react/immutability": "off",
+    "react/purity": "off",
+    "react/refs": "off",
+    "react/set-state-in-effect": "off",
+    "react/hooks": "off",
+    "react/exhaustive-effect-dependencies": "off",
+    "react/memo-dependencies": "off",
+    "react/capitalized-calls": "off",
     "react/exhaustive-deps": "warn",
     "overeng/stylex-no-raw-color": "error",
     "overeng/stylex-outline-focus-visible-only": "error",
@@ -207,7 +235,8 @@
       "files": ["**/stories/_*.ts", "**/stories/_*.tsx"],
       "rules": {
         "overeng/exports-first": "off",
-        "overeng/jsdoc-require-exports": "off"
+        "overeng/jsdoc-require-exports": "off",
+        "no-underscore-dangle": "off"
       }
     },
     {
@@ -232,7 +261,9 @@
         "unicorn/no-array-sort": "off",
         "unicorn/consistent-function-scoping": "off",
         "require-yield": "off",
-        "no-await-in-loop": "off"
+        "no-await-in-loop": "off",
+        "no-underscore-dangle": "off",
+        "no-shadow": "off"
       }
     },
     {
@@ -276,7 +307,10 @@
       }
     },
     {
-      "files": ["**/genie/src/runtime/node/bootstrap-closure.ts"],
+      "files": [
+        "**/genie/src/runtime/node/bootstrap-closure.ts",
+        "**/genie/src/runtime/node/ts-api.ts"
+      ],
       "rules": {
         "overeng/no-external-imports": "off"
       }
@@ -291,6 +325,12 @@
       "files": ["packages/@overeng/genie/src/**"],
       "rules": {
         "overeng/jsdoc-require-exports": "warn"
+      }
+    },
+    {
+      "files": ["**/*.types.ts", "**/examples/**"],
+      "rules": {
+        "no-underscore-dangle": "off"
       }
     },
     {

@@ -52,7 +52,7 @@ export const ProgressReporter: Context.Reference<ProgressReporterShape> =
  * no-op.
  */
 const emit = (f: (r: ProgressReporterShape) => Effect.Effect<void>): Effect.Effect<void> =>
-  Effect.flatMap(ProgressReporter, f).pipe(Effect.catchCause(() => Effect.void))
+  Effect.flatMap(ProgressReporter, f).pipe(Effect.ignoreCause)
 
 /** Emit an `active` transition for a stage. */
 export const reportStageActive = (stage: ProgressStage): Effect.Effect<void> =>

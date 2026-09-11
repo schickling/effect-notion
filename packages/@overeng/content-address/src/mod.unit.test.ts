@@ -269,7 +269,7 @@ describe('@overeng/content-address', () => {
       const storedJson = new TextDecoder().decode(
         await Effect.runPromise(getBytes({ store, descriptor: manifestDescriptor })),
       )
-      const decoded = Schema.decodeUnknownSync(Schema.fromJsonString(ContentManifest))(storedJson)
+      const decoded = Schema.decodeSync(Schema.fromJsonString(ContentManifest))(storedJson)
       expect(decoded.createdAt).toBeDefined()
       expect(DateTime.toEpochMillis(decoded.createdAt!)).toBe(
         DateTime.toEpochMillis(manifest.createdAt!),

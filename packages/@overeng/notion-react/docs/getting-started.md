@@ -25,7 +25,13 @@ pnpm add @overeng/notion-react effect @effect/platform \
 
 `katex` and `shiki` are optional peer dependencies — install them only
 if you render math equations or syntax-highlighted code in the web
-preview.
+preview. KaTeX 0.18 depends on `commander` 15, whose `engines` field
+advertises Node >= 22.12. That is an install-time advisory, not a
+runtime requirement: npm-family installers may warn about it (and will
+fail only under `engine-strict`), Bun ignores `engines` entirely, and
+the renderer never loads it — `commander` is imported solely by KaTeX's
+`cli.js`, which equation previews do not touch. Rendering keeps the
+Node 20+ / Bun 1.1+ baseline above.
 
 ## First render (cold append)
 

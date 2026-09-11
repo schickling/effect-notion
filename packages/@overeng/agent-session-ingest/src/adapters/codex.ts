@@ -239,7 +239,7 @@ export const makeCodexAdapter = (options: {
   readonly initialReadMaxBytes?: number
 }): SessionSourceAdapter<CodexSessionRecord> =>
   makeAppendOnlyJsonlAdapter({
-    sourceId: Schema.decodeUnknownSync(SourceId)(options.sourceId ?? 'codex'),
+    sourceId: Schema.decodeSync(SourceId)(options.sourceId ?? 'codex'),
     discoverArtifacts: listJsonlFiles({
       root: options.sessionsRoot,
       ...(options.discoverySinceEpochMs !== undefined && {
@@ -256,7 +256,7 @@ export const makeCodexAdapter = (options: {
       ),
       Effect.map((paths) =>
         paths.map((path: string) => ({
-          artifact: Schema.decodeUnknownSync(ArtifactDescriptor)({
+          artifact: Schema.decodeSync(ArtifactDescriptor)({
             sourceId: options.sourceId ?? 'codex',
             artifactId: toCodexArtifactId({ sessionsRoot: options.sessionsRoot, path }),
             path,

@@ -48,10 +48,10 @@ export const writeFileAtomic = ({
     const tempPath = tempPathFor(path)
     yield* fs
       .writeFileString(tempPath, content)
-      .pipe(Effect.tapError(() => fs.remove(tempPath).pipe(Effect.catch(() => Effect.void))))
+      .pipe(Effect.tapError(() => fs.remove(tempPath).pipe(Effect.ignore)))
     yield* fs
       .rename(tempPath, path)
-      .pipe(Effect.tapError(() => fs.remove(tempPath).pipe(Effect.catch(() => Effect.void))))
+      .pipe(Effect.tapError(() => fs.remove(tempPath).pipe(Effect.ignore)))
   }).pipe(
     Observability.withLabelSpan({
       name: 'megarepo/store/fs/write-atomic',

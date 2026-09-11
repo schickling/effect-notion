@@ -816,9 +816,7 @@ describe('VirtualTerminal (actual screen state)', () => {
       // Simulate rapid updates like the stress test
       for (let i = 0; i < 5; i++) {
         root.render(<SimpleCounter count={i} />)
-        // oxlint-disable-next-line eslint(no-await-in-loop) -- intentionally sequential test steps
         await waitForRender()
-        // oxlint-disable-next-line eslint(no-await-in-loop) -- intentionally sequential test steps
         await terminal.flush()
       }
 

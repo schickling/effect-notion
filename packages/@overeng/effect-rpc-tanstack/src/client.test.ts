@@ -165,8 +165,7 @@ describe('client request-id policy', () => {
       }).pipe(
         Effect.provide(layerClient({ url: 'http://localhost/api/rpc', fetch })),
         Effect.scoped,
-        Effect.exit,
-        Effect.runPromise,
+        Effect.runPromiseExit,
       )
 
       expect(fetch).not.toHaveBeenCalled()

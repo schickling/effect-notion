@@ -519,7 +519,7 @@ describe('dist overlay lifecycle', () => {
         member: fixture.member,
         destination: 'dir/dist',
       })
-      const transaction = yield* Schema.decodeUnknownEffect(TransactionJson)(
+      const transaction = yield* Schema.decodeEffect(TransactionJson)(
         yield* Effect.promise(() => readFile(transactionPath, 'utf8')),
       )
       const outsidePath = NodePath.join(fixture.workspaceRoot, 'forged-outside')

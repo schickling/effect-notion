@@ -114,6 +114,7 @@ let
     const { execFileSync } = require("child_process");
 
     const workspaceRoot = process.cwd();
+    const allowMissingFilteredTargets = process.argv.includes("--allow-missing-filtered-targets");
     const sourceInputLocatorPrefix = "file:.devenv/pnpm-source-inputs/current/";
 
     const sortedDirEntries = (dirPath) =>
@@ -228,7 +229,6 @@ let
           // Ordinary `file:` dependencies do not appear in injectedDeps.
           // `.package-map.json` is pnpm's exact locator-to-package-target map,
           // including peer-context variants, so it extends the same selector
-          // without falling back to a package-name or virtual-dir scan.
           const packageMapPath = path.join(entryPath, ".package-map.json");
           const packageMap = fs.existsSync(packageMapPath)
             ? JSON.parse(fs.readFileSync(packageMapPath, "utf8"))
@@ -280,6 +280,7 @@ let
 
           for (const [packageDir, sourceProjectDir] of relinkedTargets) {
             if (!fs.existsSync(packageDir)) {
+              if (allowMissingFilteredTargets) continue;
               throw new Error(`selected local dependency target is missing: ''${packageDir}`);
             }
             if (fs.realpathSync(packageDir) === sourceProjectDir) {
@@ -325,6 +326,8 @@ in
       sourceRoot,
       pnpmDepsHash,
       preInstall ? "",
+      postWorkspacePolicyScrub ? "",
+      postPnpmInstall ? "",
       frozenLockfile ? true,
       lockfilePaths ? [ "pnpm-lock.yaml" ],
       pnpmFilters ? [ ],
@@ -548,6 +551,7 @@ in
         if [ -f pnpm-workspace.yaml ]; then
           ${pkgs.perl}/bin/perl -0pi -e 's/^\s*(${lib.concatStringsSep "|" pnpmInstallPolicy.workspaceYamlPolicyKeys}):[^\n]*\n//mg; s/nodeLinker: hoisted/nodeLinker: isolated/g' pnpm-workspace.yaml
         fi
+                ${postWorkspacePolicyScrub}
                 # Keep prepared dependency artifacts platform-neutral. Native
                 # optional packages are owned by the Nix package/build layer so
                 # pnpm dependency preparation stays pure, smaller, and stable
@@ -620,9 +624,11 @@ in
                   log_prep_event "install" "$installDuration" "install_root=$install_root"
                   log_path_stats "install-root:$install_root-node_modules" "$install_root/node_modules"
                 done < .pnpm-install-roots.txt
+                ${postPnpmInstall}
 
                 relinkStartedAt=$(timer_now)
-                ${pnpmNodejs}/bin/node ${lib.escapeShellArg rewritePreparedWorkspaceScript}
+                ${pnpmNodejs}/bin/node ${lib.escapeShellArg rewritePreparedWorkspaceScript} \
+                  ${lib.optionalString (pnpmFilters != [ ]) "--allow-missing-filtered-targets"}
                 relinkDuration=$(timer_elapsed "$relinkStartedAt")
                 log_prep_phase "relink-local-sources" "duration=''${relinkDuration}s"
                 log_prep_event "relink-local-sources" "$relinkDuration" "kind=prepared-workspace"

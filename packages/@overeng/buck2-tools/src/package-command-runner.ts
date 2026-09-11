@@ -18,6 +18,26 @@ import type { BunPlugin } from 'bun'
 import { canonicalizePath } from './real-path.ts'
 import { hashDeclaredInputRoots } from './typescript-runner.ts'
 
+// This module is a pipeline: each stage's public entry point sits next to the
+// private helpers it drives, so the file reads in execution order rather than
+// visibility order. `overeng/exports-first` wants the public surface up front,
+// which one forward export list gives without shuffling 900 lines of
+// implementation. Keep this list in sync when a stage entry point is added.
+export {
+  assemblePortableFarm,
+  assertNoUnboundRequireMain,
+  assertPortableModuleComments,
+  bareSpecifierPackage,
+  bundleImportSpecifiers,
+  createEntryOverridePlugin,
+  normalizePortableCommonJsGlobals,
+  parseProductDescriptorCommand,
+  planPackageLaunch,
+  projectProductDescriptor,
+  readPlatformGatedManifest,
+  verifyExternalSurface,
+}
+
 /** One declared Buck artifact root a package tree's symlinks may resolve into. */
 export type ClosureRoot = {
   /** Configuration-free logical name derived from the owning Buck label. */
@@ -362,24 +382,24 @@ const imageDirectory = ({
     // platform dispatch, so leaving it out of the farm is what keeps a
     // host-native binding from being inlined into a portable product.
     if (gated !== undefined && farm.gated.has(gated) === true) continue
-    const child = join(source, entry)
+    const entryPath = join(source, entry)
     const target = join(destination, entry)
     // Link identity comes from `lstat` alone. Comparing a path against its
     // realpath would misread an already-canonical path on a host whose
     // temporary directory is itself a symlink (Darwin's `/tmp`).
-    const metadata = lstatSync(child)
+    const metadata = lstatSync(entryPath)
     if (metadata.isSymbolicLink() === true) {
-      imageSymlink({ destination: target, farm, source: child })
+      imageSymlink({ destination: target, farm, source: entryPath })
       continue
     }
     if (metadata.isDirectory() === true) {
-      imageDirectory({ destination: target, farm, source: child })
+      imageDirectory({ destination: target, farm, source: entryPath })
       continue
     }
     if (metadata.isFile() === false) {
-      fail(`portable farm does not support filesystem entry: ${child}`)
+      fail(`portable farm does not support filesystem entry: ${entryPath}`)
     }
-    hardlink({ destination: target, source: child })
+    hardlink({ destination: target, source: entryPath })
   }
 }
 
@@ -405,7 +425,7 @@ const materializeMapping = ({
  * configuration-free logical name, so the farm layout — and therefore the
  * module paths a bundle records — depends only on the declared graph.
  */
-export const assemblePortableFarm = ({
+const assemblePortableFarm = ({
   closureRoots,
   gatedPackages,
   packageTree,
@@ -447,7 +467,7 @@ export const assemblePortableFarm = ({
 }
 
 /** Reads the lockfile-derived platform-gated package manifest. */
-export const readPlatformGatedManifest = (path: string): PlatformGatedManifest => {
+const readPlatformGatedManifest = (path: string): PlatformGatedManifest => {
   const parsed = JSON.parse(readFileSync(path, 'utf8')) as {
     readonly schema?: unknown
     readonly families?: unknown
@@ -494,7 +514,7 @@ const LOADABLE_SCHEMES: Readonly<Record<'bun' | 'node', Readonly<Record<string, 
  * only when a user runs it. A scheme the target cannot load is therefore a
  * build failure rather than an ignored specifier.
  */
-export const bareSpecifierPackage = ({
+const bareSpecifierPackage = ({
   specifier,
   target,
 }: {
@@ -533,7 +553,7 @@ const REQUIRE_CALL = /\b__?require\(\s*["']([^"']+)["']\s*\)/g
  * an import the scanner cannot see is exactly the one that would fail only at
  * runtime, so both forms are collected.
  */
-export const bundleImportSpecifiers = (bundle: string): readonly string[] => {
+const bundleImportSpecifiers = (bundle: string): readonly string[] => {
   const specifiers = new Set(
     new Bun.Transpiler({ loader: 'js' }).scanImports(bundle).map((entry) => entry.path),
   )
@@ -554,7 +574,7 @@ export const bundleImportSpecifiers = (bundle: string): readonly string[] => {
  * emitted bundle and gating it against the declared set turns that class of
  * silent failure into a build failure.
  */
-export const verifyExternalSurface = ({
+const verifyExternalSurface = ({
   allowed,
   declaredCapabilities,
   gatedManifest,
@@ -643,7 +663,7 @@ const LOADERS: Readonly<Record<string, 'js' | 'jsx' | 'ts' | 'tsx'>> = {
  * be counted, so a predicate that silently stops matching becomes a build
  * failure instead of a broken CLI.
  */
-export const createEntryOverridePlugin = ({
+const createEntryOverridePlugin = ({
   entry,
   onOverride,
 }: {
@@ -692,7 +712,7 @@ export const createEntryOverridePlugin = ({
  * artifact on another machine, so the closure claim is checked against the
  * emitted bytes rather than assumed from how the farm was built.
  */
-export const assertPortableModuleComments = (bundle: string): void => {
+const assertPortableModuleComments = (bundle: string): void => {
   const absolute: string[] = []
   const escaping: string[] = []
   for (const line of bundle.split('\n')) {
@@ -718,7 +738,7 @@ export const assertPortableModuleComments = (bundle: string): void => {
  * runtime location, and both admitted runtimes implement these standard ESM
  * properties.
  */
-export const normalizePortableCommonJsGlobals = ({
+const normalizePortableCommonJsGlobals = ({
   bundle,
   root,
 }: {
@@ -789,7 +809,7 @@ export const normalizePortableCommonJsGlobals = ({
 }
 
 /** Fails when a CLI bundle kept Bun's unbound `import.meta.main` lowering. */
-export const assertNoUnboundRequireMain = (bundle: string): void => {
+const assertNoUnboundRequireMain = (bundle: string): void => {
   if (bundle.includes('__require.main') === true) {
     fail('CLI bundle retains `__require.main`, which is unbound in an ESM bundle')
   }
@@ -806,9 +826,7 @@ export type ProductDescriptorCommand = {
 }
 
 /** Parses the product-descriptor projection command emitted by `buck2/products.bzl`. */
-export const parseProductDescriptorCommand = (
-  argv: readonly string[],
-): ProductDescriptorCommand => {
+const parseProductDescriptorCommand = (argv: readonly string[]): ProductDescriptorCommand => {
   let descriptor: string | undefined
   let moduleDescriptor: string | undefined
   let productKind: 'cli' | 'module' | undefined
@@ -847,7 +865,7 @@ export const parseProductDescriptorCommand = (
  * identity includes its integrity and size, which exist only once the bytes
  * do.
  */
-export const projectProductDescriptor = ({
+const projectProductDescriptor = ({
   command,
   module,
 }: {
@@ -917,7 +935,7 @@ export type PackageLaunchPlan = {
  * launch, so both callers share one contract. `runBundle` resolves its own
  * paths the same way.
  */
-export const planPackageLaunch = ({
+const planPackageLaunch = ({
   command,
 }: {
   readonly command: PackageCommand
