@@ -49,6 +49,7 @@ let
       -C linker=${pkgs.clang}/bin/clang \
       -C link-arg=-isysroot \
       -C link-arg=${lib.escapeShellArg sdk.sdkroot} \
+      -C link-arg=${lib.escapeShellArg "-L${pkgs.libiconv}/lib"} \
       "$@"
     if [ -n "$output" ]; then
       source ${signingUtils}
