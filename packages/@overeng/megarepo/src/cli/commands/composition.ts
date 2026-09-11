@@ -1,5 +1,5 @@
 import { execFile as execFileCallback } from 'node:child_process'
-import { lstat } from 'node:fs/promises'
+import { chmod, lstat, readdir } from 'node:fs/promises'
 import * as NodePath from 'node:path'
 import { promisify } from 'node:util'
 
@@ -299,6 +299,23 @@ export const preflightCompositionCommand = ({
     return identity
   }).pipe(Effect.mapError(preserveCompositionError))
 
+const protectImmutableSource = async (path: string): Promise<void> => {
+  const info = await lstat(path)
+  if (info.isSymbolicLink() === true) return
+  if (info.isDirectory() === true) {
+    await Promise.all(
+      (await readdir(path)).map((child) => protectImmutableSource(NodePath.join(path, child))),
+    )
+    await chmod(path, 0o755)
+    return
+  }
+  if (info.isFile() === true) {
+    await chmod(path, (info.mode & 0o111) === 0 ? 0o444 : 0o555)
+    return
+  }
+  throw new TypeError(`Immutable source contains unsupported entry '${path}'`)
+}
+
 /** Admit exact clean detached commit worktrees before any composition side effect. */
 export const resolveLockedCompositionMembers = ({
   configMembers,
@@ -404,6 +421,16 @@ export const resolveLockedCompositionMembers = ({
           message: `Immutable source '${sourcePath}' contains ignored files; ignored bytes cannot enter R6`,
         })
       }
+      yield* Effect.tryPromise({
+        try: () => protectImmutableSource(sourcePath),
+        catch: (cause) =>
+          compositionFailure({
+            reason: 'LockedSourceRefused',
+            path: sourcePath,
+            message: `Immutable source '${sourcePath}' could not be protected`,
+            cause,
+          }),
+      })
       values.push({ key, sourcePath, lockedCommit: locked.commit })
     }
     return values

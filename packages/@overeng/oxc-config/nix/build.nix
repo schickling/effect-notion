@@ -12,6 +12,6 @@ import ../../../../nix/oxc-config-plugin.nix {
   # CI-diagnosed snapshot. This standalone plugin does not expose Evergreen's `hashPath`
   # repair metadata, so refresh this exact hash from the failing Nix annotation until the
   # retained source FOD is deleted.
-  depsBuilds.".".hash = "sha256-mr+ijXnzpoj1C00iJWA58C150urJYKb4E9SCpRsypMw=";
+  depsBuilds.".".hash = "sha256-2odo+Vx6Yq6cyN73V/tEOK19g57xzMla8qPXh112/B8=";
   hashSourcePath = "packages/@overeng/oxc-config/nix/build.nix";
 }

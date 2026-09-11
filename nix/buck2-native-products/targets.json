@@ -1,0 +1,33 @@
+{
+  "platforms": [
+    {
+      "abi": "glibc",
+      "architecture": "x86_64",
+      "os": "linux",
+      "system": "x86_64-linux"
+    },
+    {
+      "abi": "glibc",
+      "architecture": "aarch64",
+      "os": "linux",
+      "system": "aarch64-linux"
+    },
+    {
+      "abi": "darwin",
+      "architecture": "aarch64",
+      "os": "darwin",
+      "system": "aarch64-darwin"
+    }
+  ],
+  "products": [
+    {
+      "name": "otel-scrape",
+      "target": "effect_utils//packages/@overeng/otel-scrape:otel-scrape-product"
+    },
+    {
+      "name": "otelite",
+      "target": "effect_utils//packages/@overeng/otelite:otelite-product"
+    }
+  ],
+  "schema": "effect-utils/buck2-native-release-targets/v1"
+}

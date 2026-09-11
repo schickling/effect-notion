@@ -264,10 +264,11 @@ describe('composition capability resolver', () => {
         'a-tool',
         'z-tool',
       ])
+      const privateRoot = NodePath.dirname(result.candidateRoot)
       expect(await readFile(fixture.nixLog, 'utf8')).toBe(
-        `build --no-link --print-out-paths --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#a-package^out\n` +
+        `build --out-link ${NodePath.join(privateRoot, 'gc-root-a-tool')} --print-out-paths --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#a-package^out\n` +
           `path-info --recursive --offline --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#a-package^out\n` +
-          `build --no-link --print-out-paths --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#z-package^out\n` +
+          `build --out-link ${NodePath.join(privateRoot, 'gc-root-z-tool')} --print-out-paths --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#z-package^out\n` +
           `path-info --recursive --offline --no-write-lock-file --no-update-lock-file ${fixture.memberRoot}#z-package^out\n`,
       )
       expect(result.capabilities[0]?.closureStorePaths).toEqual([bashOutput])
@@ -463,7 +464,12 @@ describe('composition capability resolver', () => {
       })
       expect(result.nixCommands[0]?.args).toEqual([
         'build',
-        '--no-link',
+        '--out-link',
+        NodePath.join(
+          NodePath.resolve(tmpdir()),
+          '.megarepo-capabilities-planned-candidate',
+          'gc-root-buck2',
+        ),
         '--print-out-paths',
         '--no-write-lock-file',
         '--no-update-lock-file',
@@ -645,6 +651,20 @@ describe('composition capability resolver', () => {
       await Promise.all([firstResult.release(), secondResult.release()])
     } finally {
       await Promise.all([clean(first), clean(second)])
+    }
+  })
+  it('does not require flake.lock when a member projects no capabilities', async () => {
+    const fixture = await makeFixture()
+    try {
+      await rm(NodePath.join(fixture.memberRoot, 'flake.lock'))
+      const result = await resolve(fixture, { manifest: manifest({ capabilities: [] }) })
+      expect(result._tag).toBe('Resolved')
+      if (result._tag !== 'Resolved') throw new Error('unreachable')
+      expect(result.capabilities).toEqual([])
+      expect(result.nixCommands).toEqual([])
+      await result.release()
+    } finally {
+      await clean(fixture)
     }
   })
 })

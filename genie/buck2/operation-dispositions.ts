@@ -34,7 +34,7 @@ export type DeveloperOperation = keyof typeof developerOperationDispositions
 export const ciOperationDispositions = {
   'bootstrap-cold-proof': 'outside-by-policy:bootstrap-integration',
   'bundle-smoke': 'buck-owned',
-  cargo: 'buck-pending:rust',
+  cargo: 'outside-by-policy:aggregate-includes-rust-quality-gates',
   'ci-measurements-report': 'outside-by-policy:ci-control-plane',
   'default-ref-policy': 'outside-by-policy:pre-composition-trust-gate',
   'deploy-storybooks': 'outside-by-policy:live-deployment',

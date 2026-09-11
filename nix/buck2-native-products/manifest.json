@@ -1,0 +1,373 @@
+{
+  "products": [
+    {
+      "descriptor": {
+        "entrypoints": [
+          "bin/otel-scrape"
+        ],
+        "name": "otel-scrape",
+        "payload": {
+          "digest": {
+            "algorithm": "sha256",
+            "sri": "sha256-HZLblFFYtQVPxm+xGQbKHMGiW3cSCDdmRFr3Ag+hKtU="
+          },
+          "file": "artifact.tar",
+          "format": "tar",
+          "sizeBytes": 3197952
+        },
+        "platform": {
+          "abi": "darwin",
+          "architecture": "aarch64",
+          "os": "darwin"
+        },
+        "runtime": {
+          "architecture": "arm64",
+          "dylibs": [
+            "/usr/lib/libSystem.B.dylib",
+            "/usr/lib/libiconv.2.dylib"
+          ],
+          "inspectionContract": "mach-o-dynamic/v1",
+          "installNamePolicy": "system-only/v1",
+          "kind": "mach-o-dynamic",
+          "minimumOs": "15.0",
+          "rpathPolicy": "empty/v1",
+          "signingPolicy": "adhoc/v1"
+        },
+        "schema": "buck-build-product/v1",
+        "semanticProvenance": {
+          "recipe": "cargo-workspace:otel-scrape@0.0.0",
+          "target": "effect_utils//packages/@overeng/otel-scrape:otel-scrape-product",
+          "toolchain": "contract=effect-utils/buck2-rust-toolchain/v1;execution_platform=aarch64-macos;target_platform=//buck2/platforms:macos_aarch64;target_triple=aarch64-apple-darwin;rust-archiver=/nix/store/0hkgh95m01v2r58ihyjcb1c9xqpmszan-ar:cc24b301950403b4073f8af51cf7478d7a3b2cd8669129f07b8b4c99a04a9ce2;rust-c-compiler=/nix/store/v50fkq20w63wbciqlb7pv0gda2prd4dq-cc:9653de299fcb51919657a930c78fa368b34cc463a270dedea171e0ade4af4911;rust-dwp=/nix/store/nszs1bddpcxmjyrpm7zc6gg0fxx1w6fz-dwp:5686d95accfd29e4df352f5c95fb21f67361737dc46e5def2594571f21cf55f2;rust-clippy-driver=/nix/store/wpgsb4yh7y3qj2yf1a891azsnfl69pvm-clippy-driver:a4e180ad69aeaea1dc47ba9bf3d91bd345d92a4b72a907a425e6b6162e681898;rust-compiler=/nix/store/7lv5rg7ipf0inlm3y8zvbp4rpwj9m7va-rustc:92794ef4ee732c38e4f18ba1c65127156591363e55abc0a5c8eae492df926f85;rust-cxx-compiler=/nix/store/vvliica9vnwczdb00j984yzv62m8j1cy-c++:acfebf80f5615a5db676e413f53f46fce26f4cf3f2c0c3941992c132b81cc6be;rust-linker=/nix/store/vvliica9vnwczdb00j984yzv62m8j1cy-c++:acfebf80f5615a5db676e413f53f46fce26f4cf3f2c0c3941992c132b81cc6be;rust-rustdoc=/nix/store/vqsn9q8c0v6r8navwrayyi7lr0n8j3cf-rustdoc:6ad6d067abb26c08b5cbe1225a54ab7dac2f8e6642b701034a780f77ebd99fbb;rust-nm=/nix/store/v76i0jncav3i5kiwwg4jz32lq6xb9k7x-nm:a20d5d0c9c81e0f7a7ce96ebaffd35f92a786a8e25e1d0e0416ae579e3510f4e;rust-objcopy=/nix/store/js9zdv0n6wx36mfxa7bf6f4s84kmgmql-objcopy:fc4529d3b99dee3bdc108a7766f5897b2f4cca2f9bfe0bdd45e4ae710d175ab4;rust-objdump=/nix/store/v9n6wgpz098jhw1scc6f972677ai5qw2-objdump:e671abee5dbcaad756d818e8d3d532ba7b3e815e7be65c2098760f4a59019599;rust-ranlib=/nix/store/3b61qrg8l0whl4m0c1mphigq9739qa3f-ranlib:e05990426b541a428d6c12a7e532747f8a1ae3ca25c344004e27b698ca88e0f0;rust-strip=/nix/store/9jp016rpjlwivkg9i7dlwasylpfr4rzw-strip:81a72c6ca46f841cae9739b4468e0dc2f581da7e156155692a060e54a651a5d6;rust-shell=/nix/store/401wfz3g4kmjhi96qq29qbqz4143bwdq-bash-interactive-5.3p15:f055535c334166f2f9c843ec9702bbbc78649a5c8ad6bd7f580ba0f2f0cda4c8"
+        }
+      },
+      "descriptorSha256": "sha256:fa8edc2f096d35e34a8d6a20ce45b5a21b6e31ad14b9fb57a3a845827fcb4675",
+      "release": {
+        "hash": "sha256-HZLblFFYtQVPxm+xGQbKHMGiW3cSCDdmRFr3Ag+hKtU=",
+        "name": "1d92db945158b5054fc66fb11906ca1cc1a25b7712083766445af7020fa12ad5-otel-scrape-darwin-aarch64-darwin.tar",
+        "tag": "buck2-native-product-v1-otel-scrape-darwin-aarch64-darwin-1d92db945158b5054fc66fb11906ca1cc1a25b7712083766445af7020fa12ad5",
+        "url": "https://github.com/overengineeringstudio/effect-utils/releases/download/buck2-native-product-v1-otel-scrape-darwin-aarch64-darwin-1d92db945158b5054fc66fb11906ca1cc1a25b7712083766445af7020fa12ad5/1d92db945158b5054fc66fb11906ca1cc1a25b7712083766445af7020fa12ad5-otel-scrape-darwin-aarch64-darwin.tar"
+      }
+    },
+    {
+      "descriptor": {
+        "entrypoints": [
+          "bin/otel-scrape"
+        ],
+        "name": "otel-scrape",
+        "payload": {
+          "digest": {
+            "algorithm": "sha256",
+            "sri": "sha256-uhLWWxvsWJmM3P3GJaSRM4hWF3S/QBvgZfbPjDa8N9M="
+          },
+          "file": "artifact.tar",
+          "format": "tar",
+          "sizeBytes": 3346432
+        },
+        "platform": {
+          "abi": "glibc",
+          "architecture": "aarch64",
+          "os": "linux"
+        },
+        "runtime": {
+          "elfClass": "ELF64",
+          "inspectionContract": "elf-dynamic/v1",
+          "interpreter": "/lib/ld-linux-aarch64.so.1",
+          "kind": "elf-dynamic",
+          "machine": "aarch64",
+          "neededLibraries": [
+            "ld-linux-aarch64.so.1",
+            "libc.so.6",
+            "libgcc_s.so.1"
+          ],
+          "rpathPolicy": "empty/v1",
+          "symbolVersionFloors": [
+            "GCC_3.0",
+            "GCC_3.3",
+            "GCC_4.2.0",
+            "GLIBC_2.17",
+            "GLIBC_2.18",
+            "GLIBC_2.25",
+            "GLIBC_2.28",
+            "GLIBC_2.29",
+            "GLIBC_2.30",
+            "GLIBC_2.32",
+            "GLIBC_2.33",
+            "GLIBC_2.34",
+            "GLIBC_2.39"
+          ]
+        },
+        "schema": "buck-build-product/v1",
+        "semanticProvenance": {
+          "recipe": "cargo-workspace:otel-scrape@0.0.0",
+          "target": "effect_utils//packages/@overeng/otel-scrape:otel-scrape-product",
+          "toolchain": "contract=effect-utils/buck2-rust-toolchain/v1;execution_platform=aarch64-linux;target_platform=//buck2/platforms:linux_aarch64;target_triple=aarch64-unknown-linux-gnu;rust-archiver=/nix/store/ywcfnjg8yrm1kvdpnvzswaiwagjyzfyi-ar:52a8164487ad78b2e50595f924432d95383a774cd029a707c09afa308a8414cc;rust-c-compiler=/nix/store/90wgh551c50129idqw8rcbhg30fbkmfd-cc:32e2e11cb267ca46c5130040d750ef5b88bb524dfd0d3da6828ad77a3f8d71d0;rust-dwp=/nix/store/x9h8lnq4jdm9vryamh33vxzba7c70w2q-dwp:ee23610df0e166d7016cac8aea2af5c0966ecfe662edb6980e904b44eda3c47b;rust-clippy-driver=/nix/store/q832j2j7wxb1a8w57w1frs1ivgp0v5qk-clippy-driver:d0cc6eb9f5810e8c8374da1f8343969638f9c7ebbd2ade6f8dd62c6d2aadb576;rust-compiler=/nix/store/vafz21y36qjarcgq6q2r7md3w5mzcyx2-rustc:f5ec8efd6a76ded37fb287df5fc666937e0ef629f1f588e9f425287eab93ff52;rust-cxx-compiler=/nix/store/7wwzzggdgl9m6khd3y3x1c8wqmxy4ifr-c++:fe5d5908fa4fb19bc7e2dac68579431c510921126c6865a3c381ef90eb417c34;rust-linker=/nix/store/7wwzzggdgl9m6khd3y3x1c8wqmxy4ifr-c++:fe5d5908fa4fb19bc7e2dac68579431c510921126c6865a3c381ef90eb417c34;rust-rustdoc=/nix/store/k7wjw07l4rl2jbdw9160ba9cl04scmxh-rustdoc:f3a2a2607aaa2dbfdcb5f2942a148df76bbea36ffabf0f22bd0c7346f221c64f;rust-nm=/nix/store/j2jm7yzby4x0yrry4vwhcp90z0161q1z-nm:54e6d6c83a50e344a34072ddaf4523a5560370c896cdc5efb34b7714b8be3b1a;rust-objcopy=/nix/store/maxzixxf6kwic6ppg0xmgar1can0gy6h-objcopy:160548eeecfb57bdf6fa98db34e7560b8ca4bc105d3ff7cc405caf8f80194c40;rust-objdump=/nix/store/9026lv5vp3z5vn1cp2kf2kpxndmfdblz-objdump:0564ecf687df5aeeff13a31ee79bb6f66a20632c0c7ec7b0be670f0d8a7a2145;rust-ranlib=/nix/store/05d43zybdh9qmsizc653c2y2npfy46d7-ranlib:e2bb73aa022dd0297ec97c4d3fb06e3c72c81d1b2d787ae9533f316e461367c2;rust-strip=/nix/store/9lrkvk74cz5l37xk3axksdlkm7gph6kg-strip:60477c9a7bb2fdb95afe0d79106189484140c286415f81aab480d21c9a45aa89;rust-shell=/nix/store/dgm1mdazv3xkhbmphwv4dwci0bqzs7rp-bash:69f62cbb488003a4023606cab697f52ab5ec14ae20f53aeab30990eea856f423"
+        }
+      },
+      "descriptorSha256": "sha256:b21cb66a77e47aade75a89196602e475012dbbcd8ef4682a3ace14d2763253c1",
+      "release": {
+        "hash": "sha256-uhLWWxvsWJmM3P3GJaSRM4hWF3S/QBvgZfbPjDa8N9M=",
+        "name": "ba12d65b1bec58998cdcfdc625a4913388561774bf401be065f6cf8c36bc37d3-otel-scrape-linux-aarch64-glibc.tar",
+        "tag": "buck2-native-product-v1-otel-scrape-linux-aarch64-glibc-ba12d65b1bec58998cdcfdc625a4913388561774bf401be065f6cf8c36bc37d3",
+        "url": "https://github.com/overengineeringstudio/effect-utils/releases/download/buck2-native-product-v1-otel-scrape-linux-aarch64-glibc-ba12d65b1bec58998cdcfdc625a4913388561774bf401be065f6cf8c36bc37d3/ba12d65b1bec58998cdcfdc625a4913388561774bf401be065f6cf8c36bc37d3-otel-scrape-linux-aarch64-glibc.tar"
+      }
+    },
+    {
+      "descriptor": {
+        "entrypoints": [
+          "bin/otel-scrape"
+        ],
+        "name": "otel-scrape",
+        "payload": {
+          "digest": {
+            "algorithm": "sha256",
+            "sri": "sha256-B/j+haO2aWA3OxxvP2Wo3zIzclUfhYFEwa/9NGNGjKM="
+          },
+          "file": "artifact.tar",
+          "format": "tar",
+          "sizeBytes": 3288064
+        },
+        "platform": {
+          "abi": "glibc",
+          "architecture": "x86_64",
+          "os": "linux"
+        },
+        "runtime": {
+          "elfClass": "ELF64",
+          "inspectionContract": "elf-dynamic/v1",
+          "interpreter": "/lib64/ld-linux-x86-64.so.2",
+          "kind": "elf-dynamic",
+          "machine": "x86_64",
+          "neededLibraries": [
+            "ld-linux-x86-64.so.2",
+            "libc.so.6",
+            "libgcc_s.so.1"
+          ],
+          "rpathPolicy": "empty/v1",
+          "symbolVersionFloors": [
+            "GCC_3.0",
+            "GCC_3.3",
+            "GCC_4.2.0",
+            "GLIBC_2.14",
+            "GLIBC_2.15",
+            "GLIBC_2.16",
+            "GLIBC_2.17",
+            "GLIBC_2.18",
+            "GLIBC_2.2.5",
+            "GLIBC_2.25",
+            "GLIBC_2.28",
+            "GLIBC_2.29",
+            "GLIBC_2.3",
+            "GLIBC_2.3.4",
+            "GLIBC_2.30",
+            "GLIBC_2.32",
+            "GLIBC_2.33",
+            "GLIBC_2.34",
+            "GLIBC_2.39",
+            "GLIBC_2.4",
+            "GLIBC_2.9"
+          ]
+        },
+        "schema": "buck-build-product/v1",
+        "semanticProvenance": {
+          "recipe": "cargo-workspace:otel-scrape@0.0.0",
+          "target": "effect_utils//packages/@overeng/otel-scrape:otel-scrape-product",
+          "toolchain": "contract=effect-utils/buck2-rust-toolchain/v1;execution_platform=x86_64-linux;target_platform=//buck2/platforms:linux_x86_64;target_triple=x86_64-unknown-linux-gnu;rust-archiver=/nix/store/bj1mfdd968knmbl0rcyr35pqjsh78gaq-ar:8ddb61934a99ba087deeea1765e9da0b84ad065121031f469f7bd8ae06621b0a;rust-c-compiler=/nix/store/ndad9i5wnxxrsisb208c1k79dvyvnw2f-cc:ea5cdeff444fa8758c3f54a1ebf9146ecc74745f89b7f1ba532e098ee74838d0;rust-dwp=/nix/store/8v6vlmbjglbv01zasqziwhmypq8iam33-dwp:35dacff2c48037a73807d190fe985c77e3ebc70ba20a4d56d784777b474b28ed;rust-clippy-driver=/nix/store/1x3h3g3lqz79bwb0xz0p7gq80dvjjlsq-clippy-driver:dd0052080a387712d03e59d9cc2369ec8441544a88fd5cb64bd1e6cb9bcf79de;rust-compiler=/nix/store/vk2bw22y8xrpfsqphcmb9v6vwh7085fi-rustc:5670b4ef087187b199a2d9e1c753c1d252e285e7c7225983c5694bd4405f11a7;rust-cxx-compiler=/nix/store/05ifm3sda8qgd534ff188k3zr7399csa-c++:729198fda42f53137ff7c8243c9807b4b8a90fa13e45ce9e5b54552b9e8b4b6a;rust-linker=/nix/store/05ifm3sda8qgd534ff188k3zr7399csa-c++:729198fda42f53137ff7c8243c9807b4b8a90fa13e45ce9e5b54552b9e8b4b6a;rust-rustdoc=/nix/store/0n51s93xixi22ff0g84qf3g1wr2khkcg-rustdoc:395989c0eda19224fff6a4c92a14047c0bacea85803701882ea166b600dc6eca;rust-nm=/nix/store/n0hhhcwc5b3nib41yfpfkappc29x6gx2-nm:4cf271ac874ec9aac9e6674cde28c0b62551a8d01935d808578e942ac2c8a858;rust-objcopy=/nix/store/azd96w4p3v2jzgz0npzdsnlwhscjcvp3-objcopy:3c5c30d6472ccdefcdedbb7883e4041c25fac3ba3f63997d8cc6ff2918c696bb;rust-objdump=/nix/store/blrn7bk4n3hq3b52128p2shcqkdynidx-objdump:d1dee52c9cfdd15ecf00c9647e6c138b155edb4a5117af9ca495f08268fcd9c0;rust-ranlib=/nix/store/fjvfmsym9h9kfh92q6fsiw255fpj1i3w-ranlib:8c2ada015ae830eacfc56cdf890e7f9d6ab982251f8da5bf75a037e6d731958c;rust-strip=/nix/store/vyn08yg3xavyw5jxkvk7y627nprfyz5d-strip:a24d4704f9a8731d0575f8a51bbe74d6cb73a2d3694d9be87d8aa7c613ff9ea0;rust-shell=/nix/store/75b5c1abflninf1dfd57qaxrxihi4030-bash:94c557aa408ebbc50a044a53cbe5fc3878637e257d58fc6e2db370dc2594e515"
+        }
+      },
+      "descriptorSha256": "sha256:b6a9a1d901b7f550ee71727c23ea0dd28a8de435315082715426c2a165f6b99d",
+      "release": {
+        "hash": "sha256-B/j+haO2aWA3OxxvP2Wo3zIzclUfhYFEwa/9NGNGjKM=",
+        "name": "07f8fe85a3b66960373b1c6f3f65a8df323372551f858144c1affd3463468ca3-otel-scrape-linux-x86_64-glibc.tar",
+        "tag": "buck2-native-product-v1-otel-scrape-linux-x86_64-glibc-07f8fe85a3b66960373b1c6f3f65a8df323372551f858144c1affd3463468ca3",
+        "url": "https://github.com/overengineeringstudio/effect-utils/releases/download/buck2-native-product-v1-otel-scrape-linux-x86_64-glibc-07f8fe85a3b66960373b1c6f3f65a8df323372551f858144c1affd3463468ca3/07f8fe85a3b66960373b1c6f3f65a8df323372551f858144c1affd3463468ca3-otel-scrape-linux-x86_64-glibc.tar"
+      }
+    },
+    {
+      "descriptor": {
+        "entrypoints": [
+          "bin/otelite"
+        ],
+        "name": "otelite",
+        "payload": {
+          "digest": {
+            "algorithm": "sha256",
+            "sri": "sha256-PYScmoG+DGBRixBn8/W3GPtvueTmsknYsWrgOzJF+JY="
+          },
+          "file": "artifact.tar",
+          "format": "tar",
+          "sizeBytes": 19759104
+        },
+        "platform": {
+          "abi": "darwin",
+          "architecture": "aarch64",
+          "os": "darwin"
+        },
+        "runtime": {
+          "architecture": "arm64",
+          "dylibs": [
+            "/usr/lib/libSystem.B.dylib",
+            "/usr/lib/libiconv.2.dylib"
+          ],
+          "inspectionContract": "mach-o-dynamic/v1",
+          "installNamePolicy": "system-only/v1",
+          "kind": "mach-o-dynamic",
+          "minimumOs": "15.0",
+          "rpathPolicy": "empty/v1",
+          "signingPolicy": "adhoc/v1"
+        },
+        "schema": "buck-build-product/v1",
+        "semanticProvenance": {
+          "recipe": "cargo-workspace:otelite@0.0.0",
+          "target": "effect_utils//packages/@overeng/otelite:otelite-product",
+          "toolchain": "contract=effect-utils/buck2-rust-toolchain/v1;execution_platform=aarch64-macos;target_platform=//buck2/platforms:macos_aarch64;target_triple=aarch64-apple-darwin;rust-archiver=/nix/store/0hkgh95m01v2r58ihyjcb1c9xqpmszan-ar:cc24b301950403b4073f8af51cf7478d7a3b2cd8669129f07b8b4c99a04a9ce2;rust-c-compiler=/nix/store/v50fkq20w63wbciqlb7pv0gda2prd4dq-cc:9653de299fcb51919657a930c78fa368b34cc463a270dedea171e0ade4af4911;rust-dwp=/nix/store/nszs1bddpcxmjyrpm7zc6gg0fxx1w6fz-dwp:5686d95accfd29e4df352f5c95fb21f67361737dc46e5def2594571f21cf55f2;rust-clippy-driver=/nix/store/wpgsb4yh7y3qj2yf1a891azsnfl69pvm-clippy-driver:a4e180ad69aeaea1dc47ba9bf3d91bd345d92a4b72a907a425e6b6162e681898;rust-compiler=/nix/store/7lv5rg7ipf0inlm3y8zvbp4rpwj9m7va-rustc:92794ef4ee732c38e4f18ba1c65127156591363e55abc0a5c8eae492df926f85;rust-cxx-compiler=/nix/store/vvliica9vnwczdb00j984yzv62m8j1cy-c++:acfebf80f5615a5db676e413f53f46fce26f4cf3f2c0c3941992c132b81cc6be;rust-linker=/nix/store/vvliica9vnwczdb00j984yzv62m8j1cy-c++:acfebf80f5615a5db676e413f53f46fce26f4cf3f2c0c3941992c132b81cc6be;rust-rustdoc=/nix/store/vqsn9q8c0v6r8navwrayyi7lr0n8j3cf-rustdoc:6ad6d067abb26c08b5cbe1225a54ab7dac2f8e6642b701034a780f77ebd99fbb;rust-nm=/nix/store/v76i0jncav3i5kiwwg4jz32lq6xb9k7x-nm:a20d5d0c9c81e0f7a7ce96ebaffd35f92a786a8e25e1d0e0416ae579e3510f4e;rust-objcopy=/nix/store/js9zdv0n6wx36mfxa7bf6f4s84kmgmql-objcopy:fc4529d3b99dee3bdc108a7766f5897b2f4cca2f9bfe0bdd45e4ae710d175ab4;rust-objdump=/nix/store/v9n6wgpz098jhw1scc6f972677ai5qw2-objdump:e671abee5dbcaad756d818e8d3d532ba7b3e815e7be65c2098760f4a59019599;rust-ranlib=/nix/store/3b61qrg8l0whl4m0c1mphigq9739qa3f-ranlib:e05990426b541a428d6c12a7e532747f8a1ae3ca25c344004e27b698ca88e0f0;rust-strip=/nix/store/9jp016rpjlwivkg9i7dlwasylpfr4rzw-strip:81a72c6ca46f841cae9739b4468e0dc2f581da7e156155692a060e54a651a5d6;rust-shell=/nix/store/401wfz3g4kmjhi96qq29qbqz4143bwdq-bash-interactive-5.3p15:f055535c334166f2f9c843ec9702bbbc78649a5c8ad6bd7f580ba0f2f0cda4c8"
+        }
+      },
+      "descriptorSha256": "sha256:5889e571704e047f8944afde7144d637665a2cc243a1277120ea754106e82c49",
+      "release": {
+        "hash": "sha256-PYScmoG+DGBRixBn8/W3GPtvueTmsknYsWrgOzJF+JY=",
+        "name": "3d849c9a81be0c60518b1067f3f5b718fb6fb9e4e6b249d8b16ae03b3245f896-otelite-darwin-aarch64-darwin.tar",
+        "tag": "buck2-native-product-v1-otelite-darwin-aarch64-darwin-3d849c9a81be0c60518b1067f3f5b718fb6fb9e4e6b249d8b16ae03b3245f896",
+        "url": "https://github.com/overengineeringstudio/effect-utils/releases/download/buck2-native-product-v1-otelite-darwin-aarch64-darwin-3d849c9a81be0c60518b1067f3f5b718fb6fb9e4e6b249d8b16ae03b3245f896/3d849c9a81be0c60518b1067f3f5b718fb6fb9e4e6b249d8b16ae03b3245f896-otelite-darwin-aarch64-darwin.tar"
+      }
+    },
+    {
+      "descriptor": {
+        "entrypoints": [
+          "bin/otelite"
+        ],
+        "name": "otelite",
+        "payload": {
+          "digest": {
+            "algorithm": "sha256",
+            "sri": "sha256-6x/YfI+mj117UsUXjbv9x06biFb7T4mv+/YC6xE8G2U="
+          },
+          "file": "artifact.tar",
+          "format": "tar",
+          "sizeBytes": 17944064
+        },
+        "platform": {
+          "abi": "glibc",
+          "architecture": "aarch64",
+          "os": "linux"
+        },
+        "runtime": {
+          "elfClass": "ELF64",
+          "inspectionContract": "elf-dynamic/v1",
+          "interpreter": "/lib/ld-linux-aarch64.so.1",
+          "kind": "elf-dynamic",
+          "machine": "aarch64",
+          "neededLibraries": [
+            "ld-linux-aarch64.so.1",
+            "libc.so.6",
+            "libgcc_s.so.1",
+            "libm.so.6"
+          ],
+          "rpathPolicy": "empty/v1",
+          "symbolVersionFloors": [
+            "GCC_3.0",
+            "GCC_3.3",
+            "GCC_4.2.0",
+            "GLIBC_2.17",
+            "GLIBC_2.18",
+            "GLIBC_2.25",
+            "GLIBC_2.28",
+            "GLIBC_2.29",
+            "GLIBC_2.30",
+            "GLIBC_2.32",
+            "GLIBC_2.33",
+            "GLIBC_2.34",
+            "GLIBC_2.39"
+          ]
+        },
+        "schema": "buck-build-product/v1",
+        "semanticProvenance": {
+          "recipe": "cargo-workspace:otelite@0.0.0",
+          "target": "effect_utils//packages/@overeng/otelite:otelite-product",
+          "toolchain": "contract=effect-utils/buck2-rust-toolchain/v1;execution_platform=aarch64-linux;target_platform=//buck2/platforms:linux_aarch64;target_triple=aarch64-unknown-linux-gnu;rust-archiver=/nix/store/ywcfnjg8yrm1kvdpnvzswaiwagjyzfyi-ar:52a8164487ad78b2e50595f924432d95383a774cd029a707c09afa308a8414cc;rust-c-compiler=/nix/store/90wgh551c50129idqw8rcbhg30fbkmfd-cc:32e2e11cb267ca46c5130040d750ef5b88bb524dfd0d3da6828ad77a3f8d71d0;rust-dwp=/nix/store/x9h8lnq4jdm9vryamh33vxzba7c70w2q-dwp:ee23610df0e166d7016cac8aea2af5c0966ecfe662edb6980e904b44eda3c47b;rust-clippy-driver=/nix/store/q832j2j7wxb1a8w57w1frs1ivgp0v5qk-clippy-driver:d0cc6eb9f5810e8c8374da1f8343969638f9c7ebbd2ade6f8dd62c6d2aadb576;rust-compiler=/nix/store/vafz21y36qjarcgq6q2r7md3w5mzcyx2-rustc:f5ec8efd6a76ded37fb287df5fc666937e0ef629f1f588e9f425287eab93ff52;rust-cxx-compiler=/nix/store/7wwzzggdgl9m6khd3y3x1c8wqmxy4ifr-c++:fe5d5908fa4fb19bc7e2dac68579431c510921126c6865a3c381ef90eb417c34;rust-linker=/nix/store/7wwzzggdgl9m6khd3y3x1c8wqmxy4ifr-c++:fe5d5908fa4fb19bc7e2dac68579431c510921126c6865a3c381ef90eb417c34;rust-rustdoc=/nix/store/k7wjw07l4rl2jbdw9160ba9cl04scmxh-rustdoc:f3a2a2607aaa2dbfdcb5f2942a148df76bbea36ffabf0f22bd0c7346f221c64f;rust-nm=/nix/store/j2jm7yzby4x0yrry4vwhcp90z0161q1z-nm:54e6d6c83a50e344a34072ddaf4523a5560370c896cdc5efb34b7714b8be3b1a;rust-objcopy=/nix/store/maxzixxf6kwic6ppg0xmgar1can0gy6h-objcopy:160548eeecfb57bdf6fa98db34e7560b8ca4bc105d3ff7cc405caf8f80194c40;rust-objdump=/nix/store/9026lv5vp3z5vn1cp2kf2kpxndmfdblz-objdump:0564ecf687df5aeeff13a31ee79bb6f66a20632c0c7ec7b0be670f0d8a7a2145;rust-ranlib=/nix/store/05d43zybdh9qmsizc653c2y2npfy46d7-ranlib:e2bb73aa022dd0297ec97c4d3fb06e3c72c81d1b2d787ae9533f316e461367c2;rust-strip=/nix/store/9lrkvk74cz5l37xk3axksdlkm7gph6kg-strip:60477c9a7bb2fdb95afe0d79106189484140c286415f81aab480d21c9a45aa89;rust-shell=/nix/store/dgm1mdazv3xkhbmphwv4dwci0bqzs7rp-bash:69f62cbb488003a4023606cab697f52ab5ec14ae20f53aeab30990eea856f423"
+        }
+      },
+      "descriptorSha256": "sha256:4bbcecf521771ae2fac3b01fdcfd92e53773869c6819ca23926373e6116f2aa3",
+      "release": {
+        "hash": "sha256-6x/YfI+mj117UsUXjbv9x06biFb7T4mv+/YC6xE8G2U=",
+        "name": "eb1fd87c8fa68f5d7b52c5178dbbfdc74e9b8856fb4f89affbf602eb113c1b65-otelite-linux-aarch64-glibc.tar",
+        "tag": "buck2-native-product-v1-otelite-linux-aarch64-glibc-eb1fd87c8fa68f5d7b52c5178dbbfdc74e9b8856fb4f89affbf602eb113c1b65",
+        "url": "https://github.com/overengineeringstudio/effect-utils/releases/download/buck2-native-product-v1-otelite-linux-aarch64-glibc-eb1fd87c8fa68f5d7b52c5178dbbfdc74e9b8856fb4f89affbf602eb113c1b65/eb1fd87c8fa68f5d7b52c5178dbbfdc74e9b8856fb4f89affbf602eb113c1b65-otelite-linux-aarch64-glibc.tar"
+      }
+    },
+    {
+      "descriptor": {
+        "entrypoints": [
+          "bin/otelite"
+        ],
+        "name": "otelite",
+        "payload": {
+          "digest": {
+            "algorithm": "sha256",
+            "sri": "sha256-O6mmL+ptagiPi1fu5Idr65ugGK3F5vBx90EXlleanH8="
+          },
+          "file": "artifact.tar",
+          "format": "tar",
+          "sizeBytes": 17621504
+        },
+        "platform": {
+          "abi": "glibc",
+          "architecture": "x86_64",
+          "os": "linux"
+        },
+        "runtime": {
+          "elfClass": "ELF64",
+          "inspectionContract": "elf-dynamic/v1",
+          "interpreter": "/lib64/ld-linux-x86-64.so.2",
+          "kind": "elf-dynamic",
+          "machine": "x86_64",
+          "neededLibraries": [
+            "ld-linux-x86-64.so.2",
+            "libc.so.6",
+            "libgcc_s.so.1",
+            "libm.so.6"
+          ],
+          "rpathPolicy": "empty/v1",
+          "symbolVersionFloors": [
+            "GCC_3.0",
+            "GCC_3.3",
+            "GCC_4.2.0",
+            "GLIBC_2.10",
+            "GLIBC_2.14",
+            "GLIBC_2.15",
+            "GLIBC_2.16",
+            "GLIBC_2.17",
+            "GLIBC_2.18",
+            "GLIBC_2.2.5",
+            "GLIBC_2.25",
+            "GLIBC_2.28",
+            "GLIBC_2.29",
+            "GLIBC_2.3",
+            "GLIBC_2.3.2",
+            "GLIBC_2.3.4",
+            "GLIBC_2.30",
+            "GLIBC_2.32",
+            "GLIBC_2.33",
+            "GLIBC_2.34",
+            "GLIBC_2.39",
+            "GLIBC_2.7",
+            "GLIBC_2.9"
+          ]
+        },
+        "schema": "buck-build-product/v1",
+        "semanticProvenance": {
+          "recipe": "cargo-workspace:otelite@0.0.0",
+          "target": "effect_utils//packages/@overeng/otelite:otelite-product",
+          "toolchain": "contract=effect-utils/buck2-rust-toolchain/v1;execution_platform=x86_64-linux;target_platform=//buck2/platforms:linux_x86_64;target_triple=x86_64-unknown-linux-gnu;rust-archiver=/nix/store/bj1mfdd968knmbl0rcyr35pqjsh78gaq-ar:8ddb61934a99ba087deeea1765e9da0b84ad065121031f469f7bd8ae06621b0a;rust-c-compiler=/nix/store/ndad9i5wnxxrsisb208c1k79dvyvnw2f-cc:ea5cdeff444fa8758c3f54a1ebf9146ecc74745f89b7f1ba532e098ee74838d0;rust-dwp=/nix/store/8v6vlmbjglbv01zasqziwhmypq8iam33-dwp:35dacff2c48037a73807d190fe985c77e3ebc70ba20a4d56d784777b474b28ed;rust-clippy-driver=/nix/store/1x3h3g3lqz79bwb0xz0p7gq80dvjjlsq-clippy-driver:dd0052080a387712d03e59d9cc2369ec8441544a88fd5cb64bd1e6cb9bcf79de;rust-compiler=/nix/store/vk2bw22y8xrpfsqphcmb9v6vwh7085fi-rustc:5670b4ef087187b199a2d9e1c753c1d252e285e7c7225983c5694bd4405f11a7;rust-cxx-compiler=/nix/store/05ifm3sda8qgd534ff188k3zr7399csa-c++:729198fda42f53137ff7c8243c9807b4b8a90fa13e45ce9e5b54552b9e8b4b6a;rust-linker=/nix/store/05ifm3sda8qgd534ff188k3zr7399csa-c++:729198fda42f53137ff7c8243c9807b4b8a90fa13e45ce9e5b54552b9e8b4b6a;rust-rustdoc=/nix/store/0n51s93xixi22ff0g84qf3g1wr2khkcg-rustdoc:395989c0eda19224fff6a4c92a14047c0bacea85803701882ea166b600dc6eca;rust-nm=/nix/store/n0hhhcwc5b3nib41yfpfkappc29x6gx2-nm:4cf271ac874ec9aac9e6674cde28c0b62551a8d01935d808578e942ac2c8a858;rust-objcopy=/nix/store/azd96w4p3v2jzgz0npzdsnlwhscjcvp3-objcopy:3c5c30d6472ccdefcdedbb7883e4041c25fac3ba3f63997d8cc6ff2918c696bb;rust-objdump=/nix/store/blrn7bk4n3hq3b52128p2shcqkdynidx-objdump:d1dee52c9cfdd15ecf00c9647e6c138b155edb4a5117af9ca495f08268fcd9c0;rust-ranlib=/nix/store/fjvfmsym9h9kfh92q6fsiw255fpj1i3w-ranlib:8c2ada015ae830eacfc56cdf890e7f9d6ab982251f8da5bf75a037e6d731958c;rust-strip=/nix/store/vyn08yg3xavyw5jxkvk7y627nprfyz5d-strip:a24d4704f9a8731d0575f8a51bbe74d6cb73a2d3694d9be87d8aa7c613ff9ea0;rust-shell=/nix/store/75b5c1abflninf1dfd57qaxrxihi4030-bash:94c557aa408ebbc50a044a53cbe5fc3878637e257d58fc6e2db370dc2594e515"
+        }
+      },
+      "descriptorSha256": "sha256:501e9579bde49f7f453ca8b3dc58ec82ab2e18893bfab623371850a6eb1de073",
+      "release": {
+        "hash": "sha256-O6mmL+ptagiPi1fu5Idr65ugGK3F5vBx90EXlleanH8=",
+        "name": "3ba9a62fea6d6a088f8b57eee4876beb9ba018adc5e6f071f7411796579a9c7f-otelite-linux-x86_64-glibc.tar",
+        "tag": "buck2-native-product-v1-otelite-linux-x86_64-glibc-3ba9a62fea6d6a088f8b57eee4876beb9ba018adc5e6f071f7411796579a9c7f",
+        "url": "https://github.com/overengineeringstudio/effect-utils/releases/download/buck2-native-product-v1-otelite-linux-x86_64-glibc-3ba9a62fea6d6a088f8b57eee4876beb9ba018adc5e6f071f7411796579a9c7f/3ba9a62fea6d6a088f8b57eee4876beb9ba018adc5e6f071f7411796579a9c7f-otelite-linux-x86_64-glibc.tar"
+      }
+    }
+  ],
+  "schema": "effect-utils/buck2-native-release-products/v1"
+}

@@ -355,7 +355,18 @@ fn is_ad_hoc_signature(bytes: &[u8], offset: usize, size: usize) -> ToolResult<b
         let blob_offset = usize::try_from(be_u32(signature, entry + 4)?)
             .map_err(|_| fail("BUCK2_PRODUCT_MACHO", "invalid code signature offset"))?;
         if slot == 0x1_0000 {
-            return Ok(false);
+            let magic = be_u32(signature, blob_offset)?;
+            let blob_size = usize::try_from(be_u32(signature, blob_offset + 4)?)
+                .map_err(|_| fail("BUCK2_PRODUCT_MACHO", "invalid CMS signature size"))?;
+            if magic != 0xfade_0b01
+                || blob_size < 8
+                || blob_offset.saturating_add(blob_size) > declared_size
+            {
+                return Err(fail("BUCK2_PRODUCT_MACHO", "invalid CMS signature blob"));
+            }
+            if blob_size > 8 {
+                return Ok(false);
+            }
         }
         if slot == 0 || (0x1000..=0x1005).contains(&slot) {
             let magic = be_u32(signature, blob_offset)?;
@@ -794,6 +805,29 @@ mod tests {
         entry.read_to_end(&mut contents).unwrap();
         assert_eq!(contents, fs::read(executable).unwrap());
         assert!(entries.next().is_none());
+    }
+
+    #[test]
+    fn accepts_empty_cms_wrapper_in_ad_hoc_signature() {
+        let mut signature = Vec::new();
+        for value in [
+            0xfade_0cc0u32,
+            52,
+            2,
+            0,
+            28,
+            0x1_0000,
+            44,
+            0xfade_0c02,
+            16,
+            0,
+            0x2,
+            0xfade_0b01,
+            8,
+        ] {
+            signature.extend_from_slice(&value.to_be_bytes());
+        }
+        assert!(is_ad_hoc_signature(&signature, 0, signature.len()).unwrap());
     }
 
     #[test]

@@ -159,6 +159,22 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **@overeng/genie**: YAML block scalars no longer indent empty lines, keeping
+  generated workflows free of trailing whitespace.
+
+- **@overeng/megarepo**: unchanged composed members now preserve validated
+  published overlays instead of advancing the member mount and rebuilding every
+  declared overlay. Aggregate no-op apply skips Buck when all overlay identities
+  are already current.
+
+- **@overeng/megarepo**: composition capability realizations stay GC-rooted
+  until their resolution handles are released, preventing automatic Nix GC from
+  deleting projected executables during long aggregate overlay publication.
+
+- **nix/oxlint-with-plugins.nix**: include `tsgolint` in the wrapper's runtime
+  closure so type-aware linting remains hermetic inside Buck actions rather than
+  depending on the developer shell's `PATH`.
+
 - **CI**: keep draft assistant PRs mergeable by completing the auto-review job
   successfully when no review request is needed.
 - **CI**: stop requiring `main`-only Notion integration, live-deploy, and
@@ -263,6 +279,15 @@ All notable changes to this project will be documented in this file.
   process-wide Node resolver hook instead of mutating published `node_modules`.
   Root install, native graft, package-specific editor tasks, install dashboards,
   and install-dependent CI and developer entrypoints are removed.
+
+- **Buck2 / Rust product authority**: compile the complete five-member Rust
+  workspace through Buck, fetch Cargo-locked third-party crates as hash-pinned
+  Buck archives, and publish `otelite` plus `otel-scrape` as strict,
+  content-addressed native products for x86_64 Linux, aarch64 Linux, and
+  aarch64 Darwin. Nix now independently verifies and imports those immutable
+  assets; flake packages, apps, devenv, and observability consume the imports.
+  The superseded `rustPlatform.buildRustPackage` product derivations, their
+  narrow-source helper, and the direct Cargo release build are removed.
 
 - **pnpm**: move the ecosystem pin from pnpm 11.8.0 to 12.3.4 and retire the
   separate lock mutator. pnpm 12 ships the CLI as a native Rust executable, so

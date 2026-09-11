@@ -1,3 +1,4 @@
+import { lstat } from 'node:fs/promises'
 import * as NodePath from 'node:path'
 
 import { NodeServices } from '@effect/platform-node'
@@ -10,12 +11,14 @@ import { EffectPath } from '@overeng/effect-path'
 
 import { COMPOSITION_ROOT_SCHEMA_VERSION } from '../../composition/root/composition-root.ts'
 import * as Git from '../../core/git.ts'
+import { LockFile, LockedMember } from '../../core/lock.ts'
 import type { MegarepoStore } from '../../store/store.ts'
 import { Store } from '../../store/store.ts'
 import { makeCanonicalTempDirectoryScoped } from '../../test-utils/temp-root.ts'
 import {
   compositionCacheSections,
   preflightCompositionCommand,
+  resolveLockedCompositionMembers,
   runCompositionApply,
 } from './composition.ts'
 
@@ -104,6 +107,48 @@ describe('compositionCacheSections', () => {
     expect(compositionCacheSections({ BUCK2_NO_REMOTE_CACHE: 'true' })).toBeUndefined()
     expect(compositionCacheSections({ BUCK2_NO_REMOTE_CACHE: ' 1' })).toBeUndefined()
   })
+})
+
+describe('locked composition sources', () => {
+  it.effect('protects an exact detached source before composition reads it', () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const fixture = yield* makeLegacyWorkspace
+      const commit = yield* Git.getCurrentCommit(fixture.workspaceRoot)
+      const commitRoot = NodePath.join(fixture.tmp, 'refs', 'commits', commit)
+      yield* fs.makeDirectory(EffectPath.unsafe.absoluteDir(`${NodePath.dirname(commitRoot)}/`), {
+        recursive: true,
+      })
+      yield* fixture.git(fixture.bareRepo, 'worktree', 'add', '--detach', commitRoot, commit)
+      const store: MegarepoStore = {
+        ...fixture.store,
+        getWorktreePath: () => EffectPath.unsafe.absoluteDir(`${commitRoot}/`),
+      }
+      const lockFile = new LockFile({
+        version: 1,
+        members: {
+          hub: new LockedMember({
+            url: 'https://github.com/test-owner/hub',
+            ref: 'main',
+            commit,
+            pinned: true,
+            lockedAt: '2026-09-11T00:00:00.000Z',
+          }),
+        },
+      })
+
+      yield* resolveLockedCompositionMembers({
+        configMembers: { hub: 'test-owner/hub#main' },
+        lockFile,
+        store,
+      })
+      const rootInfo = yield* Effect.promise(() => lstat(commitRoot))
+      const gitInfo = yield* Effect.promise(() => lstat(NodePath.join(commitRoot, '.git')))
+      expect(rootInfo.mode & 0o777).toBe(0o755)
+      expect(gitInfo.mode & 0o777).toBe(0o444)
+      yield* fs.chmod(EffectPath.unsafe.absoluteDir(`${commitRoot}/`), 0o755)
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+  )
 })
 
 describe('routine composition apply is shape-preserving', () => {

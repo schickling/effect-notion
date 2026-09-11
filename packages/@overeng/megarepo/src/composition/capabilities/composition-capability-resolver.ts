@@ -310,17 +310,20 @@ const assertRegularFileIdentity = async (identity: RegularFileIdentity): Promise
 
 const validateMember = async ({
   memberRoot,
+  requireLock,
 }: {
   readonly memberRoot: string
+  readonly requireLock: boolean
 }): Promise<{
   readonly memberRoot: string
-  readonly lock: RegularFileIdentity
+  readonly lock?: RegularFileIdentity
 }> => {
   assertAbsoluteNormalized({ value: memberRoot, name: 'memberRoot' })
   const canonicalMemberRoot = await realpath(memberRoot)
   if ((await stat(canonicalMemberRoot)).isDirectory() === false) {
     throw invalidInput({ message: 'memberRoot must be a directory', path: memberRoot })
   }
+  if (requireLock === false) return { memberRoot: canonicalMemberRoot }
   try {
     const lock = await captureContainedRegularFile({
       root: canonicalMemberRoot,
@@ -331,7 +334,7 @@ const validateMember = async ({
   } catch (cause) {
     throw new CompositionCapabilityResolutionError({
       reason: 'InvalidLock',
-      message: 'Member must contain a regular, contained, immutable flake.lock',
+      message: 'Member with projected capabilities must contain a regular, contained flake.lock',
       path: NodePath.join(canonicalMemberRoot, 'flake.lock'),
       cause,
     })
@@ -1042,10 +1045,13 @@ const resolveCompositionCapabilitiesInternal = async (
       strictParseOptions,
     )(input.system)
     await validateRuntime(input.runtime)
-    const roots = await validateMember(input)
     const capabilities = buckMemberProjectedCapabilities(manifest).toSorted((left, right) =>
       left.toolId < right.toolId ? -1 : left.toolId > right.toolId ? 1 : 0,
     )
+    const roots = await validateMember({
+      memberRoot: input.memberRoot,
+      requireLock: capabilities.length > 0,
+    })
     const nonce = (input.runtime.nonce ?? randomUUID)()
     if (/^[A-Za-z0-9._-]+$/u.test(nonce) === false) {
       throw invalidInput({
@@ -1058,42 +1064,48 @@ const resolveCompositionCapabilitiesInternal = async (
     )
     const plannedCandidateRoot = NodePath.join(plannedPrivateRoot, 'candidate')
     const projectorPlatform = platformFor(system)
-    const capabilityCommands = capabilities.map((capability) => {
-      const installable = `${roots.memberRoot}#${capability.flakePackage}^out`
-      return {
-        build: command({
-          executable: input.runtime.nixPath,
-          args: [
-            'build',
-            '--no-link',
-            '--print-out-paths',
-            '--no-write-lock-file',
-            '--no-update-lock-file',
-            installable,
-          ],
-        }),
-        // The realization already exists, so the closure query stays offline.
-        closure: command({
-          executable: input.runtime.nixPath,
-          args: [
-            'path-info',
-            '--recursive',
-            '--offline',
-            '--no-write-lock-file',
-            '--no-update-lock-file',
-            installable,
-          ],
-        }),
-      }
-    })
-    const nixCommands = capabilityCommands.flatMap(({ build, closure }) => [build, closure])
+    const capabilityCommandsFor = (privateRoot: string) =>
+      capabilities.map((capability) => {
+        const installable = `${roots.memberRoot}#${capability.flakePackage}^out`
+        return {
+          build: command({
+            executable: input.runtime.nixPath,
+            args: [
+              'build',
+              '--out-link',
+              NodePath.join(privateRoot, `gc-root-${capability.toolId}`),
+              '--print-out-paths',
+              '--no-write-lock-file',
+              '--no-update-lock-file',
+              installable,
+            ],
+          }),
+          // The realization already exists, so the closure query stays offline.
+          closure: command({
+            executable: input.runtime.nixPath,
+            args: [
+              'path-info',
+              '--recursive',
+              '--offline',
+              '--no-write-lock-file',
+              '--no-update-lock-file',
+              installable,
+            ],
+          }),
+        }
+      })
+    const plannedCapabilityCommands = capabilityCommandsFor(plannedPrivateRoot)
+    const plannedNixCommands = plannedCapabilityCommands.flatMap(({ build, closure }) => [
+      build,
+      closure,
+    ])
     if (input.dryRun === true) {
       return {
         _tag: 'Planned',
         system,
         projectorPlatform,
         candidateRoot: plannedCandidateRoot,
-        nixCommands,
+        nixCommands: plannedNixCommands,
       }
     }
 
@@ -1101,13 +1113,18 @@ const resolveCompositionCapabilitiesInternal = async (
     const scratchIdentity = await capturePrivateScratchIdentity(scratch)
     release = makeScratchRelease({ scratch, identity: scratchIdentity })
     const env = safeNixEnvironment({ runtime: input.runtime, privateRoot: scratchIdentity.path })
-    const resolved = await resolveCapabilitiesInOrder({
-      capabilities,
-      nixCommands: capabilityCommands,
-      env,
-      lock: roots.lock,
-    })
-    await assertRegularFileIdentity(roots.lock)
+    const capabilityCommands = capabilityCommandsFor(scratchIdentity.path)
+    const nixCommands = capabilityCommands.flatMap(({ build, closure }) => [build, closure])
+    const resolved =
+      roots.lock === undefined
+        ? []
+        : await resolveCapabilitiesInOrder({
+            capabilities,
+            nixCommands: capabilityCommands,
+            env,
+            lock: roots.lock,
+          })
+    if (roots.lock !== undefined) await assertRegularFileIdentity(roots.lock)
     const candidateRoot = NodePath.join(scratchIdentity.path, 'candidate')
     await mkdir(candidateRoot, { mode: 0o700 })
     const candidateIdentity = await captureCandidateRootIdentity({
@@ -1133,7 +1150,7 @@ const resolveCompositionCapabilitiesInternal = async (
     })
     const digest = await projectionDigest({ projection, candidate: candidateIdentity })
     await normalizeR6SourceModes(projectionPath)
-    await assertRegularFileIdentity(roots.lock)
+    if (roots.lock !== undefined) await assertRegularFileIdentity(roots.lock)
     return {
       _tag: 'Resolved',
       system,

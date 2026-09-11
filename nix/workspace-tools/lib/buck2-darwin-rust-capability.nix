@@ -30,6 +30,9 @@ let
     export MACOSX_DEPLOYMENT_TARGET=${lib.escapeShellArg deploymentTarget}
     export PATH=${
       lib.makeBinPath [
+        # Buck's Rust prelude emits linker wrappers with `#!/usr/bin/env bash`.
+        # Keep bash visible after this wrapper replaces the action's PATH.
+        pkgs.bash
         pkgs.coreutils
         sigtool
         cctools
@@ -38,18 +41,43 @@ let
 
     output=
     previous=
+    capture_output() {
+      if [ "$previous" = -o ]; then output="$1"; fi
+      case "$1" in --emit=link=*) output="''${1#--emit=link=}" ;; esac
+      previous="$1"
+    }
     for argument in "$@"; do
-      if [ "$previous" = -o ]; then output="$argument"; fi
-      previous="$argument"
+      case "$argument" in
+        @*)
+          response_file="''${argument#@}"
+          if [ -f "$response_file" ]; then
+            while IFS= read -r response_argument; do capture_output "$response_argument"; done <"$response_file"
+          fi
+          ;;
+        *) capture_output "$argument" ;;
+      esac
     done
     ${pkgs.rustc}/bin/rustc \
       -C linker=${pkgs.clang}/bin/clang \
       -C link-arg=-isysroot \
       -C link-arg=${lib.escapeShellArg sdk.sdkroot} \
+      -C link-arg=${lib.escapeShellArg "-L${pkgs.libiconv}/lib"} \
       "$@"
     if [ -n "$output" ]; then
+      # nixpkgs' Darwin stdenv links iconv from the store. Product binaries must
+      # instead use macOS' ABI-compatible dyld-cache install name.
       source ${signingUtils}
-      signIfRequired "$output"
+      if ${cctools}/bin/otool -L "$output" 2>/dev/null \
+        | ${pkgs.gnugrep}/bin/grep -Fq ${lib.escapeShellArg "${pkgs.libiconv}/lib/libiconv.2.dylib"}; then
+        ${cctools}/bin/install_name_tool \
+          -change ${lib.escapeShellArg "${pkgs.libiconv}/lib/libiconv.2.dylib"} \
+          /usr/lib/libiconv.2.dylib \
+          "$output"
+        # install_name_tool invalidates the compiler-produced signature.
+        sign "$output"
+      else
+        signIfRequired "$output"
+      fi
     fi
   '';
   preflight = pkgs.writeShellScript "buck2-rust-darwin-preflight" ''

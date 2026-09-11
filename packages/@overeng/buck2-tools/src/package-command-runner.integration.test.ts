@@ -1,5 +1,5 @@
 import { existsSync, realpathSync } from 'node:fs'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -18,6 +18,7 @@ describe('package command input immutability', () => {
     const packageTree = join(root, 'package-tree')
     const dependency = join(root, 'dependency')
     const verdict = join(root, 'verdict')
+    const stderrPath = join(root, 'stderr')
     try {
       await Promise.all([mkdir(packageTree), mkdir(dependency)])
       await writeFile(
@@ -42,12 +43,10 @@ writeFileSync(process.argv[2]!, 'mutated')
       const child = Bun.spawn(command, {
         stdin: 'ignore',
         stdout: 'ignore',
-        stderr: 'pipe',
+        stderr: Bun.file(stderrPath),
       })
-      const [exitCode, stderr] = await Promise.all([
-        child.exited,
-        new Response(child.stderr as ReadableStream<Uint8Array>).text(),
-      ])
+      const exitCode = await child.exited
+      const stderr = await readFile(stderrPath, 'utf8')
 
       expect(exitCode).toBe(1)
       expect(stderr).toContain('declared inputs changed while mutate.ts was running')

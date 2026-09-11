@@ -40,7 +40,6 @@
         pkgs = import nixpkgs { inherit system; };
         mkBunCli = import ./nix/workspace-tools/lib/mk-bun-cli.nix { inherit pkgs; };
         cliBuildStamp = import ./nix/workspace-tools/lib/cli-build-stamp.nix { inherit pkgs; };
-        rootPath = self.outPath;
         oxlintNpm = import ./nix/oxlint-npm.nix {
           inherit pkgs;
           bun = pkgs.bun;
@@ -51,20 +50,10 @@
           vercel-cli = import ./nix/provider-clis/vercel-cli { inherit pkgs; };
           netlify-cli = import ./nix/provider-clis/netlify-cli { inherit pkgs; };
         };
-        # Rust packages (otelite, otel-scrape) built via
-        # rustPlatform.buildRustPackage, separate from the Bun CLIs. otelite (a
-        # local OTLP capture tool) was effect-utils' first Rust package.
-        otelite = import (rootPath + "/packages/@overeng/otelite/nix/build.nix") {
-          inherit pkgs;
-        };
-        otel-scrape = import (rootPath + "/packages/@overeng/otel-scrape/nix/build.nix") {
-          inherit
-            pkgs
-            gitRev
-            commitTs
-            dirty
-            ;
-        };
+        # Buck is the sole producer for shipped Rust CLIs. Nix imports the exact
+        # reviewed per-tuple release assets and revalidates their descriptors,
+        # payloads, native runtime contracts, and entrypoints.
+        nativeProductPackages = (import ./nix/buck2-native-products { inherit pkgs; }).products;
         buck2 = import ./nix/buck2.nix { inherit pkgs; };
         buck2-go = import ./nix/go.nix { inherit pkgs; };
         buck2-stage0-tools = import ./nix/buck2-stage0-tools.nix { inherit pkgs; };
@@ -94,11 +83,10 @@
         packages =
           cliPackages
           // providerCliPackages
+          // nativeProductPackages
           // {
             inherit
               buck2
-              otelite
-              otel-scrape
               ;
             # Hub toolchain authority realization: the exact Bun every Buck JS/TS action uses.
             bun = pkgs.bun;
@@ -172,11 +160,22 @@
           notion-md = cliPackages.notion-md.outPath;
         };
 
-        apps.update-bun-hashes = flake-utils.lib.mkApp {
-          drv = import ./nix/workspace-tools/lib/update-bun-hashes.nix { inherit pkgs; };
-        };
-        apps.otelite = flake-utils.lib.mkApp { drv = otelite; };
-        apps.otel-scrape = flake-utils.lib.mkApp { drv = otel-scrape; };
+        apps =
+          {
+            update-bun-hashes = flake-utils.lib.mkApp {
+              drv = import ./nix/workspace-tools/lib/update-bun-hashes.nix { inherit pkgs; };
+            };
+          }
+          // pkgs.lib.optionalAttrs (nativeProductPackages ? otelite) {
+            otelite = flake-utils.lib.mkApp {
+              drv = nativeProductPackages.otelite;
+              exePath = "/bin/otelite";
+            };
+            otel-scrape = flake-utils.lib.mkApp {
+              drv = nativeProductPackages.otel-scrape;
+              exePath = "/bin/otel-scrape";
+            };
+          };
       }
     )
     // {

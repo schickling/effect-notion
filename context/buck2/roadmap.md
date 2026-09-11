@@ -238,39 +238,43 @@ RENAME_EXCHANGE advance.
 
 ## Phase 5 — Rust and products
 
-- The Rust workspace has five members: otelite, otel-scrape, and the three Buck
-  support crates. Admit deterministic Cargo operations first, then emit and
-  independently import real otelite/otel-scrape BuildProducts before deleting
-  Cargo/Nix source producers.
-- Third-party sources are Buck-fetched per
-  [decision 0023](./.decisions/0023-buck-fetched-rust-crates.md): Reindeer
-  `vendor = false`, hash-pinned `http_archive` from the authoritative lock;
-  `buck2-rust-vendor`, the vendor symlink task, and
-  `rust/third-party/.cargo/config.toml` are deleted in the same change; the
-  buckify gate pins a cargo home and asserts a byte-unchanged lock; the eight
-  vendored-mode fixups are re-verified by building their crates.
+- The complete five-member Rust workspace now compiles through Buck: otelite,
+  otel-scrape, archive-tool, core, and product. Cargo manifests and the root
+  lock remain request and resolution authority; generated first-party rules and
+  the strict Reindeer graph project that authority without a second lock.
+- Third-party Rust sources are Buck-fetched per
+  [decision 0023](./.decisions/0023-buck-fetched-rust-crates.md): Reindeer uses
+  `vendor = false`, 126 `http_archive` targets take their sha256 from the
+  authoritative lock, and build/buildscript actions remain offline. The former
+  Nix vendor realization, vendor symlink task, and vendored Cargo config are
+  gone.
+- `otelite` and `otel-scrape` emit strict `buck-build-product/v1` products for
+  x86_64 Linux glibc, aarch64 Linux glibc, and aarch64 Darwin. Every tuple was
+  executed natively, published under an immutable payload-addressed release,
+  and independently imported through Nix with descriptor, digest, archive,
+  runtime, entrypoint, and ad-hoc-signature validation.
+- Flake packages/apps, devenv, and the reusable observability module now consume
+  only the reviewed native-product manifest. The two
+  `rustPlatform.buildRustPackage` product derivations, their shared narrow-source
+  helper, and the direct Cargo release build are deleted. The independently
+  realized Nix providers for stage-zero archive/product tools remain the
+  intentional cycle-breaking boundary admitted by
+  [decision 0010](./.decisions/0010-admit-rust-stage-zero-support-tools.md).
+- The CI `cargo` operation remains outside Buck by policy: it aggregates the
+  workspace contract, Cargo tests, Clippy, and rustfmt. Buck owns Rust
+  compilation and shipped products; the operation ledger does not claim that
+  the broader source-quality lane moved with them.
 - One repository pnpm-deps FOD remains: `oxc-config`, whose pnpm-built oxlint
-  plugin bundle is an npm-plugin artifact rather than a JavaScript product, so
-  no product import replaces it. The ci-tools, Genie, mr, notion-cli,
-  notion-md, npm-release, and tui-stories FODs are dissolved (BUCK-R10): each
-  Nix wrapper now imports its reviewed, content-addressed product from
-  `nix/buck2-products/manifest.json` and the corresponding
-  `packages/@overeng/*/nix/build.nix` source producer is deleted.
-- Rust product authority is NOT transferred by that change. `otelite` and
-  `otel-scrape` are per-tuple native executables whose products this repository
-  has never emitted or independently imported, so their
-  `rustPlatform.buildRustPackage` source producers remain the authority and
-  their flake packages and apps are unchanged. The transfer condition is
-  unchanged: emit and independently import real BuildProducts first, then
-  delete the Cargo/Nix source producers.
+  plugin bundle is an npm-plugin artifact rather than a JavaScript product. The
+  ci-tools, Genie, mr, notion-cli, notion-md, npm-release, and tui-stories FODs
+  remain replaced by reviewed content-addressed Buck product imports.
 
-## Phase 6 — second consumer (dotfiles)
+## Phase 6 — composed consumers
 
-- dotfiles consumes effect-utils targets through composition (success criterion
-  6), compares producer/consumer action digests in CI, and proves zero local
-  execution from the shared cache. The same admission deletes its source-mount
-  CLI path, dependency writers, and live cross-workspace mutation paths; until
-  then symlink compositions remain no-upload.
+- The downstream fleet now pins effect-utils as the exact platform hub through
+  schema-1 member manifests. The dotfiles proof built and published all 35
+  projected overlays and checked 92 generated projections unchanged; the
+  aggregate composition owns the final whole-fleet admission proof.
 
 ## Cross-phase commitments (ratified 2026-09-01)
 
