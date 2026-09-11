@@ -137,10 +137,10 @@ This repo uses `devenv` to provide a consistent toolchain. Run commands inside t
 devenv shell
 ```
 
-### Install Dependencies
+### Publish Dependency Views
 
 ```bash
-devenv tasks run pnpm:install
+devenv tasks run buck2:editor:publish
 ```
 
 ### Check All TypeScript Projects

@@ -6,6 +6,7 @@ import {
   createGenieOutput,
   type GenieOutput,
 } from '../../packages/@overeng/genie/src/runtime/core.ts'
+import { pnpmWorkspaceMemberPaths } from '../packages.ts'
 import { buck2SemanticFingerprint, renderBuck2Visibility } from './mod.ts'
 import { javaScriptActionRuntime, packageTreeRuntime, stagedModuleName } from './runtime-modules.ts'
 
@@ -924,8 +925,13 @@ export const buck2TypeScriptPackageProjection = ({
       files,
     }
   })
+  const staticSourceExcludes = pnpmWorkspaceMemberPaths
+    .filter((candidate) => candidate.startsWith(`${packagePath}/`))
+    .map((candidate) => `${path.posix.relative(packagePath, candidate)}/**`)
+    .toSorted((left, right) => compareStrings({ left, right }))
   const semanticInputs = [
     ...commonSemanticInputs,
+    'genie/packages.ts',
     projectionSource,
     `${packagePath}/package.json.genie.ts`,
     `${packagePath}/tsconfig.json.genie.ts`,
@@ -976,6 +982,7 @@ export const buck2TypeScriptPackageProjection = ({
     packageTreeRuntimeEntry: runtimeEntry,
     projectAuthorities,
     sourceRoots,
+    staticSourceExcludes,
     testDataFiles,
     testDataRoots,
     testPackageFiles: testPackageFileEntries.map(([destination]) => destination),
@@ -985,7 +992,7 @@ export const buck2TypeScriptPackageProjection = ({
   }
   const fingerprint = buck2SemanticFingerprint({
     generator: 'effect-utils/genie/buck2-typescript-package-projection',
-    schemaVersion: 10,
+    schemaVersion: 11,
     semanticData: data,
   })
 
@@ -1044,7 +1051,7 @@ export const buck2TypeScriptPackageProjection = ({
   const stringify = (): string => {
     const lines = [
       `# Projection source: ${projectionSource}`,
-      '# Projection schema version: 10',
+      '# Projection schema version: 11',
       '# Projection generator: effect-utils/genie/buck2-typescript-package-projection',
       `# Semantic fingerprint: ${fingerprint}`,
       `# Semantic inputs: ${semanticInputs.join(', ')}`,
@@ -1088,7 +1095,7 @@ export const buck2TypeScriptPackageProjection = ({
       '    name = "static_sources",',
       '    node_modules = ":node_modules",',
       `    prefix = ${starlarkString(packagePath)},`,
-      '    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),',
+      `    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES${staticSourceExcludes.length === 0 ? '' : ` + ${JSON.stringify(staticSourceExcludes)}`}),`,
       renderBuck2Visibility({ visibility }),
       ')',
       '',

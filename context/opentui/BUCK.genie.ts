@@ -7,7 +7,6 @@ export const buck2TypeScriptAdmission = {
   packagePath: 'context/opentui',
   projectionSource: 'context/opentui/BUCK.genie.ts',
   sourceRoots: ['examples'],
-  editorViewConsumer: false,
   authorities: [{ projectFile: 'tsconfig.json' }],
 } as const satisfies Buck2TypeScriptAdmission
 

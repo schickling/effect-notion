@@ -68,94 +68,89 @@ DEPS-R02.
 
 ## Editor Surface
 
+The repository-root source-generator consumer and each admitted workspace
+package `<package>` expose `:<editor_inputs>` as their canonical Buck dependency
+view and `:editor_view_inputs` as the manifest joining that view, the package
+tree, and every provider-declared backing root. The stable filesystem shapes are:
+
 ```text
-packages/@overeng/tui-core/node_modules
-  -> ../../.editor-view/tui-core/node_modules       (stable first hop)
-packages/.editor-view/tui-core
-  -> .store/tui-core-<editor-inputs-fingerprint>   (atomic current pointer)
-packages/.editor-view/.store/tui-core-<fingerprint>/
+<package>/node_modules
+  -> ../../.editor-view/<view>/node_modules
+<package>/../../.editor-view/<view>
+  -> .store/<view>-<snapshot-identity>
+<package>/../../.editor-view/.store/<view>-<snapshot-identity>/
   editor-view.json
-  node_modules/                                    (hardlink snapshot)
+  node_modules/
+  .backing/
 ```
 
-The literal two-level first hop is part of the scoped contract. From
-`packages/@overeng/tui-core` it resolves to `packages/.editor-view`, not the
-repository-root `.editor-view`; `packages/.editor-view` is therefore the owning
-state root for scoped `packages/@overeng/*` editor views.
-
-`//packages/@overeng/tui-core:editor_inputs` exposes the canonical Stage-1
-descriptor tree carried by `PnpmNodeModulesInfo.editor_inputs`. The existing
-`:node_modules` default output and provider identity remain valid. The
-publisher fingerprints the built `:editor_inputs` artifact rather than
-reimplementing manifest discovery.
-
-Every published snapshot contains this repository-local record:
-
-```json
-{
-  "schema": "effect-utils/editor-view/v1",
-  "package": "packages/@overeng/tui-core",
-  "cell": "tui-core",
-  "target": "//packages/@overeng/tui-core:editor_inputs",
-  "editorInputsFingerprint": "<lowercase SHA-256 tree digest>",
-  "snapshot": ".store/tui-core-<editorInputsFingerprint>",
-  "nodeModulesTreeDigest": "<lowercase SHA-256 tree digest>"
-}
+```text
+node_modules
+  -> .editor-view/root/node_modules
+.editor-view/root
+  -> .store/root-<snapshot-identity>
 ```
 
-The tree digest begins with the `effect-utils/tree-digest/v1` domain separator.
-Entries are traversed by unsigned UTF-8 byte order. Each entry frames its kind
-and repository-relative path with an unsigned 64-bit big-endian byte length;
-regular files additionally frame size then bytes, symlinks frame their target,
-and directories frame their own entry. Unsupported special files and entries that mutate while hashing fail closed.
+Package consumers share a two-level state root; the root source-generator
+consumer uses the repository-local `.editor-view/root` state. Every published
+link remains inside the repository while context packages,
+`packages/@overeng/*`, nested workspace packages, and root generators use the
+same publisher.
 
-Publication holds the exclusive `packages/.editor-view/.publish.lock`, created
-atomically. Any existing lock rejects publication immediately and prints the
-explicit token-gated `recover-lock` operation; there is no age heuristic,
-sleep, timeout, or automatic stale-lock theft. Under the lock the publisher:
+Each schema-v2 record binds the package, Buck cell and target, selected
+`editor_inputs` fingerprint, normalized declared-root digest, exact selected
+view digest, exact byte-owned snapshot digest, and deterministic snapshot name.
+Tree digests use the `effect-utils/tree-digest/v1` domain separator, unsigned
+UTF-8 byte ordering, length framing, and fail-closed checks for special or
+concurrently changing files.
 
-1. hashes the admitted `editor_inputs` and `node_modules` outputs;
-2. creates same-filesystem `.store/.candidate-*` state;
-3. invokes the immutable Nix GNU `cp -al` without a byte-copy fallback;
-4. verifies every regular file shares device and inode with the admitted tree,
-   verifies the complete candidate digest, and writes `editor-view.json`;
-5. renames the candidate to deterministic
-   `.store/tui-core-<editorInputsFingerprint>`;
-6. creates a same-directory candidate symlink and renames it over `tui-core`;
-7. installs the package first hop once. If root pnpm left a directory or other
-   entry there, immutable Nix GNU `mv --exchange --no-copy` swaps it with the
-   candidate link without an absent-path window, and the exchanged entry is
-   retained under `.legacy/`.
+Before publication, `buck2:editor:authority` compares the canonical admission
+registry with tracked package manifests and a Buck `owner(...)` census. The
+resulting authority file must name identical required and owned package sets;
+every package publication validates it.
 
-An already-correct first hop is validated and never mutated during later
-refreshes. Published snapshots are immutable and are never deleted by publish,
-check, or lock recovery; snapshot garbage collection is outside this spec. A
-failure before the current-pointer rename leaves the old current view intact.
+Publication holds the exclusive state-root `.publish.lock`, created atomically.
+An existing lock fails immediately and prints the explicit token-gated recovery
+operation. There is no age heuristic, timeout, or automatic lock theft. Under
+the lock, the publisher:
 
-The flip target is a `cp -al` snapshot of the action output, not `buck-out`
-itself: Buck deletes an action's output directory before re-running it, which
-would leave the stable link dangling for the whole action (measured 3.06 s
-window). Hardlink snapshot publication closes that window without duplicating
-file bytes.
+1. fingerprints the selected dependency view and finite declared roots;
+2. recursively copies the selected view and disjoint backing roots into a
+   same-filesystem candidate with dereferenced, byte-owned regular files;
+3. relocates internal links into `.backing/`, rejects links outside the declared
+   roots, and proves no snapshot file shares an inode with a disposable source;
+4. verifies the complete payload digest and writes `editor-view.json`;
+5. hardens the candidate read-only and renames it to the deterministic snapshot;
+6. atomically renames the current pointer, installs or validates the package
+   first hop, and emits the package-manifest settle signal required by live
+   language servers;
+7. checks the published view, updates its retention record, and garbage-collects
+   snapshots outside the configured finite retention set.
+
+If a legacy root install occupies the first hop, immutable GNU
+`mv --exchange --no-copy` installs the symlink without an absent-path window and
+retains the exchanged entry under `.legacy/`. A failure before the pointer flip
+leaves the prior current view intact. Snapshot payloads never retain links into
+`buck-out`, whose action directories Buck may delete before rebuilding.
 
 ## Staleness Gate
 
-The scoped `buck2:tui-core:publish-editor` and
-`buck2:tui-core:check-editor` tasks each build the current `:editor_inputs` and
-`:node_modules` outputs with a task-private Buck daemon into ignored scratch,
-then stop the daemon and remove both scratch and its private Buck output. They
-call the pinned Bun publisher or checker respectively. The checker validates
-record schema and identity, both symlink hops, store containment, pointer
-liveness, snapshot completeness, and admitted versus recorded versus snapshot
-node_modules digests. It does not call tsgo as an oracle.
+`buck2:editor:bootstrap` first derives a dependency-only consumer set from the
+committed generated root manifest. It may publish those committed-graph views
+only to make `genie:check` runnable; it reports no governed evidence. After
+freshness and workspace reconciliation, `buck2:editor:publish` and
+`buck2:editor:check` derive the complete root-plus-package set from the canonical
+source registry, regenerate whole-workspace ownership authority, build every
+`:editor_view_inputs` manifest in one Buck invocation, then publish or validate
+each consumer in deterministic order. The checker validates record schema and
+identity, both symlink hops, state-root containment, pointer liveness, snapshot
+completeness, immutable payloads, retention state, and admitted versus recorded
+digests. It does not use tsgo as an oracle.
 
 Missing, malformed, escaping, dangling, incomplete, or stale state fails with
-both the recorded and current editor-input fingerprints named. The scoped
-publish/check tasks are intentionally not dependencies of global check, test,
-or TypeScript tasks during this cutover.
-`buck2:tui-core:recover-editor-lock` is the only recovery surface; it requires
-the exact printed owner token through `EDITOR_VIEW_LOCK_TOKEN` and neither
-builds nor mutates snapshots (DEPS-R06).
+the recorded and current identities. `buck2:editor:recover-lock` is the only
+recovery surface; it requires both `EDITOR_VIEW_PACKAGE` and the exact printed
+`EDITOR_VIEW_LOCK_TOKEN`, and neither builds nor mutates snapshots.
 
 ## Relationship to Exact Closure Materialization
 

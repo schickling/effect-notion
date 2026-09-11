@@ -254,6 +254,16 @@ All notable changes to this project will be documented in this file.
   staged Buck action runners move into their owning `@overeng/buck2-tools`
   package so admitting that package does not leave its sources root-owned.
 
+- **Buck2 / editor authority**: replace the repository pnpm install with 39
+  atomically published Buck dependency views: one root source-generator closure
+  plus every workspace package. A committed-graph bootstrap makes
+  `genie:check` runnable without trusting stale generated graph evidence; fresh
+  generation and composition then replay whole-workspace ownership, publication,
+  and staleness checks. Source tests resolve the Nix-built `node-pty` through a
+  process-wide Node resolver hook instead of mutating published `node_modules`.
+  Root install, native graft, package-specific editor tasks, install dashboards,
+  and install-dependent CI and developer entrypoints are removed.
+
 - **pnpm**: move the ecosystem pin from pnpm 11.8.0 to 12.3.4 and retire the
   separate lock mutator. pnpm 12 ships the CLI as a native Rust executable, so
   `nix/pnpm.nix` no longer overrides `pkgs.pnpm`: it assembles the published

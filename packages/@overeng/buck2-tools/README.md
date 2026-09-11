@@ -1,14 +1,23 @@
 # `@overeng/buck2-tools`
 
 Repository-owned TypeScript helpers for Buck dependency materialization,
-TypeScript execution, and the scoped editor view.
+TypeScript execution, and workspace editor views.
 
-## Scoped editor publisher
+## Editor publisher
 
-`src/editor-view.ts` publishes and checks the tui-core editor dependency view.
-It consumes the built Buck `:editor_inputs` and `:node_modules` artifacts,
-uses immutable Nix `cp -al` and GNU `mv --exchange --no-copy`, and retains all
-published snapshots and any exchanged root-install directory. Repository tasks
-`buck2:tui-core:publish-editor`, `buck2:tui-core:check-editor`, and the
-exact-token `buck2:tui-core:recover-editor-lock` are scoped and are not wired
-into global checks.
+`src/editor-view.ts` atomically publishes and checks one dependency view.
+`scripts/editor-view-authority.ts` derives the root source-generator consumer and
+every package consumer from the canonical workspace registry, proves that Buck
+owns each tracked manifest, builds every `:editor_view_inputs` manifest, and
+invokes the publisher in deterministic order. Published snapshots byte-own the
+finite provider-declared closure; no link points back into disposable
+`buck-out`.
+
+`buck2:editor:bootstrap` publishes only the dependency views named by the
+committed generated root manifest so `genie:check` can run before trusting the
+generated graph. After generation and composition, repository tasks
+`buck2:editor:authority`, `buck2:editor:publish`, and `buck2:editor:check`
+operate on the complete current registry. The exact-token
+`buck2:editor:recover-lock` task recovers only the named consumer's shared
+publication lock. These tasks require a real composed megarepo workspace and
+are not global check dependencies.

@@ -20,7 +20,6 @@ export const buck2TypeScriptAdmission = {
       distTarget: '//packages/@overeng/utils:dist',
     },
   ],
-  editorViewConsumer: false,
   authorities: [{ projectFile: 'tsconfig.json', projectInputs: ['vite.config.ts'] }],
 } as const satisfies Buck2TypeScriptAdmission
 

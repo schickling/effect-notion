@@ -249,6 +249,41 @@ describe('editor view publisher', () => {
     }
   })
 
+  it('publishes the source-generator dependency closure at the repository root', async () => {
+    const fixture = makeFixture()
+    try {
+      writeFileSync(join(fixture.root, 'package.json'), '{"private":true}\n')
+      mkdirSync(join(fixture.root, 'node_modules'))
+      writeFileSync(join(fixture.root, 'node_modules', 'legacy-root-install'), 'retained')
+      writeFileSync(
+        fixture.workspaceAuthority,
+        `${JSON.stringify({
+          schema: 'effect-utils/workspace-dependency-authority/v1',
+          requiredPackages: ['.'],
+          ownedPackages: ['.'],
+        })}\n`,
+      )
+      const options: EditorViewOptions = {
+        ...fixture.options,
+        package: '.',
+        viewName: 'root',
+        cell: 'effect_utils',
+        target: '//:editor_inputs',
+        consumerCache: join(fixture.root, '.devenv', 'vite-cache', 'root'),
+      }
+
+      const record = await publishEditorView(options)
+
+      expect(readlinkSync(join(fixture.root, 'node_modules'))).toBe(
+        '.editor-view/root/node_modules',
+      )
+      expect(readlinkSync(join(fixture.root, '.editor-view', 'root'))).toBe(record.snapshot)
+      await expect(checkEditorView(options)).resolves.toEqual(record)
+    } finally {
+      cleanup(fixture)
+    }
+  })
+
   it('survives deletion of every backing artifact', async () => {
     const fixture = makeFixture()
     try {

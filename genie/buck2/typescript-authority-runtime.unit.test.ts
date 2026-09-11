@@ -174,10 +174,16 @@ describe('Buck2 TypeScript authority runtime planning', () => {
     expect(buck2TypeScriptTestTargets.every((target) => target.startsWith('effect_utils//'))).toBe(
       true,
     )
-    expect(buck2TypeScriptTestTargets.every((target) => target.endsWith(':test'))).toBe(true)
+    expect(
+      buck2TypeScriptTestTargets.every((target) =>
+        /^effect_utils\/\/[^:]+:[a-z][a-z0-9_]*$/.test(target),
+      ),
+    ).toBe(true)
     expect(buck2TypeScriptTestCollectionTargets.length).toBe(buck2TypeScriptTestTargets.length)
     expect(
-      buck2TypeScriptTestCollectionTargets.every((target) => target.endsWith(':test_collect')),
+      buck2TypeScriptTestCollectionTargets.every(
+        (target, index) => target === `${buck2TypeScriptTestTargets[index]}_collect`,
+      ),
     ).toBe(true)
   })
 

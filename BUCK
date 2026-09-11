@@ -1,3 +1,4 @@
+load("//buck2:editor_view.bzl", "editor_view_inputs")
 load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
 load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 
@@ -39,6 +40,37 @@ toolchain_alias(
 # the upstream instance is already hermetic.
 system_genrule_toolchain(
     name = "genrule",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "package.json",
+    src = "package.json",
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "node_modules",
+    actual = "//packages/@overeng/genie:node_modules",
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "editor_inputs",
+    actual = ":node_modules",
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "root_editor_package_tree",
+    actual = "//packages/@overeng/genie:package_tree",
+    visibility = ["PUBLIC"],
+)
+
+editor_view_inputs(
+    name = "editor_view_inputs",
+    editor_inputs = ":editor_inputs",
+    package_tree = ":root_editor_package_tree",
     visibility = ["PUBLIC"],
 )
 static_source_set(

@@ -112,9 +112,20 @@ const retiredProviderTerms = [
 ] as const
 
 describe('declared-closure package projection', () => {
-  it('admits only explicitly marked packages to editor publication', () => {
-    expect(editorViewConsumerPackagePaths).toEqual(['packages/@overeng/tui-core'])
-    expect(buck2TypeScriptAdmissions.tuiReact.editorViewConsumer).toBe(false)
+  it('publishes editor views for the complete workspace package registry', () => {
+    expect(editorViewConsumerPackagePaths).toHaveLength(38)
+    expect(editorViewConsumerPackagePaths).toEqual(
+      Object.values(buck2TypeScriptAdmissions)
+        .map((admission) => admission.packagePath)
+        .toSorted(),
+    )
+  })
+
+  it('assigns nested workspace static sources to their nearest package boundary', () => {
+    expect(outputsByAdmission.effectRpcTanstack).toContain(
+      'exclude = STATIC_SOURCE_EXCLUDES + ["examples/basic/**"]',
+    )
+    expect(outputsByAdmission.effectRpcTanstackBasic).toContain('exclude = STATIC_SOURCE_EXCLUDES)')
   })
 
   it('wires each admitted package only to its normalized dependency view', () => {
@@ -553,7 +564,7 @@ describe('declared test lanes', () => {
       tests: [{ name: 'test', runner: 'vitest', timeoutMs: 60_000 }],
     }).stringify(genieContext)
 
-    expect(outputsByAdmission.kdl).toContain('# Projection schema version: 10')
+    expect(outputsByAdmission.kdl).toContain('# Projection schema version: 11')
     expect(fingerprintOf(outputsByAdmission.kdl)).not.toBe(fingerprintOf(withoutTests))
     expect(fingerprintOf(outputsByAdmission.kdl)).not.toBe(fingerprintOf(withLongerTimeout))
   })

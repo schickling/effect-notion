@@ -8,7 +8,6 @@ export const buck2TypeScriptAdmission = {
   packagePath: 'packages/@overeng/buck2-tools',
   projectionSource: 'packages/@overeng/buck2-tools/BUCK.genie.ts',
   sourceRoots: ['src'],
-  editorViewConsumer: false,
   authorities: [{ declarationEntrypoint: 'src/mod.d.ts', projectFile: 'tsconfig.json' }],
 } as const satisfies Buck2TypeScriptAdmission
 

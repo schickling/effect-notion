@@ -8,7 +8,6 @@ export const buck2TypeScriptAdmission = {
   packagePath: 'packages/@overeng/effect-schema-form',
   projectionSource: 'packages/@overeng/effect-schema-form/BUCK.genie.ts',
   sourceRoots: ['src'],
-  editorViewConsumer: false,
   authorities: [{ declarationEntrypoint: 'src/mod.d.ts', projectFile: 'tsconfig.json' }],
   tests: [
     {

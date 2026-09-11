@@ -83,7 +83,6 @@ let
       "devenv-tasks"
       "devenv-task-duration-trends"
       "shell-entry"
-      "pnpm-install"
       "ts-app-traces"
     ];
   };

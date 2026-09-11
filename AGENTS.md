@@ -10,7 +10,7 @@ Use `devenv tasks run <task>` (devenv tasks) to execute tasks with dependencies:
 - **Declaration publication**: `devenv tasks run buck2:typescript:materialize-dist`
 - **Linting**: `devenv tasks run lint:check` or `devenv tasks run lint:fix`
 - **Testing**: `devenv tasks run test:run` (all) or `devenv tasks run test:<pkg>` (single package) or `devenv tasks run test:watch`
-- **Install**: `devenv tasks run pnpm:install`
+- **Dependencies**: `devenv tasks run buck2:editor:publish`
 - **Genie**: `devenv tasks run genie:run` or `devenv tasks run genie:watch` or `devenv tasks run genie:check`
 - **Check all**: `devenv tasks run check:quick` or `devenv tasks run check:all`
 
