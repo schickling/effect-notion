@@ -1,4 +1,4 @@
-# Repository authority for local Rust tools. Nix builds continue to use
+# Repository authority for local Rust tools. Nix stage-zero builds use
 # pkgs.rustPlatform; Cargo invoked from either external workspace member finds
 # this file by walking to the repository root.
 [toolchain]
