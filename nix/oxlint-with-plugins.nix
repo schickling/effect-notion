@@ -30,6 +30,7 @@ pkgs.writeShellApplication {
   runtimeInputs = [
     pkgs.jq
     pkgs.flock
+    pkgs.tsgolint
   ];
   text = ''
     # Rule development escape hatch: the default plugin is a Nix build-time
