@@ -83,5 +83,5 @@ is compile-time authoring safety, not runtime identity or a security boundary.
   observationally equivalent and avoid projection cycles.
 - Named shared root sets may be syntax sugar only if expanded before semantic
   identity. Output-data extraction remains migration-only.
-- Rust retains authored Cargo manifests as request authority pending separate
-  Cargo/Reindeer experiments; this decision does not impose a universal schema.
+- Rust retains authored Cargo manifests as request authority. Buck/Reindeer now resolves and builds
+  those requests without introducing a second dependency schema.

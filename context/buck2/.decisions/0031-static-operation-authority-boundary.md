@@ -20,9 +20,9 @@ implementations.
 
 The remaining aggregate boundaries are classified rather than disguised:
 
-- `lint:check` and the CI `lint` job remain `buck-pending:editor` while their lockfile member still runs
-  `pnpm install --frozen-lockfile`. The editor-authority cutover owns removing that root installation
-  producer.
+- `lint:check` and the CI `lint` job remain outside Buck only because each aggregate includes the
+  stage-zero generation-freshness gate. Their deterministic lint members are Buck-owned, and the
+  editor-authority cutover removed the former root `pnpm install` producer.
 - `default-ref-policy` remains an outside-Buck trust gate. It checks the checkout before composition,
   because applying non-default first-party refs before rejecting them would execute the inputs the gate
   exists to reject.
