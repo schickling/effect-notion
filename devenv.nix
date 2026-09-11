@@ -180,14 +180,6 @@ let
     else
       throw "packageTestQuarantine.${name} must include reason and issue"
   ) packageTestQuarantine;
-  packageTestOverrides = {
-    megarepo = {
-      vitestArgs = "--exclude src/cli/store-gc-cold.integration.test.ts";
-    };
-    pty-effect = {
-      after = [ "pnpm:link-native-node-packages" ];
-    };
-  };
   packagesRoot = ./. + "/packages/@overeng";
   hasTestFiles =
     root:
@@ -206,7 +198,7 @@ let
               child = dir + "/${name}";
             in
             if entryType == "regular" then
-              builtins.match ".*\\.test\\.tsx?" name != null
+              builtins.match ".*\\.(spec|test)\\.(cjs|cts|js|jsx|mjs|mts|ts|tsx)" name != null
             else if entryType == "directory" then
               scan child
             else
@@ -231,21 +223,228 @@ let
         && !(builtins.hasAttr name validatedPackageTestQuarantine)
       ) (builtins.attrNames (builtins.readDir packagesRoot));
     in
-    map (
-      name:
-      {
-        path = "packages/@overeng/${name}";
-        inherit name;
-      }
-      // (packageTestOverrides.${name} or { })
-    ) packageNames;
-  baselineTestTaskRegistry = pkgs.writeText "effect4-baseline-test-task-registry.json" (
-    builtins.toJSON (
-      map (pkg: {
-        packagePath = pkg.path;
-        taskName = "test:${pkg.name}";
-      }) packagesWithTests
+    map (name: {
+      path = "packages/@overeng/${name}";
+      inherit name;
+    }) packageNames;
+
+  # Generated bridge between the package-local Buck test declarations and the devenv task
+  # graph. It is the single semantic registry for which suites Buck executes; nothing here
+  # re-derives lane membership — it only refuses a bridge that does not conform, because a
+  # silently shrunken or malformed registry would hand admitted suites back to source Vitest.
+  buck2TestAuthorityFile = ./buck2-test-authority.json;
+  buck2TestAuthority = builtins.fromJSON (builtins.readFile buck2TestAuthorityFile);
+  # Deliberate floor, not a derived value: shrinking the registry means editing this number.
+  buck2TestAuthorityMinimumLanes = 32;
+  buck2TestAuthorityLanes =
+    if (buck2TestAuthority.schemaVersion or null) == 2 then
+      buck2TestAuthority.lanes
+    else
+      throw "buck2-test-authority.json is not a schemaVersion 2 test authority";
+  # Exactly the target-name shape the Buck projection accepts; keep in lockstep with it.
+  testTargetNamePattern = "[a-z][a-z0-9_]*";
+  normalizedRelativePath =
+    value:
+    value != ""
+    && !(lib.hasInfix "\\" value)
+    && builtins.all (segment: segment != "" && segment != "." && segment != "..") (
+      lib.splitString "/" value
+    );
+  buck2TestLaneIssues =
+    lane:
+    let
+      labelPrefix = "effect_utils//${lane.packagePath}:";
+      hasLabelPrefix = lib.hasPrefix labelPrefix lane.target;
+      targetName = lib.removePrefix labelPrefix lane.target;
+      expectedTaskName =
+        if !hasLabelPrefix || targetName == "test" then
+          "test:${lane.packageName}"
+        else
+          "test:${lane.packageName}:${targetName}";
+      sourceFiles = builtins.filter (
+        file: !(builtins.elem file lane.selectedTestFiles) || builtins.elem file lane.excludes
+      ) lane.testFiles;
+      sourceOwnerFiles = builtins.attrNames lane.sourceOwners;
+      expectedUnboundedFiles = builtins.filter (
+        file: !(builtins.hasAttr file lane.sourceOwners)
+      ) sourceFiles;
+      taskNamePattern = "[a-z0-9][a-z0-9:-]*";
+      validTaskName = value: builtins.match taskNamePattern value != null;
+      prefix = "lane ${lane.target}: ";
+    in
+    lib.optional (!(normalizedRelativePath lane.packagePath)) (
+      "${prefix}packagePath ${lane.packagePath} is not a normalized relative path"
     )
+    ++ lib.optional (lane.packageName != lib.last (lib.splitString "/" lane.packagePath)) (
+      "${prefix}packageName ${lane.packageName} is not the last segment of ${lane.packagePath}"
+    )
+    ++ lib.optional (!hasLabelPrefix || builtins.match testTargetNamePattern targetName == null) (
+      "${prefix}target is not ${labelPrefix}<name> with a ${testTargetNamePattern} name"
+    )
+    ++ lib.optional (lane.taskName != expectedTaskName) (
+      "${prefix}taskName ${lane.taskName} is not the derived ${expectedTaskName}"
+    )
+    ++ lib.optional (lane.testFiles == [ ]) "${prefix}testFiles is empty"
+    ++ lib.optional (!(builtins.all normalizedRelativePath lane.testFiles)) (
+      "${prefix}testFiles contains a non-normalized package-relative path"
+    )
+    ++ lib.optional (lane.testFiles != builtins.sort builtins.lessThan lane.testFiles) (
+      "${prefix}testFiles is not byte-sorted"
+    )
+    ++ lib.optional (
+      lib.unique lane.testFiles != lane.testFiles
+    ) "${prefix}testFiles contains a duplicate"
+    ++ lib.optional (lane.selectedTestFiles == [ ]) "${prefix}selectedTestFiles is empty"
+    ++ lib.optional (!(builtins.all (file: builtins.elem file lane.testFiles) lane.selectedTestFiles)) (
+      "${prefix}selectedTestFiles contains a file outside testFiles"
+    )
+    ++ lib.optional (
+      lane.selectedTestFiles != builtins.sort builtins.lessThan lane.selectedTestFiles
+    ) "${prefix}selectedTestFiles is not byte-sorted"
+    ++ lib.optional (lib.unique lane.selectedTestFiles != lane.selectedTestFiles) (
+      "${prefix}selectedTestFiles contains a duplicate"
+    )
+    ++ lib.optional (!(builtins.all (file: builtins.elem file lane.selectedTestFiles) lane.excludes)) (
+      "${prefix}excludes contains a file outside selectedTestFiles"
+    )
+    ++ lib.optional (lane.excludes != builtins.sort builtins.lessThan lane.excludes) (
+      "${prefix}excludes is not byte-sorted"
+    )
+    ++ lib.optional (lib.unique lane.excludes != lane.excludes) "${prefix}excludes contains a duplicate"
+    ++ lib.optional (!(builtins.all (file: builtins.elem file sourceFiles) sourceOwnerFiles)) (
+      "${prefix}sourceOwners contains a file that is not source-owned"
+    )
+    ++ lib.optional (!(builtins.all validTaskName (builtins.attrValues lane.sourceOwners))) (
+      "${prefix}sourceOwners contains an unsafe task name"
+    )
+    ++ lib.optional (lane.unboundedFiles != expectedUnboundedFiles) (
+      "${prefix}unboundedFiles is not the source census minus explicit sourceOwners"
+    )
+    ++ lib.optional (!(builtins.all validTaskName lane.unboundedAfter)) (
+      "${prefix}unboundedAfter contains an unsafe task name"
+    )
+    ++ lib.optional (lib.unique lane.unboundedAfter != lane.unboundedAfter) (
+      "${prefix}unboundedAfter contains a duplicate"
+    )
+    ++ lib.optional ((lane ? unboundedTaskName) != (lane.unboundedFiles != [ ])) (
+      "${prefix}unboundedTaskName must be declared exactly when unboundedFiles is non-empty"
+    )
+    ++ lib.optional ((lane.unboundedFiles == [ ]) && (lane.unboundedAfter != [ ])) (
+      "${prefix}unboundedAfter is non-empty without an unbounded complement"
+    )
+    ++ lib.optional (
+      (lane ? unboundedTaskName) && lane.unboundedTaskName != "${lane.taskName}:unbounded"
+    ) "${prefix}unboundedTaskName is not ${lane.taskName}:unbounded"
+    ++ lib.optional (
+      lane.runner == "vitest" && (lane.collectionTarget or null) != "${lane.target}_collect"
+    ) "${prefix}vitest lane must declare collectionTarget ${lane.target}_collect"
+    ++ lib.optional (lane.runner != "vitest" && lane ? collectionTarget) (
+      "${prefix}${lane.runner} lane must not declare a collectionTarget"
+    )
+    ++ lib.optional (
+      !(builtins.elem lane.runner [
+        "bun"
+        "shell"
+        "vitest"
+      ])
+    ) ("${prefix}runner ${lane.runner} is not one of bun, shell, vitest");
+  buck2TestAuthorityTargets = map (lane: lane.target) buck2TestAuthorityLanes;
+  buck2TestAuthorityTaskNames = builtins.concatMap (
+    lane: [ lane.taskName ] ++ lib.optional (lane ? unboundedTaskName) lane.unboundedTaskName
+  ) buck2TestAuthorityLanes;
+  buck2TestAuthorityCollectionTargets = builtins.concatMap (
+    lane: lib.optional (lane ? collectionTarget) lane.collectionTarget
+  ) buck2TestAuthorityLanes;
+  buck2TestAuthorityPackagePaths = map (lane: lane.packagePath) buck2TestAuthorityLanes;
+  buck2TestAuthorityIssues =
+    builtins.concatMap buck2TestLaneIssues buck2TestAuthorityLanes
+    ++
+      lib.optional (builtins.length buck2TestAuthorityLanes < buck2TestAuthorityMinimumLanes)
+        "registry declares ${toString (builtins.length buck2TestAuthorityLanes)} lanes, fewer than the ${toString buck2TestAuthorityMinimumLanes} it must carry"
+    ++ lib.optional (
+      buck2TestAuthorityTargets != builtins.sort builtins.lessThan buck2TestAuthorityTargets
+    ) "lanes are not byte-sorted by target"
+    ++ lib.optional (lib.unique buck2TestAuthorityTargets != buck2TestAuthorityTargets) (
+      "lanes declare a duplicate target"
+    )
+    ++ lib.optional (
+      builtins.length (lib.unique buck2TestAuthorityTaskNames)
+      != builtins.length buck2TestAuthorityTaskNames
+    ) "lanes declare a duplicate task name"
+    ++ lib.optional (
+      builtins.length (lib.unique buck2TestAuthorityCollectionTargets)
+      != builtins.length buck2TestAuthorityCollectionTargets
+    ) "lanes declare a duplicate collection target"
+    ++ lib.optional (
+      builtins.length (lib.unique buck2TestAuthorityPackagePaths)
+      != builtins.length buck2TestAuthorityPackagePaths
+    ) "more than one lane per package is not supported";
+  discoveredTestPackagePaths = map (pkg: pkg.path) packagesWithTests;
+  # A lane whose package carries no discovered Vitest tests (or is quarantined) means the
+  # generated bridge and the filesystem have drifted apart; fail every consumer of the lanes
+  # rather than relying on an unrelated source-task binding to force the assertion.
+  buck2TestLanesWithoutSources = builtins.filter (
+    lane: !(builtins.elem lane.packagePath discoveredTestPackagePaths)
+  ) buck2TestAuthorityLanes;
+  buck2TestLanes =
+    assert lib.assertMsg (buck2TestAuthorityIssues == [ ]) ''
+      buck2-test-authority.json is not a conformant test authority:
+        ${lib.concatStringsSep "\n  " buck2TestAuthorityIssues}
+    '';
+    assert lib.assertMsg (buck2TestLanesWithoutSources == [ ]) ''
+      buck2-test-authority.json declares lanes for packages with no discovered Vitest tests:
+      ${lib.concatMapStringsSep ", " (lane: lane.packagePath) buck2TestLanesWithoutSources}
+    '';
+    buck2TestAuthorityLanes;
+  buck2TestLanePackagePaths = map (lane: lane.packagePath) buck2TestLanes;
+  # Buck executes every admitted bounded lane. Source Vitest keeps packages absent from the
+  # authority and each lane's exact generic complement; explicit live/e2e owners run separately.
+  sourceOnlyTestPackages = builtins.filter (
+    pkg: !(builtins.elem pkg.path buck2TestLanePackagePaths)
+  ) packagesWithTests;
+  unboundedTestPackages = map (lane: {
+    path = lane.packagePath;
+    name = lib.removePrefix "test:" lane.unboundedTaskName;
+    # Positional filters, so the complement schedules only its explicit unbounded files.
+    vitestArgs = lib.concatStringsSep " " (map lib.escapeShellArg lane.unboundedFiles);
+    after = lane.unboundedAfter;
+  }) (builtins.filter (lane: lane.unboundedFiles != [ ]) buck2TestLanes);
+  sourceTestPackages = sourceOnlyTestPackages ++ unboundedTestPackages;
+
+  # Buck-invoking tasks discover the same pinned composed binary as `buck2:check`, so a lane
+  # cannot run against a different Buck than the one the check gate proved.
+  buck2UnitTestExec =
+    { name, targets }:
+    trace.exec name ''
+      set -euo pipefail
+      root="''${DEVENV_ROOT:-$PWD}"
+      export PATH=${
+        lib.makeBinPath [
+          pkgs.coreutils
+          pkgs.watchman
+        ]
+      }
+      workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
+      buck="$workspace_root/.megarepo/bin/buck2"
+      exec "$buck" test \
+        --target-platforms effect_utils//buck2/platforms:host_platform \
+        --local-only \
+        ${lib.concatStringsSep " \\\n        " targets}
+    '';
+  # Standalone `test:<package>`: the Buck-owned bounded lane plus its source-owned complement,
+  # so asking for one package's tests still runs all of that package's tests.
+  buck2TestLaneTasks = lib.listToAttrs (
+    map (
+      lane:
+      lib.nameValuePair lane.taskName {
+        description = "Execute the bounded ${lane.packageName} unit-test lane under Buck";
+        after = [ "mr:apply" ] ++ lib.optional (lane ? unboundedTaskName) lane.unboundedTaskName;
+        exec = buck2UnitTestExec {
+          name = lane.taskName;
+          targets = [ lane.target ];
+        };
+      }
+    ) buck2TestLanes
   );
 
   # Packages that have storybook (subset of allPackages)
@@ -520,9 +719,24 @@ in
       packages = allPackages;
       inherit pnpmPkg;
     })
-    # Self-contained test tasks: each package uses its own vitest from node_modules
+    # Source-side Vitest is now only what Buck does not execute: packages outside the Buck
+    # test registry and each admitted lane's exact excluded files. Retained JSON therefore
+    # exists exactly where the baseline gate still needs a source report.
+    (taskModules.test-playwright {
+      playwrightPkg = inputs.playwright.packages.${currentSystem}.playwright;
+      packages = [
+        {
+          path = "packages/@overeng/utils";
+          name = "utils";
+        }
+        {
+          path = "packages/@overeng/tui-react";
+          name = "tui-react";
+        }
+      ];
+    })
     (taskModules.test {
-      packages = packagesWithTests;
+      packages = sourceTestPackages;
       extraTests = [
         "devenv-modules:test"
         "genie:buck2:test"
@@ -530,6 +744,8 @@ in
       packageConcurrency = 4;
       retainVitestJson = true;
     })
+    # Per-lane Buck `test:<package>` tasks, each pulling in its unbounded complement.
+    { tasks = buck2TestLaneTasks; }
     (taskModules.storybook {
       packages = packagesWithStorybook;
     })
@@ -1126,18 +1342,42 @@ in
     '';
   };
 
+  # One Buck invocation executes every admitted bounded lane. This is what `test:run` waits on;
+  # the per-lane `test:<package>` tasks (imported above) exist for standalone use and are not
+  # part of that graph, so no suite is scheduled twice.
+  tasks."test:buck2:unit" = {
+    description = "Execute every admitted bounded unit-test lane under Buck";
+    after = [ "mr:apply" ];
+    exec = buck2UnitTestExec {
+      name = "test:buck2:unit";
+      targets = map (lane: lane.target) buck2TestLanes;
+    };
+  };
+
   tasks."check:all".after = [
     "cargo:check"
     "dependency-materialization:evidence:check"
   ];
 
-  # `test:run` executes after its package-task dependencies, so the
-  # baseline-collection gate sees the complete managed-test summary directory in CI.
+  # `test:run` is the aggregate: the single Buck invocation for every bounded lane, plus the
+  # source-only and unbounded-complement Vitest tasks the shared module wired into its `after`.
+  # The baseline-collection gate then runs last and reads both kinds of evidence.
+  tasks."test:run".after = [ "test:buck2:unit" ];
   tasks."test:run".exec = lib.mkForce (
     trace.exec "test:run" ''
       set -euo pipefail
-      ${pkgs.bun}/bin/bun packages/@overeng/utils-dev/check-baseline-test-collection.ts \
-        --task-registry ${baselineTestTaskRegistry}
+      root="''${DEVENV_ROOT:-$PWD}"
+      export PATH=${
+        lib.makeBinPath [
+          pkgs.coreutils
+          pkgs.watchman
+        ]
+      }
+      workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
+      exec ${pkgs.bun}/bin/bun "$root/packages/@overeng/utils-dev/src/check-baseline-test-collection.ts" \
+        --root "$root" \
+        --buck2 "$workspace_root/.megarepo/bin/buck2" \
+        --buck2-cwd "$workspace_root"
     ''
   );
 

@@ -38,6 +38,28 @@ export const buck2TypeScriptAdmission = {
     {
       name: 'test',
       runner: 'vitest',
+      // The regression lane emits a timestamped dashboard artifact under `tmp/`. The live
+      // integration suites stay on the credentialed Notion task.
+      excludes: [
+        'src/test/integration/e2e/adopt.e2e.test.tsx',
+        'src/test/integration/e2e/blocks.e2e.test.tsx',
+        'src/test/integration/e2e/edge-cases.e2e.test.tsx',
+        'src/test/integration/e2e/mutations.e2e.test.tsx',
+        'src/test/integration/e2e/prop-projection.e2e.test.tsx',
+        'src/test/integration/e2e/readback.e2e.test.tsx',
+        'src/test/integration/e2e/sub-pages.e2e.test.tsx',
+        'src/test/regression/sync-perf.regression.unit.test.tsx',
+      ],
+      sourceOwners: {
+        'src/test/integration/e2e/adopt.e2e.test.tsx': 'test:notion-integration:notion-react',
+        'src/test/integration/e2e/blocks.e2e.test.tsx': 'test:notion-integration:notion-react',
+        'src/test/integration/e2e/edge-cases.e2e.test.tsx': 'test:notion-integration:notion-react',
+        'src/test/integration/e2e/mutations.e2e.test.tsx': 'test:notion-integration:notion-react',
+        'src/test/integration/e2e/prop-projection.e2e.test.tsx':
+          'test:notion-integration:notion-react',
+        'src/test/integration/e2e/readback.e2e.test.tsx': 'test:notion-integration:notion-react',
+        'src/test/integration/e2e/sub-pages.e2e.test.tsx': 'test:notion-integration:notion-react',
+      },
     },
   ],
 } as const satisfies Buck2TypeScriptAdmission

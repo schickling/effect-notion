@@ -19,8 +19,7 @@ const OXC_PLUGIN_PATH = './packages/@overeng/oxc-config/src/mod.ts'
  * only resolves from the root `node_modules`, which this aggregate root cannot
  * carry a dependency in. See that file's header.
  */
-const STYLEX_UPSTREAM_PLUGIN_PATH =
-  './packages/@overeng/oxc-config/src/stylex-upstream-plugin.ts'
+const STYLEX_UPSTREAM_PLUGIN_PATH = './packages/@overeng/oxc-config/src/stylex-upstream-plugin.ts'
 
 export default oxlintConfig({
   plugins: baseOxlintPlugins,

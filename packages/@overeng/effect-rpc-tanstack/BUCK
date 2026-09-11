@@ -2,15 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts
-# Projection schema version: 6
+# Projection schema version: 8
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:15eb608cb7b62864201e025233465ada4745378ca691b2d5ab0f5931a4c6610e
+# Semantic fingerprint: sha256:a1499077eab29b191d5c971d3b5480f24ad7e300f85b5858cd912709997127c7
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts, packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts, packages/@overeng/effect-rpc-tanstack/package.json.genie.ts, packages/@overeng/effect-rpc-tanstack/src/**/*.cts, packages/@overeng/effect-rpc-tanstack/src/**/*.js, packages/@overeng/effect-rpc-tanstack/src/**/*.mts, packages/@overeng/effect-rpc-tanstack/src/**/*.spec.cjs, packages/@overeng/effect-rpc-tanstack/src/**/*.spec.jsx, packages/@overeng/effect-rpc-tanstack/src/**/*.spec.mjs, packages/@overeng/effect-rpc-tanstack/src/**/*.test.cjs, packages/@overeng/effect-rpc-tanstack/src/**/*.test.jsx, packages/@overeng/effect-rpc-tanstack/src/**/*.test.mjs, packages/@overeng/effect-rpc-tanstack/src/**/*.ts, packages/@overeng/effect-rpc-tanstack/src/**/*.tsx, packages/@overeng/effect-rpc-tanstack/src/**/__snapshots__/*.snap, packages/@overeng/effect-rpc-tanstack/tsconfig.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -76,6 +76,7 @@ package_view(
         "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
+    strip_project_references = True,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
@@ -105,6 +106,12 @@ tsgo_emit(
 
 vitest_test(
     name = "test",
+    package_tree = ":test_package_tree",
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
     package_tree = ":test_package_tree",
     visibility = ["PUBLIC"],
 )

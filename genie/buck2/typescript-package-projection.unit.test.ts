@@ -16,10 +16,10 @@ import effectReactBuck from '../../packages/@overeng/effect-react/BUCK.genie.ts'
 import effectRpcTanstackBuck from '../../packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts'
 import effectSchemaFormBuck from '../../packages/@overeng/effect-schema-form/BUCK.genie.ts'
 import genieBuck from '../../packages/@overeng/genie/BUCK.genie.ts'
+import type { GenieContext } from '../../packages/@overeng/genie/src/runtime/core.ts'
 import kdlEffectBuck from '../../packages/@overeng/kdl-effect/BUCK.genie.ts'
 import kdlBuck from '../../packages/@overeng/kdl/BUCK.genie.ts'
 import megarepoBuck from '../../packages/@overeng/megarepo/BUCK.genie.ts'
-import type { GenieContext } from '../../packages/@overeng/genie/src/runtime/core.ts'
 import notionCliBuck from '../../packages/@overeng/notion-cli/BUCK.genie.ts'
 import notionCoreBuck from '../../packages/@overeng/notion-core/BUCK.genie.ts'
 import notionDatasourceSyncBuck from '../../packages/@overeng/notion-datasource-sync/BUCK.genie.ts'
@@ -41,6 +41,7 @@ import tuiStoriesBuck from '../../packages/@overeng/tui-stories/BUCK.genie.ts'
 import utilsDevBuck from '../../packages/@overeng/utils-dev/BUCK.genie.ts'
 import utilsBuck from '../../packages/@overeng/utils/BUCK.genie.ts'
 import {
+  buck2TestLanes,
   buck2TypeScriptAdmissions,
   editorViewConsumerPackagePaths,
 } from './typescript-admissions.ts'
@@ -110,9 +111,7 @@ const collectableTestModulesOf = ({
     .flatMap((sourceRoot) =>
       readdirSync(path.join(packageRoot, sourceRoot), { recursive: true, withFileTypes: true })
         .filter((entry) => entry.isFile() === true)
-        .map((entry) =>
-          path.relative(packageRoot, path.join(entry.parentPath, entry.name)),
-        ),
+        .map((entry) => path.relative(packageRoot, path.join(entry.parentPath, entry.name))),
     )
     .filter((file) => collectableTestSelection.test(file) === true)
     .toSorted()
@@ -147,17 +146,16 @@ const stagedFilesOf = ({
   return [...files.matchAll(/^ {8}"([^"]+)": /gmu)].map(([, destination]) => destination ?? '')
 }
 
-const admittedTestLanes = Object.entries(buck2TypeScriptAdmissions).flatMap(
-  ([key, admission]) =>
-    admission.tests === undefined
-      ? []
-      : [
-          {
-            output: outputsByAdmission[key as keyof typeof outputsByAdmission],
-            packagePath: admission.packagePath,
-            sourceRoots: admission.sourceRoots,
-          },
-        ],
+const admittedTestLanes = Object.entries(buck2TypeScriptAdmissions).flatMap(([key, admission]) =>
+  admission.tests === undefined
+    ? []
+    : [
+        {
+          output: outputsByAdmission[key as keyof typeof outputsByAdmission],
+          packagePath: admission.packagePath,
+          sourceRoots: admission.sourceRoots,
+        },
+      ],
 )
 
 const editorViewTarget = `editor_view_inputs(
@@ -296,30 +294,33 @@ describe('declared test lanes', () => {
   }
 
   it('emits no test target, test rule load or test tree for a package without lanes', () => {
-    const output = buck2TypeScriptPackageProjection(kdlAdmissionWithoutTests).stringify(
-      genieContext,
-    )
+    const output =
+      buck2TypeScriptPackageProjection(kdlAdmissionWithoutTests).stringify(genieContext)
 
     expect(output).not.toContain('load("//buck2:javascript.bzl"')
     expect(output).not.toContain('vitest_test(')
+    expect(output).not.toContain('vitest_collect(')
     expect(output).not.toContain('    name = "test",')
     expect(output).not.toContain('test_package_tree')
     expect(stagedFilesOf({ output, tree: 'test_package_tree' })).toEqual([])
   })
 
   it('emits the default lane against the test tree that carries the config it loads', () => {
-    expect(outputsByAdmission.kdl).toContain('load("//buck2:javascript.bzl", "vitest_test")')
+    expect(outputsByAdmission.kdl).toContain(
+      'load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")',
+    )
     expect(outputsByAdmission.kdl).toContain(
       ['vitest_test(', '    name = "test",', '    package_tree = ":test_package_tree",'].join('\n'),
     )
     expect(stagedFilesOf({ output: outputsByAdmission.kdl, tree: 'test_package_tree' })).toContain(
       'vitest.config.ts',
     )
+    expect(outputsByAdmission.kdl).toContain('    strip_project_references = True,')
     // The compile tree is what typecheck, emit and the editor read; a runner-only config in
     // there would rebuild every compile action for a file no compiler opens.
-    expect(
-      stagedFilesOf({ output: outputsByAdmission.kdl, tree: 'package_tree' }),
-    ).not.toContain('vitest.config.ts')
+    expect(stagedFilesOf({ output: outputsByAdmission.kdl, tree: 'package_tree' })).not.toContain(
+      'vitest.config.ts',
+    )
     // The default config and timeouts are the rule's own defaults and stay unstated.
     expect(outputsByAdmission.kdl).not.toContain('    config = "vitest.config.ts",')
     expect(outputsByAdmission.kdl).not.toContain('    timeout_ms =')
@@ -387,9 +388,7 @@ describe('declared test lanes', () => {
       const compileTree = stagedFilesOf({ output: lane.output, tree: 'package_tree' })
       return collectableTestModulesOf(lane)
         .map(snapshotBaselineOf)
-        .filter((baseline) =>
-          existsSync(path.join(process.cwd(), lane.packagePath, baseline)),
-        )
+        .filter((baseline) => existsSync(path.join(process.cwd(), lane.packagePath, baseline)))
         .map((baseline) => {
           expect(
             testTree,
@@ -453,9 +452,7 @@ describe('declared test lanes', () => {
       ).toBe(false)
     }
     // A `.jsx` spec is a test module, not a TypeScript source: it must not reach emit inputs.
-    expect(outputsByAdmission.reactInspector).not.toContain(
-      '    "src/object/ObjectName.spec.jsx",',
-    )
+    expect(outputsByAdmission.reactInspector).not.toContain('    "src/object/ObjectName.spec.jsx",')
   })
 
   it('reads a task-supplied host path from a derived config key', () => {
@@ -483,13 +480,22 @@ describe('declared test lanes', () => {
     ).toThrow('requires a declared NODE_BIN tool')
   })
 
-  it('refuses a cacheable lane that reads the ambient environment', () => {
+  it('refuses a Vitest lane that reads the ambient environment', () => {
     expect(() =>
       buck2TypeScriptPackageProjection({
         ...kdlAdmissionWithoutTests,
         tests: [{ name: 'test', runner: 'vitest', inheritedEnv: ['NOTION_API_TOKEN'] }],
       }).stringify(genieContext),
-    ).toThrow('must declare cacheable: false')
+    ).toThrow('derived collection action requires every input in the action identity')
+  })
+
+  it('refuses an uncacheable Vitest lane because its collection stays cacheable', () => {
+    expect(() =>
+      buck2TypeScriptPackageProjection({
+        ...kdlAdmissionWithoutTests,
+        tests: [{ name: 'test', runner: 'vitest', cacheable: false }],
+      }).stringify(genieContext),
+    ).toThrow('derived collection action has no per-action remote-cache read switch')
   })
 
   it('refuses test selections the package tree does not carry', () => {
@@ -549,15 +555,14 @@ describe('declared test lanes', () => {
   it('carries the declared lane into the schema version and semantic fingerprint', () => {
     const fingerprintOf = (output: string): string =>
       output.split('# Semantic fingerprint: ')[1]?.split('\n')[0] ?? ''
-    const withoutTests = buck2TypeScriptPackageProjection(kdlAdmissionWithoutTests).stringify(
-      genieContext,
-    )
+    const withoutTests =
+      buck2TypeScriptPackageProjection(kdlAdmissionWithoutTests).stringify(genieContext)
     const withLongerTimeout = buck2TypeScriptPackageProjection({
       ...buck2TypeScriptAdmissions.kdl,
       tests: [{ name: 'test', runner: 'vitest', timeoutMs: 60_000 }],
     }).stringify(genieContext)
 
-    expect(outputsByAdmission.kdl).toContain('# Projection schema version: 6')
+    expect(outputsByAdmission.kdl).toContain('# Projection schema version: 8')
     expect(fingerprintOf(outputsByAdmission.kdl)).not.toBe(fingerprintOf(withoutTests))
     expect(fingerprintOf(outputsByAdmission.kdl)).not.toBe(fingerprintOf(withLongerTimeout))
   })
@@ -567,5 +572,134 @@ describe('declared test lanes', () => {
     expect(rules).not.toContain('//packages/@overeng/buck2-tools:javascript_action_runtime')
     expect(rules.split('default = "//:javascript_action_runtime",')).toHaveLength(3)
     expect(readFileSync('BUCK', 'utf8')).toContain('    name = "javascript_action_runtime",')
+  })
+})
+
+describe('derived test collection targets', () => {
+  const kdlAdmission = buck2TypeScriptAdmissions.kdl
+
+  it('projects one collection sibling per Vitest lane from the same validated inputs', () => {
+    for (const lane of admittedTestLanes) {
+      const executions = lane.output.split('\nvitest_test(\n').length - 1
+      const collections = lane.output.split('\nvitest_collect(\n').length - 1
+      expect(collections, `//${lane.packagePath} projects ${executions} lanes`).toBe(executions)
+    }
+
+    // Same package tree, same visibility, same derived name: one declaration, two targets.
+    expect(outputsByAdmission.kdl).toContain(
+      [
+        'vitest_collect(',
+        '    name = "test_collect",',
+        '    package_tree = ":test_package_tree",',
+        '    visibility = ["PUBLIC"],',
+        ')',
+      ].join('\n'),
+    )
+  })
+
+  it('carries every collect-supported attribute and drops the two the rule rejects', () => {
+    const output = buck2TypeScriptPackageProjection({
+      ...kdlAdmission,
+      tests: [
+        {
+          name: 'test',
+          runner: 'vitest',
+          excludes: ['src/mod.test.ts'],
+          env: { KDL_MODE: 'strict' },
+          hookTimeoutMs: 45_000,
+          labels: ['local-only'],
+          timeoutMs: 120_000,
+          vitestRuntime: 'node',
+          tools: { NODE_BIN: '//buck2/toolchains:tool_node' },
+          writableDirectories: { KDL_WORKSPACE: 'kdl' },
+        },
+      ],
+    }).stringify(genieContext)
+    const collectBlock = output.split('\nvitest_collect(\n')[1]?.split('\n)\n')[0] ?? ''
+
+    expect(collectBlock).toContain('    name = "test_collect",')
+    expect(collectBlock).toContain('        "KDL_MODE": "strict",')
+    expect(collectBlock).toContain('        "src/mod.test.ts",')
+    expect(collectBlock).toContain('        "local-only",')
+    expect(collectBlock).toContain('        "NODE_BIN": "//buck2/toolchains:tool_node",')
+    expect(collectBlock).toContain('    vitest_runtime = "node",')
+    expect(collectBlock).toContain('        "KDL_WORKSPACE": "kdl",')
+    // Both bound a running test; the collect rule has no attribute for either.
+    expect(collectBlock).not.toContain('timeout_ms')
+    expect(collectBlock).not.toContain('hook_timeout_ms')
+    // The execution lane keeps them, so the two targets differ in exactly those attributes.
+    const executionBlock = output.split('\nvitest_test(\n')[1]?.split('\n)\n')[0] ?? ''
+    expect(executionBlock).toContain('    timeout_ms = 120000,')
+    expect(executionBlock).toContain('    hook_timeout_ms = 45000,')
+  })
+
+  it('reuses the execution lane config keys instead of deriving a second set', () => {
+    const output = buck2TypeScriptPackageProjection({
+      ...kdlAdmission,
+      tests: [{ name: 'test', runner: 'vitest', configuredExternalInputs: ['NODE_PTY_PACKAGE'] }],
+    }).stringify(genieContext)
+
+    expect(
+      output.split(
+        '        "NODE_PTY_PACKAGE": read_config("javascript_test_inputs", "kdl_test_node_pty_package", ""),',
+      ),
+    ).toHaveLength(3)
+    expect(output).not.toContain('kdl_test_collect_node_pty_package')
+  })
+
+  it('refuses a declared lane that collides with a derived collection target', () => {
+    expect(() =>
+      buck2TypeScriptPackageProjection({
+        ...kdlAdmission,
+        tests: [
+          { name: 'test', runner: 'vitest' },
+          { name: 'test_collect', runner: 'vitest' },
+        ],
+      }).stringify(genieContext),
+    ).toThrow('Duplicate test target names')
+  })
+
+  it('records every declared lane census exactly once as bounded or source-owned', () => {
+    for (const admitted of admittedTestLanes) {
+      const lane = buck2TestLanes.find(
+        (candidate) =>
+          candidate.packagePath === admitted.packagePath &&
+          candidate.target.endsWith(':test') === true,
+      )
+      expect(lane, `no default registry lane for //${admitted.packagePath}`).toBeDefined()
+      const census = collectableTestModulesOf(admitted)
+      expect(lane?.testFiles).toEqual(census)
+
+      const selected = new Set(lane?.selectedTestFiles ?? [])
+      const excluded = new Set(lane?.excludes ?? [])
+      const bounded = census.filter(
+        (module) => selected.has(module) === true && excluded.has(module) === false,
+      )
+      const source = census.filter((module) => bounded.includes(module) === false)
+      const recordedSource = [
+        ...(lane?.unboundedFiles ?? []),
+        ...Object.keys(lane?.sourceOwners ?? {}),
+      ].toSorted()
+
+      expect(new Set(recordedSource).size).toBe(recordedSource.length)
+      expect(recordedSource).toEqual(source)
+      expect([...bounded, ...recordedSource].toSorted()).toEqual(census)
+    }
+  })
+
+  it('keeps the JSX census inside the partition it stages', () => {
+    const reactInspector = admittedTestLanes.find(
+      (lane) => lane.packagePath === 'packages/@overeng/react-inspector',
+    )
+    expect(reactInspector).toBeDefined()
+    const census = reactInspector === undefined ? [] : collectableTestModulesOf(reactInspector)
+    const lane = buck2TestLanes.find(
+      (candidate) => candidate.packagePath === 'packages/@overeng/react-inspector',
+    )
+
+    expect(census).toContain('src/object/ObjectName.spec.jsx')
+    // The JSX specs are staged and bounded, never quietly excluded into an unbounded task.
+    expect(lane?.excludes).toEqual([])
+    expect(lane?.unboundedTaskName).toBeUndefined()
   })
 })

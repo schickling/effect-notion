@@ -9,6 +9,7 @@ const cliPath = fileURLToPath(new URL('../bin/genie.tsx', import.meta.url))
 /* Absolute checkout root of this worktree — v4 CLI error rendering embeds
  * stack-frame paths under it; snapshots must not gate on the machine. */
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url))
+const effectPackageRoot = fileURLToPath(new URL('../', import.meta.resolve('effect')))
 
 /**
  * CLI contract capture: `status` and `signal` are cross-major invariants; stdout/stderr help,
@@ -19,6 +20,13 @@ const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url))
  * version-string content, log timing, and machine-specific paths are not gated
  * by this baseline.
  */
+const normalize = (input: string): string =>
+  normalizeCliOutput({
+    input: input.replaceAll(effectPackageRoot, '<effect>/'),
+    ansi: true,
+    time: true,
+    repoRoot,
+  })
 
 const runCli = (...args: ReadonlyArray<string>) => {
   const result = spawnSync('bun', [cliPath, ...args], {
@@ -29,8 +37,8 @@ const runCli = (...args: ReadonlyArray<string>) => {
   return {
     status: result.status,
     signal: result.signal,
-    stdout: normalizeCliOutput({ input: result.stdout, ansi: true, time: true, repoRoot }),
-    stderr: normalizeCliOutput({ input: result.stderr, ansi: true, time: true, repoRoot }),
+    stdout: normalize(result.stdout),
+    stderr: normalize(result.stderr),
   }
 }
 

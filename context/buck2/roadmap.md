@@ -166,14 +166,15 @@ RENAME_EXCHANGE advance.
   and attested tools cannot rot. Each target's `excludes` list names the
   unbounded suites the policy keeps outside: integration, e2e, live-deploy,
   PTY, and any suite that spawns an external binary.
-- Test EXECUTION is not yet transferred. Two mechanisms have to land first: the
-  baseline test-collection gate consumes retained Vitest JSON summaries that a
-  Buck test action does not write (the `vitest_collect` rule exists for this
-  and is not yet wired to the gate), and the unbounded remainder of each
-  package's suite needs its own declared lane so no file loses a runner and no
-  file runs twice. Until both land, `test:<package>` stays the source-owned
-  Vitest run over the whole suite and Buck ownership of test inputs is proven
-  by the build gate rather than by executing the lane.
+- Test EXECUTION is transferred for the bounded partition. `test:buck2:unit`
+  executes all 32 admitted targets, while `test:<package>` composes its
+  Buck-owned lane with an exact source-owned complement for that lane's
+  excluded files. Packages outside the authority remain source-owned.
+  `test:run` schedules both disjoint partitions on Linux and macOS, preserving
+  the previous host coverage while changing the bounded producer. Its baseline
+  gate reads declared `vitest_collect` artifacts for admitted Vitest lanes and
+  retained source JSON summaries for the complement, so no second test run is
+  needed to recover collection evidence.
 
 - Admission 2 transfers `@overeng/tui-react` typecheck and declaration emit to
   `//packages/@overeng/tui-react:typecheck` and

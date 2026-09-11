@@ -2,15 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/utils-dev/BUCK.genie.ts
-# Projection schema version: 6
+# Projection schema version: 8
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:942ab48a12659e68ba049cb39503d159d337df624aabdbd7f86118d8eb2d9cda
+# Semantic fingerprint: sha256:2e84e8425702196521cd53248923f4f8ebb204bf47645989762aea28aaab43a7
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils-dev/src/**/*.cts, packages/@overeng/utils-dev/src/**/*.js, packages/@overeng/utils-dev/src/**/*.mts, packages/@overeng/utils-dev/src/**/*.spec.cjs, packages/@overeng/utils-dev/src/**/*.spec.jsx, packages/@overeng/utils-dev/src/**/*.spec.mjs, packages/@overeng/utils-dev/src/**/*.test.cjs, packages/@overeng/utils-dev/src/**/*.test.jsx, packages/@overeng/utils-dev/src/**/*.test.mjs, packages/@overeng/utils-dev/src/**/*.ts, packages/@overeng/utils-dev/src/**/*.tsx, packages/@overeng/utils-dev/src/**/__snapshots__/*.snap, packages/@overeng/utils-dev/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -20,6 +20,9 @@ export_file(
 )
 
 export_materialization_inputs([
+    "src/baseline-collection.test.ts",
+    "src/baseline-collection.ts",
+    "src/check-baseline-test-collection.ts",
     "src/cli-contract.test.ts",
     "src/cli-contract.ts",
     "src/node-vitest/Vitest.ts",
@@ -63,6 +66,9 @@ package_view(
     dependency_view = "//buck2/dependencies:view_packages_overeng_utils_dev_8614cc76469c",
     files = {
         "package.json": "package.json",
+        "src/baseline-collection.test.ts": "src/baseline-collection.test.ts",
+        "src/baseline-collection.ts": "src/baseline-collection.ts",
+        "src/check-baseline-test-collection.ts": "src/check-baseline-test-collection.ts",
         "src/cli-contract.test.ts": "src/cli-contract.test.ts",
         "src/cli-contract.ts": "src/cli-contract.ts",
         "src/node-vitest/Vitest.ts": "src/node-vitest/Vitest.ts",
@@ -99,6 +105,9 @@ package_view(
     dependency_view = "//buck2/dependencies:view_packages_overeng_utils_dev_8614cc76469c",
     files = {
         "package.json": "package.json",
+        "src/baseline-collection.test.ts": "src/baseline-collection.test.ts",
+        "src/baseline-collection.ts": "src/baseline-collection.ts",
+        "src/check-baseline-test-collection.ts": "src/check-baseline-test-collection.ts",
         "src/cli-contract.test.ts": "src/cli-contract.test.ts",
         "src/cli-contract.ts": "src/cli-contract.ts",
         "src/node-vitest/Vitest.ts": "src/node-vitest/Vitest.ts",
@@ -126,6 +135,7 @@ package_view(
         "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
+    strip_project_references = True,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
@@ -155,6 +165,20 @@ tsgo_emit(
 
 vitest_test(
     name = "test",
+    package_tree = ":test_package_tree",
+    excludes = [
+        "src/node-vitest/otel-vitest-flush.test.ts",
+        "src/otelite/Otelite.test.ts",
+        "src/otelite/signal-expect.test.ts",
+        "src/otelite/test-harness.test.ts",
+        "src/otelite/trace-expect.test.ts",
+        "src/otelite/vitest-bridge.test.ts",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
     package_tree = ":test_package_tree",
     excludes = [
         "src/node-vitest/otel-vitest-flush.test.ts",

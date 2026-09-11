@@ -5,15 +5,15 @@ load("//buck2:package_tools.bzl", "package_bin_artifact")
 load("//buck2/products:defs.bzl", "javascript_product")
 
 # Projection source: packages/@overeng/ci-tools/BUCK.genie.ts
-# Projection schema version: 6
+# Projection schema version: 8
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:ec2f0d14084faf263bee9b786b5d313149af2b076dfedafa68c0b34b1fec49de
+# Semantic fingerprint: sha256:866ec1363faaa8b4310d629ff1a2d047b745ce719732880c45d67d5ec34d0378
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/ci-tools/BUCK.genie.ts, packages/@overeng/ci-tools/BUCK.genie.ts, packages/@overeng/ci-tools/bin/**/*.cts, packages/@overeng/ci-tools/bin/**/*.js, packages/@overeng/ci-tools/bin/**/*.mts, packages/@overeng/ci-tools/bin/**/*.spec.cjs, packages/@overeng/ci-tools/bin/**/*.spec.jsx, packages/@overeng/ci-tools/bin/**/*.spec.mjs, packages/@overeng/ci-tools/bin/**/*.test.cjs, packages/@overeng/ci-tools/bin/**/*.test.jsx, packages/@overeng/ci-tools/bin/**/*.test.mjs, packages/@overeng/ci-tools/bin/**/*.ts, packages/@overeng/ci-tools/bin/**/*.tsx, packages/@overeng/ci-tools/bin/**/__snapshots__/*.snap, packages/@overeng/ci-tools/package.json.genie.ts, packages/@overeng/ci-tools/src/**/*.cts, packages/@overeng/ci-tools/src/**/*.js, packages/@overeng/ci-tools/src/**/*.mts, packages/@overeng/ci-tools/src/**/*.spec.cjs, packages/@overeng/ci-tools/src/**/*.spec.jsx, packages/@overeng/ci-tools/src/**/*.spec.mjs, packages/@overeng/ci-tools/src/**/*.test.cjs, packages/@overeng/ci-tools/src/**/*.test.jsx, packages/@overeng/ci-tools/src/**/*.test.mjs, packages/@overeng/ci-tools/src/**/*.ts, packages/@overeng/ci-tools/src/**/*.tsx, packages/@overeng/ci-tools/src/**/__snapshots__/*.snap, packages/@overeng/ci-tools/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -115,6 +115,7 @@ package_view(
         "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
+    strip_project_references = True,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
@@ -144,6 +145,22 @@ tsgo_emit(
 
 vitest_test(
     name = "test",
+    package_tree = ":test_package_tree",
+    excludes = [
+        "src/deploy-netlify.e2e.test.ts",
+        "src/deploy-netlify.live.e2e.test.ts",
+        "src/deploy-vercel.e2e.test.ts",
+        "src/deploy-vercel.live.e2e.test.ts",
+        "src/workflow-report.e2e.test.ts",
+    ],
+    tools = {
+        "BUN_BIN": "//buck2/toolchains:tool_bun",
+    },
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
     package_tree = ":test_package_tree",
     excludes = [
         "src/deploy-netlify.e2e.test.ts",

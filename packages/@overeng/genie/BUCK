@@ -5,15 +5,15 @@ load("//buck2:package_tools.bzl", "package_bin_artifact")
 load("//buck2/products:defs.bzl", "javascript_product")
 
 # Projection source: packages/@overeng/genie/BUCK.genie.ts
-# Projection schema version: 6
+# Projection schema version: 8
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:146c5070b475fb7f00604b7ba213c281eba86f7b57cf3768fd012be7f331f4ec
+# Semantic fingerprint: sha256:91a091765c850cbe4c0cdee03907086c5368df59369146f712ce62ff8a9e1a2b
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/genie/BUCK.genie.ts, packages/@overeng/genie/BUCK.genie.ts, packages/@overeng/genie/bin/**/*.cts, packages/@overeng/genie/bin/**/*.js, packages/@overeng/genie/bin/**/*.mts, packages/@overeng/genie/bin/**/*.spec.cjs, packages/@overeng/genie/bin/**/*.spec.jsx, packages/@overeng/genie/bin/**/*.spec.mjs, packages/@overeng/genie/bin/**/*.test.cjs, packages/@overeng/genie/bin/**/*.test.jsx, packages/@overeng/genie/bin/**/*.test.mjs, packages/@overeng/genie/bin/**/*.ts, packages/@overeng/genie/bin/**/*.tsx, packages/@overeng/genie/bin/**/__snapshots__/*.snap, packages/@overeng/genie/package.json.genie.ts, packages/@overeng/genie/src/**/*.cts, packages/@overeng/genie/src/**/*.js, packages/@overeng/genie/src/**/*.mts, packages/@overeng/genie/src/**/*.spec.cjs, packages/@overeng/genie/src/**/*.spec.jsx, packages/@overeng/genie/src/**/*.spec.mjs, packages/@overeng/genie/src/**/*.test.cjs, packages/@overeng/genie/src/**/*.test.jsx, packages/@overeng/genie/src/**/*.test.mjs, packages/@overeng/genie/src/**/*.ts, packages/@overeng/genie/src/**/*.tsx, packages/@overeng/genie/src/**/__snapshots__/*.snap, packages/@overeng/genie/tsconfig.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -361,6 +361,7 @@ package_view(
         "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
+    strip_project_references = True,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
@@ -391,6 +392,7 @@ vitest_test(
     name = "test",
     package_tree = ":test_package_tree",
     excludes = [
+        "src/build/mod.integration.test.ts",
         "src/core/discovery.unit.test.ts",
         "src/runtime/github-workflow/ci-runtime-scripts.unit.test.ts",
         "src/runtime/github-workflow/ci-workflow-helpers.unit.test.ts",
@@ -399,7 +401,28 @@ vitest_test(
     ],
     tools = {
         "BUN_BIN": "//buck2/toolchains:tool_bun",
+        "NODE_BIN": "//buck2/toolchains:tool_node",
     },
+    vitest_runtime = "node",
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
+    package_tree = ":test_package_tree",
+    excludes = [
+        "src/build/mod.integration.test.ts",
+        "src/core/discovery.unit.test.ts",
+        "src/runtime/github-workflow/ci-runtime-scripts.unit.test.ts",
+        "src/runtime/github-workflow/ci-workflow-helpers.unit.test.ts",
+        "src/runtime/package-json/package-json.unit.test.ts",
+        "src/runtime/weaver/rust-constants.unit.test.ts",
+    ],
+    tools = {
+        "BUN_BIN": "//buck2/toolchains:tool_bun",
+        "NODE_BIN": "//buck2/toolchains:tool_node",
+    },
+    vitest_runtime = "node",
     visibility = ["PUBLIC"],
 )
 

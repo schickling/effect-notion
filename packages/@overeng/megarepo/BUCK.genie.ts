@@ -56,10 +56,10 @@ export const buck2TypeScriptAdmission = {
     {
       name: 'test',
       runner: 'vitest',
-      // The CLI contract suite spawns the pinned Bun. Every `*.integration.test.ts` suite and
-      // the PTY prompt suite drive real git, nix, coreutils, and `script`, so they stay
-      // unbounded (decision 0026) under the devenv `test:megarepo` and
-      // `test:megarepo-cold-gc` tasks.
+      // The CLI contract suite spawns the pinned Bun. The store-hygiene unit suite,
+      // every `*.integration.test.ts` suite, and the PTY prompt suite drive real git,
+      // nix, coreutils, or `script`, so they stay unbounded (decision 0026) under the
+      // devenv `test:megarepo` and `test:megarepo-cold-gc` tasks.
       tools: { BUN_BIN: '//buck2/toolchains:tool_bun' },
       excludes: [
         'src/cli/cli.integration.test.ts',
@@ -88,11 +88,15 @@ export const buck2TypeScriptAdmission = {
         'src/core/git-timeout.integration.test.ts',
         'src/store/store-archive.integration.test.ts',
         'src/store/store-deletion-lease.integration.test.ts',
+        'src/store/store-hygiene.unit.test.ts',
         'src/store/store-inuse.integration.test.ts',
         'src/store/store-liveness.integration.test.ts',
         'src/store/store-lossless.integration.test.ts',
         'src/test-utils/store-setup.integration.test.ts',
       ],
+      sourceOwners: {
+        'src/cli/store-gc-cold.integration.test.ts': 'test:megarepo-cold-gc',
+      },
     },
   ],
 } as const satisfies Buck2TypeScriptAdmission

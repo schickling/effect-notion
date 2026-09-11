@@ -37,6 +37,12 @@ let
       tokenEnv = "NOTION_API_TOKEN";
       kind = "integration-config";
     }
+    {
+      path = "packages/@overeng/notion-react";
+      name = "notion-react";
+      tokenEnv = "NOTION_API_TOKEN";
+      kind = "integration-config";
+    }
   ];
   integrationVitestExec = tokenEnv: ''
     set -euo pipefail

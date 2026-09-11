@@ -2,15 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/notion-effect-schema/BUCK.genie.ts
-# Projection schema version: 6
+# Projection schema version: 8
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:a0794a8842bc963f9e40af277f8d174a9f934375183ecdcc1ac14468676ef937
+# Semantic fingerprint: sha256:0ce8462a31248620ca36b13d0ca1f5f7a8026e65649a7b0e348da2c6cc5e9c23
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-effect-schema/src/**/*.cts, packages/@overeng/notion-effect-schema/src/**/*.js, packages/@overeng/notion-effect-schema/src/**/*.mts, packages/@overeng/notion-effect-schema/src/**/*.spec.cjs, packages/@overeng/notion-effect-schema/src/**/*.spec.jsx, packages/@overeng/notion-effect-schema/src/**/*.spec.mjs, packages/@overeng/notion-effect-schema/src/**/*.test.cjs, packages/@overeng/notion-effect-schema/src/**/*.test.jsx, packages/@overeng/notion-effect-schema/src/**/*.test.mjs, packages/@overeng/notion-effect-schema/src/**/*.ts, packages/@overeng/notion-effect-schema/src/**/*.tsx, packages/@overeng/notion-effect-schema/src/**/__snapshots__/*.snap, packages/@overeng/notion-effect-schema/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -141,6 +141,7 @@ package_view(
         "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
+    strip_project_references = True,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
@@ -170,6 +171,12 @@ tsgo_emit(
 
 vitest_test(
     name = "test",
+    package_tree = ":test_package_tree",
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
     package_tree = ":test_package_tree",
     visibility = ["PUBLIC"],
 )

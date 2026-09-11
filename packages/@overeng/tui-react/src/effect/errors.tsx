@@ -19,7 +19,6 @@
 import { Effect, Schema } from 'effect'
 
 import { OutputModeTag, isJson } from './OutputMode.tsx'
-import { writeStdoutLineSync } from './stdout.node.ts'
 
 // =============================================================================
 // Error Schemas
@@ -111,13 +110,18 @@ export const cancelledError = (reason: 'user' | 'timeout' | 'signal'): Cancelled
  * Output an error as JSON to stdout.
  * Used in JSON mode to maintain modal consistency.
  *
- * Written synchronously: this path runs on the failure exit, where `runMain`
- * calls `process.exit(1)` and would otherwise drop buffered stdout bytes.
- * See {@link writeStdoutLineSync}.
+ * Written synchronously after loading the Node-only writer: this path runs on
+ * the failure exit, where `runMain` calls `process.exit(1)` and would otherwise
+ * drop buffered stdout bytes.
  */
 export const outputJsonError = (error: CommandError): Effect.Effect<void> =>
   Schema.encodeEffect(Schema.fromJsonString(CommandError))(error).pipe(
-    Effect.flatMap((jsonString) => Effect.sync(() => writeStdoutLineSync(jsonString))),
+    Effect.flatMap((jsonString) =>
+      Effect.promise(async () => {
+        const stdout = await import('./stdout.node.ts')
+        stdout.writeStdoutLineSync(jsonString)
+      }),
+    ),
     Effect.orDie, // Schema encoding of our own types should never fail
   )
 

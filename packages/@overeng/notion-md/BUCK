@@ -5,15 +5,15 @@ load("//buck2:package_tools.bzl", "package_bin_artifact")
 load("//buck2/products:defs.bzl", "javascript_product")
 
 # Projection source: packages/@overeng/notion-md/BUCK.genie.ts
-# Projection schema version: 6
+# Projection schema version: 8
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:fcc9cca3cfbfd57dd3d1653c494f1462b777647faee50ccb429590a476ddc176
+# Semantic fingerprint: sha256:39592ee0e4f04914d1aab747e69adce3eb133228d3b73513b76115802d413cbb
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/content-address/BUCK.genie.ts, packages/@overeng/content-address/package.json.genie.ts, packages/@overeng/notion-core/BUCK.genie.ts, packages/@overeng/notion-core/package.json.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/demo/**/*.nmd, packages/@overeng/notion-md/package.json.genie.ts, packages/@overeng/notion-md/src/**/*.cts, packages/@overeng/notion-md/src/**/*.js, packages/@overeng/notion-md/src/**/*.mts, packages/@overeng/notion-md/src/**/*.spec.cjs, packages/@overeng/notion-md/src/**/*.spec.jsx, packages/@overeng/notion-md/src/**/*.spec.mjs, packages/@overeng/notion-md/src/**/*.test.cjs, packages/@overeng/notion-md/src/**/*.test.jsx, packages/@overeng/notion-md/src/**/*.test.mjs, packages/@overeng/notion-md/src/**/*.ts, packages/@overeng/notion-md/src/**/*.tsx, packages/@overeng/notion-md/src/**/__snapshots__/*.snap, packages/@overeng/notion-md/tsconfig.json.genie.ts, packages/@overeng/notion-property-write/BUCK.genie.ts, packages/@overeng/notion-property-write/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -274,6 +274,7 @@ package_view(
         "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
+    strip_project_references = True,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
@@ -306,8 +307,27 @@ vitest_test(
     package_tree = ":test_package_tree",
     excludes = [
         "src/cli.e2e.test.ts",
+        "src/corpus-live.integration.test.ts",
         "src/editor-edit.e2e.test.ts",
         "src/editor-observability.unit.test.ts",
+        "src/live.integration.test.ts",
+        "src/reconcile-live.integration.test.ts",
+        "src/reconcile.e2e.test.ts",
+        "src/sync.e2e.test.ts",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
+    package_tree = ":test_package_tree",
+    excludes = [
+        "src/cli.e2e.test.ts",
+        "src/corpus-live.integration.test.ts",
+        "src/editor-edit.e2e.test.ts",
+        "src/editor-observability.unit.test.ts",
+        "src/live.integration.test.ts",
+        "src/reconcile-live.integration.test.ts",
         "src/reconcile.e2e.test.ts",
         "src/sync.e2e.test.ts",
     ],

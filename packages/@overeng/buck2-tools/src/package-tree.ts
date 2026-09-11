@@ -4,12 +4,14 @@ import {
   copyFileSync,
   lstatSync,
   mkdirSync,
+  readFileSync,
   readdirSync,
   readlinkSync,
   realpathSync,
   rmSync,
   statSync,
   symlinkSync,
+  writeFileSync,
 } from 'node:fs'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -36,6 +38,14 @@ export type PackageTreeOptions = {
   readonly files: ReadonlyMap<string, string>
   readonly workspaceFiles: ReadonlyMap<string, string>
   readonly workspaceLinks: ReadonlyMap<string, string>
+  /**
+   * Remove TypeScript project references from the staged root tsconfig.
+   *
+   * A bounded test view contains one package, while project references describe the
+   * source-workspace build graph. Oxc follows those references during per-file transforms,
+   * so leaving them in would make the bounded view depend on undeclared sibling checkouts.
+   */
+  readonly stripProjectReferences: boolean
 }
 
 const invalidArguments = (message: string): never => {
@@ -93,6 +103,7 @@ const parseOptions = (args: readonly string[]): PackageTreeOptions => {
   const files = new Map<string, string>()
   const workspaceFiles = new Map<string, string>()
   const workspaceLinks = new Map<string, string>()
+  let stripProjectReferences = false
 
   for (let index = 0; index < args.length;) {
     const flag = requireValue({ args, index, flag: 'argument' })
@@ -117,6 +128,8 @@ const parseOptions = (args: readonly string[]): PackageTreeOptions => {
       dependencies = { kind: 'copy', path: value }
     else if (flag === '--dependency-view' && dependencies === undefined)
       dependencies = { kind: 'link', path: value }
+    else if (flag === '--strip-project-references' && value === 'true')
+      stripProjectReferences = true
     else invalidArguments(`unexpected argument: ${flag}`)
     index += 2
   }
@@ -130,6 +143,7 @@ const parseOptions = (args: readonly string[]): PackageTreeOptions => {
     files,
     workspaceFiles,
     workspaceLinks,
+    stripProjectReferences,
   }
 }
 
@@ -260,6 +274,24 @@ const destinationInside = ({
   return destination
 }
 
+const parseJsonc = (source: string): unknown => Bun.JSONC.parse(source)
+
+const cloneProjectFileWithoutReferences = ({
+  source,
+  destination,
+}: {
+  readonly source: string
+  readonly destination: string
+}): void => {
+  const parsed = parseJsonc(readFileSync(source, 'utf8'))
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) === true) {
+    throw new Error('package tree: tsconfig.json must contain an object')
+  }
+  const project = { ...(parsed as Readonly<Record<string, unknown>>), references: [] }
+  mkdirSync(dirname(destination), { recursive: true })
+  writeFileSync(destination, `${JSON.stringify(project, null, 2)}\n`)
+}
+
 /** Assembles one complete package tree from declared package and dependency artifacts. */
 export const assemblePackageTree = (options: PackageTreeOptions): void => {
   const output = resolve(options.output)
@@ -297,11 +329,18 @@ export const assemblePackageTree = (options: PackageTreeOptions): void => {
       symlinkSync(relativeTarget, link)
       statSync(link)
     }
+    let strippedProjectReferences = false
     for (const [destination, source] of [...options.files, ...options.workspaceFiles]) {
-      cloneTree({
-        source,
-        destination: destinationInside({ root: output, relativePath: destination }),
-      })
+      const outputPath = destinationInside({ root: output, relativePath: destination })
+      if (options.stripProjectReferences === true && destination === 'tsconfig.json') {
+        cloneProjectFileWithoutReferences({ source, destination: outputPath })
+        strippedProjectReferences = true
+      } else {
+        cloneTree({ source, destination: outputPath })
+      }
+    }
+    if (options.stripProjectReferences === true && strippedProjectReferences === false) {
+      invalidArguments('--strip-project-references declared but no tsconfig.json was staged')
     }
     for (const [linkPath, targetPath] of options.workspaceLinks) {
       const link = destinationInside({ root: output, relativePath: linkPath })

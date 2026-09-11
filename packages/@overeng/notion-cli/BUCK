@@ -5,15 +5,15 @@ load("//buck2:package_tools.bzl", "package_bin_artifact")
 load("//buck2/products:defs.bzl", "javascript_product")
 
 # Projection source: packages/@overeng/notion-cli/BUCK.genie.ts
-# Projection schema version: 6
+# Projection schema version: 8
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:593d8608475b0e6a8f8cd1c337a29f401c0c7c89010dc96addc8856183658eb0
+# Semantic fingerprint: sha256:89265901f486a4a96c3351d363e54d89a01a6677317894a0024504bce15c0ea1
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-path/BUCK.genie.ts, packages/@overeng/effect-path/package.json.genie.ts, packages/@overeng/notion-cli/BUCK.genie.ts, packages/@overeng/notion-cli/BUCK.genie.ts, packages/@overeng/notion-cli/package.json.genie.ts, packages/@overeng/notion-cli/src/**/*.cts, packages/@overeng/notion-cli/src/**/*.js, packages/@overeng/notion-cli/src/**/*.mts, packages/@overeng/notion-cli/src/**/*.spec.cjs, packages/@overeng/notion-cli/src/**/*.spec.jsx, packages/@overeng/notion-cli/src/**/*.spec.mjs, packages/@overeng/notion-cli/src/**/*.test.cjs, packages/@overeng/notion-cli/src/**/*.test.jsx, packages/@overeng/notion-cli/src/**/*.test.mjs, packages/@overeng/notion-cli/src/**/*.ts, packages/@overeng/notion-cli/src/**/*.tsx, packages/@overeng/notion-cli/src/**/__snapshots__/*.snap, packages/@overeng/notion-cli/tsconfig.json.genie.ts, packages/@overeng/notion-datasource-sync/BUCK.genie.ts, packages/@overeng/notion-datasource-sync/package.json.genie.ts, packages/@overeng/notion-effect-client/BUCK.genie.ts, packages/@overeng/notion-effect-client/package.json.genie.ts, packages/@overeng/notion-effect-schema/BUCK.genie.ts, packages/@overeng/notion-effect-schema/package.json.genie.ts, packages/@overeng/notion-md/BUCK.genie.ts, packages/@overeng/notion-md/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/tui-core/BUCK.genie.ts, packages/@overeng/tui-core/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -205,6 +205,7 @@ package_view(
         "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
+    strip_project_references = True,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
@@ -235,6 +236,23 @@ tsgo_emit(
 vitest_test(
     name = "test",
     package_tree = ":test_package_tree",
+    excludes = [
+        "src/cli.contract.test.ts",
+        "src/integration.integration.test.ts",
+    ],
+    tools = {
+        "BUN_BIN": "//buck2/toolchains:tool_bun",
+    },
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
+    package_tree = ":test_package_tree",
+    excludes = [
+        "src/cli.contract.test.ts",
+        "src/integration.integration.test.ts",
+    ],
     tools = {
         "BUN_BIN": "//buck2/toolchains:tool_bun",
     },

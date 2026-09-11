@@ -2,15 +2,15 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/react-inspector/BUCK.genie.ts
-# Projection schema version: 6
+# Projection schema version: 8
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:8679d55ab65c3cb261aa351e8e008c27b2b97d8246d3173e8a76fd317b015188
+# Semantic fingerprint: sha256:4ffdf2a0939c7c2760b915b3ac7b4e3699a2d7fd0b5b65dc8062bfb30778f8af
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/react-inspector/BUCK.genie.ts, packages/@overeng/react-inspector/BUCK.genie.ts, packages/@overeng/react-inspector/package.json.genie.ts, packages/@overeng/react-inspector/src/**/*.cts, packages/@overeng/react-inspector/src/**/*.js, packages/@overeng/react-inspector/src/**/*.mts, packages/@overeng/react-inspector/src/**/*.spec.cjs, packages/@overeng/react-inspector/src/**/*.spec.jsx, packages/@overeng/react-inspector/src/**/*.spec.mjs, packages/@overeng/react-inspector/src/**/*.test.cjs, packages/@overeng/react-inspector/src/**/*.test.jsx, packages/@overeng/react-inspector/src/**/*.test.mjs, packages/@overeng/react-inspector/src/**/*.ts, packages/@overeng/react-inspector/src/**/*.tsx, packages/@overeng/react-inspector/src/**/__snapshots__/*.snap, packages/@overeng/react-inspector/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -174,6 +174,7 @@ package_view(
         "vitest.config.ts": "vitest.config.ts",
         "vitest.setup.ts": "vitest.setup.ts",
     },
+    strip_project_references = True,
     runtime = "//:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
@@ -203,6 +204,12 @@ tsgo_emit(
 
 vitest_test(
     name = "test",
+    package_tree = ":test_package_tree",
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
     package_tree = ":test_package_tree",
     visibility = ["PUBLIC"],
 )
