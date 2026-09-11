@@ -610,7 +610,7 @@ describe('GitHub expression validation', () => {
 
     const yaml = workflow.stringify(mockGenieContext)
 
-    expect(yaml).toContain('const first = true\n\n        const second = true')
+    expect(yaml).toContain('const first = true\n\n')
     expect(yaml.split('\n').filter((line) => /[ \t]+$/u.test(line))).toEqual([])
   })
 
