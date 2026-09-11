@@ -7,11 +7,7 @@ import {
   type GenieOutput,
 } from '../../packages/@overeng/genie/src/runtime/core.ts'
 import { buck2SemanticFingerprint, renderBuck2Visibility } from './mod.ts'
-import {
-  javaScriptActionRuntime,
-  packageTreeRuntime,
-  stagedModuleName,
-} from './runtime-modules.ts'
+import { javaScriptActionRuntime, packageTreeRuntime, stagedModuleName } from './runtime-modules.ts'
 
 const regenerationCommand = 'devenv tasks run genie:run' as const
 const sourceExtensions = ['.cts', '.js', '.mts', '.ts', '.tsx'] as const
@@ -143,6 +139,23 @@ const discoverPackageFiles = ({
   return sources.toSorted((left, right) => compareStrings({ left, right }))
 }
 
+/** Complete byte-sorted test-module census staged for one package's declared lanes. */
+export const discoverCollectableTestModules = ({
+  packagePath,
+  repoRoot,
+  sourceRoots,
+}: {
+  readonly packagePath: string
+  readonly repoRoot?: string
+  readonly sourceRoots: readonly string[]
+}): readonly string[] =>
+  discoverPackageFiles({
+    packagePath,
+    ...(repoRoot === undefined ? {} : { repoRoot }),
+    sourceRoots,
+    admit: isCollectableTestModule,
+  })
+
 const admitSourceExtension = (relativePath: string): boolean =>
   sourceExtensionSet[path.posix.extname(relativePath)] === true
 
@@ -246,6 +259,20 @@ const testRuleNames = {
   vitest: 'vitest_test',
 } as const satisfies Readonly<Record<string, string>>
 
+/** Rule that reports one Vitest lane's test inventory instead of running it. */
+const vitestCollectRuleName = 'vitest_collect'
+/** Suffix of the collection target derived beside a Vitest execution lane. */
+export const buck2TestCollectionTargetSuffix = '_collect'
+/**
+ * Attributes the collect rule does not accept. Both bound a running test, and collection
+ * runs none; everything else the execution lane validated is passed through unchanged so the
+ * inventory is the selection the lane executes rather than a second, drifting declaration.
+ */
+const collectUnsupportedAttributes: Readonly<Record<string, true>> = {
+  hook_timeout_ms: true,
+  timeout_ms: true,
+}
+
 /** Attested support tool in the hub toolchains package; the runner never resolves from PATH. */
 export type Buck2TestToolLabel = `//buck2/toolchains:${string}`
 
@@ -256,6 +283,13 @@ type Buck2TypeScriptPackageTestTargetBase = {
   readonly testFiles?: readonly string[]
   /** Package-relative paths removed from the lane's selection. */
   readonly excludes?: readonly string[]
+  /**
+   * Source tasks that own specific files outside the bounded selection. Keys are
+   * package-relative test paths; every other unbounded file uses the derived complement task.
+   */
+  readonly sourceOwners?: Readonly<Record<string, string>>
+  /** Extra ordering required by the derived source-side complement task. */
+  readonly unboundedAfter?: readonly string[]
   /** Literal environment the action declares; the runner rejects non-literal values. */
   readonly env?: Readonly<Record<string, string>>
   /** Repository-relative sources exposed to the lane under an environment name. */
@@ -320,19 +354,17 @@ export type Buck2TypeScriptPackageTestDataRoot = {
 
 type ProjectedTestTarget = {
   readonly name: string
+  /** Derived sibling that collects this lane's inventory; only Vitest lanes have one. */
+  readonly collectName: string | undefined
   readonly rule: (typeof testRuleNames)[keyof typeof testRuleNames]
+  /** Every rule symbol the projected targets need loaded, in declaration order. */
+  readonly rules: readonly string[]
   readonly configuredInputKeys: readonly (readonly [string, string])[]
   readonly lines: readonly string[]
   readonly semanticData: unknown
 }
 
-const requireRelativeTestPath = ({
-  field,
-  value,
-}: {
-  field: string
-  value: string
-}): string => {
+const requireRelativeTestPath = ({ field, value }: { field: string; value: string }): string => {
   if (value === '' || value.startsWith('/') === true) {
     throw new Error(`${field} must be relative to the package tree: ${value}`)
   }
@@ -435,15 +467,22 @@ const projectTestTarget = ({
     .toSorted((left, right) => compareStrings({ left, right }))
     .map((inputName) => {
       requireEnvironmentName({ field: 'configured test input name', value: inputName })
-      return [
-        inputName,
-        `${packageSlug}_${target.name}_${inputName.toLowerCase()}`,
-      ] as const
+      return [inputName, `${packageSlug}_${target.name}_${inputName.toLowerCase()}`] as const
     })
   const inheritedEnv = [...(target.inheritedEnv ?? [])]
     .toSorted((left, right) => compareStrings({ left, right }))
     .map((value) => requireEnvironmentName({ field: 'test inherited env name', value }))
   const cacheable = target.cacheable ?? true
+  if (target.runner === 'vitest' && inheritedEnv.length > 0) {
+    throw new Error(
+      `Vitest target ${target.name} cannot inherit ${inheritedEnv.join(', ')} because its derived collection action requires every input in the action identity`,
+    )
+  }
+  if (target.runner === 'vitest' && cacheable === false) {
+    throw new Error(
+      `Vitest target ${target.name} cannot be uncacheable because its derived collection action has no per-action remote-cache read switch`,
+    )
+  }
   if (inheritedEnv.length > 0 && cacheable === true) {
     throw new Error(
       `Test target ${target.name} inherits ${inheritedEnv.join(', ')} from the ambient environment, whose values are outside the action identity, so it must declare cacheable: false`,
@@ -474,10 +513,7 @@ const projectTestTarget = ({
     if (existsSync(path.join(process.cwd(), packagePath, vitest.config)) === false) {
       throw new Error(`Vitest config does not exist: ${packagePath}/${vitest.config}`)
     }
-    if (
-      vitest.vitestRuntime === 'node' &&
-      tools.some(([name]) => name === 'NODE_BIN') === false
-    ) {
+    if (vitest.vitestRuntime === 'node' && tools.some(([name]) => name === 'NODE_BIN') === false) {
       throw new Error(
         `Test target ${target.name} declares the node Vitest runtime, which requires a declared NODE_BIN tool`,
       )
@@ -561,23 +597,51 @@ const projectTestTarget = ({
     ],
   ]
   const rule = testRuleNames[target.runner]
+  const renderTarget = ({
+    attributes,
+    name,
+    rule: targetRule,
+  }: {
+    attributes: readonly (readonly [string, readonly string[] | undefined])[]
+    name: string
+    rule: string
+  }): readonly string[] => [
+    `${targetRule}(`,
+    `    name = ${starlarkString(name)},`,
+    '    package_tree = ":test_package_tree",',
+    ...attributes
+      .toSorted(([left], [right]) => compareStrings({ left, right }))
+      .flatMap(([, lines]) => lines ?? []),
+    renderBuck2Visibility({ visibility }),
+    ')',
+    '',
+  ]
+  // Collection is the same lane observed instead of executed, so it is derived from the
+  // attribute set the execution lane already validated — including the derived
+  // `read_config` keys, which the invoking task therefore supplies exactly once.
+  const collectName =
+    vitest === undefined ? undefined : `${target.name}${buck2TestCollectionTargetSuffix}`
   return {
     name: target.name,
+    collectName,
     rule,
+    rules: collectName === undefined ? [rule] : [rule, vitestCollectRuleName],
     configuredInputKeys,
     lines: [
-      `${rule}(`,
-      `    name = ${starlarkString(target.name)},`,
-      '    package_tree = ":test_package_tree",',
-      ...optionalAttributes
-        .toSorted(([left], [right]) => compareStrings({ left, right }))
-        .flatMap(([, lines]) => lines ?? []),
-      renderBuck2Visibility({ visibility }),
-      ')',
-      '',
+      ...renderTarget({ attributes: optionalAttributes, name: target.name, rule }),
+      ...(collectName === undefined
+        ? []
+        : renderTarget({
+            attributes: optionalAttributes.filter(
+              ([attribute]) => collectUnsupportedAttributes[attribute] !== true,
+            ),
+            name: collectName,
+            rule: vitestCollectRuleName,
+          })),
     ],
     semanticData: {
       cacheable,
+      collectName,
       configInputs,
       configuredInputKeys,
       env,
@@ -685,7 +749,11 @@ export const buck2TypeScriptPackageProjection = ({
         `The first declared test target of ${packageName} must be named ${defaultTestTargetName}, not ${tests[0].name}`,
       )
     }
-    const names = testTargets.map((target) => target.name)
+    // Declared and derived names share one Buck namespace, so a lane literally named
+    // `<other lane>_collect` would silently shadow that lane's inventory target.
+    const names = testTargets.flatMap((target) =>
+      target.collectName === undefined ? [target.name] : [target.name, target.collectName],
+    )
     if (new Set(names).size !== names.length) {
       throw new Error(`Duplicate test target names for ${packageName}: ${names.join(', ')}`)
     }
@@ -800,9 +868,7 @@ export const buck2TypeScriptPackageProjection = ({
       ]),
     ]),
     ...testDataRoots.flatMap((dataRoot) =>
-      dataRoot.extensions.map(
-        (extension) => `${packagePath}/${dataRoot.root}/**/*${extension}`,
-      ),
+      dataRoot.extensions.map((extension) => `${packagePath}/${dataRoot.root}/**/*${extension}`),
     ),
     ...workspaceSiblingProjections.flatMap((sibling) => [
       `${sibling.packagePath}/package.json.genie.ts`,
@@ -839,14 +905,14 @@ export const buck2TypeScriptPackageProjection = ({
   }
   const fingerprint = buck2SemanticFingerprint({
     generator: 'effect-utils/genie/buck2-typescript-package-projection',
-    schemaVersion: 6,
+    schemaVersion: 8,
     semanticData: data,
   })
 
   const stringify = (): string => {
     const lines = [
       `# Projection source: ${projectionSource}`,
-      '# Projection schema version: 6',
+      '# Projection schema version: 8',
       '# Projection generator: effect-utils/genie/buck2-typescript-package-projection',
       `# Semantic fingerprint: ${fingerprint}`,
       `# Semantic inputs: ${semanticInputs.join(', ')}`,
@@ -857,7 +923,9 @@ export const buck2TypeScriptPackageProjection = ({
       ...(testTargets.length === 0
         ? []
         : [
-            `load("//buck2:javascript.bzl", ${[...new Set(testTargets.map((target) => target.rule))]
+            `load("//buck2:javascript.bzl", ${[
+              ...new Set(testTargets.flatMap((target) => target.rules)),
+            ]
               .toSorted((left, right) => compareStrings({ left, right }))
               .map((rule) => starlarkString(rule))
               .join(', ')})`,
@@ -902,6 +970,7 @@ export const buck2TypeScriptPackageProjection = ({
             '    name = "test_package_tree",',
             `    dependency_view = ${starlarkString(dependencyView)},`,
             ...renderMap({ name: 'files', entries: testPackageFileEntries }),
+            '    strip_project_references = True,',
             `    runtime = ${starlarkString(packageTreeRuntime.label)},`,
             `    runtime_entry = ${starlarkString(runtimeEntry)},`,
             renderBuck2Visibility({ visibility }),
@@ -932,9 +1001,7 @@ export const buck2TypeScriptPackageProjection = ({
       ...(projectFile === 'tsconfig.json' ? [] : [`    project = ${starlarkString(projectFile)},`]),
       ...(authority === undefined
         ? []
-        : [
-            `    declaration_entrypoint = ${starlarkString(authority.declarationEntrypoint)},`,
-          ]),
+        : [`    declaration_entrypoint = ${starlarkString(authority.declarationEntrypoint)},`]),
       renderBuck2Visibility({ visibility }),
       ')',
       '',

@@ -737,12 +737,23 @@ publish exited 1` with nothing to diagnose it by. `CpAMemberMountError` now
   workflow drops from 518,102 to 466,190 bytes, leaving 33,810 bytes below the
   enforced admission ceiling.
 
+- **Buck2 unit tests**: transfer 32 bounded package lanes to hermetic Buck
+  execution, publish exact Vitest collection artifacts, and generate a
+  fail-closed ownership partition for all 433 repository test files.
+  Source-side complements and dedicated integration/Playwright owners remain
+  explicit; the baseline gate independently reconciles the filesystem census,
+  generated authority, Buck collection results, and source reports.
+- **@overeng/tui-react**: restore its dedicated Playwright owner and current
+  seven-tab Storybook contracts, make preview state updates observable, expose
+  terminal text to assistive technology, and keep Node-only stdout modules
+  outside browser evaluation.
+
 ### Removed
 
 - **context/effect-4/**: the flip-era migration docs (alignment register, idiom
   catalog, differential recipes, ops manuals). The executable
   baseline-collection gate moved to
-  `@overeng/utils-dev/check-baseline-test-collection.ts`. The empty
+  `@overeng/utils-dev/src/check-baseline-test-collection.ts`. The empty
   `utilsPatches` projection registry is gone from genie config.
 - Retire the dormant Buck closure-compiler and package-evidence regime, including
   its unused Buck rules, Rust tools, Nix capabilities, and projection tests;

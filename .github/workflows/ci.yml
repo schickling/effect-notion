@@ -1035,6 +1035,398 @@ jobs:
     concurrency:
       group: "${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '' && format('measurement-baseline-{0}', inputs.measurement_baseline_ref) || (github.event_name == 'workflow_dispatch' && format('manual-run-{0}', github.run_id) || (github.event_name == 'pull_request' && (github.event.action == 'labeled' || github.event.action == 'unlabeled') && format('label-{0}', github.event.label.name) || 'code')) }}-test-${{ strategy.job-index }}"
       cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '') && (github.event_name != 'pull_request' || (github.event.action != 'labeled' && github.event.action != 'unlabeled')) }}
+  test-playwright-utils:
+    if: ${{ (!(github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '')) && github.event_name != 'schedule' }}
+    runs-on:
+      [namespace-profile-linux-x86-64, 'namespace-features:github.run-id=${{ github.run_id }}']
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      FORCE_SETUP: '1'
+      CI: 'true'
+      BUCK2_NO_REMOTE_CACHE: '1'
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install Nix
+        uses: DeterminateSystems/determinate-nix-action@v3
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+            extra-substituters = https://devenv.cachix.org
+            extra-trusted-public-keys = devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=
+            access-tokens = github.com=${{ github.token }}
+          summarize: true
+      - name: Checkout CI measurement baseline ref
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '' }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.measurement_baseline_ref }}
+      - name: Prepare effect-utils composition
+        run: '$GITHUB_WORKSPACE/genie/ci-scripts/prepare-effect-utils-composition.sh'
+      - name: Provide cachix CLI from nixpkgs
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=$(nix build --no-link --print-out-paths nixpkgs#cachix)
+          echo "$out/bin" >> "$GITHUB_PATH"
+      - name: Enable Cachix cache
+        uses: cachix/cachix-action@v17
+        with:
+          name: overeng-effect-utils
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      - name: Prepare CI helper scripts
+        shell: bash
+        run: |
+          cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && set -euo pipefail
+          scripts_src='genie/ci-scripts'
+          scripts_dst='${{ runner.temp }}/composition-state/ci-runtime'
+          if [ ! -d "$scripts_src" ]; then
+            echo "::error::CI helper script directory is missing: $scripts_src"
+            exit 1
+          fi
+          rm -rf "$scripts_dst"
+          mkdir -p "$scripts_dst"
+          cp -R "$scripts_src/." "$scripts_dst/"
+          rm -f "$scripts_dst"/*.genie.ts
+          chmod +x "$scripts_dst"/*.sh
+      - name: Use pinned devenv from lock
+        run: |
+          cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && DEVENV_REV=$(jq -r .nodes.devenv.locked.rev 'devenv.lock')
+          if [ -z "$DEVENV_REV" ] || [ "$DEVENV_REV" = "null" ]; then
+            printf '::error::%s missing .nodes.devenv.locked.rev\n' 'devenv.lock'
+            exit 1
+          fi
+          echo "DEVENV_REV=$DEVENV_REV" >> "$GITHUB_ENV"
+          echo "Pinned devenv rev: $DEVENV_REV"
+        shell: bash
+      - name: Resolve devenv
+        run: |
+          __genie_ci_retry_script='${{ runner.temp }}/composition-state/ci-runtime/run-with-nix-gc-race-retry.sh'
+          bash "$__genie_ci_retry_script" 'resolve devenv (devenv.lock)' 'cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && '"'"'${{ runner.temp }}/composition-state/ci-runtime/resolve-devenv.sh'"'"' '"'"'devenv.lock'"'"''
+        shell: bash
+      - name: Evict cached pnpm deps for oxlint-npm
+        shell: bash
+        run: |
+          cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && targetRef='.#oxlint-npm'
+          entriesJson=$(mktemp)
+          if nix eval --json "$targetRef.passthru.depsBuildEntries" >"$entriesJson" 2>/dev/null; then
+            while IFS=$'\t' read -r attrName drv; do
+              [ -n "$drv" ] || continue
+              while IFS= read -r outPath; do
+                [ -n "$outPath" ] || continue
+                if nix path-info "$outPath" >/dev/null 2>&1; then
+                  echo "evicting cached: $(basename "$outPath")"
+                  if ! nix store delete --ignore-liveness "$outPath" >/dev/null 2>&1; then
+                    echo "::error::failed to evict cached pnpm-deps output: $outPath"
+                    exit 1
+                  fi
+                  if nix path-info "$outPath" >/dev/null 2>&1; then
+                    echo "::error::cached pnpm-deps output still present after eviction: $outPath"
+                    exit 1
+                  fi
+                fi
+              done < <(nix-store -q --outputs "$drv" 2>/dev/null || true)
+            done < <(jq -r '.[] | [.attrName, (.drvPath // "")] | @tsv' "$entriesJson")
+          else
+            topDrv=$(nix path-info --derivation "$targetRef" 2>/dev/null || true)
+            if [ -n "$topDrv" ]; then
+              while IFS= read -r drv; do
+                [ -n "$drv" ] || continue
+                attrName=""
+              while IFS= read -r outPath; do
+                [ -n "$outPath" ] || continue
+                if nix path-info "$outPath" >/dev/null 2>&1; then
+                  echo "evicting cached: $(basename "$outPath")"
+                  if ! nix store delete --ignore-liveness "$outPath" >/dev/null 2>&1; then
+                    echo "::error::failed to evict cached pnpm-deps output: $outPath"
+                    exit 1
+                  fi
+                  if nix path-info "$outPath" >/dev/null 2>&1; then
+                    echo "::error::cached pnpm-deps output still present after eviction: $outPath"
+                    exit 1
+                  fi
+                fi
+              done < <(nix-store -q --outputs "$drv" 2>/dev/null || true)
+              done < <(nix-store -qR "$topDrv" 2>/dev/null | grep "pnpm-deps-[a-z0-9-]*-v[0-9].*\.drv$" || true)
+            fi
+          fi
+          rm -f "$entriesJson"
+      - name: Force diagnostics failure (debug)
+        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.debug_force_nix_diagnostics_failure == true || inputs.debug_force_nix_diagnostics_failure == 'true') }}
+        shell: bash
+        run: |
+          diag_dir="${NIX_STORE_DIAGNOSTICS_DIR:-${RUNNER_TEMP:-/tmp}/composition-state/nix-store-diagnostics-missing}"
+          mkdir -p "$diag_dir"
+          cat > "$diag_dir/synthetic-signature.log" <<'EOF'
+          Failed to convert config.cachix to JSON
+          ... while evaluating the option `cachix.package`
+          error: path '/nix/store/synthetic-invalid-path' is not valid
+          EOF
+          echo "::warning::Intentional failure for diagnostics validation (#272)"
+          exit 1
+      - name: Utils Playwright tests
+        run: |
+          __genie_ci_retry_script='${{ runner.temp }}/composition-state/ci-runtime/run-with-nix-gc-race-retry.sh'
+          bash "$__genie_ci_retry_script" 'devenv tasks run test:pw:utils' 'cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && if [ -n "${NIX_CONFIG:-}" ]; then NIX_CONFIG_WITH_APPEND=$(printf '"'"'%s\n%s'"'"' "$NIX_CONFIG" '"'"'restrict-eval = false'"'"'); else NIX_CONFIG_WITH_APPEND='"'"'restrict-eval = false'"'"'; fi; NIX_CONFIG="$NIX_CONFIG_WITH_APPEND" DEVENV_TASK_PASSTHROUGH=1 DEVENV_TUI=false "${DEVENV_BIN:?DEVENV_BIN not set}" tasks run test:pw:utils'
+      - name: Nix diagnostics summary
+        if: failure()
+        shell: bash
+        run: |
+          diag_dir="${NIX_STORE_DIAGNOSTICS_DIR:-}"
+          if [ -z "$diag_dir" ] || [ ! -d "$diag_dir" ]; then
+            echo "## Nix Store Diagnostics" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "No diagnostics directory found (validation may have failed before capture)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "## Nix Store Diagnostics"
+            echo ""
+            echo "Temporary instrumentation for #272; remove after root cause is confirmed and CI is stable."
+            echo ""
+            echo "- Diagnostics directory: \`$diag_dir\`"
+            echo "- Tracking issue: https://github.com/overengineeringstudio/effect-utils/issues/272"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          markers_file="${RUNNER_TEMP:-/tmp}/nix-store-signature-markers.txt"
+          grep -R -n -E "config\\.cachix|cachix\\.package|error: path '/nix/store/.+ is not valid" --exclude="$(basename "$markers_file")" "$diag_dir" > "$markers_file" || true
+
+          if [ -s "$markers_file" ]; then
+            {
+              echo ""
+              echo "### Signature markers"
+              echo '```text'
+              head -n 120 "$markers_file"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "- No signature markers found in captured diagnostics." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload Nix diagnostics artifact
+        if: failure() && env.NIX_STORE_DIAGNOSTICS_DIR != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'nix-store-diagnostics-${{ github.job }}-${{ runner.os }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}'
+          path: ${{ env.NIX_STORE_DIAGNOSTICS_DIR }}
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Failure note
+        if: failure()
+        shell: bash
+        run: |
+          echo "If this looks like Namespace runner Nix store corruption (e.g. \"... is not valid\", \"config.cachix\", \"cachix.package\"), add the run link + full nix-store output to:"
+          echo "  https://github.com/overengineeringstudio/effect-utils/issues/201"
+      - name: Cleanup effect-utils composition
+        if: always()
+        run: '$GITHUB_WORKSPACE/genie/ci-scripts/cleanup-effect-utils-composition.sh'
+    concurrency:
+      group: "${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '' && format('measurement-baseline-{0}', inputs.measurement_baseline_ref) || (github.event_name == 'workflow_dispatch' && format('manual-run-{0}', github.run_id) || (github.event_name == 'pull_request' && (github.event.action == 'labeled' || github.event.action == 'unlabeled') && format('label-{0}', github.event.label.name) || 'code')) }}-test-playwright-utils"
+      cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '') && (github.event_name != 'pull_request' || (github.event.action != 'labeled' && github.event.action != 'unlabeled')) }}
+  test-playwright-tui-react:
+    if: ${{ (!(github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '')) && github.event_name != 'schedule' }}
+    runs-on:
+      [namespace-profile-linux-x86-64, 'namespace-features:github.run-id=${{ github.run_id }}']
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      FORCE_SETUP: '1'
+      CI: 'true'
+      BUCK2_NO_REMOTE_CACHE: '1'
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install Nix
+        uses: DeterminateSystems/determinate-nix-action@v3
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+            extra-substituters = https://devenv.cachix.org
+            extra-trusted-public-keys = devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=
+            access-tokens = github.com=${{ github.token }}
+          summarize: true
+      - name: Checkout CI measurement baseline ref
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '' }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.measurement_baseline_ref }}
+      - name: Prepare effect-utils composition
+        run: '$GITHUB_WORKSPACE/genie/ci-scripts/prepare-effect-utils-composition.sh'
+      - name: Provide cachix CLI from nixpkgs
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=$(nix build --no-link --print-out-paths nixpkgs#cachix)
+          echo "$out/bin" >> "$GITHUB_PATH"
+      - name: Enable Cachix cache
+        uses: cachix/cachix-action@v17
+        with:
+          name: overeng-effect-utils
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      - name: Prepare CI helper scripts
+        shell: bash
+        run: |
+          cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && set -euo pipefail
+          scripts_src='genie/ci-scripts'
+          scripts_dst='${{ runner.temp }}/composition-state/ci-runtime'
+          if [ ! -d "$scripts_src" ]; then
+            echo "::error::CI helper script directory is missing: $scripts_src"
+            exit 1
+          fi
+          rm -rf "$scripts_dst"
+          mkdir -p "$scripts_dst"
+          cp -R "$scripts_src/." "$scripts_dst/"
+          rm -f "$scripts_dst"/*.genie.ts
+          chmod +x "$scripts_dst"/*.sh
+      - name: Use pinned devenv from lock
+        run: |
+          cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && DEVENV_REV=$(jq -r .nodes.devenv.locked.rev 'devenv.lock')
+          if [ -z "$DEVENV_REV" ] || [ "$DEVENV_REV" = "null" ]; then
+            printf '::error::%s missing .nodes.devenv.locked.rev\n' 'devenv.lock'
+            exit 1
+          fi
+          echo "DEVENV_REV=$DEVENV_REV" >> "$GITHUB_ENV"
+          echo "Pinned devenv rev: $DEVENV_REV"
+        shell: bash
+      - name: Resolve devenv
+        run: |
+          __genie_ci_retry_script='${{ runner.temp }}/composition-state/ci-runtime/run-with-nix-gc-race-retry.sh'
+          bash "$__genie_ci_retry_script" 'resolve devenv (devenv.lock)' 'cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && '"'"'${{ runner.temp }}/composition-state/ci-runtime/resolve-devenv.sh'"'"' '"'"'devenv.lock'"'"''
+        shell: bash
+      - name: Evict cached pnpm deps for oxlint-npm
+        shell: bash
+        run: |
+          cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && targetRef='.#oxlint-npm'
+          entriesJson=$(mktemp)
+          if nix eval --json "$targetRef.passthru.depsBuildEntries" >"$entriesJson" 2>/dev/null; then
+            while IFS=$'\t' read -r attrName drv; do
+              [ -n "$drv" ] || continue
+              while IFS= read -r outPath; do
+                [ -n "$outPath" ] || continue
+                if nix path-info "$outPath" >/dev/null 2>&1; then
+                  echo "evicting cached: $(basename "$outPath")"
+                  if ! nix store delete --ignore-liveness "$outPath" >/dev/null 2>&1; then
+                    echo "::error::failed to evict cached pnpm-deps output: $outPath"
+                    exit 1
+                  fi
+                  if nix path-info "$outPath" >/dev/null 2>&1; then
+                    echo "::error::cached pnpm-deps output still present after eviction: $outPath"
+                    exit 1
+                  fi
+                fi
+              done < <(nix-store -q --outputs "$drv" 2>/dev/null || true)
+            done < <(jq -r '.[] | [.attrName, (.drvPath // "")] | @tsv' "$entriesJson")
+          else
+            topDrv=$(nix path-info --derivation "$targetRef" 2>/dev/null || true)
+            if [ -n "$topDrv" ]; then
+              while IFS= read -r drv; do
+                [ -n "$drv" ] || continue
+                attrName=""
+              while IFS= read -r outPath; do
+                [ -n "$outPath" ] || continue
+                if nix path-info "$outPath" >/dev/null 2>&1; then
+                  echo "evicting cached: $(basename "$outPath")"
+                  if ! nix store delete --ignore-liveness "$outPath" >/dev/null 2>&1; then
+                    echo "::error::failed to evict cached pnpm-deps output: $outPath"
+                    exit 1
+                  fi
+                  if nix path-info "$outPath" >/dev/null 2>&1; then
+                    echo "::error::cached pnpm-deps output still present after eviction: $outPath"
+                    exit 1
+                  fi
+                fi
+              done < <(nix-store -q --outputs "$drv" 2>/dev/null || true)
+              done < <(nix-store -qR "$topDrv" 2>/dev/null | grep "pnpm-deps-[a-z0-9-]*-v[0-9].*\.drv$" || true)
+            fi
+          fi
+          rm -f "$entriesJson"
+      - name: Force diagnostics failure (debug)
+        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.debug_force_nix_diagnostics_failure == true || inputs.debug_force_nix_diagnostics_failure == 'true') }}
+        shell: bash
+        run: |
+          diag_dir="${NIX_STORE_DIAGNOSTICS_DIR:-${RUNNER_TEMP:-/tmp}/composition-state/nix-store-diagnostics-missing}"
+          mkdir -p "$diag_dir"
+          cat > "$diag_dir/synthetic-signature.log" <<'EOF'
+          Failed to convert config.cachix to JSON
+          ... while evaluating the option `cachix.package`
+          error: path '/nix/store/synthetic-invalid-path' is not valid
+          EOF
+          echo "::warning::Intentional failure for diagnostics validation (#272)"
+          exit 1
+      - name: TUI React Playwright tests
+        run: |
+          __genie_ci_retry_script='${{ runner.temp }}/composition-state/ci-runtime/run-with-nix-gc-race-retry.sh'
+          bash "$__genie_ci_retry_script" 'devenv tasks run test:pw:tui-react' 'cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && if [ -n "${NIX_CONFIG:-}" ]; then NIX_CONFIG_WITH_APPEND=$(printf '"'"'%s\n%s'"'"' "$NIX_CONFIG" '"'"'restrict-eval = false'"'"'); else NIX_CONFIG_WITH_APPEND='"'"'restrict-eval = false'"'"'; fi; NIX_CONFIG="$NIX_CONFIG_WITH_APPEND" DEVENV_TASK_PASSTHROUGH=1 DEVENV_TUI=false "${DEVENV_BIN:?DEVENV_BIN not set}" tasks run test:pw:tui-react'
+      - name: Nix diagnostics summary
+        if: failure()
+        shell: bash
+        run: |
+          diag_dir="${NIX_STORE_DIAGNOSTICS_DIR:-}"
+          if [ -z "$diag_dir" ] || [ ! -d "$diag_dir" ]; then
+            echo "## Nix Store Diagnostics" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "No diagnostics directory found (validation may have failed before capture)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "## Nix Store Diagnostics"
+            echo ""
+            echo "Temporary instrumentation for #272; remove after root cause is confirmed and CI is stable."
+            echo ""
+            echo "- Diagnostics directory: \`$diag_dir\`"
+            echo "- Tracking issue: https://github.com/overengineeringstudio/effect-utils/issues/272"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          markers_file="${RUNNER_TEMP:-/tmp}/nix-store-signature-markers.txt"
+          grep -R -n -E "config\\.cachix|cachix\\.package|error: path '/nix/store/.+ is not valid" --exclude="$(basename "$markers_file")" "$diag_dir" > "$markers_file" || true
+
+          if [ -s "$markers_file" ]; then
+            {
+              echo ""
+              echo "### Signature markers"
+              echo '```text'
+              head -n 120 "$markers_file"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "- No signature markers found in captured diagnostics." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload Nix diagnostics artifact
+        if: failure() && env.NIX_STORE_DIAGNOSTICS_DIR != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'nix-store-diagnostics-${{ github.job }}-${{ runner.os }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}'
+          path: ${{ env.NIX_STORE_DIAGNOSTICS_DIR }}
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Failure note
+        if: failure()
+        shell: bash
+        run: |
+          echo "If this looks like Namespace runner Nix store corruption (e.g. \"... is not valid\", \"config.cachix\", \"cachix.package\"), add the run link + full nix-store output to:"
+          echo "  https://github.com/overengineeringstudio/effect-utils/issues/201"
+      - name: Cleanup effect-utils composition
+        if: always()
+        run: '$GITHUB_WORKSPACE/genie/ci-scripts/cleanup-effect-utils-composition.sh'
+    concurrency:
+      group: "${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '' && format('measurement-baseline-{0}', inputs.measurement_baseline_ref) || (github.event_name == 'workflow_dispatch' && format('manual-run-{0}', github.run_id) || (github.event_name == 'pull_request' && (github.event.action == 'labeled' || github.event.action == 'unlabeled') && format('label-{0}', github.event.label.name) || 'code')) }}-test-playwright-tui-react"
+      cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '') && (github.event_name != 'pull_request' || (github.event.action != 'labeled' && github.event.action != 'unlabeled')) }}
   test-megarepo-cold-gc:
     if: ${{ (!(github.event_name == 'workflow_dispatch' && inputs.measurement_baseline_ref != '')) && github.event_name != 'schedule' }}
     runs-on:
@@ -2775,7 +3167,7 @@ jobs:
           __genie_ci_retry_script='${{ runner.temp }}/composition-state/ci-runtime/run-with-nix-gc-race-retry.sh'
           bash "$__genie_ci_retry_script" 'resolve devenv (devenv.lock)' 'cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && '"'"'${{ runner.temp }}/composition-state/ci-runtime/resolve-devenv.sh'"'"' '"'"'devenv.lock'"'"''
         shell: bash
-      - name: Prove a fresh context gets a remote action-cache hit
+      - name: Prove fresh-root remote action and test-cache hits
         env:
           BUCK2_REMOTE_CACHE_BASIC_AUTH: ${{ secrets.BUCK2_REMOTE_CACHE_BASIC_AUTH }}
         run: |
@@ -2790,14 +3182,21 @@ jobs:
           fi
           cd "${EFFECT_UTILS_WORKSPACE_ROOT:?EFFECT_UTILS_WORKSPACE_ROOT not set}"
           buck="$PWD/.megarepo/bin/buck2"
+          context_b="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-remote-cache-proof-context-b"
           target="effect_utils//packages/@overeng/ci-tools:ci-tools-candidate"
+          test_target="effect_utils//packages/@overeng/content-address:test"
           proof_source="${EFFECT_UTILS_MEMBER_ROOT:?EFFECT_UTILS_MEMBER_ROOT not set}/packages/@overeng/ci-tools/bin/ci-tools.ts"
+          test_proof_source="${EFFECT_UTILS_MEMBER_ROOT:?EFFECT_UTILS_MEMBER_ROOT not set}/packages/@overeng/content-address/src/mod.unit.test.ts"
           printf '%s\n' '' "// trusted remote-cache proof ${GITHUB_RUN_ID:?GITHUB_RUN_ID not set}-${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT not set}" >> "$proof_source"
+          printf '%s\n' '' "// trusted test-cache proof ${GITHUB_RUN_ID:?GITHUB_RUN_ID not set}-${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT not set}" >> "$test_proof_source"
           evidence_a="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-remote-cache-proof-a.jsonl"
+          test_evidence_a="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-test-cache-proof-a.jsonl"
           evidence_b="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-remote-cache-proof-b.jsonl"
-          trap 'rm -f "$evidence_a" "$evidence_b"' EXIT
+          test_evidence_b="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-test-cache-proof-b.jsonl"
+          test_evidence_c="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-test-cache-proof-c.jsonl"
+          trap 'rm -f "$evidence_a" "$test_evidence_a" "$evidence_b" "$test_evidence_b" "$test_evidence_c"; rm -rf "$context_b"' EXIT
 
-          # Context A has a run-unique source input, executes locally, and uploads to the remote cache.
+          # Context A has run-unique source inputs, executes locally, and uploads to the remote cache.
           # The composition wrapper fixes --isolation-dir, so freshness comes from daemon and state removal.
           "$buck" kill
           rm -rf buck-out
@@ -2807,12 +3206,37 @@ jobs:
             echo "::error::Context A did not report a successful upload for a locally executed action"
             exit 1
           fi
+          "$buck" test --target-platforms effect_utils//buck2/platforms:host_platform --local-only "$test_target"
+          "$buck" log show --recent 1 > "$test_evidence_a"
+          if ! jq -e 'select(.Event.data.SpanEnd.data.TestRun.command_report.details.command_kind.command.LocalCommand)' "$test_evidence_a" >/dev/null; then
+            echo "::error::Context A did not execute the representative unit-test lane locally"
+            exit 1
+          fi
 
-          # Context B is a fresh daemon and materializer over the identical action input.
+          # Context B is a second composed root with a fresh daemon and materializer over identical inputs.
           "$buck" kill
-          rm -rf buck-out
+          rm -rf buck-out "$context_b"
+          mkdir -p "$context_b/.buck2" "$context_b/.megarepo" "$context_b/repos/effect-utils"
+          cp -a .buckconfig .buckroot BUCK megarepo.kdl "$context_b/"
+          cp -a .buck2/capabilities "$context_b/.buck2/"
+          cp -a .megarepo/bin "$context_b/.megarepo/"
+          tar -C repos/effect-utils \
+            --exclude='./.devenv' \
+            --exclude='./.git' \
+            --exclude='./buck-out' \
+            --exclude='./node_modules' \
+            --exclude='./packages/.editor-view' \
+            --exclude='./target' \
+            --exclude='./tmp' \
+            --exclude='*/__pycache__' \
+            --exclude='*/dist' \
+            --exclude='*/node_modules' \
+            --exclude='*/target' \
+            -cf - . | tar -C "$context_b/repos/effect-utils" -xf -
+          cd "$context_b"
+          buck="$PWD/.megarepo/bin/buck2"
 
-          # Buck event data must classify the independently built result as a remote action-cache hit.
+          # Buck event data must classify the independent build as a remote action-cache hit.
           "$buck" build --local-only "$target"
           "$buck" log show --recent 1 > "$evidence_b"
           if ! jq -e 'select(.Event.data.SpanEnd.data.ActionExecution.execution_kind == "ACTION_EXECUTION_KIND_ACTION_CACHE")' "$evidence_b" >/dev/null; then
@@ -2823,7 +3247,32 @@ jobs:
             echo "::error::Context B executed an action or reused local action state instead of relying on the remote action cache"
             exit 1
           fi
-          echo "Fresh-context remote action-cache proof passed"
+
+          # The representative unit test must pass from the remote test cache without a local test command.
+          "$buck" test --target-platforms effect_utils//buck2/platforms:host_platform --local-only "$test_target"
+          "$buck" log show --recent 1 > "$test_evidence_b"
+          if ! jq -e 'select(.Event.data.Instant.data.TestResult.name == "effect_utils//packages/@overeng/content-address:test" and .Event.data.Instant.data.TestResult.status == 1)' "$test_evidence_b" >/dev/null; then
+            echo "::error::Context B did not report the cached representative unit test as passing"
+            exit 1
+          fi
+          if jq -e 'select(.Event.data.SpanEnd.data.TestRun.command_report.details.command_kind.command.LocalCommand)' "$test_evidence_b" >/dev/null; then
+            echo "::error::Context B executed the representative unit test locally instead of using the remote test cache"
+            exit 1
+          fi
+
+          # A source file outside the representative target graph must not change its test action key.
+          printf '%s\n' '' "// trusted irrelevant-mutation proof ${GITHUB_RUN_ID:?GITHUB_RUN_ID not set}-${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT not set}" >> repos/effect-utils/README.md
+          "$buck" test --target-platforms effect_utils//buck2/platforms:host_platform --local-only "$test_target"
+          "$buck" log show --recent 1 > "$test_evidence_c"
+          if ! jq -e 'select(.Event.data.Instant.data.TestResult.name == "effect_utils//packages/@overeng/content-address:test" and .Event.data.Instant.data.TestResult.status == 1)' "$test_evidence_c" >/dev/null; then
+            echo "::error::The irrelevant mutation prevented the cached representative unit test from passing"
+            exit 1
+          fi
+          if jq -e 'select(.Event.data.SpanEnd.data.TestRun.command_report.details.command_kind.command.LocalCommand)' "$test_evidence_c" >/dev/null; then
+            echo "::error::The irrelevant mutation changed the representative unit-test action key"
+            exit 1
+          fi
+          echo "Fresh-root remote action and test-cache proof passed"
           BUCK2_REMOTE_CACHE_PROOF
           "${DEVENV_BIN:?DEVENV_BIN not set}" shell -- bash "$proof_script"
       - name: Cleanup effect-utils composition
@@ -8262,6 +8711,8 @@ jobs:
       - typecheck
       - lint
       - test
+      - test-playwright-utils
+      - test-playwright-tui-react
       - test-megarepo-cold-gc
       - nix-check
       - nix-fod-check

@@ -4,6 +4,7 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readlinkSync,
   rmSync,
   statSync,
@@ -11,7 +12,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { isAbsolute, join } from 'node:path'
+import { dirname, isAbsolute, join } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -157,6 +158,54 @@ describe('Buck package view over a normalized dependency view', () => {
     expect(lstatSync(link).isSymbolicLink()).toBe(true)
     expect(statSync(join(link, 'safe', 'package.json')).isFile()).toBe(true)
     expect(statSync(join(fixture.output, 'src', 'mod.ts')).isFile()).toBe(true)
+  })
+  it('strips workspace project references from a bounded test view', () => {
+    const fixture = createAssemblyFixture()
+    const source = join(fixture.root, 'tsconfig.json')
+    writeFileSync(
+      source,
+      '// generated JSONC\n{"compilerOptions":{"jsx":"react-jsx"},"references":[{"path":"../sibling"}]}\n',
+    )
+
+    runPackageTreeCli([
+      '--output',
+      fixture.output,
+      '--dependency-view',
+      fixture.nodeModules,
+      '--strip-project-references',
+      'true',
+      '--file',
+      'tsconfig.json',
+      source,
+    ])
+
+    expect(JSON.parse(readFileSync(join(fixture.output, 'tsconfig.json'), 'utf8'))).toEqual({
+      compilerOptions: { jsx: 'react-jsx' },
+      references: [],
+    })
+    expect(readFileSync(source, 'utf8')).toContain('../sibling')
+  })
+
+  it('rejects project-reference stripping without a staged tsconfig.json', () => {
+    const fixture = createAssemblyFixture()
+    const source = join(fixture.root, 'src', 'mod.ts')
+    mkdirSync(dirname(source), { recursive: true })
+    writeFileSync(source, 'export const value = 1\n')
+
+    expect(() =>
+      runPackageTreeCli([
+        '--output',
+        fixture.output,
+        '--dependency-view',
+        fixture.nodeModules,
+        '--strip-project-references',
+        'true',
+        '--file',
+        'src/mod.ts',
+        source,
+      ]),
+    ).toThrow('--strip-project-references declared but no tsconfig.json was staged')
+    expect(existsSync(fixture.output)).toBe(false)
   })
 
   it.each(['--file', '--workspace-file', '--workspace-link'] as const)(

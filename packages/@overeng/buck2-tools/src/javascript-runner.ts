@@ -1,8 +1,9 @@
 /** Pinned Bun runner for Buck JavaScript commands and tests. */
+import { Buffer } from 'node:buffer'
 import { rmSync } from 'node:fs'
 import { mkdir, mkdtemp, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { hashDeclaredInputRoots } from './typescript-runner.ts'
@@ -36,6 +37,8 @@ export type JavaScriptRunOptions = {
 }
 
 const COLLECTION_REPORT_NAME = 'vitest-collection.json'
+/** Schema version of the published Vitest collection artifact. */
+export const COLLECTION_SCHEMA_VERSION = 1
 const fail = (message: string): never => {
   throw new Error(`javascript runner: ${message}`)
 }
@@ -259,6 +262,7 @@ export const vitestArgv = (options: {
   '--config',
   join(options.packageTree, options.config),
   '--configLoader=runner',
+  '--no-cache',
   '--testTimeout',
   String(options.timeoutMs),
   '--hookTimeout',
@@ -271,12 +275,12 @@ export const vitestArgv = (options: {
 ]
 
 /**
- * Builds the argv for the collection entrypoint, which enumerates tests without executing them
- * and writes the discovered set to the report path.
+ * Builds the argv for the pinned Vitest `list` CLI, which enumerates the declared selection
+ * without executing assertions and writes the raw collection to the scratch report path. The
+ * raw report is Vitest's own shape and is normalised before anything is published.
  */
 export const vitestCollectArgv = (options: {
   readonly runtime: string
-  readonly entry: string
   readonly packageTree: string
   readonly config: string
   readonly report: string
@@ -284,13 +288,91 @@ export const vitestCollectArgv = (options: {
   readonly excludes: readonly string[]
 }): readonly string[] => [
   options.runtime,
-  options.entry,
-  options.packageTree,
-  options.config,
-  options.report,
-  ...options.tests.flatMap((path) => ['--test', path]),
+  join(options.packageTree, 'node_modules/vitest/vitest.mjs'),
+  'list',
+  '--config',
+  join(options.packageTree, options.config),
+  '--configLoader=runner',
+  '--no-cache',
+  `--json=${options.report}`,
+  ...options.tests,
   ...options.excludes.flatMap((path) => ['--exclude', path]),
 ]
+
+/** One collected test identity, addressed by its package-relative file and full test name. */
+export type CollectedTest = {
+  readonly file: string
+  readonly name: string
+}
+/**
+ * The published collection artifact: a versioned, byte-sorted inventory of the tests a Vitest
+ * lane owns. Consumers diff it against the source-owned selection, so its bytes must depend
+ * only on the declared inputs.
+ */
+export type VitestCollection = {
+  readonly schemaVersion: typeof COLLECTION_SCHEMA_VERSION
+  readonly tests: readonly CollectedTest[]
+}
+
+const collectedTest = ({
+  entry,
+  index,
+  packageTree,
+}: {
+  readonly entry: unknown
+  readonly index: number
+  readonly packageTree: string
+}): CollectedTest => {
+  if (typeof entry !== 'object' || entry === null || Array.isArray(entry) === true)
+    return fail(`collected test ${index} is not an object: ${JSON.stringify(entry)}`)
+  const { file, name } = entry as { readonly file?: unknown; readonly name?: unknown }
+  if (typeof file !== 'string' || file.length === 0)
+    return fail(`collected test ${index} has no test file`)
+  if (typeof name !== 'string' || name.length === 0)
+    return fail(`collected test ${index} in ${file} has no test name`)
+  return {
+    file: requireRelativePath({
+      field: `collected test file (entry ${index})`,
+      value: relative(packageTree, isAbsolute(file) === true ? file : resolve(packageTree, file)),
+    }),
+    name,
+  }
+}
+
+/**
+ * Normalises Vitest's raw `list --json` array into the published artifact: every record is
+ * validated, every file is rewritten to a normalised path inside the declared package tree, and
+ * the inventory is byte-sorted by file then name. Anything Vitest emits that the contract cannot
+ * express — a non-array report, a record without a file or name, a path outside the package tree
+ * — rejects instead of being published.
+ */
+export const normalizeVitestCollection = ({
+  packageTree,
+  raw,
+}: {
+  readonly packageTree: string
+  readonly raw: unknown
+}): VitestCollection => {
+  if (Array.isArray(raw) === false)
+    return fail(`vitest list did not write a JSON array of collected tests: ${typeof raw}`)
+  const tree = resolve(packageTree)
+  const keyed = raw.map((entry, index) => {
+    const test = collectedTest({ entry, index, packageTree: tree })
+    return {
+      file: Buffer.from(test.file, 'utf8'),
+      name: Buffer.from(test.name, 'utf8'),
+      test,
+    }
+  })
+  keyed.sort((left, right) => {
+    const byFile = Buffer.compare(left.file, right.file)
+    return byFile !== 0 ? byFile : Buffer.compare(left.name, right.name)
+  })
+  return {
+    schemaVersion: COLLECTION_SCHEMA_VERSION,
+    tests: keyed.map(({ test }) => test),
+  }
+}
 
 /**
  * Decision about where an action may write: `root` is undefined when no executor scratch was
@@ -376,12 +458,14 @@ export const acquireScratch = async (plan: ScratchPlan): Promise<ScratchLease> =
 }
 
 const actionEnvironment = (scratch: string): Record<string, string> => ({
+  CACHE_DIR: join(scratch, 'cache'),
   HOME: join(scratch, 'home'),
   LANG: 'C',
   LC_ALL: 'C',
   PATH: '',
   TMPDIR: join(scratch, 'tmp'),
   TZ: 'UTC',
+  XDG_CACHE_HOME: join(scratch, 'cache'),
 })
 
 const runShellTest = async (options: {
@@ -462,11 +546,11 @@ const runCommand = async ({
       }),
     ),
   )
-  await Promise.all([
-    mkdir(join(scratch, 'home'), { recursive: true }),
-    mkdir(join(scratch, 'tmp'), { recursive: true }),
-    mkdir(results, { recursive: true }),
-  ])
+  await Promise.all(
+    ['cache', 'home', 'tmp'].map((directory) =>
+      mkdir(join(scratch, directory), { recursive: true }),
+    ),
+  )
   const environment = {
     ...actionEnvironment(scratch),
     ...options.environment,
@@ -510,7 +594,6 @@ const runCommand = async ({
       : options.command === 'vitest-collect'
         ? vitestCollectArgv({
             runtime,
-            entry: join(dirname(fileURLToPath(import.meta.url)), 'vitest-collect-entry.ts'),
             packageTree: options.packageTree,
             config: options.config ?? fail('missing config'),
             report: join(results, COLLECTION_REPORT_NAME),
@@ -534,18 +617,40 @@ const runCommand = async ({
   return child.exited
 }
 
+const parseCollectionReport = (text: string): unknown => {
+  try {
+    return JSON.parse(text) as unknown
+  } catch (error) {
+    return fail(
+      `vitest list wrote an unparseable ${COLLECTION_REPORT_NAME}: ${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
+}
+
+/**
+ * Publishes the declared build output from the scratch report. Vitest's `list` command exits
+ * zero after printing collection errors without writing any report, so a missing, unparseable or
+ * contract-violating report must reject here: the declared output is only written once a valid
+ * normalised collection exists, and Buck fails the action when it is absent.
+ */
 const publishCollection = async ({
   output,
+  packageTree,
   results,
 }: {
   readonly output: string
+  readonly packageTree: string
   readonly results: string
 }): Promise<void> => {
-  const collected = Bun.file(join(results, COLLECTION_REPORT_NAME))
-  if ((await collected.exists()) === false)
+  const report = Bun.file(join(results, COLLECTION_REPORT_NAME))
+  if ((await report.exists()) === false)
     fail(`vitest list wrote no ${COLLECTION_REPORT_NAME} collection artifact`)
+  const collection = normalizeVitestCollection({
+    packageTree,
+    raw: parseCollectionReport(await report.text()),
+  })
   await mkdir(dirname(output), { recursive: true })
-  await Bun.write(output, collected)
+  await Bun.write(output, `${JSON.stringify(collection)}\n`)
 }
 
 const runOuter = async (options: JavaScriptRunOptions): Promise<number> => {
@@ -562,7 +667,11 @@ const runOuter = async (options: JavaScriptRunOptions): Promise<number> => {
   try {
     status = await runCommand({ options, results: lease.results, scratch: lease.root })
     if (status === 0 && options.collectOutput !== undefined)
-      await publishCollection({ output: options.collectOutput, results: lease.results })
+      await publishCollection({
+        output: options.collectOutput,
+        packageTree: options.packageTree,
+        results: lease.results,
+      })
   } catch (error) {
     primaryError = error
   }

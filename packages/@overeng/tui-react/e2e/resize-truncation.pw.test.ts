@@ -9,37 +9,24 @@ import { test, expect } from '@playwright/test'
  * - Container resize updates truncation appropriately
  */
 
+const terminalRows = '.xterm-accessibility-tree > [role="listitem"]'
+const previewText = 'pre:not(.sb-errordisplay_code)'
+
 test.describe('Resize and Truncation', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to the LongLines story which has very long content
-    await page.goto('/?path=/story/examples-03-cli-deploy--long-lines')
-    // Wait for Storybook to load
-    await page.waitForSelector('[data-testid="tui-preview-tabs"]', { timeout: 30000 })
+    await page.goto('/iframe.html?id=examples-03-cli-deploy--long-lines&viewMode=story')
+    await expect(page.getByTestId('tui-preview-tabs')).toBeVisible({ timeout: 30_000 })
   })
 
   test('TTY tab truncates long lines with ellipsis', async ({ page }) => {
-    // Click on TTY tab
-    await page.click('[data-testid="tab-tty"]')
-    await page.waitForTimeout(500)
+    await page.getByTestId('tab-tty').click()
+    const rows = page.locator(terminalRows)
+    await expect
+      .poll(async () => (await rows.allInnerTexts()).join('\n'))
+      .toContain('api-gateway-service')
 
-    // Check that xterm is rendering truncated content
-    const xtermScreen = page.locator('.xterm-screen')
-    await expect(xtermScreen).toBeVisible()
-
-    // Get the rendered text content
-    const textContent = await page.evaluate(() => {
-      const screen = document.querySelector('.xterm-screen')
-      return screen?.textContent || ''
-    })
-
-    // Verify content contains service names but is truncated (has ellipsis or is cut off)
-    expect(textContent).toContain('api-gateway-service')
-
-    // Check that lines don't contain the full very long text
-    // The full text is >100 chars, but container is ~60-80 cols
-    const lines = textContent.split('\n').filter((l) => l.trim())
+    const lines = (await rows.allInnerTexts()).filter((line) => line.trim())
     for (const line of lines) {
-      // Each line should be reasonably short (truncated)
       expect(line.length).toBeLessThan(100)
     }
   })
@@ -47,15 +34,13 @@ test.describe('Resize and Truncation', () => {
   test('CI Plain tab renders with proper width', async ({ page }) => {
     // Click on CI Plain tab
     await page.click('[data-testid="tab-ci-plain"]')
-    await page.waitForTimeout(500)
 
     // Get the pre element
-    const preElement = page.locator('pre')
-    await expect(preElement).toBeVisible()
+    const preElement = page.locator(previewText)
+    await expect(preElement).toContainText('api-gateway-service')
 
     // Check the content
     const textContent = await preElement.textContent()
-    expect(textContent).toContain('api-gateway-service')
 
     // Lines should be truncated (not showing full long content)
     const lines = (textContent || '').split('\n').filter((l) => l.trim())
@@ -66,50 +51,42 @@ test.describe('Resize and Truncation', () => {
   })
 
   test('resize updates text truncation in CI Plain tab', async ({ page }) => {
-    // Click on CI Plain tab
-    await page.click('[data-testid="tab-ci-plain"]')
-    await page.waitForTimeout(500)
+    await page.getByTestId('tab-ci-plain').click()
+    const preElement = page.locator(previewText)
+    await expect(preElement).toContainText('api-gateway-service')
 
-    // Get initial content
-    const preElement = page.locator('pre')
-    const initialContent = await preElement.textContent()
-    const initialLines = (initialContent || '').split('\n').filter((l) => l.trim())
-    const initialMaxLineLength = Math.max(...initialLines.map((l) => l.length))
+    const initialContent = await preElement.innerText()
+    const initialMaxLineLength = Math.max(
+      ...initialContent
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => line.length),
+    )
 
-    // Resize the browser window smaller
     await page.setViewportSize({ width: 600, height: 800 })
-    await page.waitForTimeout(1000) // Wait for resize to propagate
+    await expect.poll(async () => await preElement.innerText()).not.toBe(initialContent)
+    const resizedContent = await preElement.innerText()
+    const resizedMaxLineLength = Math.max(
+      ...resizedContent
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => line.length),
+    )
+    expect(resizedMaxLineLength).toBeLessThan(initialMaxLineLength)
 
-    // Get content after resize
-    const resizedContent = await preElement.textContent()
-    const resizedLines = (resizedContent || '').split('\n').filter((l) => l.trim())
-    const resizedMaxLineLength = Math.max(...resizedLines.map((l) => l.length))
-
-    // Lines should be shorter (or similar) after resize
-    // Note: This is a soft check since font rendering can vary
-    expect(resizedMaxLineLength).toBeLessThanOrEqual(initialMaxLineLength + 10)
-
-    // Resize back to larger
     await page.setViewportSize({ width: 1200, height: 800 })
-    await page.waitForTimeout(1000)
-
-    // Get content after resize back
-    const finalContent = await preElement.textContent()
-    expect(finalContent).toContain('api-gateway-service')
+    await expect.poll(async () => await preElement.innerText()).not.toBe(resizedContent)
+    await expect(preElement).toContainText('api-gateway-service')
   })
 
   test('no ghost lines appear during progressive updates', async ({ page }) => {
-    // Click on TTY tab to see live updates
-    await page.click('[data-testid="tab-tty"]')
-    await page.waitForTimeout(500)
+    await page.getByTestId('tab-tty').click()
+    const rows = page.locator(terminalRows)
+    await expect
+      .poll(async () => (await rows.allInnerTexts()).join('\n'))
+      .toContain('api-gateway-service')
 
-    // Wait for timeline to progress (story has auto-play)
-    await page.waitForTimeout(3000)
-
-    // Get line count - should be consistent (4 lines for this story)
-    const xtermScreen = page.locator('.xterm-screen')
-    const textContent = await xtermScreen.textContent()
-    const lines = (textContent || '').split('\n').filter((l) => l.trim())
+    const lines = (await rows.allInnerTexts()).filter((line) => line.trim())
 
     // Should have exactly 4 lines (header + 3 services)
     // Not more due to wrapping/ghost lines
@@ -126,15 +103,13 @@ test.describe('Resize and Truncation', () => {
   test('Log tab shows truncated output', async ({ page }) => {
     // Click on Log tab
     await page.click('[data-testid="tab-log"]')
-    await page.waitForTimeout(500)
 
     // Get the pre element
-    const preElement = page.locator('pre')
-    await expect(preElement).toBeVisible()
+    const preElement = page.locator(previewText)
+    await expect.poll(async () => await preElement.textContent()).toContain('Deploy failed')
 
     // Content should be present
     const textContent = await preElement.textContent()
-    expect(textContent?.length).toBeGreaterThan(0)
 
     // Lines shouldn't be excessively long
     const lines = (textContent || '').split('\n').filter((l) => l.trim())
@@ -146,15 +121,13 @@ test.describe('Resize and Truncation', () => {
   test('NDJSON tab shows timestamps and truncated JSON', async ({ page }) => {
     // Click on NDJSON tab
     await page.click('[data-testid="tab-ndjson"]')
-    await page.waitForTimeout(500)
 
     // Get the pre element
-    const preElement = page.locator('pre')
-    await expect(preElement).toBeVisible()
+    const preElement = page.locator(previewText)
+    await expect.poll(async () => await preElement.textContent()).toMatch(/\d{2}:\d{2}:\d{2}/)
 
     // Should have timestamps
     const textContent = await preElement.textContent()
-    expect(textContent).toMatch(/\d{2}:\d{2}:\d{2}/)
 
     // Each entry should be on its own line-ish (flexible check)
     const entries = (textContent || '').split('\\n').filter((e) => e.trim())
@@ -165,12 +138,11 @@ test.describe('Resize and Truncation', () => {
     // This test catches the specific regression where resizing during animation
     // causes ghost lines due to terminal reflow + cursor position mismatch
 
-    // Click on TTY tab
-    await page.click('[data-testid="tab-tty"]')
-    await page.waitForTimeout(500)
-
-    // Wait for animation to start (some content should be visible)
-    await page.waitForTimeout(1000)
+    await page.getByTestId('tab-tty').click()
+    const rows = page.locator(terminalRows)
+    await expect
+      .poll(async () => (await rows.allInnerTexts()).join('\n'))
+      .toContain('api-gateway-service')
 
     // Perform multiple resizes while animation continues
     const viewportSizes = [
@@ -188,13 +160,7 @@ test.describe('Resize and Truncation', () => {
       await page.waitForTimeout(300) // Brief wait between resizes
     }
 
-    // Wait for things to settle
-    await page.waitForTimeout(500)
-
-    // Get the rendered text content
-    const xtermScreen = page.locator('.xterm-screen')
-    const textContent = await xtermScreen.textContent()
-    const lines = (textContent || '').split('\n').filter((l) => l.trim())
+    const lines = (await rows.allInnerTexts()).filter((line) => line.trim())
 
     // Count occurrences of key phrases - should only appear once each
     // (no duplicates from ghost lines)
@@ -214,9 +180,11 @@ test.describe('Resize and Truncation', () => {
   test('rapid resize does not cause ghost lines', async ({ page }) => {
     // Stress test: rapid resizing to ensure no accumulated ghost lines
 
-    // Click on TTY tab
-    await page.click('[data-testid="tab-tty"]')
-    await page.waitForTimeout(500)
+    await page.getByTestId('tab-tty').click()
+    const rows = page.locator(terminalRows)
+    await expect
+      .poll(async () => (await rows.allInnerTexts()).join('\n'))
+      .toContain('api-gateway-service')
 
     // Rapid resize cycle
     for (let i = 0; i < 10; i++) {
@@ -231,10 +199,7 @@ test.describe('Resize and Truncation', () => {
     await page.setViewportSize({ width: 800, height: 600 })
     await page.waitForTimeout(500)
 
-    // Verify no accumulated ghost lines
-    const xtermScreen = page.locator('.xterm-screen')
-    const textContent = await xtermScreen.textContent()
-    const lines = (textContent || '').split('\n').filter((l) => l.trim())
+    const lines = (await rows.allInnerTexts()).filter((line) => line.trim())
 
     // Count duplicate indicators
     const lineSet = new Set(lines)

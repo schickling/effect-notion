@@ -70,7 +70,13 @@ export const buck2TypeScriptAdmission = {
     {
       name: 'test',
       runner: 'vitest',
-      // The CLI contract and concurrent-import suites spawn the pinned Bun.
+      // The CLI contract normalizes paths against the live checkout's `.git` root, so it
+      // remains in the exact source-side complement. The concurrent-import suite still runs
+      // bounded and receives the pinned Bun through the declared toolchain.
+      excludes: ['src/cli.contract.test.ts', 'src/integration.integration.test.ts'],
+      sourceOwners: {
+        'src/integration.integration.test.ts': 'test:notion-integration:notion-cli',
+      },
       tools: { BUN_BIN: '//buck2/toolchains:tool_bun' },
     },
   ],

@@ -39,8 +39,13 @@ export const buck2TypeScriptAdmission = {
       // The build probes and the CLI contract suite spawn the pinned Bun. The excluded suites
       // reach real `git`, `bash`, `rustc`/`rustfmt`, or repository-root files that no package
       // tree carries, so they stay unbounded (decision 0026) under the devenv `test:genie` task.
-      tools: { BUN_BIN: '//buck2/toolchains:tool_bun' },
+      tools: {
+        BUN_BIN: '//buck2/toolchains:tool_bun',
+        NODE_BIN: '//buck2/toolchains:tool_node',
+      },
+      vitestRuntime: 'node',
       excludes: [
+        'src/build/mod.integration.test.ts',
         'src/core/discovery.unit.test.ts',
         'src/runtime/github-workflow/ci-runtime-scripts.unit.test.ts',
         'src/runtime/github-workflow/ci-workflow-helpers.unit.test.ts',
