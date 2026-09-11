@@ -9,7 +9,7 @@
       "operation": "typecheck"
     },
     {
-      "disposition": "buck-pending:editor",
+      "disposition": "outside-by-policy:includes-stage-zero-freshness",
       "operation": "lint"
     },
     {
@@ -104,6 +104,10 @@
     },
     {
       "disposition": "outside-by-policy:workspace-publication",
+      "operation": "buck2:editor:publish"
+    },
+    {
+      "disposition": "outside-by-policy:workspace-publication",
       "operation": "buck2:typescript:materialize-dist"
     },
     {
@@ -127,7 +131,7 @@
       "operation": "genie:watch"
     },
     {
-      "disposition": "buck-pending:editor",
+      "disposition": "outside-by-policy:includes-stage-zero-freshness",
       "operation": "lint:check"
     },
     {
@@ -145,10 +149,6 @@
     {
       "disposition": "outside-by-policy:nix-evaluation",
       "operation": "nix:check"
-    },
-    {
-      "disposition": "buck-pending:editor",
-      "operation": "pnpm:install"
     },
     {
       "disposition": "outside-by-policy:aggregate-includes-policy-excluded-tests",

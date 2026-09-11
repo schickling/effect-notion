@@ -7,7 +7,6 @@ export const buck2TypeScriptAdmission = {
   packagePath: 'packages/@overeng/tui-core',
   projectionSource: 'packages/@overeng/tui-core/BUCK.genie.ts',
   sourceRoots: ['src', 'test'],
-  editorViewConsumer: true,
   authorities: [{ declarationEntrypoint: 'src/mod.d.ts', projectFile: 'tsconfig.json' }],
   tests: [
     {

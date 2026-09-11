@@ -20,7 +20,7 @@ devenv shell
 devenv up
 
 # 3. Run tasks -- automatically traced when stack is running
-devenv tasks run pnpm:install
+devenv tasks run buck2:editor:publish
 devenv tasks run check:quick
 
 # 4. View traces
@@ -107,7 +107,7 @@ Subcommands:
 
 ```bash
 otel-span run <service-name> <span-name> -- <command> [args...]
-otel-span run effect-utils-devenv devenv.task.exec --attr task.name=pnpm:install -- pnpm install
+otel-span run effect-utils-devenv devenv.task.exec --attr task.name=buck2:editor:publish -- buck2 build effect_utils//:editor_view_inputs
 otel-span emit-span effect-utils-devenv devenv.task.status --attr-string span.label=buck2:check
 printf '%s' "$otlp_json" | otel-span emit
 ```
@@ -149,7 +149,7 @@ retired root compiler wrapper no longer emits a parallel TypeScript span tree.
 | `name`          | span name | Stable operation name           | `devenv.task.exec`, `devenv.task.status` |
 | `span.label`    | string    | Human-readable short label      | `buck2:check`                            |
 | `tool.name`     | string    | Tool namespace                  | `devenv`                                 |
-| `task.name`     | string    | Devenv task name                | `pnpm:install`, `buck2:check`            |
+| `task.name`     | string    | Devenv task name                | `buck2:editor:publish`, `buck2:check`    |
 | `task.phase`    | string    | Task wrapper phase              | `exec`, `status`                         |
 | `task.cached`   | bool      | Whether task was cached/skipped | `true`, `false`                          |
 | `status.method` | string    | Cache/status check strategy     | `binary`, `hash`, `path`                 |

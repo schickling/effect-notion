@@ -2,17 +2,17 @@
   "version": "2.0.0",
   "tasks": [
     // ============================================================
-    // install
+    // dependency views
     // ============================================================
     {
-      "label": "install",
+      "label": "publish dependencies",
       "type": "shell",
-      "command": "devenv tasks run pnpm:install",
+      "command": "devenv tasks run buck2:editor:publish",
       "problemMatcher": [],
       "presentation": {
         "focus": true,
         "panel": "shared",
-        "group": "install",
+        "group": "dependency views",
         "showReuseMessage": false,
         "clear": false,
         "close": true

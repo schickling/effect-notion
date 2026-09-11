@@ -4,12 +4,15 @@
 # The repo-root pnpm-lock.yaml is the only authoritative lockfile for this
 # live-worktree model.
 #
-# Provides:
+# Provides in materialization mode:
 # - pnpm:install
 # - pnpm:update
 # - pnpm:dedupe
 # - pnpm:clean
 # - pnpm:reset-lock-files
+#
+# With `materialize = false`, only the lockfile authoring tasks remain and every
+# pnpm mutation is forced to `--lockfile-only`.
 {
   packages,
   workspaceRoot ? ".",
@@ -17,6 +20,7 @@
   taskSuffix ? null,
   globalCache ? true,
   frozenInCi ? true,
+  materialize ? true,
   installFlags ? [ ],
   # Canonical package-source directories consumed from outside this
   # Materialization Root. Each path is staged once under root-owned `.devenv`
@@ -135,6 +139,7 @@ let
     ]
     ++ pnpmInstallPolicy.liveInstallPolicyFlags;
   pureInstallFlagsString = lib.escapeShellArgs pureInstallFlags;
+  lockfileOnlyFlag = lib.optionalString (!materialize) " --lockfile-only";
 
   packageNameToPath = builtins.listToAttrs (
     builtins.filter (x: x != null) (
@@ -508,7 +513,7 @@ let
       fi
 
       set +e
-      ${lib.escapeShellArg "${effectivePnpmLockMutatorPkg}/bin/pnpm"} install --fix-lockfile \
+      ${lib.escapeShellArg "${effectivePnpmLockMutatorPkg}/bin/pnpm"} install --fix-lockfile${lockfileOnlyFlag} \
         ${liveRealizationPolicyFlagsString} \
         --config.package-import-method="$PNPM_PACKAGE_IMPORT_METHOD" \
         --config.store-dir="$npm_config_store_dir"
@@ -744,7 +749,7 @@ let
         cd ${lib.escapeShellArg workspaceRootAbs}
         ${managedPnpmMutationPrologue}
         ${stageSourceInputs}
-        pnpm dedupe ${liveRealizationPolicyFlagsString} \
+        pnpm dedupe${lockfileOnlyFlag} ${liveRealizationPolicyFlagsString} \
           --config.package-import-method="$PNPM_PACKAGE_IMPORT_METHOD" \
           --config.store-dir="$npm_config_store_dir"
         ${gcSourceInputs}
@@ -832,6 +837,17 @@ let
       '';
     };
   };
+  selectedTasks =
+    if materialize then
+      allTasks
+    else
+      removeAttrs allTasks [
+        installTaskName
+        cleanTaskName
+        doctorTaskName
+        repairTaskName
+        migrateLegacyStoreTaskName
+      ];
 
 in
 assert lib.assertMsg pnpmLockMutatorOverrideIsSupported ''
@@ -842,7 +858,7 @@ assert lib.assertMsg pnpmLockMutatorOverrideIsSupported ''
 assert lib.assertMsg (!sourceInputPathsOverlap) "sourceInputPaths entries must not overlap";
 {
   packages = cliGuard.fromTasks {
-    tasks = allTasks;
+    tasks = selectedTasks;
     reals = lib.optionalAttrs (pnpmPkg != null) { pnpm = pnpmPkg; };
   };
 
@@ -854,5 +870,5 @@ assert lib.assertMsg (!sourceInputPathsOverlap) "sourceInputPaths entries must n
     export npm_config_pm_on_fail=ignore
   '';
 
-  tasks = cliGuard.stripGuards allTasks;
+  tasks = cliGuard.stripGuards selectedTasks;
 }

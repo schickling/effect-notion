@@ -467,12 +467,13 @@ const readRecord = (path: string): EditorViewRecord => {
 
 const requirePortablePackage = (value: string): string => {
   if (
-    value.length === 0 ||
-    isAbsolute(value) === true ||
-    value.includes('\\') === true ||
-    value
-      .split('/')
-      .some((component) => component === '' || component === '.' || component === '..') === true
+    value !== '.' &&
+    (value.length === 0 ||
+      isAbsolute(value) === true ||
+      value.includes('\\') === true ||
+      value
+        .split('/')
+        .some((component) => component === '' || component === '.' || component === '..') === true)
   )
     fail(`package must be a normalized repository-relative path: ${value}`)
   return value
@@ -617,8 +618,10 @@ const requireViewName = (viewName: string): string => {
 
 /** Repository-relative package path reduced to its stable view-name default. */
 export const defaultEditorViewName = (packagePath: string): string => {
-  const segments = requirePortablePackage(packagePath).split('/')
-  return requireViewName(segments[segments.length - 1] ?? packagePath)
+  const normalized = requirePortablePackage(packagePath)
+  if (normalized === '.') return 'root'
+  const segments = normalized.split('/')
+  return requireViewName(segments[segments.length - 1] ?? normalized)
 }
 
 const makePaths = (options: EditorViewOptions): ViewPaths => {
@@ -632,13 +635,16 @@ const makePaths = (options: EditorViewOptions): ViewPaths => {
   const repoRoot = realpathSync(options.repoRoot)
   requireDirectory({ path: repoRoot, field: 'repository root' })
   const packagePath = requirePortablePackage(options.package)
-  const packageDir = resolve(repoRoot, packagePath)
+  const packageDir = packagePath === '.' ? repoRoot : resolve(repoRoot, packagePath)
   if (isWithin({ root: repoRoot, candidate: packageDir }) === false)
     fail(`package escapes repository root: ${packagePath}`)
   requireDirectory({ path: packageDir, field: 'package directory' })
   if (realpathSync(packageDir) !== packageDir)
     fail(`package path must not contain symbolic links: ${packageDir}`)
-  const editorRoot = resolve(packageDir, '..', '..', '.editor-view')
+  const editorRoot =
+    packagePath === '.'
+      ? resolve(repoRoot, '.editor-view')
+      : resolve(packageDir, '..', '..', '.editor-view')
   if (isWithin({ root: repoRoot, candidate: editorRoot }) === false)
     fail(`editor root escapes repository: ${editorRoot}`)
   // The consumer cache is the one path a caller supplies absolutely, so it can
@@ -648,7 +654,7 @@ const makePaths = (options: EditorViewOptions): ViewPaths => {
   if (
     isWithin({ root: repoRoot, candidate: consumerCache }) === false ||
     isWithin({ root: editorRoot, candidate: consumerCache }) === true ||
-    isWithin({ root: packageDir, candidate: consumerCache }) === true
+    (packagePath !== '.' && isWithin({ root: packageDir, candidate: consumerCache }) === true)
   )
     fail(
       `consumer cache must be inside the repository and outside package and snapshot views: ${consumerCache}`,
@@ -674,7 +680,7 @@ const requireRecordIdentity = (options: EditorViewOptions): void => {
   if (cellPattern.test(options.cell) === false)
     fail(`cell must be a portable identifier: ${options.cell}`)
   const packagePath = requirePortablePackage(options.package)
-  const prefix = `//${packagePath}:`
+  const prefix = packagePath === '.' ? '//:' : `//${packagePath}:`
   const name = options.target.startsWith(prefix) === true ? options.target.slice(prefix.length) : ''
   if (targetNamePattern.test(name) === false)
     fail(`target must be the stable label ${prefix}<name>: ${options.target}`)

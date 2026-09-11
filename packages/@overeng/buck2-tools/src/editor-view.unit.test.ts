@@ -22,6 +22,7 @@ describe('editor view identity', () => {
   it('defaults the view name to the package directory name', () => {
     expect(defaultEditorViewName('packages/@overeng/tui-core')).toBe('tui-core')
     expect(defaultEditorViewName('packages/@overeng/tui-react')).toBe('tui-react')
+    expect(defaultEditorViewName('.')).toBe('root')
   })
 
   it('rejects package paths and view names that are not portable identifiers', () => {

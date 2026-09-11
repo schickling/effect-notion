@@ -3095,10 +3095,10 @@ jobs:
             cd "${EFFECT_UTILS_WORKSPACE_ROOT:?EFFECT_UTILS_WORKSPACE_ROOT not set}"
             buck="$PWD/.megarepo/bin/buck2"
             "$buck" query effect_utils//packages/@overeng/ci-tools:ci-tools-candidate
-            "$buck" query effect_utils//packages/@overeng/tui-core:editor_view_inputs
+            "$buck" query effect_utils//:editor_view_inputs
             "$buck" build \
               effect_utils//packages/@overeng/ci-tools:ci-tools-candidate \
-              effect_utils//packages/@overeng/tui-core:editor_view_inputs
+              effect_utils//:editor_view_inputs
           '
       - name: Cleanup effect-utils composition
         if: always()
@@ -4070,7 +4070,7 @@ jobs:
           measure 'shell_eval_warm' 'Warm shell eval' 'devenv shell' 'Activates the mutation-free warm shell; repository setup is explicit and Buck must not run.' '' '1' '5' '{"enabled":true,"comparisonMode":"paired","minPairedSamples":5,"minBaselineSources":10,"minCurrentSamples":5,"warnRatio":1.1,"failRatio":1.2,"warnAbs":0.25,"failAbs":1,"noiseFloor":0.1,"statisticalToleranceRatio":0.1,"statisticalToleranceAbs":0.25}' '{"path":["devenv","shell"],"dimensions":{"workload":"setup-free-activation","setupMode":"disabled","buckExpected":"not-invoked"}}' '$DEVENV_BIN' 'shell' '--no-reload' '--' 'true'
           measure 'tasks_list' 'devenv tasks list' 'devenv cli' 'Lists devenv tasks to measure task graph loading overhead.' '' '1' '9' '{"enabled":true,"comparisonMode":"paired","minPairedSamples":7,"minBaselineSources":10,"minCurrentSamples":5,"warnRatio":1.25,"failRatio":1.5,"warnAbs":0.05,"failAbs":0.15,"noiseFloor":0.03,"statisticalToleranceRatio":0.1,"statisticalToleranceAbs":0.03}' '{"path":[],"dimensions":{}}' '$DEVENV_BIN' 'tasks' 'list'
           measure 'processes_help' 'devenv processes --help' 'devenv cli' 'Loads the devenv processes command help path.' '' '1' '9' '{"enabled":true,"comparisonMode":"paired","minPairedSamples":7,"minBaselineSources":10,"minCurrentSamples":5,"warnRatio":1.25,"failRatio":1.5,"warnAbs":0.05,"failAbs":0.15,"noiseFloor":0.03,"statisticalToleranceRatio":0.1,"statisticalToleranceAbs":0.03}' '{"path":[],"dimensions":{}}' '$DEVENV_BIN' 'processes' '--help'
-          measure 'task_pnpm_install' 'pnpm install task' 'workspace setup' 'Runs the cached pnpm install devenv task.' '' '1' '5' '{"enabled":true,"comparisonMode":"paired","minPairedSamples":5,"minBaselineSources":10,"minCurrentSamples":5,"warnRatio":1.1,"failRatio":1.2,"warnAbs":0.25,"failAbs":1,"noiseFloor":0.1,"statisticalToleranceRatio":0.1,"statisticalToleranceAbs":0.25}' '{"path":[],"dimensions":{}}' '$DEVENV_BIN' 'tasks' 'run' 'pnpm:install' '--show-output'
+          measure 'task_buck2_editor_publish' 'Editor dependency publication' 'workspace setup' 'Publishes the complete Buck-owned editor dependency surface.' '' '1' '5' '{"enabled":true,"comparisonMode":"paired","minPairedSamples":5,"minBaselineSources":10,"minCurrentSamples":5,"warnRatio":1.1,"failRatio":1.2,"warnAbs":0.25,"failAbs":1,"noiseFloor":0.1,"statisticalToleranceRatio":0.1,"statisticalToleranceAbs":0.25}' '{"path":[],"dimensions":{}}' '$DEVENV_BIN' 'tasks' 'run' 'buck2:editor:publish' '--show-output'
           measure 'task_genie_run' 'Genie run task' 'genie' 'Runs the normal devenv genie:run task including its declared dependencies.' '' '1' '5' '{"enabled":true,"comparisonMode":"paired","minPairedSamples":5,"minBaselineSources":10,"minCurrentSamples":5,"warnRatio":1.1,"failRatio":1.2,"warnAbs":0.25,"failAbs":1,"noiseFloor":0.1,"statisticalToleranceRatio":0.1,"statisticalToleranceAbs":0.25}' '{"path":[],"dimensions":{}}' '$DEVENV_BIN' 'tasks' 'run' 'genie:run' '--show-output'
           measure 'task_check_quick_warm' 'Warm cached check:quick' 'quality gates' 'Runs the fast local quality gate through devenv after a warmup. This measures the cached no-op path and task/status orchestration overhead.' '' '1' '5' '{"enabled":true,"comparisonMode":"paired","minPairedSamples":5,"minBaselineSources":10,"minCurrentSamples":5,"warnRatio":1.1,"failRatio":1.2,"warnAbs":0.25,"failAbs":1,"noiseFloor":0.1,"statisticalToleranceRatio":0.1,"statisticalToleranceAbs":0.25}' '{"path":["quality gates","check:quick"],"dimensions":{"workload":"cached-no-op","taskCacheMode":"warm"}}' '$DEVENV_BIN' 'tasks' 'run' 'check:quick' '--show-output'
           measure 'task_check_quick_forced' 'Forced check:quick' 'quality gates' 'Runs the fast local quality gate through devenv with task-cache refresh. This measures the developer-facing quick-check workload rather than the cached no-op path.' '' '0' '3' '{"enabled":true,"comparisonMode":"paired","minPairedSamples":3,"minBaselineSources":10,"minCurrentSamples":3,"warnRatio":1.15,"failRatio":1.3,"warnAbs":1.5,"failAbs":4,"noiseFloor":0.75,"statisticalToleranceRatio":0.15,"statisticalToleranceAbs":1}' '{"path":["quality gates","check:quick"],"dimensions":{"workload":"forced-task-cache","taskCacheMode":"refresh"}}' '$DEVENV_BIN' 'tasks' 'run' 'check:quick' '--show-output' '--refresh-task-cache'
@@ -6967,7 +6967,7 @@ jobs:
               shell_eval_warm: 'Warm shell eval',
               tasks_list: 'devenv tasks list',
               processes_help: 'devenv processes --help',
-              task_pnpm_install: 'pnpm:install',
+              task_buck2_editor_publish: 'buck2:editor:publish',
               task_genie_run: 'genie:run',
               task_check_quick: 'check:quick',
               task_check_quick_warm: 'Warm cached check:quick',
@@ -7048,7 +7048,7 @@ jobs:
               shell_eval_warm: 'Warm shell eval',
               tasks_list: 'devenv tasks list',
               processes_help: 'processes --help',
-              task_pnpm_install: 'pnpm:install',
+              task_buck2_editor_publish: 'buck2:editor:publish',
               task_genie_run: 'genie:run',
               task_check_quick: 'check:quick',
               task_check_quick_warm: 'Warm cached check:quick',
@@ -8361,7 +8361,7 @@ jobs:
         run: |
           cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && netlify_pkg="$(nix build --no-link --print-out-paths .#netlify-cli)"
           export CI_TOOLS_LIVE_NETLIFY_BIN="$netlify_pkg/bin/netlify"
-          DEVENV_TASK_PASSTHROUGH=1 DEVENV_TUI=false "${DEVENV_BIN:?DEVENV_BIN not set}" tasks run pnpm:install
+          DEVENV_TASK_PASSTHROUGH=1 DEVENV_TUI=false "${DEVENV_BIN:?DEVENV_BIN not set}" tasks run buck2:editor:publish
           DEVENV_TUI=false "${DEVENV_BIN:?DEVENV_BIN not set}" shell --no-reload -- bun test packages/@overeng/ci-tools/src/deploy-netlify.live.e2e.test.ts
         if: steps.live-netlify-preflight.outputs.run == 'true'
       - name: Live Vercel ci-tools E2E
@@ -8377,7 +8377,7 @@ jobs:
         run: |
           cd "${EFFECT_UTILS_MEMBER_ROOT:-${GITHUB_WORKSPACE:-$PWD}}" && vercel_pkg="$(nix build --no-link --print-out-paths .#vercel-cli)"
           export CI_TOOLS_LIVE_VERCEL_BIN="$vercel_pkg/bin/vercel"
-          DEVENV_TASK_PASSTHROUGH=1 DEVENV_TUI=false "${DEVENV_BIN:?DEVENV_BIN not set}" tasks run pnpm:install
+          DEVENV_TASK_PASSTHROUGH=1 DEVENV_TUI=false "${DEVENV_BIN:?DEVENV_BIN not set}" tasks run buck2:editor:publish
           DEVENV_TUI=false "${DEVENV_BIN:?DEVENV_BIN not set}" shell --no-reload -- bun test packages/@overeng/ci-tools/src/deploy-vercel.live.e2e.test.ts
         if: steps.live-vercel-preflight.outputs.run == 'true'
       - name: Nix diagnostics summary

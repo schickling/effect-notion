@@ -271,7 +271,7 @@ describe('Buck watch reconciliation', () => {
           repoRoot: root,
           workspaceRoot: root,
           buck2: '/tools/buck2',
-          editorViewProgram: '/tools/editor-view',
+          editorViewCommand: ['/tools/bun', '/tools/editor-view'],
           workspaceAuthority: '/repo/authority.json',
           cp: '/tools/cp',
           mv: '/tools/mv',
@@ -293,7 +293,8 @@ describe('Buck watch reconciliation', () => {
       expect(invocations[0]?.detached).toBeUndefined()
       expect(invocations[1]?.detached).toBe(true)
       expect(invocations[1]?.signal).toBeUndefined()
-      expect(invocations[1]?.command).toBe('/tools/editor-view')
+      expect(invocations[1]?.command).toBe('/tools/bun')
+      expect(invocations[1]?.args[0]).toBe('/tools/editor-view')
       expect(invocations[1]?.args).toContain('--backing-root')
       expect(invocations[1]?.args).toEqual(
         expect.arrayContaining([
@@ -317,7 +318,7 @@ describe('Buck watch reconciliation', () => {
             repoRoot: root,
             workspaceRoot: root,
             buck2: '/tools/buck2',
-            editorViewProgram: '/tools/editor-view',
+            editorViewCommand: ['/tools/bun', '/tools/editor-view'],
             workspaceAuthority: '/repo/authority.json',
             cp: '/tools/cp',
             mv: '/tools/mv',

@@ -490,7 +490,7 @@ export type BuckReconcilerOptions = {
   readonly repoRoot: string
   readonly workspaceRoot: string
   readonly buck2: string
-  readonly editorViewProgram: string
+  readonly editorViewCommand: readonly [executable: string, ...prefix: string[]]
   readonly workspaceAuthority: string
   readonly cp: string
   readonly mv: string
@@ -534,8 +534,9 @@ export const reconcileBuckViews = async ({
       workspaceRoot: options.workspaceRoot,
     })
     await execute({
-      command: options.editorViewProgram,
+      command: options.editorViewCommand[0],
       args: [
+        ...options.editorViewCommand.slice(1),
         options.mode,
         '--repo-root',
         options.repoRoot,

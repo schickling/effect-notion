@@ -1218,7 +1218,7 @@
         "src/client.test.ts",
         "src/client.unit.test.ts"
       ],
-      "unboundedAfter": ["pnpm:link-native-node-packages"],
+      "unboundedAfter": [],
       "unboundedFiles": ["src/PtySession.test.ts", "src/client.test.ts"],
       "unboundedTaskName": "test:pty-effect:unbounded"
     },

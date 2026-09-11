@@ -2,10 +2,10 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts
-# Projection schema version: 10
+# Projection schema version: 11
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:f2f0daf4e2654011b3ec10f20d6f9de55d551fec4d40d78ce93b6fdb500dd0de
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts, packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts, packages/@overeng/effect-rpc-tanstack/package.json.genie.ts, packages/@overeng/effect-rpc-tanstack/src/**/*.cts, packages/@overeng/effect-rpc-tanstack/src/**/*.js, packages/@overeng/effect-rpc-tanstack/src/**/*.mts, packages/@overeng/effect-rpc-tanstack/src/**/*.spec.cjs, packages/@overeng/effect-rpc-tanstack/src/**/*.spec.jsx, packages/@overeng/effect-rpc-tanstack/src/**/*.spec.mjs, packages/@overeng/effect-rpc-tanstack/src/**/*.test.cjs, packages/@overeng/effect-rpc-tanstack/src/**/*.test.jsx, packages/@overeng/effect-rpc-tanstack/src/**/*.test.mjs, packages/@overeng/effect-rpc-tanstack/src/**/*.ts, packages/@overeng/effect-rpc-tanstack/src/**/*.tsx, packages/@overeng/effect-rpc-tanstack/src/**/__snapshots__/*.snap, packages/@overeng/effect-rpc-tanstack/tsconfig.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:ba8f02cbacac397f3d48a0837077801d4b24846d2502199b2599913a4aa95da0
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, genie/packages.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts, packages/@overeng/effect-rpc-tanstack/BUCK.genie.ts, packages/@overeng/effect-rpc-tanstack/package.json.genie.ts, packages/@overeng/effect-rpc-tanstack/src/**/*.cts, packages/@overeng/effect-rpc-tanstack/src/**/*.js, packages/@overeng/effect-rpc-tanstack/src/**/*.mts, packages/@overeng/effect-rpc-tanstack/src/**/*.spec.cjs, packages/@overeng/effect-rpc-tanstack/src/**/*.spec.jsx, packages/@overeng/effect-rpc-tanstack/src/**/*.spec.mjs, packages/@overeng/effect-rpc-tanstack/src/**/*.test.cjs, packages/@overeng/effect-rpc-tanstack/src/**/*.test.jsx, packages/@overeng/effect-rpc-tanstack/src/**/*.test.mjs, packages/@overeng/effect-rpc-tanstack/src/**/*.ts, packages/@overeng/effect-rpc-tanstack/src/**/*.tsx, packages/@overeng/effect-rpc-tanstack/src/**/__snapshots__/*.snap, packages/@overeng/effect-rpc-tanstack/tsconfig.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
@@ -34,7 +34,7 @@ static_source_set(
     name = "static_sources",
     node_modules = ":node_modules",
     prefix = "packages/@overeng/effect-rpc-tanstack",
-    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES + ["examples/basic/**"]),
     visibility = ["PUBLIC"],
 )
 

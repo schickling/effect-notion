@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -35,7 +35,7 @@ const makeRunner = ({
     if (invocation.command.endsWith('/git') === true)
       return {
         status: 0,
-        stdout: Buffer.from('packages/z/package.json\0packages/a/package.json\0'),
+        stdout: Buffer.from('package.json\0packages/z/package.json\0packages/a/package.json\0'),
         stderr: Buffer.from(''),
       }
     const argument = invocation.args[4]
@@ -49,13 +49,18 @@ const makeRunner = ({
         JSON.stringify(
           Object.fromEntries(
             candidates.map((candidate) => {
-              const packagePath = candidate.slice(0, -'/package.json'.length)
+              const repositoryCandidate = candidate.replace(/^repos\/effect-utils\//, '')
+              const root = repositoryCandidate === 'package.json'
+              const packagePath =
+                root === true ? '.' : repositoryCandidate.slice(0, -'/package.json'.length)
               const owned =
-                packagePath === 'packages/a' ? missing === false : nonAdmittedOwned === true
-              return [
-                candidate,
-                owned === true ? [`effect_utils//${packagePath}:package.json`] : [],
-              ]
+                root === true ||
+                (packagePath === 'packages/a' ? missing === false : nonAdmittedOwned === true)
+              const owner =
+                root === true
+                  ? 'effect_utils//:package.json'
+                  : `effect_utils//${packagePath}:package.json`
+              return [candidate, owned === true ? [owner] : []]
             }),
           ),
         ),
@@ -93,6 +98,59 @@ describe('editor view authority production flow', () => {
       expect(JSON.parse(readFileSync(fixture.output, 'utf8'))).toEqual(authority)
     } finally {
       rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
+  it('proves the repository-root source-generator consumer explicitly', async () => {
+    const fixture = makeFixture()
+    try {
+      writeFileSync(join(fixture.root, 'package.json'), '{}\n')
+      const { ownershipCandidates, runCommand } = makeRunner()
+      const authority = await writeEditorViewAuthority({
+        repoRoot: fixture.root,
+        workspaceRoot: fixture.root,
+        requiredPackages: ['.'],
+        cell: 'effect_utils',
+        buck2: '/nix/store/test-buck2/bin/buck2',
+        git: '/nix/store/test-git/bin/git',
+        output: fixture.output,
+        runCommand,
+      })
+
+      expect(ownershipCandidates).toEqual(['package.json'])
+      expect(authority.requiredPackages).toEqual(['.'])
+      expect(authority.ownedPackages).toEqual(['.'])
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
+  it('queries Buck through the logical composed-workspace symlink', async () => {
+    const fixture = makeFixture()
+    const workspaceRoot = mkdtempSync(join(tmpdir(), 'editor-view-workspace-'))
+    const logicalRepoRoot = join(workspaceRoot, 'repos', 'effect-utils')
+    try {
+      mkdirSync(join(workspaceRoot, 'repos'))
+      symlinkSync(fixture.root, logicalRepoRoot)
+      writeFileSync(join(fixture.root, 'package.json'), '{}\n')
+      const { calls, ownershipCandidates, runCommand } = makeRunner()
+      await writeEditorViewAuthority({
+        repoRoot: logicalRepoRoot,
+        workspaceRoot,
+        requiredPackages: ['.'],
+        cell: 'effect_utils',
+        buck2: '/nix/store/test-buck2/bin/buck2',
+        git: '/nix/store/test-git/bin/git',
+        output: fixture.output,
+        runCommand,
+      })
+
+      expect(calls[0]?.cwd).toBe(fixture.root)
+      expect(calls[1]?.cwd).toBe(workspaceRoot)
+      expect(ownershipCandidates).toEqual(['repos/effect-utils/package.json'])
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+      rmSync(workspaceRoot, { recursive: true, force: true })
     }
   })
 

@@ -1,3 +1,4 @@
+import { pnpmWorkspaceMemberPaths } from '../packages.ts'
 import { buck2TypeScriptAdmission as effectSocketAdmission } from '../../context/effect/socket/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as opentuiAdmission } from '../../context/opentui/BUCK.genie.ts'
 import { buck2TypeScriptAdmission as agentSessionIngestAdmission } from '../../packages/@overeng/agent-session-ingest/BUCK.genie.ts'
@@ -51,10 +52,8 @@ export type { Buck2TypeScriptProjectAuthorityMetadata } from './typescript-packa
 const compareAuthorityStrings = (left: string, right: string): number =>
   left < right ? -1 : left > right ? 1 : 0
 
-/** Buck TypeScript projection input plus editor publication. */
-export type Buck2TypeScriptAdmission = Buck2TypeScriptPackageProjection & {
-  readonly editorViewConsumer: boolean
-}
+/** Buck TypeScript projection input. Every admitted workspace package receives an editor view. */
+export type Buck2TypeScriptAdmission = Buck2TypeScriptPackageProjection
 
 /** Derived command and root-project data for every Buck-authoritative TypeScript project. */
 export type AuthoritativeBuck2TypeScriptProject = Buck2TypeScriptProjectAuthorityMetadata & {
@@ -355,8 +354,20 @@ export const buck2TypeScriptTestCollectionTargets: readonly string[] = buck2Test
   ({ collectionTarget }) => (collectionTarget === undefined ? [] : [collectionTarget]),
 )
 
-/** Byte-sorted package paths whose editor dependency surface is currently admitted. */
+/** Byte-sorted package paths whose Buck dependency trees publish editor views. */
 export const editorViewConsumerPackagePaths = Object.values(buck2TypeScriptAdmissions)
-  .filter((admission) => admission.editorViewConsumer === true)
   .map((admission) => admission.packagePath)
   .toSorted(compareAuthorityStrings)
+const editorViewPackageSet = new Set(editorViewConsumerPackagePaths)
+const workspacePackageSet = new Set(pnpmWorkspaceMemberPaths)
+const missingEditorViews = pnpmWorkspaceMemberPaths.filter(
+  (packagePath) => editorViewPackageSet.has(packagePath) === false,
+)
+const nonWorkspaceEditorViews = editorViewConsumerPackagePaths.filter(
+  (packagePath) => workspacePackageSet.has(packagePath) === false,
+)
+if (missingEditorViews.length > 0 || nonWorkspaceEditorViews.length > 0) {
+  throw new Error(
+    `Editor view authority must cover every pnpm workspace package exactly once: missing=${JSON.stringify(missingEditorViews)} extra=${JSON.stringify(nonWorkspaceEditorViews)}`,
+  )
+}

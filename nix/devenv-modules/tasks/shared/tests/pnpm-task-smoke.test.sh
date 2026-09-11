@@ -136,6 +136,25 @@ eval_unversioned_lock_mutator() {
   "
 }
 
+eval_lockfile_only_tasks() {
+  local output_path="$1"
+
+  nix-instantiate --eval --strict --json --expr "
+    let
+      flake = builtins.getFlake \"$NIX_FLAKE_REF\";
+      pkgs = import flake.inputs.nixpkgs { system = builtins.currentSystem; };
+      module = (import $ROOT/nix/devenv-modules/tasks/shared/pnpm.nix {
+        packages = [ ];
+        materialize = false;
+      }) {
+        inherit pkgs;
+        lib = pkgs.lib;
+        config = { devenv.root = \"$workspace\"; };
+      };
+    in builtins.attrNames module.tasks
+  " > "$output_path"
+}
+
 extract_shared_task_script() {
   local module_path="$1"
   local task_name="$2"
@@ -399,6 +418,9 @@ extract_task_script "$workspace" "exec" "$tmpdir/pnpm-repair.exec.sh" 'packages 
 extract_task_script "$workspace" "exec" "$tmpdir/pnpm-clean.exec.sh" 'packages = [ "packages/demo" ];' "pnpm:clean"
 extract_task_script "$workspace" "exec" "$tmpdir/pnpm-update.exec.sh" 'packages = [ ];' "pnpm:update"
 extract_task_script "$workspace" "exec" "$tmpdir/pnpm-dedupe.exec.sh" 'packages = [ ];' "pnpm:dedupe"
+extract_task_script "$workspace" "exec" "$tmpdir/pnpm-lockfile-only-update.exec.sh" 'packages = [ ]; materialize = false;' "pnpm:update"
+extract_task_script "$workspace" "exec" "$tmpdir/pnpm-lockfile-only-dedupe.exec.sh" 'packages = [ ]; materialize = false;' "pnpm:dedupe"
+eval_lockfile_only_tasks "$tmpdir/pnpm-lockfile-only-tasks.json"
 extract_task_script "$workspace" "exec" "$tmpdir/pnpm-source-install.exec.sh" 'packages = [ ]; sourceInputPaths = [ "repos/source/packages/pkg" ];'
 extract_task_script "$workspace" "status" "$tmpdir/pnpm-source-install.status.sh" 'packages = [ ]; sourceInputPaths = [ "repos/source/packages/pkg" ];'
 extract_task_script "$workspace" "exec" "$tmpdir/pnpm-source-update.exec.sh" 'packages = [ ]; sourceInputPaths = [ "repos/source/packages/pkg" ];' "pnpm:update"
@@ -436,6 +458,8 @@ rewrite_unrealized_tool_paths "$tmpdir/pnpm-repair.exec.sh"
 rewrite_unrealized_tool_paths "$tmpdir/pnpm-clean.exec.sh"
 rewrite_unrealized_tool_paths "$tmpdir/pnpm-update.exec.sh"
 rewrite_unrealized_tool_paths "$tmpdir/pnpm-dedupe.exec.sh"
+rewrite_unrealized_tool_paths "$tmpdir/pnpm-lockfile-only-update.exec.sh"
+rewrite_unrealized_tool_paths "$tmpdir/pnpm-lockfile-only-dedupe.exec.sh"
 rewrite_unrealized_tool_paths "$tmpdir/pnpm-source-install.exec.sh"
 rewrite_unrealized_tool_paths "$tmpdir/pnpm-source-install.status.sh"
 rewrite_unrealized_tool_paths "$tmpdir/pnpm-source-update.exec.sh"
@@ -466,6 +490,15 @@ unset CI
 unset PNPM_STORE_DIR
 unset PNPM_CONFIG_STORE_DIR
 unset npm_config_store_dir
+
+echo "Test -1: lockfile-only mode removes every dependency materialization task"
+assert_json_field \
+  "pnpm:dedupe,pnpm:reset-lock-files,pnpm:update" \
+  "$tmpdir/pnpm-lockfile-only-tasks.json" \
+  'value => value.join(",")' \
+  "lockfile-only task surface"
+grep -qF -- '--lockfile-only' "$tmpdir/pnpm-lockfile-only-update.exec.sh"
+grep -qF -- '--lockfile-only' "$tmpdir/pnpm-lockfile-only-dedupe.exec.sh"
 
 echo "Test 0: install ignores disposable historical root-local cache content"
 (

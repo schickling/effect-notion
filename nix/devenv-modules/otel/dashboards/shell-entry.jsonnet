@@ -1,8 +1,8 @@
 // Shell Entry (enterShell) dashboard
 // How long do shell entry tasks take, with breakdown by task.
 //
-// Shell entry runs optional tasks: pnpm:install, genie:run, mr:apply
-// These tasks are only executed when their dependencies change (git hash caching).
+// Shell entry runs dependency bootstrap, generation, composition, and authoritative publication.
+// These tasks are only executed when their dependencies change.
 // Use FORCE_SETUP=1 to force re-run even when cached.
 local g = import 'g.libsonnet';
 local lib = import 'lib.libsonnet';
@@ -30,7 +30,7 @@ local traceTable(title, query, limit=50) =
 
 g.dashboard.new('Shell Entry Performance')
 + g.dashboard.withUid('otel-shell-entry')
-+ g.dashboard.withDescription('Performance breakdown of devenv shell entry tasks (pnpm:install, genie:run, mr:apply)')
++ g.dashboard.withDescription('Performance breakdown of dependency bootstrap, generation, composition, and authoritative editor publication')
 + g.dashboard.graphTooltip.withSharedCrosshair()
 + g.dashboard.withTimezone('browser')
 + g.dashboard.withPanels(
@@ -39,8 +39,8 @@ g.dashboard.new('Shell Entry Performance')
     g.panel.row.new('Shell Entry Tasks'),
 
     traceTable(
-      'All shell entry tasks (pnpm:install, genie:run, mr:apply)',
-      '{resource.service.name="effect-utils-devenv" && name="devenv.task.exec" && span.task.name=~"pnpm:install|genie:run|mr:apply"}',
+      'All shell entry tasks',
+      '{resource.service.name="effect-utils-devenv" && name="devenv.task.exec" && span.task.name=~"buck2:editor:bootstrap|genie:run|mr:apply|buck2:editor:publish"}',
       50,
     ),
 
@@ -48,8 +48,8 @@ g.dashboard.new('Shell Entry Performance')
     g.panel.row.new('Task Breakdown'),
 
     traceTable(
-      'pnpm:install',
-      '{resource.service.name="effect-utils-devenv" && name="devenv.task.exec" && span.task.name="pnpm:install"}',
+      'buck2:editor:bootstrap',
+      '{resource.service.name="effect-utils-devenv" && name="devenv.task.exec" && span.task.name="buck2:editor:bootstrap"}',
       30,
     ),
 
@@ -62,6 +62,12 @@ g.dashboard.new('Shell Entry Performance')
     traceTable(
       'mr:apply',
       '{resource.service.name="effect-utils-devenv" && name="devenv.task.exec" && span.task.name="mr:apply"}',
+      30,
+    ),
+
+    traceTable(
+      'buck2:editor:publish',
+      '{resource.service.name="effect-utils-devenv" && name="devenv.task.exec" && span.task.name="buck2:editor:publish"}',
       30,
     ),
   ], panelWidth=24, panelHeight=10)
