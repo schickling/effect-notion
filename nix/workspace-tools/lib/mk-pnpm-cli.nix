@@ -1697,6 +1697,9 @@ pkgs.stdenv.mkDerivation {
     installStartedAt=$(install_timer_now)
     mkdir -p "$out/bin"
     cp "$NIX_BUILD_TOP/workspace/${packageDir}/output/${binaryName}" "$out/bin/"
+    ${lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
+      /usr/bin/codesign --force --sign - "$out/bin/${binaryName}"
+    ''}
     ${lib.optionalString installRuntimeWorkspace ''
       mkdir -p "$out/libexec"
       cp -R "$NIX_BUILD_TOP/workspace" "$out/libexec/workspace"
