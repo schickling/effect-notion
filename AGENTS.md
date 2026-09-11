@@ -6,19 +6,19 @@
 
 Use `devenv tasks run <task>` (devenv tasks) to execute tasks with dependencies:
 
-- **TypeScript**: `devenv tasks run ts:check` or `devenv tasks run ts:build-watch` (watch mode) or `devenv tasks run ts:clean`
+- **TypeScript**: `devenv tasks run buck2:check`
+- **Declaration publication**: `devenv tasks run buck2:typescript:materialize-dist`
 - **Linting**: `devenv tasks run lint:check` or `devenv tasks run lint:fix`
 - **Testing**: `devenv tasks run test:run` (all) or `devenv tasks run test:<pkg>` (single package) or `devenv tasks run test:watch`
-- **Build**: `devenv tasks run ts:build`
 - **Install**: `devenv tasks run pnpm:install`
 - **Genie**: `devenv tasks run genie:run` or `devenv tasks run genie:watch` or `devenv tasks run genie:check`
-- **Check all**: `devenv tasks run check:quick` (ts + lint) or `devenv tasks run check:all` (ts + lint + test)
+- **Check all**: `devenv tasks run check:quick` or `devenv tasks run check:all`
 
 Use the `--no-tui` flag to see all output. If tools aren't directly in `$PATH`, enter the dev environment first with `devenv shell`.
 
 We're using megarepo for repo management. We're using `pnpm` temporarily for installs (bun is still used to run scripts) and `devenv` to manage the development environment.
 
-The TypeScript tasks (`ts:check`, `ts:check:strict`, `ts:build`, `ts:emit`, `ts:build-watch`) consume Buck-owned package declarations from published `dist` directories, so they run after `buck2:typescript:materialize-dist`. That publisher needs a composed megarepo workspace: in a detached/flat clone it can only verify declarations a composed workspace already published, and it refuses with the exact package and path it could not find rather than type-checking against an absent `dist`. Work on this repo through its megarepo composition.
+Buck owns checking for all 39 TypeScript projects and declaration production for every emitting project. `buck2:typescript:materialize-dist` publishes those declarations atomically for source-side consumers such as type-aware lint. Publication requires the repository's reciprocal composed megarepo worktree and fails in a detached or lookalike checkout; work on this repo through its megarepo composition.
 
 # Genie (Config File Generation)
 

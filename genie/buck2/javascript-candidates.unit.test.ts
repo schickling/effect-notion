@@ -111,9 +111,9 @@ describe('JavaScript product registry', () => {
 
   it('serves each package entrypoint from the sole registry declaration', () => {
     for (const packagePath of productPackagePaths) {
-      expect(
-        javaScriptProductsFor(packagePath as keyof typeof javaScriptProductRegistry),
-      ).toBe(javaScriptProductRegistry[packagePath as keyof typeof javaScriptProductRegistry])
+      expect(javaScriptProductsFor(packagePath as keyof typeof javaScriptProductRegistry)).toBe(
+        javaScriptProductRegistry[packagePath as keyof typeof javaScriptProductRegistry],
+      )
     }
   })
 

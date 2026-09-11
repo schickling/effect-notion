@@ -27,6 +27,10 @@
       "destination": "packages/@overeng/agent-session-ingest/dist"
     },
     {
+      "target": "//packages/@overeng/buck2-tools:dist",
+      "destination": "packages/@overeng/buck2-tools/dist"
+    },
+    {
       "target": "//packages/@overeng/ci-tools:dist",
       "destination": "packages/@overeng/ci-tools/dist"
     },
@@ -55,12 +59,28 @@
       "destination": "packages/@overeng/effect-rpc-tanstack/dist"
     },
     {
+      "target": "//packages/@overeng/effect-schema-form-aria:dist",
+      "destination": "packages/@overeng/effect-schema-form-aria/dist"
+    },
+    {
       "target": "//packages/@overeng/effect-schema-form:dist",
       "destination": "packages/@overeng/effect-schema-form/dist"
     },
     {
+      "target": "//packages/@overeng/genie:dist",
+      "destination": "packages/@overeng/genie/dist"
+    },
+    {
+      "target": "//packages/@overeng/kdl-effect:dist",
+      "destination": "packages/@overeng/kdl-effect/dist"
+    },
+    {
       "target": "//packages/@overeng/kdl:dist",
       "destination": "packages/@overeng/kdl/dist"
+    },
+    {
+      "target": "//packages/@overeng/megarepo:dist",
+      "destination": "packages/@overeng/megarepo/dist"
     },
     {
       "target": "//packages/@overeng/notion-cli:dist",
@@ -131,6 +151,10 @@
       "destination": "packages/@overeng/tui-react/dist"
     },
     {
+      "target": "//packages/@overeng/tui-stories:dist",
+      "destination": "packages/@overeng/tui-stories/dist"
+    },
+    {
       "target": "//packages/@overeng/utils-dev:dist",
       "destination": "packages/@overeng/utils-dev/dist"
     },
@@ -163,6 +187,18 @@
       "protocol": "nodejs/node/v24",
       "flakePackage": "buck2-node",
       "executable": "bin/node"
+    },
+    {
+      "toolId": "oxfmt",
+      "protocol": "oxc/oxfmt/v1",
+      "flakePackage": "oxfmt",
+      "executable": "bin/oxfmt"
+    },
+    {
+      "toolId": "oxlint",
+      "protocol": "oxc/oxlint/v1",
+      "flakePackage": "oxlint-with-plugins",
+      "executable": "bin/oxlint"
     },
     {
       "toolId": "product",

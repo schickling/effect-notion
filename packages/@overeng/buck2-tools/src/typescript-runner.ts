@@ -54,8 +54,14 @@ const fail = (message: string): never => {
   throw new Error(`typescript runner: ${message}`)
 }
 
-const formatError = (error: unknown): string =>
-  error instanceof Error ? (error.stack ?? error.message) : String(error)
+/** Formats runtime errors without losing messages from message-less Bun stack strings. */
+export const formatError = (error: unknown): string => {
+  if (error instanceof Error === false) return String(error)
+  if (error.stack === undefined) return error.message
+  return error.stack.includes(error.message) === true
+    ? error.stack
+    : `${error.message}\n${error.stack}`
+}
 
 const isErrnoException = (error: unknown): error is NodeJS.ErrnoException =>
   error instanceof Error && 'code' in error

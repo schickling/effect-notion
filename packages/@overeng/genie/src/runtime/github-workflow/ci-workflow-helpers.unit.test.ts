@@ -23,6 +23,7 @@ const ciWorkflowSource = [
   'ci-workflow/setup.ts',
   'ci-workflow/measurements.ts',
   'ci-workflow/reporting.ts',
+  'ci-workflow/default-ref-policy-script.ts',
   'ci-workflow/megarepo.ts',
   'ci-workflow/merge-queue.ts',
   'ci-workflow/deploy.ts',
@@ -218,12 +219,11 @@ const resolveDevenvScript = readFileSync(resolveDevenvScriptUrl, 'utf8')
 const applyMegarepoLockStepSource = extractSourceBlock(
   ciWorkflowSource,
   'export const applyMegarepoLockStep = (opts?: { skip?: string[]; cacheableStore?: boolean }) => {',
-  'export type DefaultRefPolicyCheckStepOptions = {',
+  "export const mergeQueueAdmissionLabel = 'mq:ci-admitted' as const",
 )
-const defaultRefPolicyCheckStepSource = extractSourceBlock(
-  ciWorkflowSource,
-  'export type DefaultRefPolicyCheckStepOptions = {',
-  '/** Fail when first-party megarepo/flake/devenv inputs target non-default refs. */',
+const defaultRefPolicySource = readFileSync(
+  new URL('../../../../../../genie/ci-workflow/default-ref-policy-script.ts', import.meta.url),
+  'utf8',
 )
 const mergeQueueSource = extractSourceBlock(
   ciWorkflowSource,
@@ -750,37 +750,33 @@ printf '%s\\n' "$NIX_OUTPUT"
     expect(megarepoTaskModuleSource).not.toContain('.value.members[].name')
   })
 
-  it('normalizes GitHub branch refs through an explicit default-ref policy option', () => {
-    expect(defaultRefPolicyCheckStepSource).toContain('normalizeGitBranchRefs?: boolean')
-    expect(defaultRefPolicyCheckStepSource).toContain('NORMALIZE_GIT_BRANCH_REFS')
-    expect(defaultRefPolicyCheckStepSource).toContain("ref.startsWith('refs/heads/')")
+  it('keeps the source-policy trust gate available before composition', () => {
+    expect(defaultRefPolicySource).toContain('NORMALIZE_GIT_BRANCH_REFS')
+    expect(defaultRefPolicySource).toContain("ref.startsWith('refs/heads/')")
   })
 
   it('allows only explicitly opted-in immutable legacy member refs', () => {
-    expect(defaultRefPolicyCheckStepSource).toContain('allowLegacyMemberCommitRefs?: boolean')
-    expect(defaultRefPolicyCheckStepSource).toContain('ALLOW_LEGACY_MEMBER_COMMIT_REFS')
-    expect(defaultRefPolicyCheckStepSource).toContain("memberName.endsWith('-legacy')")
-    expect(defaultRefPolicyCheckStepSource).toContain(
+    expect(defaultRefPolicySource).toContain('ALLOW_LEGACY_MEMBER_COMMIT_REFS')
+    expect(defaultRefPolicySource).toContain("memberName.endsWith('-legacy')")
+    expect(defaultRefPolicySource).toContain(
       'const immutableCommitRef = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i',
     )
-    expect(defaultRefPolicyCheckStepSource).toContain(
+    expect(defaultRefPolicySource).toContain(
       'isAllowedLegacyMemberRef({ memberName, ref: normalizedRef })',
     )
   })
 
   it('retries temporary git repository cleanup after reachability checks', () => {
-    expect(defaultRefPolicyCheckStepSource).toContain(
+    expect(defaultRefPolicySource).toContain(
       'fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })',
     )
   })
 
-  it('uses the same Nix-provided Node runtime for default-ref policy checks', () => {
-    expect(ciWorkflowSource).toContain('nix shell nixpkgs#nodejs_24 -c node')
-  })
-
-  it('provides a dedicated default-ref policy job so regular jobs keep their signal', () => {
-    expect(ciWorkflowSource).toContain('export const defaultRefPolicyCheckJob')
-    expect(ciWorkflowSource).toContain('name === undefined ? {} : { name }')
+  it('runs the dedicated default-ref policy job before composition', () => {
+    expect(generatedWorkflowSource).toContain("'default-ref-policy': {")
+    expect(generatedWorkflowSource).toContain('defaultRefPolicyCheckJob({')
+    expect(generatedWorkflowSource).not.toContain("runDevenvTasksBefore('policy:default-ref')")
+    expect(ciWorkflowSource).toContain('defaultRefPolicyCheckJob')
     expect(ciWorkflowSource).toContain('defaultRefPolicyCheckStep(stepOpts)')
   })
 })

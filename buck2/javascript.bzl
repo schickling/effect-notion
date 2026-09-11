@@ -106,7 +106,7 @@ bun_executable = rule(
         "test_files": attrs.list(attrs.string(), default = []),
         "excludes": attrs.list(attrs.string(), default = []),
         "_runner": attrs.default_only(attrs.dep(
-            default = "//:javascript_action_runtime",
+            default = "//packages/@overeng/buck2-tools:javascript_action_runtime",
             providers = [DefaultInfo],
         )),
         "_javascript": attrs.default_only(attrs.exec_dep(
@@ -174,7 +174,7 @@ _TEST_ATTRS = {
     "labels": attrs.list(attrs.string(), default = []),
     "contacts": attrs.list(attrs.string(), default = []),
     "_runner": attrs.default_only(attrs.dep(
-        default = "//:javascript_action_runtime",
+        default = "//packages/@overeng/buck2-tools:javascript_action_runtime",
         providers = [DefaultInfo],
     )),
     "_javascript": attrs.default_only(attrs.exec_dep(
@@ -203,22 +203,33 @@ def _vitest_collect_impl(ctx):
     if ctx.attrs.vitest_runtime == "node" and "NODE_BIN" not in ctx.attrs.tools:
         fail("vitest_runtime = \"node\" requires a declared NODE_BIN tool")
 
-    # `_configured_args` puts only the NAMES of inherited variables in the
-    # action command while the runner reads their live values, so those values
-    # are outside the action identity: a collection produced under one
-    # environment would be served again after they change, yielding a stale
-    # test inventory. Same invariant as `_test_info`.
-    if ctx.attrs.inherited_env and ctx.attrs.cacheable:
-        fail("collections inheriting the environment must set cacheable = False")
+    # Collection actions have no per-action remote-cache read switch. Their
+    # identity must therefore contain every input, and they must stay cacheable;
+    # otherwise an older cacheable declaration could serve a value after the
+    # lane was marked uncacheable.
+    if ctx.attrs.inherited_env:
+        fail("a collection cannot inherit the environment because its live values are outside the action identity")
+    if not ctx.attrs.cacheable:
+        fail("an uncacheable lane cannot declare a collection because ctx.actions.run has no cache-read switch")
+
+    # The runner rejects a missing, unparseable or contract-violating Vitest
+    # report instead of writing this output, and Buck fails the action when a
+    # declared output is absent, so a lane either publishes a valid normalized
+    # collection or has no artifact at all.
     collection = ctx.actions.declare_output("{}.json".format(ctx.attrs.name))
     args, _, _ = _configured_args(ctx, "vitest-collect", [ctx.attrs.config])
     args.add("--collect-output", collection.as_output())
+
+    # Same policy as `_test_info`: uploading is only meaningful when the root
+    # buckconfig has the remote cache on, so gate on both rather than letting a
+    # collection push to an unconfigured engine. Cache READS follow the
+    # execution platform's executor config, which reads the same root config.
     ctx.actions.run(
         args,
         category = "vitest_collect",
         identifier = ctx.attrs.name,
         local_only = True,
-        allow_cache_upload = ctx.attrs.cacheable,
+        allow_cache_upload = root_remote_cache_enabled() and root_allow_cache_uploads(),
     )
     return [DefaultInfo(default_output = collection)]
 

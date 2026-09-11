@@ -25,22 +25,25 @@ export const buck2TypeScriptAdmission = {
     },
   ],
   editorViewConsumer: false,
-  authority: {
-    declarationEntrypoint: 'src/isomorphic/mod.d.ts',
-    projectFile: 'tsconfig.json',
-  },
+  authorities: [{ declarationEntrypoint: 'src/isomorphic/mod.d.ts', projectFile: 'tsconfig.json' }],
   tests: [
     {
       name: 'test',
       runner: 'vitest',
-      // The otel identity and telemetry suites spawn the `otelite` binary and the `cmd` suite
-      // runs real children while writing under the repository root, so all three stay
-      // unbounded (decision 0026) under the devenv `test:utils` task.
+      // These suites need authority the Buck sandbox intentionally does not grant: otel identity
+      // and telemetry spawn `otelite`, cmd runs real children while writing under the repository
+      // root, and watch depends on host filesystem notifications and timing. Keep their exact
+      // source-side complement visible under `test:utils:unbounded` (decision 0026).
       excludes: [
+        'src/browser/__tests__/BroadcastLogger.pw.test.ts',
         'src/node/cmd.unit.test.ts',
         'src/node/otel-identity.test.ts',
         'src/node/otel-telemetry.test.ts',
+        'src/node/watch.unit.test.ts',
       ],
+      sourceOwners: {
+        'src/browser/__tests__/BroadcastLogger.pw.test.ts': 'test:pw:utils',
+      },
     },
   ],
 } as const satisfies Buck2TypeScriptAdmission

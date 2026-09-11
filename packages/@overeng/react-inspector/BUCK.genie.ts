@@ -6,12 +6,16 @@ export const buck2TypeScriptAdmission = {
   packageName: '@overeng/react-inspector',
   packagePath: 'packages/@overeng/react-inspector',
   projectionSource: 'packages/@overeng/react-inspector/BUCK.genie.ts',
-  sourceRoots: ['src'],
+  sourceRoots: ['src', 'test-d'],
   editorViewConsumer: false,
-  authority: {
-    declarationEntrypoint: 'src/index.d.ts',
-    projectFile: 'tsconfig.json',
-  },
+  authorities: [
+    { declarationEntrypoint: 'src/index.d.ts', projectFile: 'tsconfig.json' },
+    {
+      projectFile: 'tsconfig.strict-consumer.json',
+      projectPath: 'packages/@overeng/react-inspector/tsconfig.strict-consumer.json',
+      typecheckTargetName: 'strict_consumer_typecheck',
+    },
+  ],
   tests: [
     {
       name: 'test',

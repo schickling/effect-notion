@@ -13,6 +13,7 @@ export default tsconfigJson({
     ...reactJsx,
     rootDir: './src',
     lib: [...domLib],
+    noEmit: true,
   },
   include: ['src/**/*'],
 } satisfies TSConfigArgs)

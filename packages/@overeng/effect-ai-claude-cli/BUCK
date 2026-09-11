@@ -2,15 +2,16 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/effect-ai-claude-cli/BUCK.genie.ts
-# Projection schema version: 6
+# Projection schema version: 10
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:cd78631a011e624976d2075c3530d6cb8e36baaed10018a45ba176949bb156a9
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-ai-claude-cli/BUCK.genie.ts, packages/@overeng/effect-ai-claude-cli/BUCK.genie.ts, packages/@overeng/effect-ai-claude-cli/package.json.genie.ts, packages/@overeng/effect-ai-claude-cli/src/**/*.cts, packages/@overeng/effect-ai-claude-cli/src/**/*.js, packages/@overeng/effect-ai-claude-cli/src/**/*.mts, packages/@overeng/effect-ai-claude-cli/src/**/*.spec.cjs, packages/@overeng/effect-ai-claude-cli/src/**/*.spec.jsx, packages/@overeng/effect-ai-claude-cli/src/**/*.spec.mjs, packages/@overeng/effect-ai-claude-cli/src/**/*.test.cjs, packages/@overeng/effect-ai-claude-cli/src/**/*.test.jsx, packages/@overeng/effect-ai-claude-cli/src/**/*.test.mjs, packages/@overeng/effect-ai-claude-cli/src/**/*.ts, packages/@overeng/effect-ai-claude-cli/src/**/*.tsx, packages/@overeng/effect-ai-claude-cli/src/**/__snapshots__/*.snap, packages/@overeng/effect-ai-claude-cli/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
+# Semantic fingerprint: sha256:657cf2c877ae0b48e6812dedf5ad23a7d4522419c89be13188df91ce7acb84aa
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-ai-claude-cli/BUCK.genie.ts, packages/@overeng/effect-ai-claude-cli/BUCK.genie.ts, packages/@overeng/effect-ai-claude-cli/package.json.genie.ts, packages/@overeng/effect-ai-claude-cli/src/**/*.cts, packages/@overeng/effect-ai-claude-cli/src/**/*.js, packages/@overeng/effect-ai-claude-cli/src/**/*.mts, packages/@overeng/effect-ai-claude-cli/src/**/*.spec.cjs, packages/@overeng/effect-ai-claude-cli/src/**/*.spec.jsx, packages/@overeng/effect-ai-claude-cli/src/**/*.spec.mjs, packages/@overeng/effect-ai-claude-cli/src/**/*.test.cjs, packages/@overeng/effect-ai-claude-cli/src/**/*.test.jsx, packages/@overeng/effect-ai-claude-cli/src/**/*.test.mjs, packages/@overeng/effect-ai-claude-cli/src/**/*.ts, packages/@overeng/effect-ai-claude-cli/src/**/*.tsx, packages/@overeng/effect-ai-claude-cli/src/**/__snapshots__/*.snap, packages/@overeng/effect-ai-claude-cli/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -25,6 +26,14 @@ export_materialization_inputs([
     "src/errors.ts",
     "src/mod.ts",
 ])
+
+static_source_set(
+    name = "static_sources",
+    node_modules = ":node_modules",
+    prefix = "packages/@overeng/effect-ai-claude-cli",
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    visibility = ["PUBLIC"],
+)
 
 alias(
     name = "node_modules",
@@ -49,7 +58,7 @@ package_view(
         "src/mod.ts": "src/mod.ts",
         "tsconfig.json": "tsconfig.json",
     },
-    runtime = "//:package_tree_runtime",
+    runtime = "//packages/@overeng/buck2-tools:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
 )
@@ -66,7 +75,8 @@ package_view(
         "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
-    runtime = "//:package_tree_runtime",
+    strip_project_references = True,
+    runtime = "//packages/@overeng/buck2-tools:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
 )
@@ -95,6 +105,12 @@ tsgo_emit(
 
 vitest_test(
     name = "test",
+    package_tree = ":test_package_tree",
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
     package_tree = ":test_package_tree",
     visibility = ["PUBLIC"],
 )

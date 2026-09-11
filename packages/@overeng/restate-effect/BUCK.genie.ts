@@ -25,14 +25,13 @@ export const buck2TypeScriptAdmission = {
     },
   ],
   editorViewConsumer: false,
-  authority: {
-    declarationEntrypoint: 'src/mod.d.ts',
-    projectFile: 'tsconfig.json',
-  },
+  authorities: [{ declarationEntrypoint: 'src/mod.d.ts', projectFile: 'tsconfig.json' }],
   tests: [
     {
       name: 'test',
       runner: 'vitest',
+      vitestRuntime: 'node',
+      tools: { NODE_BIN: '//buck2/toolchains:tool_node' },
       // The integration suites boot a real `restate-server` child, so they stay unbounded
       // (decision 0026) under the devenv `test:restate-effect` task.
       excludes: [

@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   acquireScratch,
+  normalizeVitestCollection,
   parseJavaScriptRunOptions,
   planScratch,
   vitestArgv,
@@ -147,6 +148,7 @@ describe('Vitest argv', () => {
       '--config',
       '/tree/vitest.config.ts',
       '--configLoader=runner',
+      '--no-cache',
       '--testTimeout',
       '30000',
       '--hookTimeout',
@@ -160,28 +162,104 @@ describe('Vitest argv', () => {
     ])
   })
 
-  it('drives the exit-owning collector with the same declared selection', () => {
+  it('lists the declared selection with the pinned Vitest CLI', () => {
     expect(
       vitestCollectArgv({
         runtime: bun,
-        entry: '/runner/vitest-collect-entry.ts',
         packageTree: '/tree',
         config: 'vitest.config.ts',
-        report: '/results/collection.json',
+        report: '/results/vitest-collection.json',
         tests: ['src/a.unit.test.ts'],
         excludes: ['src/live.integration.test.ts'],
       }),
     ).toEqual([
       bun,
-      '/runner/vitest-collect-entry.ts',
-      '/tree',
-      'vitest.config.ts',
-      '/results/collection.json',
-      '--test',
+      '/tree/node_modules/vitest/vitest.mjs',
+      'list',
+      '--config',
+      '/tree/vitest.config.ts',
+      '--configLoader=runner',
+      '--no-cache',
+      '--json=/results/vitest-collection.json',
       'src/a.unit.test.ts',
       '--exclude',
       'src/live.integration.test.ts',
     ])
+  })
+})
+
+describe('normalizeVitestCollection', () => {
+  it('publishes a versioned, byte-sorted, package-relative inventory', () => {
+    expect(
+      normalizeVitestCollection({
+        packageTree: '/tree',
+        raw: [
+          { file: '/tree/src/b.unit.test.ts', name: 'b > second' },
+          { file: '/tree/src/b.unit.test.ts', name: 'b > first' },
+          {
+            file: '/tree/src/a.unit.test.ts',
+            name: 'a > only',
+            projectName: 'unit',
+            location: { line: 3, column: 1 },
+          },
+          { file: 'src/nested/./c.unit.test.ts', name: 'c > only' },
+        ],
+      }),
+    ).toEqual({
+      schemaVersion: 1,
+      tests: [
+        { file: 'src/a.unit.test.ts', name: 'a > only' },
+        { file: 'src/b.unit.test.ts', name: 'b > first' },
+        { file: 'src/b.unit.test.ts', name: 'b > second' },
+        { file: 'src/nested/c.unit.test.ts', name: 'c > only' },
+      ],
+    })
+  })
+
+  it('is stable under input order', () => {
+    const raw = [
+      { file: '/tree/src/b.unit.test.ts', name: 'b' },
+      { file: '/tree/src/a.unit.test.ts', name: 'a' },
+    ]
+    expect(JSON.stringify(normalizeVitestCollection({ packageTree: '/tree', raw }))).toBe(
+      JSON.stringify(normalizeVitestCollection({ packageTree: '/tree', raw: raw.toReversed() })),
+    )
+  })
+
+  it('rejects collected files outside the declared package tree', () => {
+    expect(() =>
+      normalizeVitestCollection({
+        packageTree: '/tree',
+        raw: [{ file: '/other/src/a.unit.test.ts', name: 'a' }],
+      }),
+    ).toThrow('collected test file (entry 0)')
+    expect(() =>
+      normalizeVitestCollection({
+        packageTree: '/tree',
+        raw: [{ file: '../sibling/src/a.unit.test.ts', name: 'a' }],
+      }),
+    ).toThrow('collected test file (entry 0)')
+    expect(() =>
+      normalizeVitestCollection({ packageTree: '/tree', raw: [{ file: '/tree', name: 'a' }] }),
+    ).toThrow('collected test file (entry 0)')
+  })
+
+  it('rejects malformed reports instead of publishing them', () => {
+    expect(() => normalizeVitestCollection({ packageTree: '/tree', raw: { tests: [] } })).toThrow(
+      'did not write a JSON array',
+    )
+    expect(() => normalizeVitestCollection({ packageTree: '/tree', raw: ['a'] })).toThrow(
+      'collected test 0 is not an object',
+    )
+    expect(() => normalizeVitestCollection({ packageTree: '/tree', raw: [{ name: 'a' }] })).toThrow(
+      'collected test 0 has no test file',
+    )
+    expect(() =>
+      normalizeVitestCollection({
+        packageTree: '/tree',
+        raw: [{ file: '/tree/src/a.unit.test.ts', name: '' }],
+      }),
+    ).toThrow('has no test name')
   })
 })
 

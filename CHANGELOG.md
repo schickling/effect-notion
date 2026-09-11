@@ -5,12 +5,12 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+
 - **@overeng/megarepo**: composition-enabled branch worktrees are now created
   directly at their final `P/repos/<owned>` path and use Git registration as
   identity authority. Routine commands refuse legacy flat roots without
   mutation, composed roots are protected from every GC mode, and the permanent
   migration lifecycle commands and metadata have been removed.
-
 
 - **Buck2 (inert)**: added sandbox-free package, editor-view, and product
   actions; normalized dependency views; tracked remote-cache configuration with
@@ -43,7 +43,7 @@ All notable changes to this project will be documented in this file.
   unusable baseline. It subtracts failures present at both refs so it answers
   "did this change make it worse" on packages carrying drift — but with no
   floor, a run where every story failed at the baseline produced an empty
-  regression list *by construction* and reported no regressions over a total
+  regression list _by construction_ and reported no regressions over a total
   loss of styling. Measured at 212/212 failed on one app and 708/942 on another.
   Now: missing-reference is detected before the pre-existing skip that swallowed
   it; stories whose baseline image does not exist are `uncovered`, derived from
@@ -113,7 +113,7 @@ All notable changes to this project will be documented in this file.
   fifth is `@overeng/stylex-tokens/preflight.css`.
   **That last one is why "Tailwind-free" was not sufficient.** The reset was
   unlayered and sets `box-sizing`, `margin`, `padding` and `border` on `*`.
-  Layered CSS loses to *any* unlayered CSS, so flipping layers on without
+  Layered CSS loses to _any_ unlayered CSS, so flipping layers on without
   touching it would have handed those four properties to the reset on every
   component in the package — silently, and in the direction the migration is
   supposed to prevent. The reset now declares itself in `overeng.reset` and the
@@ -123,13 +123,13 @@ All notable changes to this project will be documented in this file.
   same "do not depend on injection order" rule the token layer already follows.
 - **genie**: the CI workflow generator proves that every helper script a
   generated step invokes is a script it actually emits. `prepareCiScriptsStep`
-  copies the *consuming* repository's `genie/ci-scripts/` into the job-local
+  copies the _consuming_ repository's `genie/ci-scripts/` into the job-local
   `composition-state/ci-runtime/`, and only `ciWorkflowSupportFiles` puts files
   there, so a step naming a script that merely happens to be hand-committed in
   this repo resolves here and exits 127 in every consumer. That is how
   `.../ci-runtime/resolve-devenv-ci.sh` failed 14 of 15 jobs on
   schickling/schickling.dev#178 (run 33752627726) while this repo's own CI
-  stayed green: the assertion that existed checked the step *mentioned* the
+  stayed green: the assertion that existed checked the step _mentioned_ the
   script, never that a consumer could resolve it. Three scans now close the
   class — generator-source references through any `*ScriptsDir`,
   `composition-state/ci-runtime/...` references in the generated workflows, and
@@ -158,6 +158,7 @@ All notable changes to this project will be documented in this file.
   the two dropped members. No behavior change.
 
 ### Fixed
+
 - **CI**: keep draft assistant PRs mergeable by completing the auto-review job
   successfully when no review request is needed.
 - **CI**: stop requiring `main`-only Notion integration, live-deploy, and
@@ -223,7 +224,7 @@ All notable changes to this project will be documented in this file.
   Adjudicated against the gate: 20 stories changed, 18 of them the intended
   `43,127,255 -> 21,93,252` recolour confined to selected segments, checkbox
   boxes and the accent tick. The other two are the gate's own sub-pixel fringe,
-  proven by recapturing the *unchanged* baseline tree and reproducing both
+  proven by recapturing the _unchanged_ baseline tree and reproducing both
   diffs identically (689 and 693 pixels, max channel delta 2). Zero
   accessibility failures remain, and the condition-nesting, ordered-argument and
   landmark changes moved no pixels at all. Closes #1171.
@@ -242,6 +243,16 @@ All notable changes to this project will be documented in this file.
   `nix/devenv-modules/tasks/shared/tests/oxlint-plugin-injection.test.sh`.
 
 ### Changed
+
+- **Buck2 / TypeScript authority**: transfer all 39 TypeScript projects to
+  package-local Buck targets, including the independent React Inspector strict
+  consumer and the five bootstrap-critical packages. Delete the root
+  `tsconfig.check.json` / `tsconfig.emit.json` producers and `ts:*` task graph;
+  CI and aggregate checks now use `buck2:check` as the only check authority.
+  Declaration publication accepts only Buck products from a reciprocal
+  composition worktree, with no source-compiler comparison fallback. The
+  staged Buck action runners move into their owning `@overeng/buck2-tools`
+  package so admitting that package does not leave its sources root-owned.
 
 - **pnpm**: move the ecosystem pin from pnpm 11.8.0 to 12.3.4 and retire the
   separate lock mutator. pnpm 12 ships the CLI as a native Rust executable, so
@@ -293,6 +304,7 @@ All notable changes to this project will be documented in this file.
   entries disappeared — and
   `buck2/dependencies/pnpm-lock.unit.test.ts` guards both properties against
   the real lock.
+
 - **Buck2 TypeScript admissions**: transfer typecheck and declaration authority
   for the remaining independent library packages (effect-path, kdl, oxc-config,
   npm-release, effect-ai-claude-cli, agent-session-ingest, effect-react,
@@ -737,12 +749,23 @@ publish exited 1` with nothing to diagnose it by. `CpAMemberMountError` now
   workflow drops from 518,102 to 466,190 bytes, leaving 33,810 bytes below the
   enforced admission ceiling.
 
+- **Buck2 unit tests**: transfer 32 bounded package lanes to hermetic Buck
+  execution, publish exact Vitest collection artifacts, and generate a
+  fail-closed ownership partition for all 433 repository test files.
+  Source-side complements and dedicated integration/Playwright owners remain
+  explicit; the baseline gate independently reconciles the filesystem census,
+  generated authority, Buck collection results, and source reports.
+- **@overeng/tui-react**: restore its dedicated Playwright owner and current
+  seven-tab Storybook contracts, make preview state updates observable, expose
+  terminal text to assistive technology, and keep Node-only stdout modules
+  outside browser evaluation.
+
 ### Removed
 
 - **context/effect-4/**: the flip-era migration docs (alignment register, idiom
   catalog, differential recipes, ops manuals). The executable
   baseline-collection gate moved to
-  `@overeng/utils-dev/check-baseline-test-collection.ts`. The empty
+  `@overeng/utils-dev/src/check-baseline-test-collection.ts`. The empty
   `utilsPatches` projection registry is gone from genie config.
 - Retire the dormant Buck closure-compiler and package-evidence regime, including
   its unused Buck rules, Rust tools, Nix capabilities, and projection tests;

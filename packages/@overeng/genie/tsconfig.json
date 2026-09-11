@@ -50,7 +50,8 @@
       "node",
       "bun"
     ],
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "noEmit": true
   },
   "include": [
     "src/**/*.ts",

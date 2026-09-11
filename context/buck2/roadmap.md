@@ -138,27 +138,21 @@ RENAME_EXCHANGE advance.
 
 ## Phase 3 — TypeScript surface widening
 
-- Remaining TS package checks/builds are admitted in dependency order, with one
-  PR per dependency layer rather than one PR per package. Within each layer,
-  every package retains its own authority flip, deletion-ledger entry, and
-  package-specific evidence; its devenv/pnpm build-path consumers are deleted
-  with that package's admission.
-- Workspace-sibling live links (symlink-back) are part of the standard rule.
-- The coverage-asserted registry in `genie/tsconfig-projects.ts` has 39 root
-  projects. Root-solution membership is the exact complement of Buck authority:
-  `isRootTsconfigCheckProject` and `isRootTsconfigEmitProject` both read the
-  project's `buck2Authority`, which is derived from
-  `authoritativeBuck2TypeScriptAdmissions`, so no project can have two
-  producers and no second registry can drift from the first. 29 projects are
-  admitted. The 10 that remain are exactly the projects no Buck target owns:
-  `@overeng/buck2-tools`, `@overeng/genie`, `@overeng/kdl-effect`,
-  `@overeng/megarepo`, `@overeng/tui-stories`,
-  `@overeng/effect-schema-form-aria`, the `@overeng/effect-rpc-tanstack` basic
-  example, the two `context/` example projects, and the
-  `@overeng/react-inspector` strict-consumer project. They consume
-  Buck-owned declarations through the dist overlays that
-  `buck2:typescript:materialize-dist` publishes, so root checking is ordered
-  after that materialization rather than reproducing it.
+- TypeScript authority is complete: the package-local projection registry names
+  all 39 projects, including the independent React Inspector strict-consumer
+  project. Each project has one Buck typecheck target; emitting projects also
+  have one Buck `dist` target.
+- `genie/tsconfig-projects.ts` coverage-checks the same 39 project paths against
+  workspace membership and refuses any project without Buck authority.
+  `tsconfig.lint.json` retains that project graph solely as a type-aware lint
+  input; it is not a compiler producer.
+- The root `tsconfig.check.json` and `tsconfig.emit.json` producers and their
+  `ts:*` devenv tasks are deleted. CI and both aggregate check gates invoke
+  `buck2:check` as the sole TypeScript check authority.
+- Emitting packages expose Buck-published declarations through their package
+  export `types` conditions. `buck2:typescript:materialize-dist` atomically
+  publishes those products for source-side consumers and refuses to run outside
+  a reciprocal composed megarepo worktree; there is no source-compiler fallback.
 - Per-package unit-test lanes are DECLARED on the same authority registry
   (decision [0026](./.decisions/0026-buck-owned-unit-tests.md)): 32 admitted
   packages emit a `//<packagePath>:test` target over their bounded suites, and
@@ -166,14 +160,15 @@ RENAME_EXCHANGE advance.
   and attested tools cannot rot. Each target's `excludes` list names the
   unbounded suites the policy keeps outside: integration, e2e, live-deploy,
   PTY, and any suite that spawns an external binary.
-- Test EXECUTION is not yet transferred. Two mechanisms have to land first: the
-  baseline test-collection gate consumes retained Vitest JSON summaries that a
-  Buck test action does not write (the `vitest_collect` rule exists for this
-  and is not yet wired to the gate), and the unbounded remainder of each
-  package's suite needs its own declared lane so no file loses a runner and no
-  file runs twice. Until both land, `test:<package>` stays the source-owned
-  Vitest run over the whole suite and Buck ownership of test inputs is proven
-  by the build gate rather than by executing the lane.
+- Test EXECUTION is transferred for the bounded partition. `test:buck2:unit`
+  executes all 32 admitted targets, while `test:<package>` composes its
+  Buck-owned lane with an exact source-owned complement for that lane's
+  excluded files. Packages outside the authority remain source-owned.
+  `test:run` schedules both disjoint partitions on Linux and macOS, preserving
+  the previous host coverage while changing the bounded producer. Its baseline
+  gate reads declared `vitest_collect` artifacts for admitted Vitest lanes and
+  retained source JSON summaries for the complement, so no second test run is
+  needed to recover collection evidence.
 
 - Admission 2 transfers `@overeng/tui-react` typecheck and declaration emit to
   `//packages/@overeng/tui-react:typecheck` and

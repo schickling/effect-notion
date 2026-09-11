@@ -2,15 +2,16 @@
 # Source: BUCK.genie.ts
 
 # Projection source: packages/@overeng/tui-react/BUCK.genie.ts
-# Projection schema version: 6
+# Projection schema version: 10
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:4fc8f2549ba796cf7c17587d1ef79f75cbadc862c04f15f20fcc1a58b27b7d5e
-# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/tui-core/BUCK.genie.ts, packages/@overeng/tui-core/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/examples/**/*.cts, packages/@overeng/tui-react/examples/**/*.js, packages/@overeng/tui-react/examples/**/*.mts, packages/@overeng/tui-react/examples/**/*.spec.cjs, packages/@overeng/tui-react/examples/**/*.spec.jsx, packages/@overeng/tui-react/examples/**/*.spec.mjs, packages/@overeng/tui-react/examples/**/*.test.cjs, packages/@overeng/tui-react/examples/**/*.test.jsx, packages/@overeng/tui-react/examples/**/*.test.mjs, packages/@overeng/tui-react/examples/**/*.ts, packages/@overeng/tui-react/examples/**/*.tsx, packages/@overeng/tui-react/examples/**/__snapshots__/*.snap, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/tui-react/src/**/*.cts, packages/@overeng/tui-react/src/**/*.js, packages/@overeng/tui-react/src/**/*.mts, packages/@overeng/tui-react/src/**/*.spec.cjs, packages/@overeng/tui-react/src/**/*.spec.jsx, packages/@overeng/tui-react/src/**/*.spec.mjs, packages/@overeng/tui-react/src/**/*.test.cjs, packages/@overeng/tui-react/src/**/*.test.jsx, packages/@overeng/tui-react/src/**/*.test.mjs, packages/@overeng/tui-react/src/**/*.ts, packages/@overeng/tui-react/src/**/*.tsx, packages/@overeng/tui-react/src/**/__snapshots__/*.snap, packages/@overeng/tui-react/test/**/*.cts, packages/@overeng/tui-react/test/**/*.js, packages/@overeng/tui-react/test/**/*.mts, packages/@overeng/tui-react/test/**/*.spec.cjs, packages/@overeng/tui-react/test/**/*.spec.jsx, packages/@overeng/tui-react/test/**/*.spec.mjs, packages/@overeng/tui-react/test/**/*.test.cjs, packages/@overeng/tui-react/test/**/*.test.jsx, packages/@overeng/tui-react/test/**/*.test.mjs, packages/@overeng/tui-react/test/**/*.ts, packages/@overeng/tui-react/test/**/*.tsx, packages/@overeng/tui-react/test/**/__snapshots__/*.snap, packages/@overeng/tui-react/tsconfig.buck.json.genie.ts, packages/@overeng/tui-react/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
+# Semantic fingerprint: sha256:9a7548a18257f7c1f2e6c10f84dd0eba012aa19edf154b2b60022ada75cc137b
+# Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/tui-core/BUCK.genie.ts, packages/@overeng/tui-core/package.json.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/BUCK.genie.ts, packages/@overeng/tui-react/e2e/**/*.cts, packages/@overeng/tui-react/e2e/**/*.js, packages/@overeng/tui-react/e2e/**/*.mts, packages/@overeng/tui-react/e2e/**/*.spec.cjs, packages/@overeng/tui-react/e2e/**/*.spec.jsx, packages/@overeng/tui-react/e2e/**/*.spec.mjs, packages/@overeng/tui-react/e2e/**/*.test.cjs, packages/@overeng/tui-react/e2e/**/*.test.jsx, packages/@overeng/tui-react/e2e/**/*.test.mjs, packages/@overeng/tui-react/e2e/**/*.ts, packages/@overeng/tui-react/e2e/**/*.tsx, packages/@overeng/tui-react/e2e/**/__snapshots__/*.snap, packages/@overeng/tui-react/examples/**/*.cts, packages/@overeng/tui-react/examples/**/*.js, packages/@overeng/tui-react/examples/**/*.mts, packages/@overeng/tui-react/examples/**/*.spec.cjs, packages/@overeng/tui-react/examples/**/*.spec.jsx, packages/@overeng/tui-react/examples/**/*.spec.mjs, packages/@overeng/tui-react/examples/**/*.test.cjs, packages/@overeng/tui-react/examples/**/*.test.jsx, packages/@overeng/tui-react/examples/**/*.test.mjs, packages/@overeng/tui-react/examples/**/*.ts, packages/@overeng/tui-react/examples/**/*.tsx, packages/@overeng/tui-react/examples/**/__snapshots__/*.snap, packages/@overeng/tui-react/package.json.genie.ts, packages/@overeng/tui-react/src/**/*.cts, packages/@overeng/tui-react/src/**/*.js, packages/@overeng/tui-react/src/**/*.mts, packages/@overeng/tui-react/src/**/*.spec.cjs, packages/@overeng/tui-react/src/**/*.spec.jsx, packages/@overeng/tui-react/src/**/*.spec.mjs, packages/@overeng/tui-react/src/**/*.test.cjs, packages/@overeng/tui-react/src/**/*.test.jsx, packages/@overeng/tui-react/src/**/*.test.mjs, packages/@overeng/tui-react/src/**/*.ts, packages/@overeng/tui-react/src/**/*.tsx, packages/@overeng/tui-react/src/**/__snapshots__/*.snap, packages/@overeng/tui-react/test/**/*.cts, packages/@overeng/tui-react/test/**/*.js, packages/@overeng/tui-react/test/**/*.mts, packages/@overeng/tui-react/test/**/*.spec.cjs, packages/@overeng/tui-react/test/**/*.spec.jsx, packages/@overeng/tui-react/test/**/*.spec.mjs, packages/@overeng/tui-react/test/**/*.test.cjs, packages/@overeng/tui-react/test/**/*.test.jsx, packages/@overeng/tui-react/test/**/*.test.mjs, packages/@overeng/tui-react/test/**/*.ts, packages/@overeng/tui-react/test/**/*.tsx, packages/@overeng/tui-react/test/**/__snapshots__/*.snap, packages/@overeng/tui-react/tsconfig.buck.json.genie.ts, packages/@overeng/tui-react/tsconfig.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
 load("//buck2:materialization.bzl", "export_materialization_inputs", "package_view")
 load("//buck2:editor_view.bzl", "editor_view_inputs")
-load("//buck2:javascript.bzl", "vitest_test")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
+load("//buck2:javascript.bzl", "vitest_collect", "vitest_test")
 load("//buck2:typescript.bzl", "tsgo_emit", "tsgo_typecheck")
 
 export_file(
@@ -20,6 +21,8 @@ export_file(
 )
 
 export_materialization_inputs([
+    "e2e/resize-truncation.pw.test.ts",
+    "e2e/tui-story-preview.pw.test.ts",
     "examples/01-basic/hello-world.stories.tsx",
     "examples/01-basic/hello-world.tsx",
     "examples/01-basic/schema.ts",
@@ -126,6 +129,14 @@ export_materialization_inputs([
     "test/unit/viewport.test.tsx",
 ])
 
+static_source_set(
+    name = "static_sources",
+    node_modules = ":node_modules",
+    prefix = "packages/@overeng/tui-react",
+    srcs = glob(STATIC_SOURCE_GLOBS, exclude = STATIC_SOURCE_EXCLUDES),
+    visibility = ["PUBLIC"],
+)
+
 alias(
     name = "node_modules",
     actual = "//buck2/dependencies:view_packages_overeng_tui_react_f20a858a9232",
@@ -142,6 +153,8 @@ package_view(
     name = "package_tree",
     dependency_view = "//buck2/dependencies:view_packages_overeng_tui_react_f20a858a9232",
     files = {
+        "e2e/resize-truncation.pw.test.ts": "e2e/resize-truncation.pw.test.ts",
+        "e2e/tui-story-preview.pw.test.ts": "e2e/tui-story-preview.pw.test.ts",
         "examples/01-basic/hello-world.stories.tsx": "examples/01-basic/hello-world.stories.tsx",
         "examples/01-basic/hello-world.tsx": "examples/01-basic/hello-world.tsx",
         "examples/01-basic/schema.ts": "examples/01-basic/schema.ts",
@@ -250,7 +263,7 @@ package_view(
         "tsconfig.buck.json": "tsconfig.buck.json",
         "tsconfig.json": "tsconfig.json",
     },
-    runtime = "//:package_tree_runtime",
+    runtime = "//packages/@overeng/buck2-tools:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
 )
@@ -259,6 +272,8 @@ package_view(
     name = "test_package_tree",
     dependency_view = "//buck2/dependencies:view_packages_overeng_tui_react_f20a858a9232",
     files = {
+        "e2e/resize-truncation.pw.test.ts": "e2e/resize-truncation.pw.test.ts",
+        "e2e/tui-story-preview.pw.test.ts": "e2e/tui-story-preview.pw.test.ts",
         "examples/01-basic/hello-world.stories.tsx": "examples/01-basic/hello-world.stories.tsx",
         "examples/01-basic/hello-world.tsx": "examples/01-basic/hello-world.tsx",
         "examples/01-basic/schema.ts": "examples/01-basic/schema.ts",
@@ -368,7 +383,8 @@ package_view(
         "tsconfig.json": "tsconfig.json",
         "vitest.config.ts": "vitest.config.ts",
     },
-    runtime = "//:package_tree_runtime",
+    strip_project_references = True,
+    runtime = "//packages/@overeng/buck2-tools:package_tree_runtime",
     runtime_entry = "package-tree.ts",
     visibility = ["PUBLIC"],
 )
@@ -401,9 +417,29 @@ tsgo_emit(
 vitest_test(
     name = "test",
     package_tree = ":test_package_tree",
+    excludes = [
+        "e2e/resize-truncation.pw.test.ts",
+        "e2e/tui-story-preview.pw.test.ts",
+    ],
     tools = {
         "BUN_BIN": "//buck2/toolchains:tool_bun",
         "NODE_BIN": "//buck2/toolchains:tool_node",
     },
+    vitest_runtime = "node",
+    visibility = ["PUBLIC"],
+)
+
+vitest_collect(
+    name = "test_collect",
+    package_tree = ":test_package_tree",
+    excludes = [
+        "e2e/resize-truncation.pw.test.ts",
+        "e2e/tui-story-preview.pw.test.ts",
+    ],
+    tools = {
+        "BUN_BIN": "//buck2/toolchains:tool_bun",
+        "NODE_BIN": "//buck2/toolchains:tool_node",
+    },
+    vitest_runtime = "node",
     visibility = ["PUBLIC"],
 )

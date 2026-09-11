@@ -70,7 +70,6 @@ let
   # Shared task modules (from shared/ directory)
   taskModules = {
     genie = ./nix/devenv-modules/tasks/shared/genie.nix;
-    ts = import ./nix/devenv-modules/tasks/shared/ts.nix;
     worktree-guard = import ./nix/devenv-modules/tasks/shared/worktree-guard.nix;
     setup = import ./nix/devenv-modules/tasks/shared/setup.nix;
     check = import ./nix/devenv-modules/tasks/shared/check.nix;
@@ -95,7 +94,6 @@ let
     weaver-version-smoke = import ./nix/devenv-modules/tasks/shared/weaver-version-smoke.nix;
     context = ./nix/devenv-modules/tasks/shared/context.nix;
     devenv-module-tests = ./nix/devenv-modules/tasks/local/devenv-module-tests.nix;
-    asset-import-type-reference = ./nix/devenv-modules/tasks/local/asset-import-type-reference.nix;
   };
   # Repository CLIs come from the reviewed Buck product boundary, not from a
   # source entrypoint that exists only here. The activated shell, the flake
@@ -107,7 +105,6 @@ let
   # and exec these via absolute store path under passthrough, so they are passed
   # as `*Pkg` reals to the task modules instead of also being top-level profile
   # providers (which would collide with the guards in buildEnv). See cli-guard.nix.
-  effectTsgo = inputs.tsgo.packages.${currentSystem}.effect-tsgo;
   pnpmPkg = import ./nix/pnpm.nix { inherit pkgs; };
   genieCli = repoPackages.genie;
   mrCli = repoPackages.megarepo;
@@ -128,49 +125,10 @@ let
     }
   ];
 
-  # Explicit workspace members for the repo-root pnpm workspace.
-  # NOTE: Using pnpm temporarily due to bun bugs. Plan to switch back once fixed.
-  # See: context/workarounds/bun-issues.md
-  allPackages = [
-    "packages/@overeng/agent-session-ingest"
-    "packages/@overeng/buck2-tools"
-    "packages/@overeng/content-address"
-    "packages/@overeng/utils"
-    "packages/@overeng/utils-dev"
-    "packages/@overeng/effect-ai-claude-cli"
-    "packages/@overeng/effect-distributed-lock"
-    "packages/@overeng/effect-path"
-    "packages/@overeng/effect-react"
-    "packages/@overeng/effect-rpc-tanstack"
-    "packages/@overeng/effect-rpc-tanstack/examples/basic"
-    "packages/@overeng/effect-schema-form"
-    "packages/@overeng/effect-schema-form-aria"
-    "packages/@overeng/genie"
-    "packages/@overeng/kdl"
-    "packages/@overeng/kdl-effect"
-    "packages/@overeng/megarepo"
-    "packages/@overeng/notion-cli"
-    "packages/@overeng/notion-core"
-    "packages/@overeng/notion-datasource-sync"
-    "packages/@overeng/notion-effect-client"
-    "packages/@overeng/notion-effect-schema"
-    "packages/@overeng/notion-md"
-    "packages/@overeng/notion-property-write"
-    "packages/@overeng/notion-react"
-    "packages/@overeng/npm-release"
-    "packages/@overeng/otel-contract"
-    "packages/@overeng/oxc-config"
-    "packages/@overeng/pty-effect"
-    "packages/@overeng/react-inspector"
-    "packages/@overeng/restate-effect"
-    "packages/@overeng/stylex-tokens"
-    "packages/@overeng/tui-core"
-    "packages/@overeng/tui-react"
-    "packages/@overeng/tui-stories"
-    "packages/@overeng/ci-tools"
-    "context/opentui"
-    "context/effect/socket"
-  ];
+  # The generated root package manifest is the workspace package authority.
+  # Consuming it here removes the former hand-maintained Nix package list and
+  # makes Genie freshness the single stage-zero synchronization boundary.
+  allPackages = (builtins.fromJSON (builtins.readFile ./package.json)).workspaces;
 
   packageTestQuarantine = { };
   validatedPackageTestQuarantine = lib.mapAttrs (
@@ -180,14 +138,6 @@ let
     else
       throw "packageTestQuarantine.${name} must include reason and issue"
   ) packageTestQuarantine;
-  packageTestOverrides = {
-    megarepo = {
-      vitestArgs = "--exclude src/cli/store-gc-cold.integration.test.ts";
-    };
-    pty-effect = {
-      after = [ "pnpm:link-native-node-packages" ];
-    };
-  };
   packagesRoot = ./. + "/packages/@overeng";
   hasTestFiles =
     root:
@@ -206,7 +156,7 @@ let
               child = dir + "/${name}";
             in
             if entryType == "regular" then
-              builtins.match ".*\\.test\\.tsx?" name != null
+              builtins.match ".*\\.(spec|test)\\.(cjs|cts|js|jsx|mjs|mts|ts|tsx)" name != null
             else if entryType == "directory" then
               scan child
             else
@@ -231,21 +181,241 @@ let
         && !(builtins.hasAttr name validatedPackageTestQuarantine)
       ) (builtins.attrNames (builtins.readDir packagesRoot));
     in
-    map (
-      name:
-      {
-        path = "packages/@overeng/${name}";
-        inherit name;
-      }
-      // (packageTestOverrides.${name} or { })
-    ) packageNames;
-  baselineTestTaskRegistry = pkgs.writeText "effect4-baseline-test-task-registry.json" (
-    builtins.toJSON (
-      map (pkg: {
-        packagePath = pkg.path;
-        taskName = "test:${pkg.name}";
-      }) packagesWithTests
+    map (name: {
+      path = "packages/@overeng/${name}";
+      inherit name;
+    }) packageNames;
+
+  # Generated bridge between the package-local Buck test declarations and the devenv task
+  # graph. It is the single semantic registry for which suites Buck executes; nothing here
+  # re-derives lane membership — it only refuses a bridge that does not conform, because a
+  # silently shrunken or malformed registry would hand admitted suites back to source Vitest.
+  buck2TestAuthorityFile = ./buck2-test-authority.json;
+  buck2TestAuthority = builtins.fromJSON (builtins.readFile buck2TestAuthorityFile);
+  # Deliberate floor, not a derived value: shrinking the registry means editing this number.
+  buck2TestAuthorityMinimumLanes = 32;
+  buck2TestAuthorityLanes =
+    if (buck2TestAuthority.schemaVersion or null) == 2 then
+      buck2TestAuthority.lanes
+    else
+      throw "buck2-test-authority.json is not a schemaVersion 2 test authority";
+  # Exactly the target-name shape the Buck projection accepts; keep in lockstep with it.
+  testTargetNamePattern = "[a-z][a-z0-9_]*";
+  normalizedRelativePath =
+    value:
+    value != ""
+    && !(lib.hasInfix "\\" value)
+    && builtins.all (segment: segment != "" && segment != "." && segment != "..") (
+      lib.splitString "/" value
+    );
+  buck2TestLaneIssues =
+    lane:
+    let
+      labelPrefix = "effect_utils//${lane.packagePath}:";
+      hasLabelPrefix = lib.hasPrefix labelPrefix lane.target;
+      targetName = lib.removePrefix labelPrefix lane.target;
+      expectedTaskName =
+        if !hasLabelPrefix || targetName == "test" then
+          "test:${lane.packageName}"
+        else
+          "test:${lane.packageName}:${targetName}";
+      sourceFiles = builtins.filter (
+        file: !(builtins.elem file lane.selectedTestFiles) || builtins.elem file lane.excludes
+      ) lane.testFiles;
+      sourceOwnerFiles = builtins.attrNames lane.sourceOwners;
+      expectedUnboundedFiles = builtins.filter (
+        file: !(builtins.hasAttr file lane.sourceOwners)
+      ) sourceFiles;
+      taskNamePattern = "[a-z0-9][a-z0-9:-]*";
+      validTaskName = value: builtins.match taskNamePattern value != null;
+      prefix = "lane ${lane.target}: ";
+    in
+    lib.optional (!(normalizedRelativePath lane.packagePath)) (
+      "${prefix}packagePath ${lane.packagePath} is not a normalized relative path"
     )
+    ++ lib.optional (lane.packageName != lib.last (lib.splitString "/" lane.packagePath)) (
+      "${prefix}packageName ${lane.packageName} is not the last segment of ${lane.packagePath}"
+    )
+    ++ lib.optional (!hasLabelPrefix || builtins.match testTargetNamePattern targetName == null) (
+      "${prefix}target is not ${labelPrefix}<name> with a ${testTargetNamePattern} name"
+    )
+    ++ lib.optional (lane.taskName != expectedTaskName) (
+      "${prefix}taskName ${lane.taskName} is not the derived ${expectedTaskName}"
+    )
+    ++ lib.optional (lane.testFiles == [ ]) "${prefix}testFiles is empty"
+    ++ lib.optional (!(builtins.all normalizedRelativePath lane.testFiles)) (
+      "${prefix}testFiles contains a non-normalized package-relative path"
+    )
+    ++ lib.optional (lane.testFiles != builtins.sort builtins.lessThan lane.testFiles) (
+      "${prefix}testFiles is not byte-sorted"
+    )
+    ++ lib.optional (
+      lib.unique lane.testFiles != lane.testFiles
+    ) "${prefix}testFiles contains a duplicate"
+    ++ lib.optional (lane.selectedTestFiles == [ ]) "${prefix}selectedTestFiles is empty"
+    ++ lib.optional (!(builtins.all (file: builtins.elem file lane.testFiles) lane.selectedTestFiles)) (
+      "${prefix}selectedTestFiles contains a file outside testFiles"
+    )
+    ++ lib.optional (
+      lane.selectedTestFiles != builtins.sort builtins.lessThan lane.selectedTestFiles
+    ) "${prefix}selectedTestFiles is not byte-sorted"
+    ++ lib.optional (lib.unique lane.selectedTestFiles != lane.selectedTestFiles) (
+      "${prefix}selectedTestFiles contains a duplicate"
+    )
+    ++ lib.optional (!(builtins.all (file: builtins.elem file lane.selectedTestFiles) lane.excludes)) (
+      "${prefix}excludes contains a file outside selectedTestFiles"
+    )
+    ++ lib.optional (lane.excludes != builtins.sort builtins.lessThan lane.excludes) (
+      "${prefix}excludes is not byte-sorted"
+    )
+    ++ lib.optional (lib.unique lane.excludes != lane.excludes) "${prefix}excludes contains a duplicate"
+    ++ lib.optional (!(builtins.all (file: builtins.elem file sourceFiles) sourceOwnerFiles)) (
+      "${prefix}sourceOwners contains a file that is not source-owned"
+    )
+    ++ lib.optional (!(builtins.all validTaskName (builtins.attrValues lane.sourceOwners))) (
+      "${prefix}sourceOwners contains an unsafe task name"
+    )
+    ++ lib.optional (lane.unboundedFiles != expectedUnboundedFiles) (
+      "${prefix}unboundedFiles is not the source census minus explicit sourceOwners"
+    )
+    ++ lib.optional (!(builtins.all validTaskName lane.unboundedAfter)) (
+      "${prefix}unboundedAfter contains an unsafe task name"
+    )
+    ++ lib.optional (lib.unique lane.unboundedAfter != lane.unboundedAfter) (
+      "${prefix}unboundedAfter contains a duplicate"
+    )
+    ++ lib.optional ((lane ? unboundedTaskName) != (lane.unboundedFiles != [ ])) (
+      "${prefix}unboundedTaskName must be declared exactly when unboundedFiles is non-empty"
+    )
+    ++ lib.optional ((lane.unboundedFiles == [ ]) && (lane.unboundedAfter != [ ])) (
+      "${prefix}unboundedAfter is non-empty without an unbounded complement"
+    )
+    ++ lib.optional (
+      (lane ? unboundedTaskName) && lane.unboundedTaskName != "${lane.taskName}:unbounded"
+    ) "${prefix}unboundedTaskName is not ${lane.taskName}:unbounded"
+    ++ lib.optional (
+      lane.runner == "vitest" && (lane.collectionTarget or null) != "${lane.target}_collect"
+    ) "${prefix}vitest lane must declare collectionTarget ${lane.target}_collect"
+    ++ lib.optional (lane.runner != "vitest" && lane ? collectionTarget) (
+      "${prefix}${lane.runner} lane must not declare a collectionTarget"
+    )
+    ++ lib.optional (
+      !(builtins.elem lane.runner [
+        "bun"
+        "shell"
+        "vitest"
+      ])
+    ) ("${prefix}runner ${lane.runner} is not one of bun, shell, vitest");
+  buck2TestAuthorityTargets = map (lane: lane.target) buck2TestAuthorityLanes;
+  buck2TestAuthorityTaskNames = builtins.concatMap (
+    lane: [ lane.taskName ] ++ lib.optional (lane ? unboundedTaskName) lane.unboundedTaskName
+  ) buck2TestAuthorityLanes;
+  buck2TestAuthorityCollectionTargets = builtins.concatMap (
+    lane: lib.optional (lane ? collectionTarget) lane.collectionTarget
+  ) buck2TestAuthorityLanes;
+  buck2TestAuthorityIssues =
+    builtins.concatMap buck2TestLaneIssues buck2TestAuthorityLanes
+    ++
+      lib.optional (builtins.length buck2TestAuthorityLanes < buck2TestAuthorityMinimumLanes)
+        "registry declares ${toString (builtins.length buck2TestAuthorityLanes)} lanes, fewer than the ${toString buck2TestAuthorityMinimumLanes} it must carry"
+    ++ lib.optional (
+      buck2TestAuthorityTargets != builtins.sort builtins.lessThan buck2TestAuthorityTargets
+    ) "lanes are not byte-sorted by target"
+    ++ lib.optional (lib.unique buck2TestAuthorityTargets != buck2TestAuthorityTargets) (
+      "lanes declare a duplicate target"
+    )
+    ++ lib.optional (
+      builtins.length (lib.unique buck2TestAuthorityTaskNames)
+      != builtins.length buck2TestAuthorityTaskNames
+    ) "lanes declare a duplicate task name"
+    ++ lib.optional (
+      builtins.length (lib.unique buck2TestAuthorityCollectionTargets)
+      != builtins.length buck2TestAuthorityCollectionTargets
+    ) "lanes declare a duplicate collection target";
+  discoveredTestPackagePaths = map (pkg: pkg.path) packagesWithTests;
+  # A lane whose package carries no discovered Vitest tests (or is quarantined) means the
+  # generated bridge and the filesystem have drifted apart; fail every consumer of the lanes
+  # rather than relying on an unrelated source-task binding to force the assertion.
+  buck2TestLanesWithoutSources = builtins.filter (
+    lane: !(builtins.elem lane.packagePath discoveredTestPackagePaths)
+  ) buck2TestAuthorityLanes;
+  buck2TestLanes =
+    assert lib.assertMsg (buck2TestAuthorityIssues == [ ]) ''
+      buck2-test-authority.json is not a conformant test authority:
+        ${lib.concatStringsSep "\n  " buck2TestAuthorityIssues}
+    '';
+    assert lib.assertMsg (buck2TestLanesWithoutSources == [ ]) ''
+      buck2-test-authority.json declares lanes for packages with no discovered Vitest tests:
+      ${lib.concatMapStringsSep ", " (lane: lane.packagePath) buck2TestLanesWithoutSources}
+    '';
+    buck2TestAuthorityLanes;
+  buck2TestLanePackagePaths = map (lane: lane.packagePath) buck2TestLanes;
+  # Buck executes every admitted bounded lane. Source Vitest keeps packages absent from the
+  # authority and each lane's exact generic complement; explicit live/e2e owners run separately.
+  sourceOnlyTestPackages = builtins.filter (
+    pkg: !(builtins.elem pkg.path buck2TestLanePackagePaths)
+  ) packagesWithTests;
+  unboundedTestPackages = map (lane: {
+    path = lane.packagePath;
+    name = lib.removePrefix "test:" lane.unboundedTaskName;
+    # Positional filters, so the complement schedules only its explicit unbounded files.
+    vitestArgs = lib.concatStringsSep " " (map lib.escapeShellArg lane.unboundedFiles);
+    after = lane.unboundedAfter;
+  }) (builtins.filter (lane: lane.unboundedFiles != [ ]) buck2TestLanes);
+  sourceTestPackages = sourceOnlyTestPackages ++ unboundedTestPackages;
+
+  buck2BuildExec =
+    { name, targets }:
+    trace.exec name ''
+      set -euo pipefail
+      root="''${DEVENV_ROOT:-$PWD}"
+      export PATH=${
+        lib.makeBinPath [
+          pkgs.coreutils
+          pkgs.watchman
+        ]
+      }
+      workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
+      buck="$workspace_root/.megarepo/bin/buck2"
+      exec "$buck" build \
+        --target-platforms effect_utils//buck2/platforms:host_platform \
+        ${lib.concatStringsSep " \\\n        " targets}
+    '';
+
+  # Buck-invoking tasks discover the same pinned composed binary as `buck2:check`, so a lane
+  # cannot run against a different Buck than the one the check gate proved.
+  buck2UnitTestExec =
+    { name, targets }:
+    trace.exec name ''
+      set -euo pipefail
+      root="''${DEVENV_ROOT:-$PWD}"
+      export PATH=${
+        lib.makeBinPath [
+          pkgs.coreutils
+          pkgs.watchman
+        ]
+      }
+      workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
+      buck="$workspace_root/.megarepo/bin/buck2"
+      exec "$buck" test \
+        --target-platforms effect_utils//buck2/platforms:host_platform \
+        --local-only \
+        ${lib.concatStringsSep " \\\n        " targets}
+    '';
+  # Standalone `test:<package>`: the Buck-owned bounded lane plus its source-owned complement,
+  # so asking for one package's tests still runs all of that package's tests.
+  buck2TestLaneTasks = lib.listToAttrs (
+    map (
+      lane:
+      lib.nameValuePair lane.taskName {
+        description = "Execute the bounded ${lane.packageName} unit-test lane under Buck";
+        after = [ "mr:apply" ] ++ lib.optional (lane ? unboundedTaskName) lane.unboundedTaskName;
+        exec = buck2UnitTestExec {
+          name = lane.taskName;
+          targets = [ lane.target ];
+        };
+      }
+    ) buck2TestLanes
   );
 
   # Packages that have storybook (subset of allPackages)
@@ -450,7 +620,6 @@ in
           "nix:flake:check"
           "pnpm:install"
           "test:run"
-          "ts:check:strict"
           "weaver:check"
           "weaver:diff"
           "weaver:version-smoke"
@@ -465,7 +634,6 @@ in
     inputs.playwright.devenvModules.default
     # Shared task modules
     taskModules.genie
-    (taskModules.ts { tsBinPkg = effectTsgo; })
     (taskModules.megarepo { mrPkg = mrCli; })
     (taskModules.lint-nix { })
     (taskModules.check {
@@ -474,15 +642,9 @@ in
         "workspace:check"
         "lint:nix"
       ];
-      # Root `tsc` no longer owns the admitted packages, so the fast lane runs
-      # its incremental form while `check:all` gets the forced one below.
-      extraQuickChecks = [ "ts:check" ];
       checkQuickTypecheckTask = "buck2:check";
       checkAllTypecheckTask = "buck2:check";
     })
-    # Root `tsc` remains the sole producer for the projects no Buck target owns.
-    # `extraChecks` feeds both gates, so the forced run is wired here instead.
-    { tasks."check:all".after = [ "ts:check:strict" ]; }
     (taskModules.weaver { })
     # Wire the additive weaver gate into `check:all` only (not `check:quick`, which stays fast):
     # `after` list options merge across modules, so this appends without redefining check:all.
@@ -520,9 +682,24 @@ in
       packages = allPackages;
       inherit pnpmPkg;
     })
-    # Self-contained test tasks: each package uses its own vitest from node_modules
+    # Source-side Vitest is now only what Buck does not execute: packages outside the Buck
+    # test registry and each admitted lane's exact excluded files. Retained JSON therefore
+    # exists exactly where the baseline gate still needs a source report.
+    (taskModules.test-playwright {
+      playwrightPkg = inputs.playwright.packages.${currentSystem}.playwright;
+      packages = [
+        {
+          path = "packages/@overeng/utils";
+          name = "utils";
+        }
+        {
+          path = "packages/@overeng/tui-react";
+          name = "tui-react";
+        }
+      ];
+    })
     (taskModules.test {
-      packages = packagesWithTests;
+      packages = sourceTestPackages;
       extraTests = [
         "devenv-modules:test"
         "genie:buck2:test"
@@ -530,6 +707,8 @@ in
       packageConcurrency = 4;
       retainVitestJson = true;
     })
+    # Per-lane Buck `test:<package>` tasks, each pulling in its unbounded complement.
+    { tasks = buck2TestLaneTasks; }
     (taskModules.storybook {
       packages = packagesWithStorybook;
     })
@@ -565,9 +744,8 @@ in
       ++ genieExtraInputGlobs;
       genieCoverageDirs = [ "packages" ];
       # Type-aware linting for typescript/no-deprecated rule
-      tsconfig = "tsconfig.check.json";
-      # The type-aware rules resolve Buck-authoritative packages through their
-      # published `dist` declarations, so the lane waits for the materializer.
+      tsconfig = "tsconfig.lint.json";
+      # Type-aware lint consumes the declaration products Buck publishes.
       tsconfigAfterTasks = [ "buck2:typescript:materialize-dist" ];
       # Warning cleanup is complete: every oxlint rule is at zero repo-wide
       # (swept + key rules promoted to error; non-API surfaces exempted by
@@ -603,10 +781,7 @@ in
     # Nix CLI build and hash management
     (taskModules.nix-cli { cliPackages = nixCliPackages; })
     (taskModules.secretspec { })
-    # Local task: Validate allPackages matches filesystem packages (effect-utils specific)
-    ./nix/devenv-modules/tasks/local/workspace-check.nix
     taskModules.devenv-module-tests
-    taskModules.asset-import-type-reference
     # Notion integration tests (requires NOTION_API_TOKEN)
     ./nix/devenv-modules/tasks/local/notion-integration-test.nix
     # Restate integration tests (native restate-server via RESTATE_SERVER_BIN)
@@ -624,6 +799,41 @@ in
   tasks."genie:check".after = [ "pnpm:install" ];
   tasks."lint:check:genie".after = [ "pnpm:install" ];
   tasks."genie:watch".after = [ "pnpm:install" ];
+
+  # Read-only formatting and linting are Buck actions over the exact generated
+  # source manifest. Mutation remains source-side under lint:fix.
+  tasks."lint:check:format".after = lib.mkForce [ "mr:apply" ];
+  tasks."lint:check:format".exec = lib.mkForce (buck2BuildExec {
+    name = "lint:check:format";
+    targets = [ "effect_utils//buck2/static:check_format" ];
+  });
+  tasks."lint:check:oxlint".after = lib.mkForce [ "mr:apply" ];
+  tasks."lint:check:oxlint".exec = lib.mkForce (buck2BuildExec {
+    name = "lint:check:oxlint";
+    targets = [ "effect_utils//buck2/static:check_lint" ];
+  });
+  tasks."lint:check:asset-import-needs-type-reference" = {
+    after = [ "mr:apply" ];
+    description = "Require travelling type references for compiled asset imports through Buck";
+    exec = buck2BuildExec {
+      name = "lint:check:asset-import-needs-type-reference";
+      targets = [ "effect_utils//buck2/static:check_policy" ];
+    };
+  };
+  tasks."lint:check".after = lib.mkAfter [ "lint:check:asset-import-needs-type-reference" ];
+  tasks."lint:check:genie:coverage".after = lib.mkForce [ "mr:apply" ];
+  tasks."lint:check:genie:coverage".exec = lib.mkForce (buck2BuildExec {
+    name = "lint:check:genie:coverage";
+    targets = [ "effect_utils//buck2/static:check_policy" ];
+  });
+  tasks."workspace:check" = {
+    after = [ "mr:apply" ];
+    description = "Validate generated workspace package inventory through Buck";
+    exec = buck2BuildExec {
+      name = "workspace:check";
+      targets = [ "effect_utils//buck2/static:check_policy" ];
+    };
+  };
 
   # Non-`.genie.ts` sources share one list with the lint freshness scheduler.
   effectUtils.genie.extraInputGlobs = genieExtraInputGlobs;
@@ -681,23 +891,15 @@ in
   # reads RESTATE_SERVER_BIN to locate the native server, else falls back to $PATH).
   env.RESTATE_SERVER_BIN = "${restate}/bin/restate-server";
 
-  # Genie and mr run from their packaged products, whose dependencies are baked
-  # into the store path, so neither waits on a repository pnpm projection any
-  # more. What survives is the real constraint: the composed-root mutators must
-  # not run concurrently with each other.
+  # Genie and mr run from packaged products, but the generated projection still defines
+  # the graph mr composes. Generation freshness is therefore a source-side stage-zero
+  # prerequisite: a stale graph must fail before reconciliation can publish it to Buck.
+  # The composed-root mutators also remain serialized behind mr:setup.
   tasks."mr:setup".after = [ "mr:bootstrap" ];
-  tasks."mr:apply".after = [ "mr:setup" ];
-
-  # The projects root `tsc` still owns resolve their Buck-authoritative
-  # dependencies through published `dist` declarations, so the root project
-  # graph runs after the materializer that publishes them. `after` list options
-  # merge across modules, so these edges are additive and the shared `ts` module
-  # stays free of repository-specific Buck task names. `ts:check:strict`
-  # inherits the merged `ts:check` graph and needs no edge of its own.
-  tasks."ts:check".after = [ "buck2:typescript:materialize-dist" ];
-  tasks."ts:build".after = [ "buck2:typescript:materialize-dist" ];
-  tasks."ts:emit".after = [ "buck2:typescript:materialize-dist" ];
-  tasks."ts:build-watch".after = [ "buck2:typescript:materialize-dist" ];
+  tasks."mr:apply".after = [
+    "genie:check"
+    "mr:setup"
+  ];
 
   # buck2-tools executes inside pinned Bun actions and exercises Bun.YAML/Bun.which.
   # Keep its package gate on that runtime rather than Vitest's Node process.
@@ -806,12 +1008,12 @@ in
   };
 
   tasks."bundle:smoke" = {
-    after = [ "pnpm:install" ];
-    description = "Bundle representative public entries with Vite/Rollup dependency resolution";
-    exec = trace.exec "bundle:smoke" ''
-      set -euo pipefail
-      DEVENV_TASK_PASSTHROUGH=1 pnpm --dir packages/@overeng/pty-effect run bundle:smoke
-    '';
+    after = [ "mr:apply" ];
+    description = "Bundle representative public entries through Buck with Vite/Rollup";
+    exec = buck2UnitTestExec {
+      name = "bundle:smoke";
+      targets = [ "effect_utils//packages/@overeng/pty-effect:bundle_smoke" ];
+    };
   };
 
   tasks."gh:apply-settings" = {
@@ -840,13 +1042,11 @@ in
       # silently turns the whole audit vacuous (it always exits 0) — the exact
       # failure this rewrite fixes.
       #
-      # A few raw exec/status lines are legitimately allowed and are annotated
-      # with a `trace-audit-allow` marker comment IMMEDIATELY ABOVE the line:
-      #   - the raw string is an argument passed INTO trace.* a few lines below
-      #     (restate integration test, ts:emit).
-      # A deliberately-untraced task would also qualify, but there are currently
-      # none: every thin `ci-tools` delegation task (netlify/vercel deploys,
-      # workflow-report) routes through trace.exec for a task span.
+      # Raw exec/status lines can be allowed only when they are annotated with
+      # a `trace-audit-allow` marker comment IMMEDIATELY ABOVE the line.
+      # There are currently no such exceptions: every thin `ci-tools`
+      # delegation task (netlify/vercel deploys, workflow-report) routes through
+      # trace.exec for a task span.
       # The marker is matched in a 2-line window (the line plus the one above),
       # so this stays robust to line shifts — no fragile file:line pins.
       marker='trace-audit-allow'
@@ -1070,17 +1270,13 @@ in
           pkgs.watchman
         ]
       }
-      if workspace_root="$(composed_workspace_root "$root")"; then
-        export TYPESCRIPT_DIST_MODE=publish
-        export WORKSPACE_ROOT="$workspace_root"
-        export BUCK2_BIN="$WORKSPACE_ROOT/.megarepo/bin/buck2"
-      else
+      workspace_root="$(composed_workspace_root "$root")" || {
         identity_status=$?
-        [ "$identity_status" -eq 1 ] || exit "$identity_status"
-        export TYPESCRIPT_DIST_MODE=check
-        export TSGO_BIN=${effectTsgo}/bin/tsgo
-        export DIFF_BIN=${pkgs.diffutils}/bin/diff
-      fi
+        echo "buck2:typescript:materialize-dist requires a composed megarepo workspace" >&2
+        exit "$identity_status"
+      }
+      export WORKSPACE_ROOT="$workspace_root"
+      export BUCK2_BIN="$WORKSPACE_ROOT/.megarepo/bin/buck2"
       exec ${pkgs.bun}/bin/bun "$root/genie/buck2/typescript-authority-runtime.ts" \
         materialize-dist "$root" ${pkgs.bash}/bin/bash
     '';
@@ -1126,18 +1322,42 @@ in
     '';
   };
 
+  # One Buck invocation executes every admitted bounded lane. This is what `test:run` waits on;
+  # the per-lane `test:<package>` tasks (imported above) exist for standalone use and are not
+  # part of that graph, so no suite is scheduled twice.
+  tasks."test:buck2:unit" = {
+    description = "Execute every admitted bounded unit-test lane under Buck";
+    after = [ "mr:apply" ];
+    exec = buck2UnitTestExec {
+      name = "test:buck2:unit";
+      targets = map (lane: lane.target) buck2TestLanes;
+    };
+  };
+
   tasks."check:all".after = [
     "cargo:check"
     "dependency-materialization:evidence:check"
   ];
 
-  # `test:run` executes after its package-task dependencies, so the
-  # baseline-collection gate sees the complete managed-test summary directory in CI.
+  # `test:run` is the aggregate: the single Buck invocation for every bounded lane, plus the
+  # source-only and unbounded-complement Vitest tasks the shared module wired into its `after`.
+  # The baseline-collection gate then runs last and reads both kinds of evidence.
+  tasks."test:run".after = [ "test:buck2:unit" ];
   tasks."test:run".exec = lib.mkForce (
     trace.exec "test:run" ''
       set -euo pipefail
-      ${pkgs.bun}/bin/bun packages/@overeng/utils-dev/check-baseline-test-collection.ts \
-        --task-registry ${baselineTestTaskRegistry}
+      root="''${DEVENV_ROOT:-$PWD}"
+      export PATH=${
+        lib.makeBinPath [
+          pkgs.coreutils
+          pkgs.watchman
+        ]
+      }
+      workspace_root="$(${pkgs.coreutils}/bin/realpath "$root/../..")"
+      exec ${pkgs.bun}/bin/bun "$root/packages/@overeng/utils-dev/src/check-baseline-test-collection.ts" \
+        --root "$root" \
+        --buck2 "$workspace_root/.megarepo/bin/buck2" \
+        --buck2-cwd "$workspace_root"
     ''
   );
 

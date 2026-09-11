@@ -432,15 +432,11 @@ const nativeDepPolicyAuditStep = {
 
 // Core product jobs keyed by the shared Genie CI source of truth.
 const jobs: Record<CoreCIJobName, ReturnType<typeof job> | ReturnType<typeof multiPlatformJob>> = {
-  // Typecheck authority is split after the Buck cutover, so this lane gates on both halves:
-  //   - `buck2:check` owns typecheck and dist for every package carrying Buck `authority`.
-  //   - `ts:check:strict` owns only the residual root TypeScript solution (the projects with
-  //     no Buck authority). It consumes Buck-owned declarations through the dist overlays that
-  //     `buck2:typescript:materialize-dist` publishes, so it is ordered after the materializer.
+  // Buck is the single TypeScript check and declaration authority.
   typecheck: job({
     step: {
-      name: 'Type check (Buck authority + residual root solution)',
-      run: runDevenvTasksBefore('buck2:check', 'ts:check:strict'),
+      name: 'Type check (Buck)',
+      run: runDevenvTasksBefore('buck2:check'),
     },
     extraSteps: [verifyOtelShellEntryStep],
   }),
@@ -452,14 +448,26 @@ const jobs: Record<CoreCIJobName, ReturnType<typeof job> | ReturnType<typeof mul
       run: runDevenvTasksBefore('genie:check', 'lint:check'),
     },
   }),
-  // Test execution is still source-owned: `test:run` aggregates the per-package Vitest tasks and
-  // hosts the baseline-test-collection gate, which reads every package task's retained summary
-  // directory, so CI must not shard the packages here. Buck owns the declared test INPUTS — each
-  // admitted package's `//<packagePath>:test` lane is built by the `typecheck` lane's
-  // `buck2:check` — and the execution flip waits on wiring that gate to `vitest_collect`.
+  // Bounded unit-test execution is Buck-owned: `test:run` waits on the single `test:buck2:unit`
+  // invocation, source-only packages, and each lane's exact unbounded complement. Explicit
+  // live/e2e owners remain separate jobs. The baseline gate reads Buck collection artifacts and
+  // retained source summaries, and also proves every lane's recorded census exactly matches its
+  // actual collection. CI must not shard this lane: the gate needs both partitions in one job.
   test: multiPlatformJob({
     name: 'Unit tests',
     run: runDevenvTasksBefore('test:run'),
+  }),
+  'test-playwright-utils': job({
+    step: {
+      name: 'Utils Playwright tests',
+      run: runDevenvTasksBefore('test:pw:utils'),
+    },
+  }),
+  'test-playwright-tui-react': job({
+    step: {
+      name: 'TUI React Playwright tests',
+      run: runDevenvTasksBefore('test:pw:tui-react'),
+    },
   }),
   'test-megarepo-cold-gc': job({
     step: {
@@ -580,9 +588,7 @@ const downloadCurrentMeasurementArtifactStep = ({
 }) =>
   ({
     name: `Download current measurement artifact: ${artifactName}`,
-    ...(producedBy === undefined
-      ? {}
-      : { if: `\${{ needs.${producedBy}.result == 'success' }}` }),
+    ...(producedBy === undefined ? {} : { if: `\${{ needs.${producedBy}.result == 'success' }}` }),
     uses: 'actions/download-artifact@v4',
     with: {
       name: artifactName,
@@ -750,10 +756,9 @@ const extraJobs: Record<string, any> = {
       preparePinnedDevenvStep,
       validateNixStoreStep,
       {
-        name: 'Prove a fresh context gets a remote action-cache hit',
+        name: 'Prove fresh-root remote action and test-cache hits',
         env: {
-          BUCK2_REMOTE_CACHE_BASIC_AUTH:
-            '${{ secrets.BUCK2_REMOTE_CACHE_BASIC_AUTH }}',
+          BUCK2_REMOTE_CACHE_BASIC_AUTH: '${{ secrets.BUCK2_REMOTE_CACHE_BASIC_AUTH }}',
         },
         run: [
           'set -euo pipefail',
@@ -767,14 +772,21 @@ const extraJobs: Record<string, any> = {
           'fi',
           'cd "${EFFECT_UTILS_WORKSPACE_ROOT:?EFFECT_UTILS_WORKSPACE_ROOT not set}"',
           'buck="$PWD/.megarepo/bin/buck2"',
+          'context_b="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-remote-cache-proof-context-b"',
           'target="effect_utils//packages/@overeng/ci-tools:ci-tools-candidate"',
+          'test_target="effect_utils//packages/@overeng/content-address:test"',
           'proof_source="${EFFECT_UTILS_MEMBER_ROOT:?EFFECT_UTILS_MEMBER_ROOT not set}/packages/@overeng/ci-tools/bin/ci-tools.ts"',
+          'test_proof_source="${EFFECT_UTILS_MEMBER_ROOT:?EFFECT_UTILS_MEMBER_ROOT not set}/packages/@overeng/content-address/src/mod.unit.test.ts"',
           `printf '%s\\n' '' "// trusted remote-cache proof \${GITHUB_RUN_ID:?GITHUB_RUN_ID not set}-\${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT not set}" >> "$proof_source"`,
+          `printf '%s\\n' '' "// trusted test-cache proof \${GITHUB_RUN_ID:?GITHUB_RUN_ID not set}-\${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT not set}" >> "$test_proof_source"`,
           'evidence_a="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-remote-cache-proof-a.jsonl"',
+          'test_evidence_a="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-test-cache-proof-a.jsonl"',
           'evidence_b="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-remote-cache-proof-b.jsonl"',
-          `trap 'rm -f "$evidence_a" "$evidence_b"' EXIT`,
+          'test_evidence_b="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-test-cache-proof-b.jsonl"',
+          'test_evidence_c="${RUNNER_TEMP:?RUNNER_TEMP not set}/buck2-test-cache-proof-c.jsonl"',
+          `trap 'rm -f "$evidence_a" "$test_evidence_a" "$evidence_b" "$test_evidence_b" "$test_evidence_c"; rm -rf "$context_b"' EXIT`,
           '',
-          '# Context A has a run-unique source input, executes locally, and uploads to the remote cache.',
+          '# Context A has run-unique source inputs, executes locally, and uploads to the remote cache.',
           '# The composition wrapper fixes --isolation-dir, so freshness comes from daemon and state removal.',
           '"$buck" kill',
           'rm -rf buck-out',
@@ -784,12 +796,37 @@ const extraJobs: Record<string, any> = {
           '  echo "::error::Context A did not report a successful upload for a locally executed action"',
           '  exit 1',
           'fi',
+          '"$buck" test --target-platforms effect_utils//buck2/platforms:host_platform --local-only "$test_target"',
+          '"$buck" log show --recent 1 > "$test_evidence_a"',
+          `if ! jq -e 'select(.Event.data.SpanEnd.data.TestRun.command_report.details.command_kind.command.LocalCommand)' "$test_evidence_a" >/dev/null; then`,
+          '  echo "::error::Context A did not execute the representative unit-test lane locally"',
+          '  exit 1',
+          'fi',
           '',
-          '# Context B is a fresh daemon and materializer over the identical action input.',
+          '# Context B is a second composed root with a fresh daemon and materializer over identical inputs.',
           '"$buck" kill',
-          'rm -rf buck-out',
+          'rm -rf buck-out "$context_b"',
+          'mkdir -p "$context_b/.buck2" "$context_b/.megarepo" "$context_b/repos/effect-utils"',
+          'cp -a .buckconfig .buckroot BUCK megarepo.kdl "$context_b/"',
+          'cp -a .buck2/capabilities "$context_b/.buck2/"',
+          'cp -a .megarepo/bin "$context_b/.megarepo/"',
+          'tar -C repos/effect-utils \\',
+          `  --exclude='./.devenv' \\`,
+          `  --exclude='./.git' \\`,
+          `  --exclude='./buck-out' \\`,
+          `  --exclude='./node_modules' \\`,
+          `  --exclude='./packages/.editor-view' \\`,
+          `  --exclude='./target' \\`,
+          `  --exclude='./tmp' \\`,
+          `  --exclude='*/__pycache__' \\`,
+          `  --exclude='*/dist' \\`,
+          `  --exclude='*/node_modules' \\`,
+          `  --exclude='*/target' \\`,
+          '  -cf - . | tar -C "$context_b/repos/effect-utils" -xf -',
+          'cd "$context_b"',
+          'buck="$PWD/.megarepo/bin/buck2"',
           '',
-          '# Buck event data must classify the independently built result as a remote action-cache hit.',
+          '# Buck event data must classify the independent build as a remote action-cache hit.',
           '"$buck" build --local-only "$target"',
           '"$buck" log show --recent 1 > "$evidence_b"',
           `if ! jq -e 'select(.Event.data.SpanEnd.data.ActionExecution.execution_kind == "ACTION_EXECUTION_KIND_ACTION_CACHE")' "$evidence_b" >/dev/null; then`,
@@ -800,7 +837,32 @@ const extraJobs: Record<string, any> = {
           '  echo "::error::Context B executed an action or reused local action state instead of relying on the remote action cache"',
           '  exit 1',
           'fi',
-          'echo "Fresh-context remote action-cache proof passed"',
+          '',
+          '# The representative unit test must pass from the remote test cache without a local test command.',
+          '"$buck" test --target-platforms effect_utils//buck2/platforms:host_platform --local-only "$test_target"',
+          '"$buck" log show --recent 1 > "$test_evidence_b"',
+          `if ! jq -e 'select(.Event.data.Instant.data.TestResult.name == "effect_utils//packages/@overeng/content-address:test" and .Event.data.Instant.data.TestResult.status == 1)' "$test_evidence_b" >/dev/null; then`,
+          '  echo "::error::Context B did not report the cached representative unit test as passing"',
+          '  exit 1',
+          'fi',
+          `if jq -e 'select(.Event.data.SpanEnd.data.TestRun.command_report.details.command_kind.command.LocalCommand)' "$test_evidence_b" >/dev/null; then`,
+          '  echo "::error::Context B executed the representative unit test locally instead of using the remote test cache"',
+          '  exit 1',
+          'fi',
+          '',
+          '# A source file outside the representative target graph must not change its test action key.',
+          `printf '%s\\n' '' "// trusted irrelevant-mutation proof \${GITHUB_RUN_ID:?GITHUB_RUN_ID not set}-\${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT not set}" >> repos/effect-utils/README.md`,
+          '"$buck" test --target-platforms effect_utils//buck2/platforms:host_platform --local-only "$test_target"',
+          '"$buck" log show --recent 1 > "$test_evidence_c"',
+          `if ! jq -e 'select(.Event.data.Instant.data.TestResult.name == "effect_utils//packages/@overeng/content-address:test" and .Event.data.Instant.data.TestResult.status == 1)' "$test_evidence_c" >/dev/null; then`,
+          '  echo "::error::The irrelevant mutation prevented the cached representative unit test from passing"',
+          '  exit 1',
+          'fi',
+          `if jq -e 'select(.Event.data.SpanEnd.data.TestRun.command_report.details.command_kind.command.LocalCommand)' "$test_evidence_c" >/dev/null; then`,
+          '  echo "::error::The irrelevant mutation changed the representative unit-test action key"',
+          '  exit 1',
+          'fi',
+          'echo "Fresh-root remote action and test-cache proof passed"',
           'BUCK2_REMOTE_CACHE_PROOF',
           '"${DEVENV_BIN:?DEVENV_BIN not set}" shell -- bash "$proof_script"',
         ].join('\n'),

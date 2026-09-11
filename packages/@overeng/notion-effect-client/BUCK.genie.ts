@@ -41,10 +41,7 @@ export const buck2TypeScriptAdmission = {
     },
   ],
   editorViewConsumer: false,
-  authority: {
-    declarationEntrypoint: 'src/mod.d.ts',
-    projectFile: 'tsconfig.json',
-  },
+  authorities: [{ declarationEntrypoint: 'src/mod.d.ts', projectFile: 'tsconfig.json' }],
   tests: [
     {
       name: 'test',
@@ -53,8 +50,34 @@ export const buck2TypeScriptAdmission = {
       // `otelite` binary, so they stay unbounded (decision 0026).
       excludes: [
         'src/internal/rate-limit-signals.e2e.test.ts',
+        'src/test/integration/blocks-nested.integration.test.ts',
+        'src/test/integration/blocks.integration.test.ts',
+        'src/test/integration/databases.integration.test.ts',
+        'src/test/integration/markdown.integration.test.ts',
+        'src/test/integration/pages.integration.test.ts',
+        'src/test/integration/rich-text.integration.test.ts',
+        'src/test/integration/search.integration.test.ts',
+        'src/test/integration/users.integration.test.ts',
         'src/test/otelite-span-shape.test.ts',
       ],
+      sourceOwners: {
+        'src/test/integration/blocks-nested.integration.test.ts':
+          'test:notion-integration:notion-effect-client',
+        'src/test/integration/blocks.integration.test.ts':
+          'test:notion-integration:notion-effect-client',
+        'src/test/integration/databases.integration.test.ts':
+          'test:notion-integration:notion-effect-client',
+        'src/test/integration/markdown.integration.test.ts':
+          'test:notion-integration:notion-effect-client',
+        'src/test/integration/pages.integration.test.ts':
+          'test:notion-integration:notion-effect-client',
+        'src/test/integration/rich-text.integration.test.ts':
+          'test:notion-integration:notion-effect-client',
+        'src/test/integration/search.integration.test.ts':
+          'test:notion-integration:notion-effect-client',
+        'src/test/integration/users.integration.test.ts':
+          'test:notion-integration:notion-effect-client',
+      },
     },
   ],
 } as const satisfies Buck2TypeScriptAdmission

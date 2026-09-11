@@ -57,10 +57,7 @@ export const buck2TypeScriptAdmission = {
     },
   ],
   editorViewConsumer: false,
-  authority: {
-    declarationEntrypoint: 'src/mod.d.ts',
-    projectFile: 'tsconfig.json',
-  },
+  authorities: [{ declarationEntrypoint: 'src/mod.d.ts', projectFile: 'tsconfig.json' }],
   // The golden-file fixpoint reads the committed `demo/showcase.nmd`, which no source
   // root carries.
   testDataRoots: [{ root: 'demo', extensions: ['.nmd'] }],
@@ -73,11 +70,19 @@ export const buck2TypeScriptAdmission = {
       // reads the committed demo, declared as test data below.
       excludes: [
         'src/cli.e2e.test.ts',
+        'src/corpus-live.integration.test.ts',
         'src/editor-edit.e2e.test.ts',
         'src/editor-observability.unit.test.ts',
+        'src/live.integration.test.ts',
+        'src/reconcile-live.integration.test.ts',
         'src/reconcile.e2e.test.ts',
         'src/sync.e2e.test.ts',
       ],
+      sourceOwners: {
+        'src/corpus-live.integration.test.ts': 'test:notion-integration:notion-md',
+        'src/live.integration.test.ts': 'test:notion-integration:notion-md',
+        'src/reconcile-live.integration.test.ts': 'test:notion-integration:notion-md',
+      },
     },
   ],
 } as const satisfies Buck2TypeScriptAdmission

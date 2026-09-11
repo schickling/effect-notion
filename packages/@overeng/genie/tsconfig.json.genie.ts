@@ -12,6 +12,7 @@ export default tsconfigJson({
     ...nodeTypes,
     types: ['node', 'bun'],
     jsx: 'react-jsx',
+    noEmit: true,
   },
   include: ['src/**/*.ts', 'src/**/*.tsx', 'bin/**/*.ts', 'bin/**/*.tsx'],
 } satisfies TSConfigArgs)

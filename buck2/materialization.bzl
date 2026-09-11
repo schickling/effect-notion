@@ -65,6 +65,8 @@ def _package_tree_impl(ctx):
         read_roots = _unique_artifacts([out] + dependency_view.read_roots)
     else:
         args.add("--node-modules", ctx.attrs.node_modules)
+    if ctx.attrs.strip_project_references:
+        args.add("--strip-project-references", "true")
     _add_mapped_sources(args, "--file", ctx.attrs.files)
     _add_mapped_sources(args, "--workspace-file", ctx.attrs.workspace_files)
     for link_path in sorted(ctx.attrs.workspace_links.keys()):
@@ -101,6 +103,7 @@ _package_tree = rule(
             value = attrs.source(),
             default = {},
         ),
+        "strip_project_references": attrs.bool(default = False),
         "workspace_links": attrs.dict(
             key = attrs.string(),
             value = attrs.string(),

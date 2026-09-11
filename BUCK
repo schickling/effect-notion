@@ -1,4 +1,5 @@
 load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
+load("//buck2:static_checks.bzl", "STATIC_SOURCE_EXCLUDES", "STATIC_SOURCE_GLOBS", "static_source_set")
 
 # Conventional prelude toolchain targets, owned by the platform hub.
 #
@@ -40,62 +41,34 @@ system_genrule_toolchain(
     name = "genrule",
     visibility = ["PUBLIC"],
 )
-
-# The package-tree runner and its complete relative-import closure, staged side
-# by side in one directory so the runner's sibling imports resolve inside the
-# action. A Buck action sees only declared inputs: a module missing here fails
-# closed at run time instead of silently reaching into the source tree.
-# Declared in genie/buck2/runtime-modules.ts and gated by
-# genie/buck2/buck2-runtime-closure.unit.test.ts.
-filegroup(
-    name = "package_tree_runtime",
-    srcs = {
-        "package-tree.ts": "packages/@overeng/buck2-tools/src/package-tree.ts",
-        "real-path.ts": "packages/@overeng/buck2-tools/src/real-path.ts",
-    },
+static_source_set(
+    name = "static_sources",
+    prefix = "",
+    srcs = glob(
+        [
+            root + "/" + pattern
+            for root in ["context", "packages", "scripts"]
+            for pattern in STATIC_SOURCE_GLOBS
+        ],
+        exclude = [
+            root + "/" + pattern
+            for root in ["context", "packages", "scripts"]
+            for pattern in STATIC_SOURCE_EXCLUDES
+        ],
+    ) + [
+        ".oxfmtrc.json",
+        ".oxlintrc.json",
+        "devenv.lock",
+        "devenv.yaml",
+        "flake.lock",
+        "flake.nix",
+        "megarepo.kdl",
+        "megarepo.lock",
+        "tsconfig.lint.json",
+    ],
     visibility = ["PUBLIC"],
 )
 
-# Package command actions execute this runner beside its only relative import.
-# The rules address the entry inside this declared tree rather than reaching
-# back into the source checkout.
-filegroup(
-    name = "package_command_runtime",
-    srcs = {
-        "package-command-runner.ts": "packages/@overeng/buck2-tools/src/package-command-runner.ts",
-        "typescript-runner.ts": "packages/@overeng/buck2-tools/src/typescript-runner.ts",
-        "real-path.ts": "packages/@overeng/buck2-tools/src/real-path.ts",
-    },
-    visibility = ["PUBLIC"],
-)
-
-# JavaScript command and test actions execute this runner beside its declared
-# import closure. `//buck2:javascript.bzl` addresses the entry inside this tree,
-# so the runner never reaches back into the source checkout for its own modules.
-filegroup(
-    name = "javascript_action_runtime",
-    srcs = {
-        "javascript-runner.ts": "packages/@overeng/buck2-tools/src/javascript-runner.ts",
-        "typescript-runner.ts": "packages/@overeng/buck2-tools/src/typescript-runner.ts",
-    },
-    visibility = ["PUBLIC"],
-)
-
-# Hermetic TypeScript actions execute this source with their pinned Bun runtime.
-# Single-file staging: this runner must import nothing relative.
-export_file(
-    name = "packages/@overeng/buck2-tools/src/typescript-runner.ts",
-    src = "packages/@overeng/buck2-tools/src/typescript-runner.ts",
-    visibility = ["PUBLIC"],
-)
-
-# Stateless completeness gate: Git supplies candidates and Buck remains the sole owner matcher.
-# Single-file staging: this runner must import nothing relative.
-export_file(
-    name = "packages/@overeng/buck2-tools/src/owned-files.ts",
-    src = "packages/@overeng/buck2-tools/src/owned-files.ts",
-    visibility = ["PUBLIC"],
-)
 
 # Workspace patches are declared inputs to the generated pnpm extraction actions.
 export_file(

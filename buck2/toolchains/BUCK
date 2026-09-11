@@ -46,6 +46,22 @@ support_tool(
     visibility = ["PUBLIC"],
 )
 
+# Source-static tools remain Nix-realized capabilities; Buck owns their declared
+# repository inputs, invocation, invalidation, and result identity.
+support_tool(
+    name = "tool_oxfmt",
+    protocol = "oxc/oxfmt/v1",
+    tool_id = "oxfmt",
+    visibility = ["PUBLIC"],
+)
+
+support_tool(
+    name = "tool_oxlint",
+    protocol = "oxc/oxlint/v1",
+    tool_id = "oxlint",
+    visibility = ["PUBLIC"],
+)
+
 native_rust_toolchains(
     capabilities = CAPABILITIES,
     generation = GENERATION,
@@ -89,7 +105,7 @@ effect_tsgo_toolchain(
     name = "effect_tsgo",
     capabilities = CAPABILITIES,
     generation = GENERATION,
-    runner = "//:packages/@overeng/buck2-tools/src/typescript-runner.ts",
+    runner = "//packages/@overeng/buck2-tools:typescript-runner.ts",
     visibility = ["PUBLIC"],
 )
 

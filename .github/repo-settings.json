@@ -42,6 +42,12 @@
             "context": "test (namespace-profile-macos-arm64)"
           },
           {
+            "context": "test-playwright-utils"
+          },
+          {
+            "context": "test-playwright-tui-react"
+          },
+          {
             "context": "test-megarepo-cold-gc"
           },
           {

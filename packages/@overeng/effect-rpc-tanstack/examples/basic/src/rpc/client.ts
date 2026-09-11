@@ -5,7 +5,8 @@
 import { Effect } from 'effect'
 import { RpcClient, type RpcClientError } from 'effect/unstable/rpc'
 
-import { layerClient } from '../../../../src/client.ts'
+import { layerClient } from '@overeng/effect-rpc-tanstack/client'
+
 import { type User, UserApi, type UserNotFoundError } from './api.ts'
 
 /**

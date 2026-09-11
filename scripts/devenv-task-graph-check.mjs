@@ -103,10 +103,6 @@ const reaches = ({ start, target }) => {
 }
 
 for (const name of [
-  'ts:check',
-  'ts:check:strict',
-  'ts:build',
-  'ts:build-watch',
   'check:quick',
   'check:all',
   'buck2:check',
@@ -114,8 +110,15 @@ for (const name of [
   'buck2:tui-core:publish-editor',
   'buck2:tui-core:check-editor',
   'test:run',
+  'test:buck2:unit',
 ])
   requireTask(name)
+for (const name of ['ts:check', 'ts:check:strict', 'ts:build', 'ts:build-watch', 'ts:emit']) {
+  ok({
+    condition: tasks.has(name) === false,
+    name: `${name} is absent after the Buck authority cutover`,
+  })
+}
 
 const visiting = new Set()
 const visited = new Set()
@@ -135,30 +138,55 @@ try {
 }
 
 const materializer = 'buck2:typescript:materialize-dist'
-// Buck owns typecheck and dist for the authoritative packages; the root `tsc` tasks own only
-// the residual projects, and those consume Buck-owned declarations through the dist overlays
-// the materializer publishes. Every root TypeScript task must therefore run after it.
-for (const name of ['ts:check', 'ts:check:strict', 'ts:build', 'ts:build-watch', 'check:quick']) {
+for (const name of ['check:quick', 'check:all']) {
   ok({
-    condition: reaches({ start: name, target: materializer }),
-    name: `${name} reaches ${materializer}`,
+    condition: reaches({ start: name, target: 'buck2:check' }),
+    name: `${name} reaches the Buck-owned TypeScript gate`,
   })
 }
-// `test:run` is only the baseline-collection gate: it must keep its per-package fan-out, or the
-// gate would observe an incomplete managed-test summary directory and pass vacuously.
-const testRunPackageTasks = [...(dependencies.get('test:run') ?? [])].filter(
-  (name) => name.startsWith('test:') === true,
-)
+// `test:run` must schedule the one Buck aggregate and the source-side batches which own
+// packages absent from the authority plus admitted lanes' exact unbounded complements. Either
+// edge going missing would silently omit a disjoint side of the test partition.
+const testRunDependencies = [...(dependencies.get('test:run') ?? [])]
 ok({
-  condition: testRunPackageTasks.length > 0,
-  name: 'test:run aggregates per-package test tasks',
+  condition: testRunDependencies.includes('test:buck2:unit'),
+  name: 'test:run executes the Buck-owned bounded partition',
 })
-// Test execution is still source-owned, so `test:run` deliberately does NOT depend on Buck or
-// on `mr:apply`. Buck owns the declared test inputs: `buck2:check` builds every admitted
-// package's `:test` lane, and that ordering is asserted with the other Buck tasks below.
-// `mr apply` both reconciles the workspace and installs the `.buck2/capabilities`
-// projection that Buck analysis of `//buck2/toolchains` reads, so it is the single
-// ordering barrier for every task that invokes Buck.
+ok({
+  condition: testRunDependencies.some((name) => name.startsWith('test:run:batch:') === true),
+  name: 'test:run executes the source-owned complement partition',
+})
+// `genie:check` is the source-side stage-zero guard against a graph proving its own stale
+// projection. `mr apply` runs only after that proof, then reconciles the workspace and
+// installs the `.buck2/capabilities` projection Buck analysis reads. Together they are the
+// ordering barriers for every public task that invokes Buck.
+const buck2TestAuthority = JSON.parse(readFileSync(`${root}/buck2-test-authority.json`, 'utf8'))
+if (buck2TestAuthority.schemaVersion !== 2 || Array.isArray(buck2TestAuthority.lanes) === false) {
+  throw new Error('buck2-test-authority.json does not match schemaVersion 2')
+}
+for (const lane of buck2TestAuthority.lanes) {
+  if (
+    typeof lane.taskName !== 'string' ||
+    typeof lane.sourceOwners !== 'object' ||
+    lane.sourceOwners === null ||
+    Array.isArray(lane.sourceOwners) === true
+  ) {
+    throw new Error('buck2-test-authority.json contains a malformed lane')
+  }
+}
+const buck2TestLaneTaskNames = buck2TestAuthority.lanes.map(({ taskName }) => taskName)
+const buck2UnboundedTaskNames = buck2TestAuthority.lanes.flatMap(({ unboundedTaskName }) =>
+  unboundedTaskName === undefined ? [] : [unboundedTaskName],
+)
+const buck2ExternalOwnerTaskNames = [
+  ...new Set(buck2TestAuthority.lanes.flatMap(({ sourceOwners }) => Object.values(sourceOwners))),
+]
+for (const name of [...buck2UnboundedTaskNames, ...buck2ExternalOwnerTaskNames]) {
+  ok({
+    condition: tasks.has(name),
+    name: `${name} exists as a source-side test owner`,
+  })
+}
 for (const name of [
   materializer,
   'buck2:check',
@@ -166,10 +194,21 @@ for (const name of [
   'buck2:tui-core:publish-editor',
   'buck2:tui-core:check-editor',
   'buck2:nix-bridge:check',
+  'lint:check:asset-import-needs-type-reference',
+  'lint:check:format',
+  'lint:check:genie:coverage',
+  'lint:check:oxlint',
+  'workspace:check',
+  'test:buck2:unit',
+  ...buck2TestLaneTaskNames,
 ]) {
   ok({
     condition: reaches({ start: name, target: 'mr:apply' }),
     name: `${name} waits for workspace reconciliation and the capability projection`,
+  })
+  ok({
+    condition: reaches({ start: name, target: 'genie:check' }),
+    name: `${name} waits for source-side generation freshness`,
   })
 }
 
@@ -196,23 +235,25 @@ ok({
 })
 ok({
   condition:
-    typescriptAuthorityRuntimeSource.includes('authoritativeBuck2TypeScriptAdmissions') === true &&
+    typescriptAuthorityRuntimeSource.includes('authoritativeBuck2TypeScriptDeclarations') ===
+      true &&
+    typescriptAuthorityRuntimeSource.includes('authoritativeBuck2TypeScriptProjects') === true &&
     typescriptAuthorityRuntimeSource.includes('admissions.map(') === true &&
     typescriptAuthorityRuntimeSource.includes('scripts/typescript-materialize-dist.sh') === true &&
     typescriptAuthorityRuntimeSource.includes('packages/@overeng/tui-core') === false &&
     typescriptAuthorityRuntimeSource.includes('packages/@overeng/tui-react') === false,
-  name: 'TypeScript authority runtime derives materialization from the registry',
+  name: 'TypeScript authority runtime derives checking and publication from the registry',
 })
 ok({
   condition:
     source.includes('composed_workspace_root()') === true &&
     source.includes('worktree list --porcelain -z') === true &&
     source.includes('backlink=') === true &&
-    materializerSource.includes('TYPESCRIPT_DIST_MODE=publish') === true &&
-    materializerSource.includes('TYPESCRIPT_DIST_MODE=check') === true &&
-    materializerSource.includes('TSGO_BIN=') === true &&
-    materializerSource.includes('DIFF_BIN=') === true,
-  name: 'materializer publishes from a composition root and checks freshness standalone',
+    materializerSource.includes('requires a composed megarepo workspace') === true &&
+    materializerSource.includes('WORKSPACE_ROOT=') === true &&
+    materializerSource.includes('TYPESCRIPT_DIST_MODE=') === false &&
+    materializerSource.includes('TSGO_BIN=') === false,
+  name: 'materializer publishes only from a reciprocal composition root',
 })
 
 for (const name of ['buck2:tui-core:publish-editor', 'buck2:tui-core:check-editor']) {

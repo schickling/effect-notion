@@ -19,8 +19,7 @@ const OXC_PLUGIN_PATH = './packages/@overeng/oxc-config/src/mod.ts'
  * only resolves from the root `node_modules`, which this aggregate root cannot
  * carry a dependency in. See that file's header.
  */
-const STYLEX_UPSTREAM_PLUGIN_PATH =
-  './packages/@overeng/oxc-config/src/stylex-upstream-plugin.ts'
+const STYLEX_UPSTREAM_PLUGIN_PATH = './packages/@overeng/oxc-config/src/stylex-upstream-plugin.ts'
 
 export default oxlintConfig({
   plugins: baseOxlintPlugins,
@@ -99,6 +98,12 @@ export default oxlintConfig({
     // import surface, so the barrel rule is scoped off for these two files.
     {
       files: ['**/utils/src/node/otel.ts', '**/utils/src/node/otel-attrs.ts'],
+      rules: { 'oxc/no-barrel-file': 'off' },
+    },
+    // This file is the package's intentional public schema subpath. Keep the
+    // public contract explicit instead of de-barreling the consumer-facing API.
+    {
+      files: ['**/react-inspector/src/schema/mod.tsx'],
       rules: { 'oxc/no-barrel-file': 'off' },
     },
     // restate-effect's `./testing` harness has a benign barrel-induced cycle:

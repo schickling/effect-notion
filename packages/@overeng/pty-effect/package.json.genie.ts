@@ -40,9 +40,6 @@ export default packageJson(
   {
     name: '@overeng/pty-effect',
     ...privatePackageDefaults,
-    scripts: {
-      'bundle:smoke': 'bun ../../../genie/ci-scripts/bundle-smoke.ts',
-    },
     exports: {
       '.': exportEntry(
         { types: './dist/src/mod.d.ts', default: './src/mod.ts' },

@@ -1,5 +1,5 @@
-import { projectionArtifact } from './packages/@overeng/genie/src/runtime/mod.ts'
 import { buck2TypeScriptDistOverlays } from './genie/buck2/typescript-admissions.ts'
+import { projectionArtifact } from './packages/@overeng/genie/src/runtime/mod.ts'
 import {
   COMPOSITION_ROOT_SCHEMA_VERSION,
   decodeBuckMemberManifest,
@@ -86,6 +86,18 @@ const manifestProjection = {
           executable: 'bin/tsgo',
         },
       ],
+    },
+    {
+      toolId: 'oxfmt',
+      protocol: 'oxc/oxfmt/v1',
+      flakePackage: 'oxfmt',
+      executable: 'bin/oxfmt',
+    },
+    {
+      toolId: 'oxlint',
+      protocol: 'oxc/oxlint/v1',
+      flakePackage: 'oxlint-with-plugins',
+      executable: 'bin/oxlint',
     },
     {
       toolId: 'archive-tool',
