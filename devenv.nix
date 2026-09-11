@@ -915,8 +915,8 @@ in
     ciToolsCli
     tuiStoriesCli
     # Rust toolchain for the standalone Rust crates.
-    # Nix builds use pkgs.rustPlatform; these give local dev + the cargo CI lane
-    # cargo/clippy/rustfmt/rust-analyzer matching nixpkgs' stable rust.
+    # Stage-zero Nix providers use pkgs.rustPlatform; local validation keeps
+    # cargo/clippy/rustfmt/rust-analyzer aligned with nixpkgs' stable Rust.
     pkgs.cargo
     pkgs.rustc
     pkgs.clippy
@@ -1103,14 +1103,13 @@ in
   };
 
   tasks."cargo:check" = {
-    description = "Validate the shared Cargo workspace, then build, test, lint, and format-check each member";
+    description = "Validate the shared Cargo workspace, then test, lint, and format-check each member";
     after = [ "cargo:test:buck2-foundation" ];
     exec = trace.exec "cargo:check" ''
       set -euo pipefail
       ${pkgs.bash}/bin/bash rust/workspace-contract.test.sh "$PWD"
       (
         cd rust
-        cargo build --release --locked --workspace
         cargo test --locked --workspace --exclude 'buck2-*'
         cargo clippy --locked --workspace --all-targets -- -D warnings
         cargo fmt --all --check
