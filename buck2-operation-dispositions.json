@@ -49,7 +49,7 @@
       "operation": "bundle-smoke"
     },
     {
-      "disposition": "buck-owned",
+      "disposition": "outside-by-policy:aggregate-includes-rust-quality-gates",
       "operation": "cargo"
     },
     {
