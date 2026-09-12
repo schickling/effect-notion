@@ -1,0 +1,43 @@
+Prototype A diff measured before cleanup:
+$ git diff --numstat -- BUCK devenv.nix
+32	0	BUCK
+11	0	devenv.nix
+runs: 1
+
+The prototype added root //:quick as one filegroup over the typecheck and dist targets for the 12 current admitted TypeScript packages. It added buck2:quick and made check:quick depend on it while retaining residual devenv gates and excluding mr:*.
+
+$ /nix/store/kv0z81bpxb9yzpdiqhavx0f7v0mgz545-buck2-unstable-2026-09-01/bin/buck2 --isolation-dir buck2-check-entry-a build //:quick --local-only
+exit: 2
+runs: 1
+elapsed from PTY metadata: 1.205 s
+trace_id: 0aa49b24-a233-42f1-a9f6-bc0f2871e494
+error:
+SyncableQueryHandler returned an error
+
+Caused by:
+    0: No Watchman connection (internal error)
+    1: Error reconnecting to Watchman
+    2: Connecting to watchman
+    3: While invoking the watchman CLI to discover the server connection details: No such file or directory (os error 2), stderr=``
+
+$ env PATH=/nix/store/m12cfb146gpa1n5k4x9jd2907kdd0ylg-watchman-2026.07.27.00/bin:/run/current-system/sw/bin /nix/store/kv0z81bpxb9yzpdiqhavx0f7v0mgz545-buck2-unstable-2026-09-01/bin/buck2 --isolation-dir buck2-check-entry-a2 build //:quick --local-only
+exit: 2
+runs: 1
+elapsed from PTY metadata: 119.398 s
+trace_id: 95422f15-8bd6-4e10-8107-585eba1e1b22
+error:
+SyncableQueryHandler returned an error
+
+Caused by:
+    0: No Watchman connection (internal error)
+    1: Error reconnecting to Watchman
+    2: Resolving watchman root
+    3: Watchman request timed out after 57s; try restarting watchman, probably via `watchman shutdown-server`
+
+The shared Watchman process was not restarted or killed.
+
+$ devenv tasks run check:quick --no-tui
+exit: 137 (operator stopped the named PTY)
+runs: 1
+elapsed from PTY metadata: 329.912 s
+result: no task result; the process remained in devenv evaluation. This run is rejected as benchmark evidence because prototype B was applied while the evaluator was still running.

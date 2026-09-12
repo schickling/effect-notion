@@ -1,0 +1,21 @@
+Repository inspection:
+file-search pattern: buck2.*(otel|otlp)|event.*(otel|otlp)
+roots: context, nix, packages, genie, .otel
+result: no repository Buck event-log-to-OTLP exporter found
+searches: 1
+
+Devenv task instrumentation source:
+nix/devenv-modules/tasks/lib/trace.nix:168-190 emits service.name=effect-utils-devenv, span name devenv.task.exec, tool.name=devenv, task.name, task.phase=exec, task.cached=false, and span.label=<task>.
+nix/devenv-modules/tasks/lib/trace.nix:198-218 emits devenv.task.status with task.cached derived from the status exit code.
+
+Buck native evidence produced by the prototypes:
+buck-out/buck2-check-entry-a2/log/20260912-165613_build_95422f15-8bd6-4e10-8107-585eba1e1b22_events.pb.zst
+buck-out/buck2-check-entry-b/log/20260912-170036_test_1c514439-a8fb-477f-94b2-f2900cf7c2ac_events.pb.zst
+These native event logs were not exported to OTLP.
+
+$ gcx config check && gcx datasources list --json
+exit: 1
+runs: 1
+error: connection refused for http://127.0.0.1:3700/api?timeout=32s
+
+No TraceQL result or screenshot was reachable for either shape. The failed Grafana path is common to both shapes and does not affect the repository-level instrumentation comparison.

@@ -1,0 +1,21 @@
+$ DEVENV_TUI=false devenv shell --no-reload -- bash -c 'command -v buck2; buck2 --version'
+exit: 129 (operator stopped the named PTY)
+runs: 1
+elapsed from PTY metadata: 158.645 s
+stdout: none
+result: no shell-entry result; process remained in devenv evaluation.
+
+This is reported separately from both check-entry shapes. It is not included in a Buck execution time.
+
+$ devenv tasks run check:quick --no-tui
+exit: 137 (operator stopped the named PTY)
+runs: 1
+elapsed from PTY metadata: 370.476 s
+stdout: none
+result: no task result; records-only final branch remained in devenv evaluation
+
+$ git commit -m 'docs(buck2): record check entry bakeoff'
+exit: command supervisor timed out after 120 s; no commit created
+runs: 1
+stdout: none
+result: the pre-commit hook entered the same non-completing devenv check path

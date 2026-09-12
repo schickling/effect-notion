@@ -1,0 +1,29 @@
+Prototype B diff measured before cleanup:
+$ git diff --numstat -- BUCK devenv.nix
+32	0	BUCK
+7	24	devenv.nix
+runs: 1
+
+The prototype retained the same root //:quick definition, removed the local check module import and check:all fan-in additions, and changed the hook to the direct Buck verb. The shared public check.nix module was not deleted because this repository exports it to consumers.
+
+$ env PATH=/nix/store/m12cfb146gpa1n5k4x9jd2907kdd0ylg-watchman-2026.07.27.00/bin:/run/current-system/sw/bin /nix/store/kv0z81bpxb9yzpdiqhavx0f7v0mgz545-buck2-unstable-2026-09-01/bin/buck2 --isolation-dir buck2-check-entry-b test //... --local-only
+exit: 3
+runs: 1
+elapsed from PTY metadata: 99.256 s
+trace_id: 1c514439-a8fb-477f-94b2-f2900cf7c2ac
+native command report query:
+$ jq '{trace_id,exit_code,error_count:(.error_messages|length),root_causes:(.error_messages|map(select(contains("File not found: effect_utils//.buck2/capabilities/defs.bzl")))|length)}' buck-out/buck2-check-entry-b/log/1c514439-a8fb-477f-94b2-f2900cf7c2ac/command_report.json
+{
+  "trace_id": "1c514439-a8fb-477f-94b2-f2900cf7c2ac",
+  "exit_code": 3,
+  "error_count": 1813,
+  "root_causes": 1813
+}
+query runs: 1
+first error:
+From load at buck2/toolchains/BUCK:1
+
+Caused by:
+    File not found: effect_utils//.buck2/capabilities/defs.bzl
+
+Buck also discovered repository-wide Rust and dependency test targets before analysis failed. The admitted TypeScript BUCK files expose typecheck and dist targets, not TestInfo targets. Therefore `buck2 test //...` does not execute the same TypeScript surface as `buck2 build //:quick`.

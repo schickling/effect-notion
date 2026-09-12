@@ -1,0 +1,11 @@
+criterion	shape	command	runs	result
+warm-no-op	A	buck2 --isolation-dir buck2-check-entry-a2 build //:quick --local-only	1	not reached: Watchman request timed out after 57s
+warm-no-op	B	buck2 --isolation-dir buck2-check-entry-b test //... --local-only	1	not reached: .buck2/capabilities/defs.bzl missing
+fresh-worktree-warm-shared-cache	A/B	not run	0	prerequisite member run failed before action execution; Amendment 1 says record and continue
+relevant-utils-edit	A/B	not run	0	prerequisite member run failed before action execution
+irrelevant-readme-edit	A/B	not run	0	prerequisite member run failed before action execution
+pre-commit-path	A	devenv tasks run check:quick --no-tui	1	no result after 329.912 s; operator stopped; run invalidated by concurrent prototype mutation
+pre-commit-path	B	buck2 --isolation-dir buck2-check-entry-b test //... --local-only	1	exit 3 after 99.256 s; missing capability projection
+shell-entry-overhead	common	devenv shell --no-reload -- bash -c 'command -v buck2; buck2 --version'	1	no result after 158.645 s; operator stopped
+records-only-final-gate	common	devenv tasks run check:quick --no-tui	1	no result after 370.476 s; operator stopped during devenv evaluation
+records-only-commit-hook	common	git commit -m 'docs(buck2): record check entry bakeoff'	1	command timed out after 120 s in the same devenv check path; no commit created
