@@ -108,6 +108,31 @@ expect_build_failure \
   "runtime inspector is not available for self-contained" \
   "$unsupported_runtime_expr"
 
+static_runtime_expr="let
+  $common_let
+  exported = builtins.storePath (builtins.getEnv \"BUCK2_BRIDGE_STATIC_PRODUCT\");
+  original = builtins.fromJSON (builtins.readFile (exported + \"/descriptor.json\"));
+  descriptor = original // {
+    platform = original.platform // { abi = \"glibc\"; };
+    runtime = {
+      elfClass = \"ELF64\";
+      inspectionContract = \"elf-static/v1\";
+      kind = \"elf-static\";
+      machine = original.platform.architecture;
+    };
+  };
+in test.mkImport {
+  inherit descriptor;
+  expectedDescriptorDigest = contract.descriptorDigest descriptor;
+  expectedPlatform = descriptor.platform;
+  artifact = exported + \"/artifact.tar\";
+}"
+static_import="$(build_expr "$static_runtime_expr")"
+[ -x "$static_import/bin/fixture-tool" ] || {
+  echo "buck2-bridge-test: admitted static entrypoint is missing" >&2
+  exit 1
+}
+
 dynamic_export="$(build_expr "($base_expr).dynamicExport")"
 export BUCK2_BRIDGE_DYNAMIC_EXPORT="$dynamic_export"
 jq -e '

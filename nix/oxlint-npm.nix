@@ -123,8 +123,7 @@ let
   overengPlugin = importPlugin "oxc-config";
   stylexUpstreamPlugin = importPlugin "oxc-config-stylex-upstream-plugin";
   overengPluginModule = "${overengPlugin}/libexec/${overengPlugin.checkedDescriptor.modulePath}";
-  stylexUpstreamPluginModule =
-    "${stylexUpstreamPlugin}/libexec/${stylexUpstreamPlugin.checkedDescriptor.modulePath}";
+  stylexUpstreamPluginModule = "${stylexUpstreamPlugin}/libexec/${stylexUpstreamPlugin.checkedDescriptor.modulePath}";
 
 in
 pkgs.stdenv.mkDerivation (finalAttrs: {

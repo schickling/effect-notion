@@ -119,6 +119,25 @@ let
           ) "descriptor.runtime.symbolVersionFloors must be sorted")
           (ensure (value.rpathPolicy == "empty/v1") "descriptor.runtime.rpathPolicy must be empty/v1")
         ] value
+      else if kind == "elf-static" then
+        let
+          value = exactAttrs "descriptor.runtime" [
+            "elfClass"
+            "inspectionContract"
+            "kind"
+            "machine"
+          ] runtime;
+        in
+        force [
+          (ensure (
+            value.inspectionContract == "elf-static/v1"
+          ) "descriptor.runtime.inspectionContract must be elf-static/v1")
+          (ensure (builtins.elem value.elfClass [
+            "ELF32"
+            "ELF64"
+          ]) "descriptor.runtime.elfClass must be ELF32 or ELF64")
+          (ensure (nonEmptyString value.machine) "descriptor.runtime.machine must be a non-empty string")
+        ] value
       else if kind == "mach-o-dynamic" then
         let
           value = exactAttrs "descriptor.runtime" [
@@ -218,6 +237,23 @@ let
             (ensure (
               expectedGlibcInterpreter != null && runtime.interpreter == expectedGlibcInterpreter
             ) "descriptor.runtime.interpreter does not prove the declared glibc architecture")
+          ]
+        else if runtime.kind == "elf-static" then
+          [
+            (ensure (
+              platform.os == "linux"
+            ) "descriptor.runtime elf-static requires descriptor.platform.os = linux")
+            (ensure (
+              platform.abi == "glibc"
+            ) "descriptor.runtime elf-static/v1 currently requires descriptor.platform.abi = glibc")
+            (ensure (
+              runtime.machine == platform.architecture
+            ) "descriptor.runtime.machine must match descriptor.platform.architecture")
+            (ensure (builtins.elem platform.architecture [
+              "x86_64"
+              "aarch64"
+            ]) "descriptor.runtime elf-static architecture is unsupported")
+            (ensure (runtime.elfClass == "ELF64") "descriptor.runtime elf-static architecture requires ELF64")
           ]
         else if runtime.kind == "mach-o-dynamic" then
           [

@@ -10,6 +10,7 @@ BuildProvenanceInfo = provider(fields = {
 
 ProductExecutableInfo = provider(fields = {
     "executable": Artifact,
+    "support_tree": typing.Any,
     "provenance": provider_field(BuildProvenanceInfo),
     "target_platform_abi": str,
     "target_platform_architecture": str,
@@ -17,7 +18,7 @@ ProductExecutableInfo = provider(fields = {
     "target_platform_runtime_contract": str,
 })
 
-def product_executable_info(ctx, executable, recipe, toolchain, target_platform):
+def product_executable_info(ctx, executable, recipe, toolchain, target_platform, support_tree = None):
     """Builds the provider a language producer returns with its executable."""
     for field, value in {"recipe": recipe, "toolchain": toolchain}.items():
         if not value or "\n" in value or "\r" in value or "\x00" in value:
@@ -35,6 +36,7 @@ def product_executable_info(ctx, executable, recipe, toolchain, target_platform)
     )
     return ProductExecutableInfo(
         executable = executable,
+        support_tree = support_tree,
         provenance = provenance,
         target_platform_abi = target_platform.abi,
         target_platform_architecture = target_platform.architecture,

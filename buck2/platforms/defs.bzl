@@ -14,7 +14,9 @@ def admitted_rust_target_triple(os, architecture, abi, runtime_contract):
     triple = {
         "darwin:aarch64:darwin:mach-o-dynamic/v1": "aarch64-apple-darwin",
         "linux:aarch64:glibc:elf-dynamic/v1": "aarch64-unknown-linux-gnu",
+        "linux:aarch64:glibc:elf-static/v1": "aarch64-unknown-linux-gnu",
         "linux:x86_64:glibc:elf-dynamic/v1": "x86_64-unknown-linux-gnu",
+        "linux:x86_64:glibc:elf-static/v1": "x86_64-unknown-linux-gnu",
     }.get("{}:{}:{}:{}".format(os, architecture, abi, runtime_contract))
     if triple == None:
         fail("platform fields do not identify an admitted native Rust pair")
@@ -178,6 +180,17 @@ def host_platform_label():
         return "//buck2/platforms:macos_aarch64"
     fail("host_platform supports only x86_64-linux, aarch64-linux, and aarch64-darwin")
 
+def host_standalone_platform_label():
+    """Selects the host platform for a product shipped without adjacent libraries."""
+    host = host_info()
+    if host.os.is_linux and host.arch.is_x86_64:
+        return "//buck2/platforms:linux_x86_64_static"
+    if host.os.is_linux and host.arch.is_aarch64:
+        return "//buck2/platforms:linux_aarch64_static"
+    if host.os.is_macos and host.arch.is_aarch64:
+        return "//buck2/platforms:macos_aarch64"
+    fail("host standalone platform supports only x86_64-linux, aarch64-linux, and aarch64-darwin")
+
 def host_execution_platform_label():
     host = host_info()
     if host.os.is_linux and host.arch.is_x86_64:
@@ -195,7 +208,15 @@ def native_execution_constraints(target_platform):
             "prelude//cpu/constraints:x86_64",
             "prelude//os/constraints:linux",
         ],
+        "//buck2/platforms:linux_x86_64_static": [
+            "prelude//cpu/constraints:x86_64",
+            "prelude//os/constraints:linux",
+        ],
         "//buck2/platforms:linux_aarch64": [
+            "prelude//cpu/constraints:arm64",
+            "prelude//os/constraints:linux",
+        ],
+        "//buck2/platforms:linux_aarch64_static": [
             "prelude//cpu/constraints:arm64",
             "prelude//os/constraints:linux",
         ],
@@ -216,7 +237,17 @@ def product_platform_constraints(target_platform):
             "prelude//cpu/constraints:x86_64",
             "prelude//os/constraints:linux",
         ],
+        "//buck2/platforms:linux_x86_64_static": [
+            "prelude//abi/constraints:gnu",
+            "prelude//cpu/constraints:x86_64",
+            "prelude//os/constraints:linux",
+        ],
         "//buck2/platforms:linux_aarch64": [
+            "prelude//abi/constraints:gnu",
+            "prelude//cpu/constraints:arm64",
+            "prelude//os/constraints:linux",
+        ],
+        "//buck2/platforms:linux_aarch64_static": [
             "prelude//abi/constraints:gnu",
             "prelude//cpu/constraints:arm64",
             "prelude//os/constraints:linux",

@@ -154,22 +154,21 @@
           notion-md = cliPackages.notion-md.outPath;
         };
 
-        apps =
-          {
-            update-bun-hashes = flake-utils.lib.mkApp {
-              drv = import ./nix/workspace-tools/lib/update-bun-hashes.nix { inherit pkgs; };
-            };
-          }
-          // pkgs.lib.optionalAttrs (nativeProductPackages ? otelite) {
-            otelite = flake-utils.lib.mkApp {
-              drv = nativeProductPackages.otelite;
-              exePath = "/bin/otelite";
-            };
-            otel-scrape = flake-utils.lib.mkApp {
-              drv = nativeProductPackages.otel-scrape;
-              exePath = "/bin/otel-scrape";
-            };
+        apps = {
+          update-bun-hashes = flake-utils.lib.mkApp {
+            drv = import ./nix/workspace-tools/lib/update-bun-hashes.nix { inherit pkgs; };
           };
+        }
+        // pkgs.lib.optionalAttrs (nativeProductPackages ? otelite) {
+          otelite = flake-utils.lib.mkApp {
+            drv = nativeProductPackages.otelite;
+            exePath = "/bin/otelite";
+          };
+          otel-scrape = flake-utils.lib.mkApp {
+            drv = nativeProductPackages.otel-scrape;
+            exePath = "/bin/otel-scrape";
+          };
+        };
       }
     )
     // {

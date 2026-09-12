@@ -2,6 +2,10 @@ import { withJavaScriptCandidates } from '../../../genie/buck2/javascript-candid
 import { javaScriptProductsFor } from '../../../genie/buck2/javascript-product-registry.ts'
 import type { Buck2TypeScriptAdmission } from '../../../genie/buck2/typescript-admissions.ts'
 import { buck2TypeScriptPackageProjection } from '../../../genie/buck2/typescript-package-projection.ts'
+import {
+  createGenieOutput,
+  type GenieOutput,
+} from '../../../packages/@overeng/genie/src/runtime/core.ts'
 
 export const buck2TypeScriptAdmission = {
   dependencyImporter: '//buck2/dependencies:importer_packages_overeng_genie_b7534483be10',
@@ -56,7 +60,50 @@ export const buck2TypeScriptAdmission = {
   ],
 } as const satisfies Buck2TypeScriptAdmission
 
-export default withJavaScriptCandidates({
-  projection: buck2TypeScriptPackageProjection(buck2TypeScriptAdmission),
-  products: javaScriptProductsFor(buck2TypeScriptAdmission.packagePath),
-})
+const withTypeScriptApiServerProduct = <TData>(
+  projection: GenieOutput<TData>,
+): GenieOutput<TData> =>
+  createGenieOutput({
+    ...projection,
+    stringify: (context) => `load("//buck2/platforms:defs.bzl", "host_standalone_platform_label")
+load("//buck2/products:defs.bzl", "build_product", "package_tree_product_executable")
+
+${projection.stringify(context)}
+
+package_tree_product_executable(
+    name = "typescript-api-server-product-executable",
+    package_tree = ":package_tree",
+    package_anchor = "node_modules/typescript",
+    executable_paths = {
+        "aarch64-darwin-darwin": "@typescript/typescript-darwin-arm64/lib/tsc",
+        "aarch64-linux-glibc": "@typescript/typescript-linux-arm64/lib/tsc",
+        "x86_64-linux-glibc": "@typescript/typescript-linux-x64/lib/tsc",
+    },
+    support_directory_paths = {
+        "aarch64-darwin-darwin": "@typescript/typescript-darwin-arm64/lib",
+        "aarch64-linux-glibc": "@typescript/typescript-linux-arm64/lib",
+        "x86_64-linux-glibc": "@typescript/typescript-linux-x64/lib",
+    },
+    support_destination = "bin",
+    recipe = "pnpm-lock:@typescript/typescript-platform/lib",
+    target_platform = host_standalone_platform_label(),
+    toolchain = "pnpm-lockfile:pnpm-lock.yaml",
+)
+
+build_product(
+    name = "typescript-api-server-product",
+    entrypoint = "bin/typescript-api-server",
+    executable = ":typescript-api-server-product-executable",
+    product_name = "typescript-api-server",
+    target_platform = host_standalone_platform_label(),
+    visibility = ["PUBLIC"],
+)
+`,
+  })
+
+export default withTypeScriptApiServerProduct(
+  withJavaScriptCandidates({
+    projection: buck2TypeScriptPackageProjection(buck2TypeScriptAdmission),
+    products: javaScriptProductsFor(buck2TypeScriptAdmission.packagePath),
+  }),
+)

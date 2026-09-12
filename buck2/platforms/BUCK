@@ -45,12 +45,42 @@ product_platform(
 )
 
 product_platform(
+    name = "linux_x86_64_static",
+    os = "linux",
+    architecture = "x86_64",
+    abi = "glibc",
+    rust_target_triple = "x86_64-unknown-linux-gnu",
+    runtime_contract = "elf-static/v1",
+    constraint_values = [
+        "prelude//abi/constraints:gnu",
+        "prelude//cpu/constraints:x86_64",
+        "prelude//os/constraints:linux",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+product_platform(
     name = "linux_aarch64",
     os = "linux",
     architecture = "aarch64",
     abi = "glibc",
     rust_target_triple = "aarch64-unknown-linux-gnu",
     runtime_contract = "elf-dynamic/v1",
+    constraint_values = [
+        "prelude//abi/constraints:gnu",
+        "prelude//cpu/constraints:arm64",
+        "prelude//os/constraints:linux",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+product_platform(
+    name = "linux_aarch64_static",
+    os = "linux",
+    architecture = "aarch64",
+    abi = "glibc",
+    rust_target_triple = "aarch64-unknown-linux-gnu",
+    runtime_contract = "elf-static/v1",
     constraint_values = [
         "prelude//abi/constraints:gnu",
         "prelude//cpu/constraints:arm64",

@@ -1,6 +1,9 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2/platforms:defs.bzl", "host_standalone_platform_label")
+load("//buck2/products:defs.bzl", "build_product", "package_tree_product_executable")
+
 load("//buck2:package_tools.bzl", "package_bin_artifact")
 load("//buck2/products:defs.bzl", "javascript_product")
 
@@ -480,5 +483,35 @@ javascript_product(
     module = ":genie-bootstrap-closure-check-candidate-module",
     product_kind = "cli",
     product_name = "genie-bootstrap-closure-check",
+    visibility = ["PUBLIC"],
+)
+
+
+package_tree_product_executable(
+    name = "typescript-api-server-product-executable",
+    package_tree = ":package_tree",
+    package_anchor = "node_modules/typescript",
+    executable_paths = {
+        "aarch64-darwin-darwin": "@typescript/typescript-darwin-arm64/lib/tsc",
+        "aarch64-linux-glibc": "@typescript/typescript-linux-arm64/lib/tsc",
+        "x86_64-linux-glibc": "@typescript/typescript-linux-x64/lib/tsc",
+    },
+    support_directory_paths = {
+        "aarch64-darwin-darwin": "@typescript/typescript-darwin-arm64/lib",
+        "aarch64-linux-glibc": "@typescript/typescript-linux-arm64/lib",
+        "x86_64-linux-glibc": "@typescript/typescript-linux-x64/lib",
+    },
+    support_destination = "bin",
+    recipe = "pnpm-lock:@typescript/typescript-platform/lib",
+    target_platform = host_standalone_platform_label(),
+    toolchain = "pnpm-lockfile:pnpm-lock.yaml",
+)
+
+build_product(
+    name = "typescript-api-server-product",
+    entrypoint = "bin/typescript-api-server",
+    executable = ":typescript-api-server-product-executable",
+    product_name = "typescript-api-server",
+    target_platform = host_standalone_platform_label(),
     visibility = ["PUBLIC"],
 )

@@ -241,7 +241,7 @@ expect_eval_failure \
     entrypoints = [ "bin/fixture-tool" "bin/fixture-tool" ];
   })'
 
-for variant in interpreter elf-dynamic mach-o-dynamic self-contained; do
+for variant in interpreter elf-dynamic elf-static mach-o-dynamic self-contained; do
   platform_override=''
   case "$variant" in
     interpreter)
@@ -249,6 +249,10 @@ for variant in interpreter elf-dynamic mach-o-dynamic self-contained; do
       ;;
     elf-dynamic)
       runtime='{ kind = "elf-dynamic"; inspectionContract = "elf-dynamic/v1"; elfClass = "ELF64"; machine = "x86_64"; interpreter = "/lib64/ld-linux-x86-64.so.2"; neededLibraries = [ "libc.so.6" ]; symbolVersionFloors = [ "GLIBC_2.39" ]; rpathPolicy = "empty/v1"; }'
+      platform_override='platform = valid.platform // { abi = "glibc"; };'
+      ;;
+    elf-static)
+      runtime='{ kind = "elf-static"; inspectionContract = "elf-static/v1"; elfClass = "ELF64"; machine = "x86_64"; }'
       platform_override='platform = valid.platform // { abi = "glibc"; };'
       ;;
     mach-o-dynamic)
@@ -422,6 +426,32 @@ expect_eval_failure \
       neededLibraries = [ "libc.so.6" ];
       symbolVersionFloors = [ "GLIBC_2.39" ];
       rpathPolicy = "empty/v1";
+    };
+  })'
+
+expect_eval_failure \
+  "static ELF machine and platform architecture mismatch" \
+  "descriptor.runtime.machine must match descriptor.platform.architecture" \
+  'contract.descriptorDigest (valid // {
+    platform = valid.platform // { abi = "glibc"; };
+    runtime = {
+      kind = "elf-static";
+      inspectionContract = "elf-static/v1";
+      elfClass = "ELF64";
+      machine = "aarch64";
+    };
+  })'
+
+expect_eval_failure \
+  "static ELF on a non-Linux platform" \
+  "elf-static requires descriptor.platform.os = linux" \
+  'contract.descriptorDigest (valid // {
+    platform = { os = "darwin"; architecture = "x86_64"; abi = "glibc"; };
+    runtime = {
+      kind = "elf-static";
+      inspectionContract = "elf-static/v1";
+      elfClass = "ELF64";
+      machine = "x86_64";
     };
   })'
 

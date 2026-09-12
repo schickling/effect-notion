@@ -198,10 +198,11 @@ assert lib.assertMsg (
   ]
   && targets.provenance.generator == targetGenerator
   && targets.provenance.regenerationCommand == "devenv tasks run genie:run"
-  && targets.provenance.semanticInputs == [
-    "genie/buck2/javascript-product-registry.ts"
-    "nix/buck2-products/targets.json.genie.ts"
-  ]
+  &&
+    targets.provenance.semanticInputs == [
+      "genie/buck2/javascript-product-registry.ts"
+      "nix/buck2-products/targets.json.genie.ts"
+    ]
   && targets.provenance.source == "nix/buck2-products/targets.json.genie.ts"
 ) "buck2-products: target inventory provenance is invalid";
 assert lib.assertMsg (
