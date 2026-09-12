@@ -593,9 +593,7 @@ const makeGitHubClient = Effect.gen(function* () {
 
   /** Make an authenticated POST request for a GitHub mutation with no response payload. */
   const apiPost = (options: { repo: string; path: string; body?: unknown }) =>
-    Effect.gen(function* () {
-      yield* apiPostResponse(options)
-    })
+    apiPostResponse(options).pipe(Effect.asVoid)
 
   /** Make an authenticated POST request and decode its JSON response. */
   const apiPostJson = <TValue, TEncoded>({
