@@ -482,6 +482,7 @@ describe('composition root goldens', () => {
   ignore = **/node_modules,**/node_modules/**,**/target,**/target/**,.buck2/capabilities.candidate.*,.devenv,.git,buck-out,node_modules,repos/.staging-*,repos/alpha/**/dist,repos/alpha/.git,target,tmp
 `)
     expect(output.get('.buckroot')?.bytes).toHaveLength(0)
+    expect(text(output.get('.watchmanconfig')!)).toBe('{}\n')
     expect(output.get('BUCK')?.bytes).toHaveLength(0)
   })
 
@@ -748,6 +749,7 @@ describe('generation manifest and output schema', () => {
       '.buckroot',
       '.megarepo/bin/buck2',
       '.megarepo/composition-generation.json',
+      '.watchmanconfig',
       'BUCK',
       '.buckconfig',
     ])

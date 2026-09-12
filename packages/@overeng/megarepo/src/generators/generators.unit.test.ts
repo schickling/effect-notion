@@ -235,6 +235,20 @@ describe('getEnabledGenerators', () => {
     expect(files).toContain('.vscode/megarepo.code-workspace')
     expect(files).not.toContain('schema/megarepo.schema.json')
   })
+  it('should include every composition root file when composition generation is enabled', () => {
+    const files = getEnabledGenerators({
+      members: {},
+      generators: { composition: { enabled: true, platformHub: 'effect-utils' } },
+    })
+
+    expect(files).toEqual([
+      '.buckroot',
+      '.buckconfig',
+      '.watchmanconfig',
+      'BUCK',
+      '.megarepo/bin/buck2',
+    ])
+  })
 
   it('should return empty array when generators explicitly disabled', () => {
     const files = getEnabledGenerators({

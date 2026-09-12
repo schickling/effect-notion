@@ -926,6 +926,7 @@ export const generateCompositionRoot = (rawInput: CompositionRootInput): Composi
   })
   const ownedFiles: ReadonlyArray<GeneratedCompositionFile> = [
     generatedFile({ path: '.buckroot', mode: 0o644, content: '' }),
+    generatedFile({ path: '.watchmanconfig', mode: 0o644, content: '{}\n' }),
     generatedFile({ path: 'BUCK', mode: 0o644, content: '' }),
     generatedFile({
       path: '.megarepo/bin/buck2',

@@ -2312,7 +2312,13 @@ const validateTeardownState = async ({
     })
   }
   const manifest = decodeGenerationManifest({ snapshot: manifestSnapshot, path: manifestPath })
-  const canonical = ['.buckconfig', '.buckroot', '.megarepo/bin/buck2', 'BUCK'].toSorted()
+  const canonical = [
+    '.buckconfig',
+    '.buckroot',
+    '.megarepo/bin/buck2',
+    '.watchmanconfig',
+    'BUCK',
+  ].toSorted()
   assertManifestShape({ manifest, expectedPaths: canonical, path: manifestPath })
   const files = new Map<string, FileSnapshot>()
   for (const record of manifest.files) {

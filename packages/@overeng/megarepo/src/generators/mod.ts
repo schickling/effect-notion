@@ -34,7 +34,7 @@ export const getEnabledGenerators = (config: MegarepoConfig): string[] => {
     generators.push('.vscode/megarepo.code-workspace')
   }
   if (config.generators?.composition?.enabled === true) {
-    generators.push('.buckroot', '.buckconfig', 'BUCK', '.megarepo/bin/buck2')
+    generators.push('.buckroot', '.buckconfig', '.watchmanconfig', 'BUCK', '.megarepo/bin/buck2')
   }
   return generators
 }
