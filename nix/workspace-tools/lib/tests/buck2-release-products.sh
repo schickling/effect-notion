@@ -74,6 +74,7 @@ jq -e --argjson expected "$expected_names" '
 mkdir -p "$tmp/products"
 cp "$repo_root/nix/buck2-products/default.nix" "$tmp/products/default.nix"
 cp "$repo_root/nix/buck2-products/targets.json" "$tmp/products/targets.json"
+chmod u+w "$tmp/products/targets.json"
 
 write_mutation() {
   jq "$1" "$repo_root/nix/buck2-products/manifest.json" >"$tmp/products/manifest.json"
@@ -272,6 +273,7 @@ echo "buck2-release-products-test: publisher dry-run/refusal OK"
 live="$tmp/live"
 mkdir -p "$live/bin" "$live/build"
 real_nix="$(command -v nix)"
+real_nix_path="$PATH"
 printf '{}\n' >"$live/outputs.json"
 
 # Each product is materialized once: real bytes, a real digest, a real v2
@@ -401,7 +403,7 @@ cat >"$live/bin/nix" <<EOF
 #!/usr/bin/env bash
 set -uo pipefail
 case "\${1:-}" in
-  hash) exec '$real_nix' "\$@" ;;
+  hash) PATH='$real_nix_path' exec '$real_nix' "\$@" ;;
   build)
     paths="\${GH_FAKE_STATE:-}/realized-paths"
     [[ -f "\$paths" ]] || exit 96
