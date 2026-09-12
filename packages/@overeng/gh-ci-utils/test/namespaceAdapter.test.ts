@@ -193,6 +193,39 @@ describe('parseJobDescribe', () => {
     expect(parsed._tag === 'parsed' && parsed.job.instanceStatusRaw).toBe('RUNNING')
   })
 
+  it('ignores a destruction timestamp owned by an unrelated instance attempt', () => {
+    const parsed = parseJobDescribe(
+      JSON.stringify({
+        runner: {
+          instance_id: INSTANCE,
+          instance_status: 'RUNNING',
+        },
+        attempts: [
+          {
+            instance_id: 'unrelated-instance',
+            destroyed_at: '2026-01-15T10:55:00Z',
+          },
+        ],
+      }),
+    )
+    expect(parsed._tag === 'parsed' && parsed.job.instanceStatus).toBe('running')
+    expect(parsed._tag === 'parsed' && parsed.job.destroyedAt).toBeNull()
+  })
+
+  it('uses a destruction timestamp owned by the selected instance', () => {
+    const parsed = parseJobDescribe(
+      JSON.stringify({
+        runner: {
+          instance_id: INSTANCE,
+          instance_status: 'RUNNING',
+          destroyed_at: '2026-01-15T11:05:00Z',
+        },
+      }),
+    )
+    expect(parsed._tag === 'parsed' && parsed.job.instanceStatus).toBe('destroyed')
+    expect(parsed._tag === 'parsed' && parsed.job.destroyedAt).toBe('2026-01-15T11:05:00Z')
+  })
+
   it('reads camelCase field names too, since the CLI shape is not pinned', () => {
     const parsed = parseJobDescribe(
       JSON.stringify({ instanceId: INSTANCE, instanceStatus: 'running' }),

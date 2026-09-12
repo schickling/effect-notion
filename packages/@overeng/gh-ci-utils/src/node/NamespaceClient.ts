@@ -211,6 +211,22 @@ const findString = ({
   return visit({ node: root, depth: 0 })
 }
 
+/** Find a string field directly owned by a record, without traversing nested records. */
+const findOwnedString = ({
+  record,
+  keys,
+}: {
+  record: object
+  keys: ReadonlyArray<string>
+}): string | null => {
+  for (const key of keys) {
+    const value = Reflect.get(record, key)
+    if (typeof value === 'string' && value.length > 0) return value
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  }
+  return null
+}
+
 /** Find the object that directly owns a matching identity field. */
 const findRecord = ({
   root,
@@ -294,12 +310,15 @@ export const parseJobDescribe = (stdout: string): JobDescribeParse => {
     return { _tag: 'unrecognized', detail: 'no instance id in job description' }
   }
 
-  const destroyedAt = findString({ root: parsed, keys: ['destroyed_at', 'destroyedAt'] })
   const instanceRecord = findRecord({
     root: parsed,
     keys: ['instance_id', 'instanceId'],
     value: instanceId,
   })
+  const destroyedAt =
+    instanceRecord === null
+      ? null
+      : findOwnedString({ record: instanceRecord, keys: ['destroyed_at', 'destroyedAt'] })
   const statusRaw =
     findString({ root: parsed, keys: ['instance_status', 'instanceStatus'] }) ??
     (instanceRecord === null
