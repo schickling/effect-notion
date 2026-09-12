@@ -18,16 +18,16 @@ import type {
   NamespaceUsageState,
 } from '../src/isomorphic/lib/inspectFacts.ts'
 
-const INSTANCE = 'psmnb4mkjm3mq'
+const INSTANCE = 'abc123example'
 
 const github = (overrides: Partial<InspectGitHubFacts> = {}): InspectGitHubFacts => ({
-  repo: 'schickling/dotfiles',
-  jobId: 69067527707,
-  runId: 23601797547,
+  repo: 'example-org/example-repo',
+  jobId: 1001,
+  runId: 2001,
   name: 'build',
   status: 'in_progress',
   conclusion: null,
-  startedAt: '2026-09-10T11:00:00.000Z',
+  startedAt: '2026-01-15T11:00:00.000Z',
   completedAt: null,
   durationSeconds: 120,
   runnerName: `nsc-runner-${INSTANCE}`,
@@ -42,7 +42,7 @@ const usage = (overrides: Partial<NamespaceUsage> = {}): NamespaceUsageState => 
   _tag: 'sampled',
   sample: {
     instanceId: INSTANCE,
-    githubJobId: '69067527707',
+    githubJobId: '1001',
     allocatedCpu: 8,
     allocatedRamGb: 16,
     cpuMaxFraction: 0.5,
@@ -68,7 +68,7 @@ const reported = ({
     instanceStatusRaw: 'RUNNING',
     runnerName: `nsc-runner-${INSTANCE}`,
     containerName: 'runner',
-    repository: 'schickling/dotfiles',
+    repository: 'example-org/example-repo',
     workflow: 'CI',
     jobName: 'build',
     destroyedAt: null,
@@ -93,7 +93,7 @@ describe('classifyInspection precedence', () => {
       classifyInspection({
         github: github({ status: 'completed', conclusion: 'success' }),
         namespace: reported({
-          job: { instanceStatus: 'destroyed', destroyedAt: '2026-09-10T11:05:00Z' },
+          job: { instanceStatus: 'destroyed', destroyedAt: '2026-01-15T11:05:00Z' },
           usageState: usage({ ramMaxFraction: 0.96 }),
         }),
       }).disposition,
@@ -147,10 +147,10 @@ describe('classifyInspection precedence', () => {
         github: github({
           status: 'completed',
           conclusion: 'success',
-          completedAt: '2026-09-10T11:04:00.000Z',
+          completedAt: '2026-01-15T11:04:00.000Z',
         }),
         namespace: reported({
-          job: { instanceStatus: 'destroyed', destroyedAt: '2026-09-10T11:05:00Z' },
+          job: { instanceStatus: 'destroyed', destroyedAt: '2026-01-15T11:05:00Z' },
         }),
       }).disposition,
     ).toBe('unknown'))
@@ -169,7 +169,7 @@ describe('classifyInspection precedence', () => {
     const assessment = classifyInspection({
       github: github(),
       namespace: reported({
-        job: { instanceStatus: 'destroyed', destroyedAt: '2026-09-10T11:05:00Z' },
+        job: { instanceStatus: 'destroyed', destroyedAt: '2026-01-15T11:05:00Z' },
       }),
     })
     expect(assessment.disposition).toBe('unknown')
@@ -179,9 +179,9 @@ describe('classifyInspection precedence', () => {
   it('reports unknown for a non-Namespace runner and says why', () => {
     const assessment = classifyInspection({
       github: github({
-        runnerName: 'dev3-6038ddf9',
+        runnerName: 'runnera-1234abcd',
         runnerKind: 'self-hosted',
-        runnerInstance: 'dev3',
+        runnerInstance: 'runnera',
       }),
       namespace: { _tag: 'not-namespace-job', runnerKind: 'self-hosted' },
     })
@@ -200,7 +200,7 @@ describe('classifyInspection precedence', () => {
       },
     })
     expect(assessment.disposition).toBe('unknown')
-    expect(assessment.evidence.join(' ')).toContain('69067527707')
+    expect(assessment.evidence.join(' ')).toContain('1001')
     expect(assessment.limitations.join(' ')).toContain('nsc-missing')
   })
 

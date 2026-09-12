@@ -36,7 +36,7 @@ export const Loading: Story = {
       app={InspectApp}
       height={args.height}
       tabs={ALL_OUTPUT_TABS}
-      command="gh-ci-utils inspect --job 69067527707"
+      command="gh-ci-utils inspect --job 1001"
       initialState={loadingState()}
     />
   ),

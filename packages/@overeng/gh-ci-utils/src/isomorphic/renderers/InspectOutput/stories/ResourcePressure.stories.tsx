@@ -40,7 +40,7 @@ export const ResourcePressure: Story = {
         app={InspectApp}
         height={args.height}
         tabs={ALL_OUTPUT_TABS}
-        command="gh-ci-utils inspect --job 69067527707 --with-usage"
+        command="gh-ci-utils inspect --job 1001 --with-usage"
         {...createInteractiveProps({
           args,
           staticState: state,

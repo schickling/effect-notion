@@ -24,16 +24,16 @@ import {
   InspectStateSchema,
 } from '../src/isomorphic/renderers/InspectOutput/schema.ts'
 
-const INSTANCE = 'psmnb4mkjm3mq'
-const REPO = 'schickling/dotfiles'
+const INSTANCE = 'abc123example'
+const REPO = 'example-org/example-repo'
 
 const rawJob: WorkflowJob = {
-  id: 69067527707,
-  run_id: 23601797547,
+  id: 1001,
+  run_id: 2001,
   name: 'build',
   status: 'in_progress',
   conclusion: null,
-  started_at: new Date('2026-09-10T11:00:00.000Z'),
+  started_at: new Date('2026-01-15T11:00:00.000Z'),
   completed_at: null,
   runner_name: `nsc-runner-${INSTANCE}`,
   labels: ['nscloud-ubuntu-24.04-amd64-8x16'],
@@ -43,8 +43,8 @@ const rawJob: WorkflowJob = {
       status: 'completed',
       conclusion: 'success',
       number: 1,
-      started_at: new Date('2026-09-10T11:00:00.000Z'),
-      completed_at: new Date('2026-09-10T11:00:06.000Z'),
+      started_at: new Date('2026-01-15T11:00:00.000Z'),
+      completed_at: new Date('2026-01-15T11:00:06.000Z'),
     },
   ],
 }
@@ -65,7 +65,7 @@ const reportedNamespace: InspectNamespaceFacts = {
   usage: { _tag: 'not-requested' },
   commands: [
     ['auth', 'check-login'],
-    ['github', 'job', 'describe', '69067527707', '-o', 'json'],
+    ['github', 'job', 'describe', '1001', '-o', 'json'],
   ],
 }
 
@@ -88,7 +88,7 @@ describe('inspect --output json contract', () => {
     const encoded: unknown = JSON.parse(encodeJson(loadedState(reportedNamespace)))
     expect(encoded).toMatchObject({
       _tag: 'Loaded',
-      github: { repo: REPO, jobId: 69067527707, runnerKind: 'namespace' },
+      github: { repo: REPO, jobId: 1001, runnerKind: 'namespace' },
       namespace: { _tag: 'reported', job: { instanceId: INSTANCE } },
       assessment: { disposition: 'active' },
     })
@@ -99,7 +99,7 @@ describe('inspect --output json contract', () => {
     if (state._tag !== 'Loaded') throw new Error('expected Loaded')
     expect(state.github.runnerName).toBe(`nsc-runner-${INSTANCE}`)
     expect(state.github.runnerInstance).toBe(INSTANCE)
-    expect(state.github.startedAt).toBe('2026-09-10T11:00:00.000Z')
+    expect(state.github.startedAt).toBe('2026-01-15T11:00:00.000Z')
     expect(state.github.completedAt).toBeNull()
     expect(state.github.labels).toEqual(['nscloud-ubuntu-24.04-amd64-8x16'])
     expect(state.github.steps).toEqual([
@@ -108,8 +108,8 @@ describe('inspect --output json contract', () => {
         status: 'completed',
         conclusion: 'success',
         number: 1,
-        startedAt: '2026-09-10T11:00:00.000Z',
-        completedAt: '2026-09-10T11:00:06.000Z',
+        startedAt: '2026-01-15T11:00:00.000Z',
+        completedAt: '2026-01-15T11:00:06.000Z',
       },
     ])
   })
@@ -122,7 +122,7 @@ describe('inspect --output json contract', () => {
       commands: [['auth', 'check-login']],
     })
     if (state._tag !== 'Loaded') throw new Error('expected Loaded')
-    expect(state.github.jobId).toBe(69067527707)
+    expect(state.github.jobId).toBe(1001)
     expect(state.github.steps).toHaveLength(1)
     expect(state.assessment.disposition).toBe('unknown')
     expect(state.namespace._tag).toBe('unavailable')
@@ -138,7 +138,7 @@ describe('inspect --output json contract', () => {
       namespace: {
         commands: [
           ['auth', 'check-login'],
-          ['github', 'job', 'describe', '69067527707', '-o', 'json'],
+          ['github', 'job', 'describe', '1001', '-o', 'json'],
         ],
       },
     })

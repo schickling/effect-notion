@@ -19,17 +19,17 @@ import type { InspectAction, InspectState } from '../schema.ts'
 // Helpers
 // =============================================================================
 
-const REPO = 'schickling/dotfiles'
-const INSTANCE = 'psmnb4mkjm3mq'
+const REPO = 'example-org/example-repo'
+const INSTANCE = 'abc123example'
 
 const githubFacts = (overrides: Partial<InspectGitHubFacts> = {}): InspectGitHubFacts => ({
   repo: REPO,
-  jobId: 69067527707,
-  runId: 23601797547,
+  jobId: 1001,
+  runId: 2001,
   name: 'build',
   status: 'in_progress',
   conclusion: null,
-  startedAt: '2026-09-10T11:00:00.000Z',
+  startedAt: '2026-01-15T11:00:00.000Z',
   completedAt: null,
   durationSeconds: 214,
   runnerName: `nsc-runner-${INSTANCE}`,
@@ -42,15 +42,15 @@ const githubFacts = (overrides: Partial<InspectGitHubFacts> = {}): InspectGitHub
       status: 'completed',
       conclusion: 'success',
       number: 1,
-      startedAt: '2026-09-10T11:00:00.000Z',
-      completedAt: '2026-09-10T11:00:06.000Z',
+      startedAt: '2026-01-15T11:00:00.000Z',
+      completedAt: '2026-01-15T11:00:06.000Z',
     },
     {
       name: 'nix build',
       status: 'in_progress',
       conclusion: null,
       number: 2,
-      startedAt: '2026-09-10T11:00:06.000Z',
+      startedAt: '2026-01-15T11:00:06.000Z',
       completedAt: null,
     },
   ],
@@ -72,13 +72,13 @@ const namespaceJob = (overrides: Partial<NamespaceJobFacts> = {}): NamespaceJobF
 
 const usageSample = (overrides: Partial<NamespaceUsage> = {}): NamespaceUsage => ({
   instanceId: INSTANCE,
-  githubJobId: '69067527707',
+  githubJobId: '1001',
   allocatedCpu: 8,
   allocatedRamGb: 16,
   cpuMaxFraction: 0.61,
   ramMaxFraction: 0.34,
-  createdAt: '2026-09-10 10:59:55 +0000 UTC',
-  startedAt: '2026-09-10 11:00:00 +0000 UTC',
+  createdAt: '2026-01-15 10:59:55 +0000 UTC',
+  startedAt: '2026-01-15 11:00:00 +0000 UTC',
   destroyedAt: null,
   ...overrides,
 })
@@ -135,7 +135,7 @@ export const idleState = (): InspectState =>
     github: githubFacts({
       status: 'completed',
       conclusion: 'success',
-      completedAt: '2026-09-10T11:03:34.000Z',
+      completedAt: '2026-01-15T11:03:34.000Z',
     }),
     namespace: {
       _tag: 'reported',
@@ -176,10 +176,10 @@ export const nscMissingState = (): InspectState =>
 export const notNamespaceState = (): InspectState =>
   loaded({
     github: githubFacts({
-      runnerName: 'dev3-6038ddf9',
+      runnerName: 'runnera-1234abcd',
       runnerKind: 'self-hosted',
-      runnerInstance: 'dev3',
-      labels: ['self-hosted', 'dev3'],
+      runnerInstance: 'runnera',
+      labels: ['self-hosted', 'runnera'],
     }),
     namespace: { _tag: 'not-namespace-job', runnerKind: 'self-hosted' },
   })

@@ -38,18 +38,18 @@ import {
   splitCsvLine,
 } from '../src/node/NamespaceClient.ts'
 
-const INSTANCE = 'psmnb4mkjm3mq'
-const JOB_ID = 69067527707
+const INSTANCE = 'abc123example'
+const JOB_ID = 1001
 
 const githubFacts = (overrides: Partial<InspectGitHubFacts> = {}): InspectGitHubFacts => ({
-  repo: 'schickling/dotfiles',
+  repo: 'example-org/example-repo',
   jobId: JOB_ID,
-  runId: 23601797547,
+  runId: 2001,
   name: 'build',
   status: 'in_progress',
   conclusion: null,
-  startedAt: '2026-09-10T11:00:00.000Z',
-  completedAt: '2026-09-10T11:04:00.000Z',
+  startedAt: '2026-01-15T11:00:00.000Z',
+  completedAt: '2026-01-15T11:04:00.000Z',
   durationSeconds: 240,
   runnerName: `nsc-runner-${INSTANCE}`,
   runnerKind: 'namespace',
@@ -141,7 +141,7 @@ const forbiddenSpawner = Layer.succeed(
 
 const DESCRIBE_JSON = JSON.stringify({
   job: { id: String(JOB_ID), job_name: 'build', workflow_name: 'CI' },
-  repository: 'schickling/dotfiles',
+  repository: 'example-org/example-repo',
   runner: {
     instance_id: INSTANCE,
     instance_status: 'RUNNING',
@@ -153,7 +153,7 @@ const DESCRIBE_JSON = JSON.stringify({
 /** The documented report layout: a preamble line, then the CSV. */
 const REPORT_CSV = `Writing output to path: stdout
 instance_id,created_at,started_at,destroyed_at,resources_cpu,resources_ram_gb,resources_cpu_actual_max,resources_ram_gb_actual_max_percent,github_job_id,github_job_name,github_job_workflow_name,github_run_id,github_run_attempt,job_created_at,job_started_at,job_completed_at,github_profile,github_repository,github_branch,github_job_conclusion
-${INSTANCE},2026-09-10 10:59:55 +0000 UTC,2026-09-10 11:00:00 +0000 UTC,,8,16,0.97,0.31,${JOB_ID},"build (linux, amd64)",CI,23601797547,1,2026-09-10 10:59:50 +0000 UTC,2026-09-10 11:00:00 +0000 UTC,,,schickling/dotfiles,main,
+${INSTANCE},2026-01-15 10:59:55 +0000 UTC,2026-01-15 11:00:00 +0000 UTC,,8,16,0.97,0.31,${JOB_ID},"build (linux, amd64)",CI,2001,1,2026-01-15 10:59:50 +0000 UTC,2026-01-15 11:00:00 +0000 UTC,,,example-org/example-repo,main,
 `
 
 // =============================================================================
@@ -171,7 +171,7 @@ describe('parseJobDescribe', () => {
         instanceStatusRaw: 'RUNNING',
         runnerName: `nsc-runner-${INSTANCE}`,
         containerName: 'runner',
-        repository: 'schickling/dotfiles',
+        repository: 'example-org/example-repo',
         workflow: 'CI',
         jobName: 'build',
         destroyedAt: null,
@@ -222,7 +222,7 @@ describe('parseJobDescribe', () => {
 describe('deriveInstanceStatus', () => {
   it('lets a recorded destruction time override any status string', () =>
     expect(
-      deriveInstanceStatus({ statusRaw: 'RUNNING', destroyedAt: '2026-09-10T11:05:00Z' }),
+      deriveInstanceStatus({ statusRaw: 'RUNNING', destroyedAt: '2026-01-15T11:05:00Z' }),
     ).toBe('destroyed'))
 
   it('reports unknown when there is no status at all', () =>
@@ -247,7 +247,7 @@ describe('parseInstanceReport', () => {
     if (parsed._tag !== 'parsed') return
     expect(parsed.rows).toHaveLength(1)
     expect(parsed.rows[0]!['github_job_name']).toBe('build (linux, amd64)')
-    expect(parsed.rows[0]!['github_repository']).toBe('schickling/dotfiles')
+    expect(parsed.rows[0]!['github_repository']).toBe('example-org/example-repo')
   })
 
   it('reports output with no header as unreadable', () =>
@@ -268,8 +268,8 @@ describe('selectUsageRow', () => {
       allocatedRamGb: 16,
       cpuMaxFraction: 0.97,
       ramMaxFraction: 0.31,
-      createdAt: '2026-09-10 10:59:55 +0000 UTC',
-      startedAt: '2026-09-10 11:00:00 +0000 UTC',
+      createdAt: '2026-01-15 10:59:55 +0000 UTC',
+      startedAt: '2026-01-15 11:00:00 +0000 UTC',
       destroyedAt: null,
     }))
 
@@ -284,20 +284,20 @@ describe('deriveReportWindow', () => {
   it('brackets the job with padding on both sides', () =>
     expect(
       deriveReportWindow({
-        startedAt: '2026-09-10T11:00:00.000Z',
-        completedAt: '2026-09-10T11:04:00.000Z',
-        now: new Date('2026-09-10T12:00:00.000Z'),
+        startedAt: '2026-01-15T11:00:00.000Z',
+        completedAt: '2026-01-15T11:04:00.000Z',
+        now: new Date('2026-01-15T12:00:00.000Z'),
       }),
-    ).toEqual({ start: '2026-09-10T10:55:00.000Z', end: '2026-09-10T11:09:00.000Z' }))
+    ).toEqual({ start: '2026-01-15T10:55:00.000Z', end: '2026-01-15T11:09:00.000Z' }))
 
   it('ends a still-running job at now, not at an invented completion', () =>
     expect(
       deriveReportWindow({
-        startedAt: '2026-09-10T11:00:00.000Z',
+        startedAt: '2026-01-15T11:00:00.000Z',
         completedAt: null,
-        now: new Date('2026-09-10T11:02:00.000Z'),
+        now: new Date('2026-01-15T11:02:00.000Z'),
       })?.end,
-    ).toBe('2026-09-10T11:07:00.000Z'))
+    ).toBe('2026-01-15T11:07:00.000Z'))
 
   it('refuses a window when GitHub gave no start time', () =>
     expect(deriveReportWindow({ startedAt: null, completedAt: null, now: new Date() })).toBeNull())
@@ -354,9 +354,9 @@ describe('observeNamespaceJob', () => {
     const facts = await Effect.runPromise(
       observeNamespaceJob({
         github: githubFacts({
-          runnerName: 'dev3-6038ddf9',
+          runnerName: 'runnera-1234abcd',
           runnerKind: 'self-hosted',
-          runnerInstance: 'dev3',
+          runnerInstance: 'runnera',
         }),
         withUsage: true,
       }).pipe(Effect.provide(forbiddenSpawner)),
@@ -471,8 +471,8 @@ describe('observeNamespaceJob', () => {
     ).toBe(0.97)
 
     const window = deriveReportWindow({
-      startedAt: '2026-09-10T11:00:00.000Z',
-      completedAt: '2026-09-10T11:04:00.000Z',
+      startedAt: '2026-01-15T11:00:00.000Z',
+      completedAt: '2026-01-15T11:04:00.000Z',
       now: new Date(),
     })
     expect(recorded).toEqual([
@@ -489,7 +489,7 @@ describe('observeNamespaceJob', () => {
         '--out',
         '-',
         '--repository',
-        'schickling/dotfiles',
+        'example-org/example-repo',
         '--jobname',
         'build',
       ],

@@ -101,8 +101,8 @@ export const inspectCommand = Cli.Command.make('inspect', {
     `Explain the runner behind a single job (GitHub facts + Namespace facts + verdict)
 
 Examples:
-  gh-ci-utils inspect --job 69067527707              Current repo
-  gh-ci-utils inspect --job 69067527707 --with-usage Also sample observed CPU/RAM
-  gh-ci-utils inspect --job 69067527707 --repo owner/name`,
+  gh-ci-utils inspect --job 1001              Current repo
+  gh-ci-utils inspect --job 1001 --with-usage Also sample observed CPU/RAM
+  gh-ci-utils inspect --job 1001 --repo owner/name`,
   ),
 )
