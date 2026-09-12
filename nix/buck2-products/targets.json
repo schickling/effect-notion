@@ -1,0 +1,59 @@
+{
+  "products": [
+    {
+      "name": "ci-tools",
+      "target": "effect_utils//packages/@overeng/ci-tools:ci-tools-candidate"
+    },
+    {
+      "name": "genie",
+      "target": "effect_utils//packages/@overeng/genie:genie-candidate"
+    },
+    {
+      "name": "genie-bootstrap-closure-check",
+      "target": "effect_utils//packages/@overeng/genie:genie-bootstrap-closure-check-candidate"
+    },
+    {
+      "name": "megarepo",
+      "target": "effect_utils//packages/@overeng/megarepo:megarepo-candidate"
+    },
+    {
+      "name": "notion-cli",
+      "target": "effect_utils//packages/@overeng/notion-cli:notion-cli-candidate"
+    },
+    {
+      "name": "notion-db-runtime",
+      "target": "effect_utils//packages/@overeng/notion-cli:notion-db-candidate"
+    },
+    {
+      "name": "notion-md",
+      "target": "effect_utils//packages/@overeng/notion-md:notion-md-candidate"
+    },
+    {
+      "name": "npm-release",
+      "target": "effect_utils//packages/@overeng/npm-release:npm-release-candidate"
+    },
+    {
+      "name": "oxc-config",
+      "target": "effect_utils//packages/@overeng/oxc-config:oxc-config-candidate"
+    },
+    {
+      "name": "oxc-config-stylex-upstream-plugin",
+      "target": "effect_utils//packages/@overeng/oxc-config:oxc-config-stylex-upstream-plugin-candidate"
+    },
+    {
+      "name": "tui-stories",
+      "target": "effect_utils//packages/@overeng/tui-stories:tui-stories-candidate"
+    }
+  ],
+  "provenance": {
+    "fingerprint": "sha256:d26312c03856cc45ee69bc8587b4792087beb9c76f411b44f66865b374283089",
+    "generator": "effect-utils/genie/buck2-javascript-release-targets",
+    "regenerationCommand": "devenv tasks run genie:run",
+    "semanticInputs": [
+      "genie/buck2/javascript-product-registry.ts",
+      "nix/buck2-products/targets.json.genie.ts"
+    ],
+    "source": "nix/buck2-products/targets.json.genie.ts"
+  },
+  "schemaVersion": 1
+}

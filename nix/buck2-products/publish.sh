@@ -3,7 +3,7 @@
 set -euo pipefail
 
 repo_root="${BUCK2_RELEASE_PRODUCTS_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)}"
-inventory="$repo_root/nix/buck2-products/manifest.json"
+targets="$repo_root/nix/buck2-products/targets.json"
 repository="overengineeringstudio/effect-utils"
 dry_run=false
 proposal=""
@@ -15,11 +15,11 @@ fail() {
 
 usage() {
   cat <<'EOF'
-Usage: nix/buck2-products/publish.sh [--dry-run] [--inventory PATH] [--proposal PATH]
+Usage: nix/buck2-products/publish.sh [--dry-run] [--targets PATH] [--proposal PATH]
 
---dry-run         Validate the inventory and print the complete build/publication plan.
---inventory PATH  Read the single release inventory contract from PATH.
---proposal PATH   Write the proposed manifest outside the Git worktree (live mode only).
+--dry-run       Validate the target inventory and print the complete build/publication plan.
+--targets PATH  Read the generated desired target inventory from PATH.
+--proposal PATH Write the proposed manifest outside the Git worktree (live mode only).
                    Without this option the proposed manifest is emitted on stdout.
 EOF
 }
@@ -30,9 +30,9 @@ while (($#)); do
       dry_run=true
       shift
       ;;
-    --inventory)
-      (($# >= 2)) || fail "--inventory requires a path"
-      inventory="$2"
+    --targets)
+      (($# >= 2)) || fail "--targets requires a path"
+      targets="$2"
       shift 2
       ;;
     --proposal)
@@ -48,8 +48,10 @@ while (($#)); do
   esac
 done
 
-[[ -f "$inventory" && ! -L "$inventory" ]] || fail "inventory must be a regular, non-symlink file: $inventory"
-command -v jq >/dev/null || fail "jq is required"
+[[ -f "$targets" && ! -L "$targets" ]] || fail "target inventory must be a regular, non-symlink file: $targets"
+for tool in jq sha256sum; do
+  command -v "$tool" >/dev/null || fail "$tool is required"
+done
 
 # This mutation surface is deliberately unavailable to pull-request jobs, even
 # in planning mode. A PR may run the separate contract test, never this tool.
@@ -57,34 +59,52 @@ if [[ -n "${GITHUB_EVENT_NAME:-}" && "${GITHUB_EVENT_NAME}" != "workflow_dispatc
   fail "refusing untrusted GitHub event: ${GITHUB_EVENT_NAME}"
 fi
 
-inventory_check='
+target_check='
   (type == "object") and
-  ((keys | sort) == ["products", "schema"]) and
-  (.schema == "effect-utils/buck2-release-products/v1") and
+  ((keys | sort) == ["products", "provenance", "schemaVersion"]) and
+  (.schemaVersion == 1) and
   (.products | type == "array" and length > 0) and
   (all(.products[];
     type == "object" and
-    ((keys | sort) == ["descriptor", "descriptorSha256", "release"]) and
-    (.descriptor | type == "object") and
-    (.descriptor.productName | type == "string" and test("^[A-Za-z0-9][A-Za-z0-9._+-]*$")) and
-    (.descriptor.target | type == "string" and test("^([A-Za-z0-9_]+)?//[^[:space:]\\[\\]]+:[^[:space:]\\[\\]]+$"))
+    ((keys | sort) == ["name", "target"]) and
+    (.name | type == "string" and test("^[A-Za-z0-9][A-Za-z0-9._+-]*$")) and
+    (.target | type == "string" and test("^([A-Za-z0-9_]+)?//[^[:space:]\\[\\]]+:[^[:space:]\\[\\]]+$"))
   )) and
-  ([.products[].descriptor.productName] | length == (unique | length)) and
-  ([.products[].descriptor.target] | length == (unique | length))'
-if ! jq -e "$inventory_check" "$inventory" >/dev/null; then
-  fail "inventory violates effect-utils/buck2-release-products/v1"
+  ([.products[].name] | length == (unique | length)) and
+  ([.products[].target] | length == (unique | length)) and
+  (.provenance | type == "object") and
+  ((.provenance | keys | sort) == ["fingerprint", "generator", "regenerationCommand", "semanticInputs", "source"]) and
+  (.provenance.fingerprint | type == "string" and test("^sha256:[0-9a-f]{64}$")) and
+  (.provenance.generator == "effect-utils/genie/buck2-javascript-release-targets") and
+  (.provenance.regenerationCommand == "devenv tasks run genie:run") and
+  (.provenance.semanticInputs == [
+    "genie/buck2/javascript-product-registry.ts",
+    "nix/buck2-products/targets.json.genie.ts"
+  ]) and
+  (.provenance.source == "nix/buck2-products/targets.json.genie.ts")'
+if ! jq -e "$target_check" "$targets" >/dev/null; then
+  fail "target inventory violates effect-utils/buck2-release-targets/v1"
 fi
+declared_fingerprint="$(jq -r '.provenance.fingerprint' "$targets")"
+computed_fingerprint="$(jq -cS '{
+  generator: .provenance.generator,
+  schemaVersion: .schemaVersion,
+  semanticData: .products
+}' "$targets" | sha256sum)"
+computed_fingerprint="sha256:${computed_fingerprint%% *}"
+[[ "$declared_fingerprint" == "$computed_fingerprint" ]] ||
+  fail "target inventory fingerprint does not match its declared products"
 
 plan="$({
   jq -cS '{
     schema: "effect-utils/buck2-product-publication-plan/v1",
     repository: "overengineeringstudio/effect-utils",
     products: [.products[] | {
-      productName: .descriptor.productName,
-      candidateTarget: .descriptor.target,
-      descriptorTarget: (.descriptor.target + "[descriptor]")
+      productName: .name,
+      candidateTarget: .target,
+      descriptorTarget: (.target + "[descriptor]")
     }] | sort_by(.productName)
-  }' "$inventory"
+  }' "$targets"
 })"
 
 if $dry_run; then
@@ -158,13 +178,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mapfile -t product_rows < <(jq -r '.products | sort_by(.descriptor.productName)[] | [.descriptor.productName, .descriptor.target] | @tsv' "$inventory")
-((${#product_rows[@]} > 0)) || fail "inventory contains no products"
+mapfile -t product_rows < <(jq -r '.products | sort_by(.name)[] | [.name, .target] | @tsv' "$targets")
+((${#product_rows[@]} > 0)) || fail "target inventory contains no products"
 
 declare -a build_targets=()
 for row in "${product_rows[@]}"; do
   IFS=$'\t' read -r product_name target <<<"$row"
-  [[ -n "$product_name" && -n "$target" ]] || fail "inventory contains an incomplete product declaration"
+  [[ -n "$product_name" && -n "$target" ]] || fail "target inventory contains an incomplete product declaration"
   build_targets+=("$target" "$target[descriptor]")
 done
 
@@ -176,7 +196,7 @@ while IFS=' ' read -r label path extra; do
   [[ -z "${outputs[$label]+present}" ]] || fail "Buck returned duplicate output for $label"
   outputs["$label"]="$path"
 done <"$build_outputs"
-((${#outputs[@]} == ${#build_targets[@]})) || fail "Buck output set does not exactly match the inventory build plan"
+((${#outputs[@]} == ${#build_targets[@]})) || fail "Buck output set does not exactly match the target inventory build plan"
 for target in "${build_targets[@]}"; do
   [[ -n "${outputs[$target]+present}" ]] || fail "Buck returned no output for $target"
 done
@@ -348,6 +368,7 @@ done
 import_root="$stage/import"
 mkdir -p "$import_root"
 cp -- "$repo_root/nix/buck2-products/default.nix" "$import_root/default.nix"
+cp -- "$targets" "$import_root/targets.json"
 cp -- "$proposal_stage" "$import_root/manifest.json"
 mapfile -t realized_paths < <(nix build --no-link --print-out-paths --impure --expr "let
   pkgs = import <nixpkgs> { };

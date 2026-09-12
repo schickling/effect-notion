@@ -73,9 +73,24 @@ jq -e --argjson expected "$expected_names" '
 
 mkdir -p "$tmp/products"
 cp "$repo_root/nix/buck2-products/default.nix" "$tmp/products/default.nix"
+cp "$repo_root/nix/buck2-products/targets.json" "$tmp/products/targets.json"
 
 write_mutation() {
   jq "$1" "$repo_root/nix/buck2-products/manifest.json" >"$tmp/products/manifest.json"
+}
+
+write_target_mutation() {
+  local fingerprint
+  jq "$1" "$repo_root/nix/buck2-products/targets.json" >"$tmp/products/targets.next.json"
+  fingerprint="$(jq -cS '{
+    generator: .provenance.generator,
+    schemaVersion: .schemaVersion,
+    semanticData: .products
+  }' "$tmp/products/targets.next.json" | sha256sum)"
+  fingerprint="sha256:${fingerprint%% *}"
+  jq --arg fingerprint "$fingerprint" '.provenance.fingerprint = $fingerprint' \
+    "$tmp/products/targets.next.json" >"$tmp/products/targets.json"
+  cp "$repo_root/nix/buck2-products/manifest.json" "$tmp/products/manifest.json"
 }
 
 write_mutation '.schema = "effect-utils/buck2-release-products/v0"'
@@ -102,11 +117,18 @@ expect_failure "release URL drift" "release URL does not match its tag and asset
 write_mutation '.products[0].release.hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="'
 expect_failure "release hash drift" "release hash does not match descriptor integrity"
 
+write_target_mutation '.products |= .[1:]'
+expect_failure "unpublished declaration" "declared target inventory does not match the published manifest"
+
+write_target_mutation '.products[0].target = .products[1].target'
+expect_failure "duplicate declared target" "target inventory product targets must be unique"
+
 jq -r '.releases | to_entries[] | "buck2-release-products-test: \(.key) \(.value.tag)"' <<<"$summary"
 
 publisher="$repo_root/nix/buck2-products/publish.sh"
 test -f "$publisher"
 cp "$repo_root/nix/buck2-products/manifest.json" "$tmp/manifest.before.json"
+cp "$repo_root/nix/buck2-products/targets.json" "$tmp/targets.before.json"
 
 # Planning is a pure use of the same inventory contract. Put sentinels for all
 # network/mutation tools first on PATH so an accidental call is observable.
@@ -130,10 +152,11 @@ if [[ -e "$tmp/unexpected-tools" ]]; then
   sed -n '1,160p' "$tmp/unexpected-tools" >&2
   exit 1
 fi
-if ! cmp "$repo_root/nix/buck2-products/manifest.json" "$tmp/manifest.before.json"; then
-  echo "buck2-release-products-test: publisher dry-run mutated the inventory" >&2
+if ! cmp "$repo_root/nix/buck2-products/targets.json" "$tmp/targets.before.json"; then
+  echo "buck2-release-products-test: publisher dry-run mutated the target inventory" >&2
   exit 1
 fi
+cmp "$repo_root/nix/buck2-products/manifest.json" "$tmp/manifest.before.json"
 if ! jq -e --argjson expected "$expected_names" '
   .schema == "effect-utils/buck2-product-publication-plan/v1" and
   .repository == "overengineeringstudio/effect-utils" and
@@ -196,13 +219,22 @@ for forbidden in "$legacy_tool" "$legacy_token" "$legacy_cache_path"; do
   fi
 done
 
-jq '.products[1].descriptor.target = .products[0].descriptor.target' \
-  "$repo_root/nix/buck2-products/manifest.json" >"$tmp/duplicate-target.json"
-if PATH="$tmp/bin:$PATH" bash "$publisher" --dry-run --inventory "$tmp/duplicate-target.json" >"$publish_failure" 2>&1; then
+jq '.products[1].target = .products[0].target' \
+  "$repo_root/nix/buck2-products/targets.json" >"$tmp/duplicate-target.json"
+if PATH="$tmp/bin:$PATH" bash "$publisher" --dry-run --targets "$tmp/duplicate-target.json" >"$publish_failure" 2>&1; then
   echo "buck2-release-products-test: publisher accepted a duplicate candidate target" >&2
   exit 1
 fi
-grep -F "inventory violates effect-utils/buck2-release-products/v1" "$publish_failure" >/dev/null
+grep -F "target inventory violates effect-utils/buck2-release-targets/v1" "$publish_failure" >/dev/null
+test ! -e "$tmp/unexpected-tools"
+
+jq '.provenance.fingerprint = "sha256:" + ("0" * 64)' \
+  "$repo_root/nix/buck2-products/targets.json" >"$tmp/stale-fingerprint.json"
+if PATH="$tmp/bin:$PATH" bash "$publisher" --dry-run --targets "$tmp/stale-fingerprint.json" >"$publish_failure" 2>&1; then
+  echo "buck2-release-products-test: publisher accepted a stale target fingerprint" >&2
+  exit 1
+fi
+grep -F "target inventory fingerprint does not match its declared products" "$publish_failure" >/dev/null
 test ! -e "$tmp/unexpected-tools"
 
 if grep -F -- '--clobber' "$publisher" >/dev/null; then
@@ -240,16 +272,16 @@ real_nix="$(command -v nix)"
 printf '{}\n' >"$live/outputs.json"
 
 # Each product is materialized once: real bytes, a real digest, a real v2
-# descriptor, a real inventory entry and a Buck output mapping. Scenarios then
-# compose inventories from these products, so partially published multi-product
-# runs are testable.
+# descriptor, a target inventory entry and a Buck output mapping. Scenarios then
+# compose generated-inventory-shaped target sets, so partially published
+# multi-product runs are testable.
 declare -A live_tag=() live_asset=() live_module=()
 live_add_product() {
   local name="$1" module_path="$2" body="$3"
   local target="root//live:$name"
   local module="$live/build/$module_path"
   printf '%s\n' "$body" >"$module"
-  local size sha sri descriptor descriptor_sha tag asset
+  local size sha sri descriptor tag asset
   size="$(stat -c '%s' "$module")"
   sha="$(sha256sum "$module")"
   sha="${sha%% *}"
@@ -281,26 +313,10 @@ live_add_product() {
        sizeBytes: $sizeBytes,
        target: $target
      }' >"$descriptor"
-  descriptor_sha="$(jq -cS . "$descriptor" | tr -d '\n' | sha256sum)"
-  descriptor_sha="${descriptor_sha%% *}"
   tag="buck2-product-v3-$name-$sha"
   asset="$sha-$module_path"
-  jq -nS \
-    --slurpfile descriptor "$descriptor" \
-    --arg descriptorSha256 "$descriptor_sha" \
-    --arg tag "$tag" \
-    --arg name "$asset" \
-    --arg hash "$sri" \
-    '{
-       descriptor: $descriptor[0],
-       descriptorSha256: $descriptorSha256,
-       release: {
-         tag: $tag,
-         name: $name,
-         url: ("https://github.com/overengineeringstudio/effect-utils/releases/download/" + $tag + "/" + $name),
-         hash: $hash
-       }
-     }' >"$live/entry-$name.json"
+  jq -nS --arg name "$name" --arg target "$target" \
+    '{name:$name,target:$target}' >"$live/target-$name.json"
   jq --arg target "$target" --arg module "$module" --arg descriptor "$descriptor" \
     '.[$target] = $module | .[$target + "[descriptor]"] = $descriptor' \
     "$live/outputs.json" >"$live/outputs.next.json"
@@ -313,12 +329,34 @@ live_add_product() {
 live_inventory() {
   local path="$1"
   shift
-  local name
+  local name fingerprint
   local -a entries=()
   for name in "$@"; do
-    entries+=("$live/entry-$name.json")
+    entries+=("$live/target-$name.json")
   done
-  jq -sS '{schema:"effect-utils/buck2-release-products/v1",products:.}' "${entries[@]}" >"$path"
+  jq -sS '{
+    products: .,
+    provenance: {
+      fingerprint: "",
+      generator: "effect-utils/genie/buck2-javascript-release-targets",
+      regenerationCommand: "devenv tasks run genie:run",
+      semanticInputs: [
+        "genie/buck2/javascript-product-registry.ts",
+        "nix/buck2-products/targets.json.genie.ts"
+      ],
+      source: "nix/buck2-products/targets.json.genie.ts"
+    },
+    schemaVersion: 1
+  }' "${entries[@]}" >"$path"
+  fingerprint="$(jq -cS '{
+    generator: .provenance.generator,
+    schemaVersion: .schemaVersion,
+    semanticData: .products
+  }' "$path" | sha256sum)"
+  fingerprint="sha256:${fingerprint%% *}"
+  jq --arg fingerprint "$fingerprint" '.provenance.fingerprint = $fingerprint' \
+    "$path" >"$path.next"
+  mv "$path.next" "$path"
 }
 
 live_add_product live-product live-product.mjs 'export const liveProduct = "live";'
@@ -597,12 +635,12 @@ live_prepare() {
 
 live_run() {
   local label="$1"
-  local inventory="$2"
+  local targets="$2"
   local expect="$3"
   local log="$live/$label.log"
   local status=0
   env -u GITHUB_SHA -u GITHUB_EVENT_NAME GH_FAKE_STATE="$live_state" PATH="$live/bin:$PATH" \
-    bash "$publisher" --inventory "$inventory" >"$log" 2>&1 || status=$?
+    bash "$publisher" --targets "$targets" >"$log" 2>&1 || status=$?
   if [[ "$expect" == ok && "$status" -ne 0 ]]; then
     echo "buck2-release-products-test: expected live $label to succeed" >&2
     sed -n '1,160p' "$log" >&2
@@ -856,5 +894,6 @@ live_reject preflight-mismatch 'VERIFY-ASSET'
 grep -F "does not hold exactly the staged module" "$live/preflight-mismatch.log" >/dev/null
 echo "buck2-release-products-test: live preflight mismatch blocked every product"
 
+cmp "$repo_root/nix/buck2-products/targets.json" "$tmp/targets.before.json"
 cmp "$repo_root/nix/buck2-products/manifest.json" "$tmp/manifest.before.json"
 echo "buck2-release-products-test: OK"
