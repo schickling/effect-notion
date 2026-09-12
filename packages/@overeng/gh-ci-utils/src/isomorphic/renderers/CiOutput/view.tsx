@@ -130,6 +130,7 @@ const LoadedView = ({
         </>
       )}
       {errors.map((err, ord) => (
+        // eslint-disable-next-line react/no-array-index-key -- duplicate upstream errors have no stable identity
         <ErrorBlock key={`${err.jobName}-${err.stepName}-${ord}`} error={err} />
       ))}
       {annotations.length > 0 && <AnnotationsBlock annotations={annotations} />}
@@ -357,8 +358,8 @@ const ErrorBlock = ({ error }: { readonly error: JobError }) => (
       {'  '}
       {error.jobName} {'>'} {error.stepName}:
     </Text>
-    {/** Log lines repeat verbatim (echoed script lines, cascade errors), so key by position. */}
     {error.errors.map((line, ord) => (
+      // eslint-disable-next-line react/no-array-index-key -- log lines are positional and can repeat verbatim
       <Text key={`${error.jobName}:${error.stepName}:${ord}`} wrap="wrap">
         {'    '}
         {line}

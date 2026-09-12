@@ -62,6 +62,7 @@
           "_tag",
           "_page_id",
           "_nds_outbox",
+          "_meta",
           "_idleTimeout",
           "_getActiveHandles",
           "_getActiveRequests",

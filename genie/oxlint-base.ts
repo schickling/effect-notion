@@ -206,7 +206,7 @@ export const baseOxlintRules = {
   // for names we DO own, so it stays enabled with an explicit allow list for the
   // identifiers whose spelling belongs to someone else:
   //   - `_tag`: Effect's discriminant, present on every tagged struct/error.
-  //   - `_page_id`, `_nds_outbox`: Notion API and NDS outbox wire names.
+  //   - `_page_id`, `_nds_outbox`, `_meta`: external wire-format field names.
   //   - `_idleTimeout`, `_getActiveHandles`, `_getActiveRequests`: undocumented
   //     Node internals the active-handle debugger reads.
   //   - `__stylexCollectCss`: the global `@stylexjs/unplugin` installs for CSS
@@ -223,6 +223,7 @@ export const baseOxlintRules = {
         '_tag',
         '_page_id',
         '_nds_outbox',
+        '_meta',
         '_idleTimeout',
         '_getActiveHandles',
         '_getActiveRequests',
