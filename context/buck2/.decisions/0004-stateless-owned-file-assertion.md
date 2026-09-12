@@ -2,6 +2,8 @@
 
 Status: accepted
 
+Implementation: `packages/@overeng/buck2-tools/src/owned-files.ts`.
+
 ## Context
 
 Typed Buck-owned file sets cannot by themselves detect a supported file absent

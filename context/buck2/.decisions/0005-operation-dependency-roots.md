@@ -2,6 +2,8 @@
 
 Status: accepted
 
+Implementation: not yet realized.
+
 ## Context
 
 Each build operation needs the direct dependency requests it can observe, but

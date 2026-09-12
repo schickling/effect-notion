@@ -24,6 +24,8 @@ repository.
 **Owned Member** is a Workspace's single writable member — the
 branch-attached git worktree of the repo the workspace exists to develop, on
 a branch the workspace owns. It is the default working directory.
+The megarepo ontology also defines this term; its
+[`Owned member`](../megarepo/ontology.md#workspace-ownership) definition is canonical.
 
 **Member Mount** is any other member: a read-only `cp -a` copy of its locked
 revision, advanced atomically by RENAME_EXCHANGE.
