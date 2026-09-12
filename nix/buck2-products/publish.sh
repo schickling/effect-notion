@@ -49,7 +49,7 @@ while (($#)); do
 done
 
 [[ -f "$targets" && ! -L "$targets" ]] || fail "target inventory must be a regular, non-symlink file: $targets"
-for tool in jq sha256sum; do
+for tool in jq sha256sum tr; do
   command -v "$tool" >/dev/null || fail "$tool is required"
 done
 
@@ -90,7 +90,7 @@ computed_fingerprint="$(jq -cS '{
   generator: .provenance.generator,
   schemaVersion: .schemaVersion,
   semanticData: .products
-}' "$targets" | sha256sum)"
+}' "$targets" | tr -d '\n' | sha256sum)"
 computed_fingerprint="sha256:${computed_fingerprint%% *}"
 [[ "$declared_fingerprint" == "$computed_fingerprint" ]] ||
   fail "target inventory fingerprint does not match its declared products"

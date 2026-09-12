@@ -86,7 +86,7 @@ write_target_mutation() {
     generator: .provenance.generator,
     schemaVersion: .schemaVersion,
     semanticData: .products
-  }' "$tmp/products/targets.next.json" | sha256sum)"
+  }' "$tmp/products/targets.next.json" | tr -d '\n' | sha256sum)"
   fingerprint="sha256:${fingerprint%% *}"
   jq --arg fingerprint "$fingerprint" '.provenance.fingerprint = $fingerprint' \
     "$tmp/products/targets.next.json" >"$tmp/products/targets.json"
@@ -352,7 +352,7 @@ live_inventory() {
     generator: .provenance.generator,
     schemaVersion: .schemaVersion,
     semanticData: .products
-  }' "$path" | sha256sum)"
+  }' "$path" | tr -d '\n' | sha256sum)"
   fingerprint="sha256:${fingerprint%% *}"
   jq --arg fingerprint "$fingerprint" '.provenance.fingerprint = $fingerprint' \
     "$path" >"$path.next"
