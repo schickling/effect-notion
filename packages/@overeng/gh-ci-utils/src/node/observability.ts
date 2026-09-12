@@ -8,6 +8,8 @@ const GitHubSpanAttributes = Schema.Struct({
   owner: OtelAttr.optional(OtelAttr.string({ key: 'owner' })),
   status: OtelAttr.optional(OtelAttr.string({ key: 'status' })),
   branch: OtelAttr.optional(OtelAttr.string({ key: 'branch' })),
+  workflow: OtelAttr.optional(OtelAttr.string({ key: 'workflow' })),
+  ref: OtelAttr.optional(OtelAttr.string({ key: 'ref' })),
   headSha: OtelAttr.optional(OtelAttr.string({ key: 'headSha' })),
   stepUuid: OtelAttr.optional(OtelAttr.string({ key: 'stepUuid' })),
   runId: OtelAttr.optional(OtelAttr.number({ key: 'runId' })),

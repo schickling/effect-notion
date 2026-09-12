@@ -69,7 +69,7 @@ describe('GitHubSchemas', () => {
         conclusion: 'failure',
         started_at: '2026-03-26T12:00:00Z',
         completed_at: '2026-03-26T12:05:00Z',
-        runner_name: 'dev3',
+        runner_name: 'linux-builder-a',
         labels: ['self-hosted'],
         steps: [
           {

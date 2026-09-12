@@ -4,17 +4,17 @@ import { describe, expect, it } from 'vitest'
 import { renderToolFailure } from '../src/node/lib/toolFailure.ts'
 
 describe('renderToolFailure', () => {
-  const cause = Cause.fail(new Error('No GitHub App installation is configured for `vercel`'))
+  const cause = Cause.fail(new Error('No GitHub App installation is configured for `external-org`'))
 
   it('renders the error on one line for a direct invocation', () => {
     expect(renderToolFailure({ cause, routedFrom: undefined })).toBe(
-      'No GitHub App installation is configured for `vercel`',
+      'No GitHub App installation is configured for `external-org`',
     )
   })
 
   it('names the gh-real escape hatch when the call came through the gh wrapper', () => {
     expect(renderToolFailure({ cause, routedFrom: 'gh' })).toBe(
-      'No GitHub App installation is configured for `vercel`\n' +
+      'No GitHub App installation is configured for `external-org`\n' +
         "the raw GitHub CLI is available as 'gh-real ...' (e.g. 'gh-real run view --log-failed <run-id>')",
     )
   })

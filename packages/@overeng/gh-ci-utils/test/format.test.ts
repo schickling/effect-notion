@@ -12,10 +12,10 @@ describe('formatDuration', () => {
 
 describe('abbreviateRunner', () => {
   it('abbreviates nsc runners', () =>
-    expect(abbreviateRunner('nsc-runner-psmnb4mkjm3mq')).toBe('nsc:psmnb4'))
+    expect(abbreviateRunner('nsc-runner-abc123example')).toBe('nsc:abc123'))
   it('abbreviates self-hosted runner-scaler names', () => {
-    expect(abbreviateRunner('dev3-6038ddf9')).toBe('dev3')
-    expect(abbreviateRunner('mbp2021-e2387a32')).toBe('mbp2021')
+    expect(abbreviateRunner('linuxbuildera-1234abcd')).toBe('linuxbuildera')
+    expect(abbreviateRunner('macosbuildera-5678abcd')).toBe('macosbuildera')
   })
   it('passes through non-matching names', () =>
     expect(abbreviateRunner('some-other-runner')).toBe('some-other-runner'))

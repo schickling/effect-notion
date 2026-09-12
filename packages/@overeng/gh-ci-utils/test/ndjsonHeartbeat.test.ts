@@ -18,7 +18,7 @@ const meta = {
 const loadedState = (status: string): Extract<CiState, { _tag: 'Loaded' }> => ({
   _tag: 'Loaded',
   run: {
-    id: 33732040424,
+    id: 70000000005,
     name: 'CI',
     runNumber: 1,
     headBranch: 'main',

@@ -16,7 +16,7 @@ const unusedSpawnerMethod = (name: string) =>
 
 /**
  * Drive `listWorkflowRunsByStatus` for `repos` concurrently against a client
- * whose App auth covers `schickling` only, and report what the process
+ * whose App auth covers `example-user` only, and report what the process
  * boundaries saw: spawned commands, request credentials, warnings.
  */
 const runFallbackScenario = async (repos: readonly string[]) => {
@@ -62,7 +62,7 @@ const runFallbackScenario = async (repos: readonly string[]) => {
   const authLayer = Layer.succeed(GitHubAuthConfigTag, {
     _tag: 'github-app' as const,
     clientID: 'Iv1.test',
-    installationIDs: { schickling: 118180206 },
+    installationIDs: { 'example-user': 654_321 },
     privateKeyPath: '/nonexistent/gh-ci-utils-test.pem',
   })
 
@@ -97,9 +97,9 @@ const runFallbackScenario = async (repos: readonly string[]) => {
 describe('CLI-token fallback for owners without an App installation', () => {
   it('spawns `gh auth token` once for concurrent requests, and sends it trimmed', async () => {
     const { commands, authorizations } = await runFallbackScenario([
-      'vercel/next.js',
-      'vercel/turborepo',
-      'oven-sh/bun',
+      'external-org/external-repo-a',
+      'external-org/external-repo-b',
+      'another-external-org/external-repo-c',
     ])
 
     expect(commands).toEqual(['gh auth token'])
@@ -108,12 +108,12 @@ describe('CLI-token fallback for owners without an App installation', () => {
 
   it('warns once per owner, not once per request', async () => {
     const { warnings } = await runFallbackScenario([
-      'vercel/next.js',
-      'vercel/turborepo',
-      'oven-sh/bun',
+      'external-org/external-repo-a',
+      'external-org/external-repo-b',
+      'another-external-org/external-repo-c',
     ])
 
-    expect(warnings.filter((warning) => warning.includes('`vercel`'))).toHaveLength(1)
-    expect(warnings.filter((warning) => warning.includes('`oven-sh`'))).toHaveLength(1)
+    expect(warnings.filter((warning) => warning.includes('`external-org`'))).toHaveLength(1)
+    expect(warnings.filter((warning) => warning.includes('`another-external-org`'))).toHaveLength(1)
   })
 })

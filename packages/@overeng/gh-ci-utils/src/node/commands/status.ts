@@ -511,6 +511,6 @@ Examples:
   gh-ci-utils status @feat/my-branch         Local branch with slashes
   gh-ci-utils status -w                      Watch (exit on first failure)
   gh-ci-utils status -w --watch-mode until-done  Watch until all jobs finish
-  gh-ci-utils status 23601797547             Specific run ID`,
+  gh-ci-utils status 70000000001             Specific run ID`,
   ),
 )

@@ -13,10 +13,10 @@ describe('decodeActiveJobsResponse', () => {
       Effect.runSync(
         decodeActiveJobsResponse([
           {
-            runner: 'dev3-12345678',
-            scaleSet: 'dotfiles',
-            host: 'dev3',
-            workDir: '/var/lib/github-runner-work/dotfiles/dev3-12345678',
+            runner: 'linux-builder-a-1234abcd',
+            scaleSet: 'sample-repo',
+            host: 'linux-builder-a',
+            workDir: '/var/lib/github-runner-work/sample-repo/linux-builder-a-1234abcd',
             startedAt: '2026-03-27T11:00:00Z',
             durationSec: 120,
           },
@@ -24,10 +24,10 @@ describe('decodeActiveJobsResponse', () => {
       ),
     ).toEqual([
       {
-        runner: 'dev3-12345678',
-        scaleSet: 'dotfiles',
-        host: 'dev3',
-        workDir: '/var/lib/github-runner-work/dotfiles/dev3-12345678',
+        runner: 'linux-builder-a-1234abcd',
+        scaleSet: 'sample-repo',
+        host: 'linux-builder-a',
+        workDir: '/var/lib/github-runner-work/sample-repo/linux-builder-a-1234abcd',
         startedAt: '2026-03-27T11:00:00Z',
         durationSec: 120,
       },

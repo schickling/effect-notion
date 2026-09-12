@@ -5,19 +5,21 @@ import { parseTarget, resolveWorkflowDispatchTarget } from '../src/node/RunId.ts
 
 describe('parseTarget', () => {
   it('parses numeric run IDs', () => {
-    expect(parseTarget('12345678')).toEqual({ _tag: 'Numeric', runId: 12345678 })
+    expect(parseTarget('70001234')).toEqual({ _tag: 'Numeric', runId: 70001234 })
   })
 
   it('parses large numeric IDs', () => {
-    expect(parseTarget('23597026954')).toEqual({ _tag: 'Numeric', runId: 23597026954 })
+    expect(parseTarget('70000000001')).toEqual({ _tag: 'Numeric', runId: 70000000001 })
   })
 
   it('parses GitHub run URLs', () => {
-    expect(parseTarget('https://github.com/schickling/dotfiles/actions/runs/12345678')).toEqual({
+    expect(
+      parseTarget('https://github.com/example-user/sample-repo/actions/runs/70001234'),
+    ).toEqual({
       _tag: 'Url',
-      owner: 'schickling',
-      repo: 'dotfiles',
-      runId: 12345678,
+      owner: 'example-user',
+      repo: 'sample-repo',
+      runId: 70001234,
     })
   })
 
@@ -31,50 +33,50 @@ describe('parseTarget', () => {
   })
 
   it('parses PR URLs', () => {
-    expect(parseTarget('https://github.com/schickling/dotfiles/pull/506')).toEqual({
+    expect(parseTarget('https://github.com/example-user/sample-repo/pull/314')).toEqual({
       _tag: 'PrUrl',
-      owner: 'schickling',
-      repo: 'dotfiles',
-      prNumber: 506,
+      owner: 'example-user',
+      repo: 'sample-repo',
+      prNumber: 314,
     })
   })
 
   it('parses local PR with # prefix', () => {
-    expect(parseTarget('#506')).toEqual({ _tag: 'LocalPr', prNumber: 506 })
+    expect(parseTarget('#314')).toEqual({ _tag: 'LocalPr', prNumber: 314 })
   })
 
   it('parses cross-repo PR (owner/repo#N)', () => {
-    expect(parseTarget('overengineeringstudio/effect-utils#482')).toEqual({
+    expect(parseTarget('example-org/example-repo#314')).toEqual({
       _tag: 'RepoPr',
-      owner: 'overengineeringstudio',
-      repo: 'effect-utils',
-      prNumber: 482,
+      owner: 'example-org',
+      repo: 'example-repo',
+      prNumber: 314,
     })
   })
 
   it('parses cross-repo branch (owner/repo@branch)', () => {
-    expect(parseTarget('overengineeringstudio/effect-utils@main')).toEqual({
+    expect(parseTarget('example-org/example-repo@main')).toEqual({
       _tag: 'RepoBranch',
-      owner: 'overengineeringstudio',
-      repo: 'effect-utils',
+      owner: 'example-org',
+      repo: 'example-repo',
       branch: 'main',
     })
   })
 
   it('parses cross-repo branch with slashes in branch name', () => {
-    expect(parseTarget('schickling/dotfiles@feat/new-thing')).toEqual({
+    expect(parseTarget('example-user/sample-repo@feature/synthetic-change')).toEqual({
       _tag: 'RepoBranch',
-      owner: 'schickling',
-      repo: 'dotfiles',
-      branch: 'feat/new-thing',
+      owner: 'example-user',
+      repo: 'sample-repo',
+      branch: 'feature/synthetic-change',
     })
   })
 
   it('parses cross-repo default (owner/repo)', () => {
-    expect(parseTarget('overengineeringstudio/effect-utils')).toEqual({
+    expect(parseTarget('example-org/example-repo')).toEqual({
       _tag: 'RepoDefault',
-      owner: 'overengineeringstudio',
-      repo: 'effect-utils',
+      owner: 'example-org',
+      repo: 'example-repo',
     })
   })
 
@@ -91,10 +93,10 @@ describe('parseTarget', () => {
   })
 
   it('treats slash branch without @ as RepoDefault', () => {
-    expect(parseTarget('schickling/2026-03-22-better-ci-runner')).toEqual({
+    expect(parseTarget('example-user/sample-repository')).toEqual({
       _tag: 'RepoDefault',
-      owner: 'schickling',
-      repo: '2026-03-22-better-ci-runner',
+      owner: 'example-user',
+      repo: 'sample-repository',
     })
   })
 

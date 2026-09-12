@@ -1,7 +1,17 @@
 /** Utilities for filtering GitHub Actions log output. */
 
+import { isBlockingConclusion } from './summary.ts'
+
 /** Lines of trailing context returned when no structured error is found. */
 const FALLBACK_CONTEXT_LINES = 10
+
+/**
+ * `logs --failed` follows the verdict policy. Deliberate user cancellation is
+ * excluded by that shared policy; timeouts, startup failures, and required
+ * actions remain blocking and therefore have their logs shown.
+ */
+export const shouldIncludeFailedLog = (conclusion: string | null): boolean =>
+  isBlockingConclusion(conclusion)
 
 /** Indented lines kept from *before* an `error:` line (Nix prints the "while …" trace there). */
 const MAX_LEADING_CONTEXT_LINES = 4

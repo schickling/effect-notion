@@ -13,7 +13,7 @@ import { outputModeLayer, outputOption } from '@overeng/tui-react/node'
 import type { WorkflowJob } from '../../isomorphic/GitHubSchemas.ts'
 import { DEFAULT_LOG_TAIL, LOG_POLL_INTERVAL } from '../../isomorphic/lib/constants.ts'
 import { splitOwnerRepo } from '../../isomorphic/lib/format.ts'
-import { selectLogLines } from '../../isomorphic/lib/logFilter.ts'
+import { selectLogLines, shouldIncludeFailedLog } from '../../isomorphic/lib/logFilter.ts'
 import { LogsApp, LogsView } from '../../isomorphic/renderers/LogsOutput/mod.ts'
 import { resolveConfig } from '../Config.ts'
 import { GitHubClient, type GitHubClientShape } from '../GitHubClient.ts'
@@ -234,14 +234,11 @@ export const logsCommand = Cli.Command.make('logs', {
               const run = yield* github.getWorkflowRun({ repo: resolvedRepo, runId })
               const { jobs } = yield* github.listWorkflowJobs({ repo: resolvedRepo, runId })
               const completed = run.status === 'completed'
-              const hasFailed = jobs.some(
-                (j) =>
-                  j.conclusion !== null && j.conclusion !== 'success' && j.conclusion !== 'skipped',
-              )
+              const hasFailed = jobs.some((job) => shouldIncludeFailedLog(job.conclusion))
 
               let filteredJobs: WorkflowJob[] = jobs
               if (failed) {
-                filteredJobs = filteredJobs.filter((j) => j.conclusion === 'failure')
+                filteredJobs = filteredJobs.filter((job) => shouldIncludeFailedLog(job.conclusion))
               }
               if (Option.isSome(jobFilter)) {
                 const filter = jobFilter.value
@@ -393,12 +390,7 @@ export const logsCommand = Cli.Command.make('logs', {
                 })
                 allLines.push(`── ${r.jobName} (${r.conclusion}) ──`, ...r.lines, '')
                 if (r.notice !== null) notices.add(r.notice)
-                if (
-                  r.conclusion !== null &&
-                  r.conclusion !== 'success' &&
-                  r.conclusion !== 'skipped'
-                )
-                  anyFailed = true
+                if (shouldIncludeFailedLog(r.conclusion)) anyFailed = true
                 displayedJobIds.add(j.id)
               }
 
@@ -458,7 +450,7 @@ export const logsCommand = Cli.Command.make('logs', {
 Examples:
   gh-ci-utils logs                            Last ${DEFAULT_LOG_TAIL} lines
   gh-ci-utils logs --job lint                 Specific job by name
-  gh-ci-utils logs --job 69067527707          Specific job by ID
+  gh-ci-utils logs --job 80000000001          Specific job by ID
   gh-ci-utils logs --tail 200                 Last 200 lines
   gh-ci-utils logs --offset 100              Skip last 100 lines (paginate)
   gh-ci-utils logs --error                    Only extracted error lines

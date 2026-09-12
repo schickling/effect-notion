@@ -24,16 +24,16 @@ const meta = {
 describe('CLI JSON output contracts', () => {
   it('preserves representative status JSON', () => {
     const run = makeRun({
-      id: 23601797547,
-      runNumber: 1940,
-      headBranch: 'example/feature',
+      id: 70000000004,
+      runNumber: 102,
+      headBranch: 'feature/synthetic-change',
       elapsedSeconds: 42,
     })
     const state = createSingleRunState({
       run,
       jobs: [
         makeJob({
-          id: 69067527707,
+          id: 80000000001,
           name: 'lint',
           durationSeconds: 37,
           runner: 'runner-host-a',
@@ -43,7 +43,7 @@ describe('CLI JSON output contracts', () => {
     })
 
     expect(encodeJson(CiStateSchema, state)).toMatchInlineSnapshot(
-      `"{"_tag":"Loaded","run":{"id":23601797547,"name":"CI","runNumber":1940,"headBranch":"example/feature","status":"completed","conclusion":"success","event":"push","workflowPath":".github/workflows/ci.yml","htmlUrl":"https://github.com/example-org/example-repo/actions/runs/23601797547","elapsedSeconds":42},"jobs":[{"id":69067527707,"name":"lint","status":"completed","conclusion":"success","durationSeconds":37,"runner":"runner-host-a","jobUrl":"https://github.com/example-org/example-repo/actions/runs/0/job/69067527707","failedStepName":null}],"errors":[],"annotations":[],"runnerHostMap":[["runner-a","runner-host-a"]],"prHealth":null,"summary":{"overallStatus":"passing","critical":[],"warnings":[]},"_meta":{"apiRequests":7,"apiRequestsCached":2,"rateLimitRemaining":4993,"rateLimitLimit":5000}}"`,
+      `"{"_tag":"Loaded","run":{"id":70000000004,"name":"CI","runNumber":102,"headBranch":"feature/synthetic-change","status":"completed","conclusion":"success","event":"push","workflowPath":".github/workflows/ci.yml","htmlUrl":"https://github.com/example-org/example-repo/actions/runs/70000000004","elapsedSeconds":42},"jobs":[{"id":80000000001,"name":"lint","status":"completed","conclusion":"success","durationSeconds":37,"runner":"runner-host-a","jobUrl":"https://github.com/example-org/example-repo/actions/runs/0/job/80000000001","failedStepName":null}],"errors":[],"annotations":[],"runnerHostMap":[["runner-a","runner-host-a"]],"prHealth":null,"summary":{"overallStatus":"passing","critical":[],"warnings":[]},"_meta":{"apiRequests":7,"apiRequestsCached":2,"rateLimitRemaining":4993,"rateLimitLimit":5000}}"`,
     )
   })
 
@@ -70,14 +70,14 @@ describe('CLI JSON output contracts', () => {
     expect(
       encodeJson(MutationStateSchema, {
         _tag: 'Dispatched',
-        runId: 23601797547,
+        runId: 70000000004,
         repo: 'example-org/example-repo',
         message: 'Re-running failed jobs',
-        url: 'https://github.com/example-org/example-repo/actions/runs/23601797547',
+        url: 'https://github.com/example-org/example-repo/actions/runs/70000000004',
         _meta: meta,
       }),
     ).toMatchInlineSnapshot(
-      `"{"_tag":"Dispatched","runId":23601797547,"repo":"example-org/example-repo","message":"Re-running failed jobs","url":"https://github.com/example-org/example-repo/actions/runs/23601797547","_meta":{"apiRequests":3,"apiRequestsCached":1,"rateLimitRemaining":4997,"rateLimitLimit":5000}}"`,
+      `"{"_tag":"Dispatched","runId":70000000004,"repo":"example-org/example-repo","message":"Re-running failed jobs","url":"https://github.com/example-org/example-repo/actions/runs/70000000004","_meta":{"apiRequests":3,"apiRequestsCached":1,"rateLimitRemaining":4997,"rateLimitLimit":5000}}"`,
     )
   })
 

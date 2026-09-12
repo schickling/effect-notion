@@ -1,6 +1,6 @@
 /**
- * Run-selection regression for FB-276, driven by the real GitHub payloads captured
- * for schickling/dotfiles#1331 (head 5828e54f).
+ * Run-selection regression for FB-276, driven by synthetic GitHub payloads.
+ * Fixtures model one queued CI run and unrelated completed workflows.
  *
  * The PR's head commit had exactly one workflow run — a queued `ci.yml` run — while
  * the `branch + event=pull_request` listing the resolver used contained only
@@ -41,7 +41,7 @@ const run = ({
   id,
   name,
   path,
-  head_branch: 'schickling-assistant/2026-07-27-otelite-devenv',
+  head_branch: 'feature/synthetic-observability',
   head_sha,
   status,
   conclusion,
@@ -52,28 +52,28 @@ const run = ({
   created_at,
   updated_at: created_at,
   run_started_at: created_at,
-  html_url: `https://github.com/schickling/dotfiles/actions/runs/${id}`,
-  jobs_url: `https://api.github.com/repos/schickling/dotfiles/actions/runs/${id}/jobs`,
+  html_url: `https://github.com/example-org/example-repo/actions/runs/${id}`,
+  jobs_url: `https://api.github.com/repos/example-org/example-repo/actions/runs/${id}/jobs`,
   pull_requests: [],
 })
 
 /** GET /actions/runs?branch=<head>&event=pull_request — what the old resolver saw. */
 const BRANCH_PULL_REQUEST_RUNS = decodeRuns([
   run({
-    id: 30315115978,
+    id: 70000000001,
     name: 'Auto-request review',
     path: '.github/workflows/auto-review.yml',
-    head_sha: '2b442eee6d46371ef124a275983f672459a67c89',
+    head_sha: '2222222222222222222222222222222222222222',
     status: 'completed',
     conclusion: 'success',
     event: 'pull_request',
     created_at: '2026-07-27T23:44:34Z',
   }),
   run({
-    id: 30257588086,
+    id: 70000000002,
     name: 'Auto-request review',
     path: '.github/workflows/auto-review.yml',
-    head_sha: '5be739ef0000000000000000000000000000dead',
+    head_sha: '3333333333333333333333333333333333333333',
     status: 'completed',
     conclusion: 'skipped',
     event: 'pull_request',
@@ -81,13 +81,13 @@ const BRANCH_PULL_REQUEST_RUNS = decodeRuns([
   }),
 ])
 
-/** GET /actions/runs?head_sha=5828e54f — what the new resolver sees. */
+/** GET /actions/runs?head_sha=11111111 — what the resolver sees. */
 const HEAD_SHA_RUNS = decodeRuns([
   run({
-    id: 30397116975,
+    id: 70000000003,
     name: 'CI',
     path: '.github/workflows/ci.yml',
-    head_sha: '5828e54fb93bbe587c043b36c3e34fc481415f38',
+    head_sha: '1111111111111111111111111111111111111111',
     status: 'queued',
     conclusion: null,
     event: 'workflow_dispatch',
@@ -99,7 +99,7 @@ describe('selectRunForVerdict (FB-276)', () => {
   it('judges the newest run on its own jobs when no ci.yml run exists and none was demanded', () => {
     const picked = selectRunForVerdict({ runs: BRANCH_PULL_REQUEST_RUNS })
 
-    expect(picked.run?.id).toBe(30315115978)
+    expect(picked.run?.id).toBe(70000000001)
     expect(picked.run?.path).toBe('.github/workflows/auto-review.yml')
     // `ci.yml` is a preference, not a demand: a repo without one is not `no_checks`.
     expect(picked.expectedWorkflow).toBe(null)
@@ -109,30 +109,30 @@ describe('selectRunForVerdict (FB-276)', () => {
   it('matches ci.yml among the head-commit runs, even on a non-pull_request event', () => {
     const picked = selectRunForVerdict({ runs: HEAD_SHA_RUNS })
 
-    expect(picked.run?.id).toBe(30397116975)
+    expect(picked.run?.id).toBe(70000000003)
     expect(picked.expectedWorkflow).toBe('ci.yml')
     expect(picked.matchedExpectedWorkflow).toBe(true)
-    expect(picked.run?.head_sha).toBe('5828e54fb93bbe587c043b36c3e34fc481415f38')
+    expect(picked.run?.head_sha).toBe('1111111111111111111111111111111111111111')
   })
 
   it('prefers a ci.yml run over a newer run of another workflow when none was demanded', () => {
     const picked = selectRunForVerdict({
       runs: decodeRuns([
         run({
-          id: 30315115978,
+          id: 70000000001,
           name: 'Auto-request review',
           path: '.github/workflows/auto-review.yml',
-          head_sha: '5828e54fb93bbe587c043b36c3e34fc481415f38',
+          head_sha: '1111111111111111111111111111111111111111',
           status: 'completed',
           conclusion: 'success',
           event: 'pull_request',
           created_at: '2026-07-27T23:44:34Z',
         }),
         run({
-          id: 30257588086,
+          id: 70000000002,
           name: 'CI',
           path: '.github/workflows/ci.yml',
-          head_sha: '5828e54fb93bbe587c043b36c3e34fc481415f38',
+          head_sha: '1111111111111111111111111111111111111111',
           status: 'completed',
           conclusion: 'success',
           event: 'pull_request',
@@ -141,7 +141,7 @@ describe('selectRunForVerdict (FB-276)', () => {
       ]),
     })
 
-    expect(picked.run?.id).toBe(30257588086)
+    expect(picked.run?.id).toBe(70000000002)
     expect(picked.expectedWorkflow).toBe('ci.yml')
     expect(picked.matchedExpectedWorkflow).toBe(true)
   })
@@ -164,20 +164,20 @@ describe('selectRunForVerdict (FB-276)', () => {
     const picked = selectRunForVerdict({
       runs: decodeRuns([
         run({
-          id: 30397116975,
+          id: 70000000003,
           name: 'CI',
           path: '.github/workflows/ci.yml',
-          head_sha: '5828e54fb93bbe587c043b36c3e34fc481415f38',
+          head_sha: '1111111111111111111111111111111111111111',
           status: 'in_progress',
           conclusion: null,
           event: 'push',
           created_at: '2026-07-28T20:37:05Z',
         }),
         run({
-          id: 30257588086,
+          id: 70000000002,
           name: 'Deploy',
           path: '.github/workflows/deploy.yml',
-          head_sha: '5828e54fb93bbe587c043b36c3e34fc481415f38',
+          head_sha: '1111111111111111111111111111111111111111',
           status: 'queued',
           conclusion: null,
           event: 'push',
@@ -188,7 +188,7 @@ describe('selectRunForVerdict (FB-276)', () => {
       activeOnly: true,
     })
 
-    expect(picked.run?.id).toBe(30257588086)
+    expect(picked.run?.id).toBe(70000000002)
     expect(picked.expectedWorkflow).toBe('deploy.yml')
     expect(picked.matchedExpectedWorkflow).toBe(true)
   })
@@ -199,7 +199,7 @@ describe('selectRunForVerdict (FB-276)', () => {
       preferWorkflow: 'release.yml',
     })
 
-    expect(picked.run?.id).toBe(30397116975)
+    expect(picked.run?.id).toBe(70000000003)
     expect(picked.expectedWorkflow).toBe('release.yml')
     expect(picked.matchedExpectedWorkflow).toBe(false)
   })
@@ -210,6 +210,6 @@ describe('selectRunForVerdict (FB-276)', () => {
       expectedWorkflow: null,
       matchedExpectedWorkflow: false,
     })
-    expect(selectRunForVerdict({ runs: HEAD_SHA_RUNS, activeOnly: true }).run?.id).toBe(30397116975)
+    expect(selectRunForVerdict({ runs: HEAD_SHA_RUNS, activeOnly: true }).run?.id).toBe(70000000003)
   })
 })

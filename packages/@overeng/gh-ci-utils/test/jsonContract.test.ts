@@ -1,5 +1,5 @@
 /**
- * `gh-ci-utils status --output json` contract tests (GH schickling/dotfiles#927)
+ * `gh-ci-utils status --output json` synthetic contract fixtures
  * plus the verdict state table for FB-276.
  *
  * Fixture-driven: no network, no CLI, no TUI. Imports the production mapping and
@@ -33,28 +33,28 @@ import { CiStateSchema } from '../src/isomorphic/renderers/CiOutput/schema.ts'
 // =============================================================================
 
 const RUN: RunInfo = {
-  id: 30397116975,
+  id: 70000000003,
   name: 'CI',
-  runNumber: 17739,
-  headBranch: 'schickling-assistant/2026-07-27-otelite-devenv',
+  runNumber: 101,
+  headBranch: 'feature/synthetic-observability',
   status: 'completed',
   conclusion: 'success',
   event: 'pull_request',
   workflowPath: '.github/workflows/ci.yml',
-  htmlUrl: 'https://github.com/schickling/dotfiles/actions/runs/30397116975',
+  htmlUrl: 'https://github.com/example-org/example-repo/actions/runs/70000000003',
   elapsedSeconds: 960,
 }
 
 /** A raw API job with a failing step, so `failedStepName` has something to preserve. */
 const rawJob: WorkflowJob = {
-  id: 69067527707,
+  id: 80000000001,
   run_id: RUN.id,
   name: 'flake-build',
   status: 'completed',
   conclusion: 'failure',
   started_at: new Date('2026-07-27T10:00:00Z'),
   completed_at: new Date('2026-07-27T10:05:00Z'),
-  runner_name: 'dev3-a1b2c3d4',
+  runner_name: 'linuxbuildera-1234abcd',
   labels: ['sh-linux-x64', 'nix'],
   steps: [
     {
@@ -82,7 +82,7 @@ const job = (overrides: Partial<WorkflowJobVM> = {}): WorkflowJobVM => ({
   status: 'completed',
   conclusion: 'success',
   durationSeconds: 300,
-  runner: 'dev3',
+  runner: 'linuxbuildera',
   jobUrl: `${RUN.htmlUrl}/job/1`,
   failedStepName: null,
   ...overrides,
@@ -90,7 +90,7 @@ const job = (overrides: Partial<WorkflowJobVM> = {}): WorkflowJobVM => ({
 
 /** Selection for a PR whose head commit has a run of the expected workflow. */
 const matchedPrSelection: RunSelection = {
-  prNumber: 1331,
+  prNumber: 314,
   expectedHeadSha: 'deadbeef',
   expectedWorkflow: 'ci.yml',
   matchedExpectedWorkflow: true,
@@ -102,11 +102,11 @@ const matchedPrSelection: RunSelection = {
  * for the PR head commit, so the verdict must say so instead of judging another one.
  */
 const missingWorkflowSelection: RunSelection = {
-  prNumber: 1331,
-  expectedHeadSha: '5828e54fb93bbe587c043b36c3e34fc481415f38',
+  prNumber: 314,
+  expectedHeadSha: '1111111111111111111111111111111111111111',
   expectedWorkflow: 'ci.yml',
   matchedExpectedWorkflow: false,
-  runHeadSha: '2b442eee6d46371ef124a275983f672459a67c89',
+  runHeadSha: '2222222222222222222222222222222222222222',
 }
 
 /**
@@ -114,7 +114,7 @@ const missingWorkflowSelection: RunSelection = {
  * did happen for the head commit is judged on its own jobs.
  */
 const noExpectationSelection: RunSelection = {
-  prNumber: 1331,
+  prNumber: 314,
   expectedHeadSha: 'deadbeef',
   expectedWorkflow: null,
   matchedExpectedWorkflow: true,
@@ -157,7 +157,7 @@ describe('status --output json job contract (#927)', () => {
   it('maps runner name, duration and job url', () => {
     const vm = toJobVM({ job: rawJob, runHtmlUrl: RUN.htmlUrl, includeSteps: false })
 
-    expect(vm.runner).toBe('dev3')
+    expect(vm.runner).toBe('linuxbuildera')
     expect(vm.durationSeconds).toBe(300)
     expect(vm.jobUrl).toBe(`${RUN.htmlUrl}/job/${rawJob.id}`)
   })
@@ -347,7 +347,7 @@ describe('status verdict state table (FB-276)', () => {
     expect(
       verdict({
         conclusions: [],
-        prHealth: { prNumber: 1331, mergeable: 'CONFLICTING', behindBy: 0, baseRefName: 'main' },
+        prHealth: { prNumber: 314, mergeable: 'CONFLICTING', behindBy: 0, baseRefName: 'main' },
       }),
     ).toEqual({ status: 'no_checks', exitCode: 1 })
   })
@@ -356,7 +356,7 @@ describe('status verdict state table (FB-276)', () => {
     expect(
       verdict({
         conclusions: [],
-        prHealth: { prNumber: 1331, mergeable: 'MERGEABLE', behindBy: 4, baseRefName: 'main' },
+        prHealth: { prNumber: 314, mergeable: 'MERGEABLE', behindBy: 4, baseRefName: 'main' },
       }),
     ).toEqual({ status: 'no_checks', exitCode: 1 })
   })
@@ -365,7 +365,7 @@ describe('status verdict state table (FB-276)', () => {
     expect(
       verdict({
         conclusions: ['success', 'success'],
-        prHealth: { prNumber: 1331, mergeable: 'MERGEABLE', behindBy: 5, baseRefName: 'main' },
+        prHealth: { prNumber: 314, mergeable: 'MERGEABLE', behindBy: 5, baseRefName: 'main' },
       }),
     ).toEqual({ status: 'passing', exitCode: 1 })
   })
@@ -374,7 +374,7 @@ describe('status verdict state table (FB-276)', () => {
     expect(
       verdict({
         conclusions: ['success', 'success'],
-        prHealth: { prNumber: 1331, mergeable: 'MERGEABLE', behindBy: 0, baseRefName: 'main' },
+        prHealth: { prNumber: 314, mergeable: 'MERGEABLE', behindBy: 0, baseRefName: 'main' },
       }),
     ).toEqual({ status: 'passing', exitCode: 0 })
   })
@@ -383,7 +383,7 @@ describe('status verdict state table (FB-276)', () => {
     expect(
       verdict({
         conclusions: ['success'],
-        prHealth: { prNumber: 1331, mergeable: 'UNKNOWN', behindBy: 0, baseRefName: 'main' },
+        prHealth: { prNumber: 314, mergeable: 'UNKNOWN', behindBy: 0, baseRefName: 'main' },
       }),
     ).toEqual({ status: 'passing', exitCode: 0 })
   })
@@ -403,13 +403,13 @@ describe('status verdict warnings (FB-276)', () => {
       {
         _tag: 'ExpectedWorkflowMissing',
         workflow: 'ci.yml',
-        headSha: '5828e54fb93bbe587c043b36c3e34fc481415f38',
+        headSha: '1111111111111111111111111111111111111111',
         inspectedWorkflowPath: '.github/workflows/auto-review.yml',
       },
       {
         _tag: 'StaleRun',
-        expectedHeadSha: '5828e54fb93bbe587c043b36c3e34fc481415f38',
-        runHeadSha: '2b442eee6d46371ef124a275983f672459a67c89',
+        expectedHeadSha: '1111111111111111111111111111111111111111',
+        runHeadSha: '2222222222222222222222222222222222222222',
       },
     ])
   })
@@ -418,7 +418,7 @@ describe('status verdict warnings (FB-276)', () => {
     const summary = computeSummary({
       run: RUN,
       jobs: [job()],
-      prHealth: { prNumber: 1331, mergeable: 'CONFLICTING', behindBy: 3, baseRefName: 'main' },
+      prHealth: { prNumber: 314, mergeable: 'CONFLICTING', behindBy: 3, baseRefName: 'main' },
       selection: matchedPrSelection,
     })
 
@@ -427,7 +427,7 @@ describe('status verdict warnings (FB-276)', () => {
     expect(
       exitCodeForSummary({
         summary,
-        prHealth: { prNumber: 1331, mergeable: 'CONFLICTING', behindBy: 3, baseRefName: 'main' },
+        prHealth: { prNumber: 314, mergeable: 'CONFLICTING', behindBy: 3, baseRefName: 'main' },
       }),
     ).toBe(1)
   })

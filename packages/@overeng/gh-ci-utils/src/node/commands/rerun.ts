@@ -1,17 +1,16 @@
-import { Effect, Option, Schema, Stream } from 'effect'
+import { Effect, Option, Schema } from 'effect'
 /**
  * gh-ci-utils rerun [target] [--failed] [-w] [--watch-mode first-failure|until-done] [--workflow]
  * gh-ci-utils run [target] [--workflow] [-w] [--watch-mode first-failure|until-done]
  * gh-ci-utils cancel [target]
  */
 import * as Cli from 'effect/unstable/cli'
-import * as ChildProcess from 'effect/unstable/process/ChildProcess'
-import { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 import React from 'react'
 
 import { outputModeLayer, outputOption } from '@overeng/tui-react/node'
 
 import { ConfigError } from '../../isomorphic/Errors.ts'
+import { isBlockingConclusion } from '../../isomorphic/lib/summary.ts'
 import { MutationApp, MutationView } from '../../isomorphic/renderers/MutationOutput/mod.ts'
 import type { MutationAction } from '../../isomorphic/renderers/MutationOutput/schema.ts'
 import { detectCurrentBranch, resolveConfig } from '../Config.ts'
@@ -189,46 +188,7 @@ export const runCommand = Cli.Command.make('run', {
         const { repo: targetRepo, branch } = target
 
         const dispatchedAt = new Date()
-        const dispatch = yield* Effect.scoped(
-          Effect.gen(function* () {
-            const handle = yield* ChildProcessSpawner.use((spawner) =>
-              spawner.spawn(
-                ChildProcess.make('gh', [
-                  'workflow',
-                  'run',
-                  workflow,
-                  '--repo',
-                  targetRepo,
-                  '--ref',
-                  branch,
-                ]),
-              ),
-            )
-            const [, stderr, exitCode] = yield* Effect.all(
-              [
-                Stream.mkString(Stream.decodeText(handle.stdout)),
-                Stream.mkString(Stream.decodeText(handle.stderr)),
-                handle.exitCode,
-              ],
-              { concurrency: 3 },
-            )
-            return { exitCode, stderr: stderr.trim() }
-          }),
-        ).pipe(
-          Effect.mapError(
-            (cause) =>
-              new ConfigError({
-                message: `Failed to trigger workflow '${workflow}' for ${targetRepo} on ref '${branch}'`,
-                cause,
-              }),
-          ),
-        )
-        yield* validateWorkflowDispatchExit({
-          ...dispatch,
-          workflow,
-          repo: targetRepo,
-          branch,
-        })
+        yield* github.dispatchWorkflow({ repo: targetRepo, workflow, ref: branch })
 
         const triggeredRun = yield* detectTriggeredRun({
           repo: targetRepo,
@@ -331,7 +291,7 @@ Examples:
   gh-ci-utils cancel                          Cancel current branch's run
   gh-ci-utils cancel owner/repo              Cancel cross-repo run
   gh-ci-utils cancel https://github.com/owner/repo/pull/506  Cancel active PR CI run
-  gh-ci-utils cancel 23601797547             Cancel by run ID`,
+  gh-ci-utils cancel 70000000001             Cancel by run ID`,
   ),
 )
 
@@ -372,29 +332,6 @@ export const isRunCreatedForDispatch = ({
 }): boolean =>
   Math.floor(runCreatedAt.getTime() / 1000) >= Math.floor(dispatchedAt.getTime() / 1000)
 
-/** Fail a workflow dispatch immediately when the `gh` subprocess rejects it. */
-export const validateWorkflowDispatchExit = Effect.fn('validate-workflow-dispatch-exit')(
-  function* ({
-    exitCode,
-    stderr,
-    workflow,
-    repo,
-    branch,
-  }: {
-    exitCode: number
-    stderr: string
-    workflow: string
-    repo: string
-    branch: string
-  }) {
-    if (exitCode === 0) return
-    return yield* new ConfigError({
-      message: `Failed to trigger workflow '${workflow}' for ${repo} on ref '${branch}'`,
-      cause: stderr.length > 0 ? stderr : `gh exited with code ${exitCode}`,
-    })
-  },
-)
-
 /** Whether polling has reached the new attempt created by a rerun request. */
 export const isRunAttemptReady = ({
   runAttempt,
@@ -403,6 +340,24 @@ export const isRunAttemptReady = ({
   runAttempt: number
   previousRunAttempt: number
 }): boolean => runAttempt > previousRunAttempt
+
+/** Decide whether a run watch should continue, succeed, or fail on this observation. */
+export const classifyRunWatch = ({
+  runStatus,
+  runConclusion,
+  jobConclusions,
+  failFast,
+}: {
+  runStatus: string
+  runConclusion: string | null
+  jobConclusions: readonly (string | null)[]
+  failFast: boolean
+}): 'continue' | 'success' | 'failure' => {
+  const hasBlockingConclusion =
+    isBlockingConclusion(runConclusion) || jobConclusions.some(isBlockingConclusion)
+  if (runStatus === 'completed') return hasBlockingConclusion ? 'failure' : 'success'
+  return failFast && hasBlockingConclusion ? 'failure' : 'continue'
+}
 
 /** Detect a newly dispatched run without excluding GitHub's whole-second timestamps. */
 const detectTriggeredRun = ({
@@ -490,14 +445,15 @@ const watchRun = ({
           })
         }
 
-        const runFailed =
-          run.conclusion !== null && run.conclusion !== 'success' && run.conclusion !== 'skipped'
-        const hasFailed = jobs.some(
-          (j) => j.conclusion !== null && j.conclusion !== 'success' && j.conclusion !== 'skipped',
-        )
+        const watchResult = classifyRunWatch({
+          runStatus: run.status,
+          runConclusion: run.conclusion,
+          jobConclusions: jobs.map((job) => job.conclusion),
+          failFast,
+        })
 
-        if (run.status === 'completed' || (failFast && hasFailed)) {
-          if (runFailed || hasFailed) {
+        if (watchResult !== 'continue') {
+          if (watchResult === 'failure') {
             tui.dispatch({
               _tag: 'SetError',
               error: 'Run failed',

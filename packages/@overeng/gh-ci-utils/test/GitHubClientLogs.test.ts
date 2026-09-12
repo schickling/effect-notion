@@ -29,7 +29,7 @@ const httpLayer = (respond: (url: string) => Response) =>
     ),
   )
 
-const JOB_ID = 99638634809
+const JOB_ID = 80000000002
 const LOGS_URL = `https://api.github.com/repos/owner/repo/actions/jobs/${JOB_ID}/logs`
 
 const getJobLogs = (respond: (url: string) => Response) =>

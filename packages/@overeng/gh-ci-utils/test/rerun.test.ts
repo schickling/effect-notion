@@ -2,10 +2,10 @@ import { Effect } from 'effect'
 import { describe, expect, it } from 'vitest'
 
 import {
+  classifyRunWatch,
   isRunAttemptReady,
   isRunCreatedForDispatch,
   validateMutationWorkflowMatch,
-  validateWorkflowDispatchExit,
 } from '../src/node/commands/rerun.ts'
 
 describe('isRunCreatedForDispatch', () => {
@@ -40,25 +40,27 @@ describe('isRunAttemptReady', () => {
   })
 })
 
-describe('validateWorkflowDispatchExit', () => {
-  it('fails with gh stderr when workflow dispatch exits nonzero', () => {
-    const error = Effect.runSync(
-      Effect.flip(
-        validateWorkflowDispatchExit({
-          exitCode: 1,
-          stderr: 'could not find any workflows named CI',
-          workflow: 'CI',
-          repo: 'example-org/example-repo',
-          branch: 'main',
-        }),
-      ),
-    )
+describe('classifyRunWatch', () => {
+  it('treats a completed neutral run as non-blocking success', () => {
+    expect(
+      classifyRunWatch({
+        runStatus: 'completed',
+        runConclusion: 'neutral',
+        jobConclusions: ['neutral'],
+        failFast: false,
+      }),
+    ).toBe('success')
+  })
 
-    expect(error).toMatchObject({
-      _tag: 'ConfigError',
-      message: "Failed to trigger workflow 'CI' for example-org/example-repo on ref 'main'",
-      cause: 'could not find any workflows named CI',
-    })
+  it('keeps watching an active neutral job in first-failure mode', () => {
+    expect(
+      classifyRunWatch({
+        runStatus: 'in_progress',
+        runConclusion: null,
+        jobConclusions: ['neutral'],
+        failFast: true,
+      }),
+    ).toBe('continue')
   })
 })
 

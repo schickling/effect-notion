@@ -530,40 +530,39 @@ const makeGitHubClient = Effect.gen(function* () {
       )
     })
 
-  /** Make an authenticated POST request (for rerun/cancel). */
-  const apiPost = ({ repo, path }: { repo: string; path: string }) =>
+  /** Make an authenticated POST request for GitHub mutations. */
+  const apiPost = ({ repo, path, body }: { repo: string; path: string; body?: unknown }) =>
     Effect.gen(function* () {
       yield* awaitBudget('rest')
       const token = yield* getTokenForRepo(repo)
+      const baseRequest = HttpClientRequest.post(`${GITHUB_API_BASE}${path}`).pipe(
+        HttpClientRequest.setHeaders({
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        }),
+      )
+      const request =
+        body === undefined ? baseRequest : HttpClientRequest.bodyJsonUnsafe(body)(baseRequest)
 
-      const response = yield* httpClient
-        .execute(
-          HttpClientRequest.post(`${GITHUB_API_BASE}${path}`).pipe(
-            HttpClientRequest.setHeaders({
-              Authorization: `Bearer ${token}`,
-              Accept: 'application/vnd.github+json',
-              'X-GitHub-Api-Version': '2022-11-28',
+      const response = yield* httpClient.execute(request).pipe(
+        Effect.mapError(
+          (cause) =>
+            new GitHubApiError({
+              message: `GitHub API request failed: POST ${path}`,
+              cause,
             }),
-          ),
-        )
-        .pipe(
-          Effect.mapError(
-            (cause) =>
-              new GitHubApiError({
-                message: `GitHub API request failed: POST ${path}`,
-                cause,
-              }),
-          ),
-          Effect.scoped,
-        )
+        ),
+        Effect.scoped,
+      )
 
       yield* Ref.update(requestCountRef, (n) => n + 1)
       yield* trackRateLimit({ headers: response.headers, bucket: 'rest' })
 
       if (response.status >= 400) {
-        const body = yield* response.text.pipe(Effect.orElseSucceed(() => ''))
+        const responseBody = yield* response.text.pipe(Effect.orElseSucceed(() => ''))
         return yield* new GitHubApiError({
-          message: `GitHub API returned ${response.status}: POST ${path}${body ? ` — ${body}` : ''}`,
+          message: `GitHub API returned ${response.status}: POST ${path}${responseBody ? ` — ${responseBody}` : ''}`,
           cause: `HTTP ${response.status}`,
         })
       }
@@ -1056,6 +1055,61 @@ const makeGitHubClient = Effect.gen(function* () {
       withGitHubSpan({ name: 'github-client.getPullRequest', attributes: { repo, prNumber } }),
     )
 
+  const WorkflowList = Schema.Struct({
+    workflows: Schema.Array(
+      Schema.Struct({
+        id: Schema.Finite,
+        name: Schema.String,
+        path: Schema.String,
+      }),
+    ),
+  })
+
+  /**
+   * Dispatch a workflow through the same authenticated REST boundary as every
+   * other mutation. Resolving display names here preserves `gh workflow run`
+   * compatibility while keeping App installation tokens out of subprocesses.
+   */
+  const dispatchWorkflow = ({
+    repo,
+    workflow,
+    ref,
+  }: {
+    repo: string
+    workflow: string
+    ref: string
+  }) =>
+    Effect.gen(function* () {
+      const listed = yield* apiGet({
+        repo,
+        path: `/repos/${repo}/actions/workflows?per_page=100`,
+        schema: WorkflowList,
+      })
+      const match = listed.workflows.find(
+        (candidate) =>
+          candidate.name === workflow ||
+          candidate.path === workflow ||
+          candidate.path.endsWith(`/${workflow}`),
+      )
+      if (match === undefined) {
+        return yield* new GitHubApiError({
+          message: `Could not find workflow '${workflow}' in ${repo}`,
+          cause: 'workflow not found',
+        })
+      }
+
+      yield* apiPost({
+        repo,
+        path: `/repos/${repo}/actions/workflows/${match.id}/dispatches`,
+        body: { ref },
+      })
+    }).pipe(
+      withGitHubSpan({
+        name: 'github-client.dispatchWorkflow',
+        attributes: { repo, workflow, ref },
+      }),
+    )
+
   /** Re-run an entire workflow. */
   const rerunWorkflow = ({ repo, runId }: { repo: string; runId: number }) =>
     apiPost({ repo, path: `/repos/${repo}/actions/runs/${runId}/rerun` }).pipe(
@@ -1134,6 +1188,7 @@ const makeGitHubClient = Effect.gen(function* () {
     getPullRequest,
     getPrHealth,
     getDefaultBranch,
+    dispatchWorkflow,
     rerunWorkflow,
     rerunFailedJobs,
     cancelRun,

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { extractErrorLines, grepLines, selectLogLines } from '../src/isomorphic/lib/logFilter.ts'
+import {
+  extractErrorLines,
+  grepLines,
+  selectLogLines,
+  shouldIncludeFailedLog,
+} from '../src/isomorphic/lib/logFilter.ts'
 
 describe('extractErrorLines', () => {
   it('extracts ##[error] lines', () => {
@@ -224,4 +229,20 @@ describe('grepLines', () => {
     const log = 'Hello World\ngoodbye world\nHELLO again'
     expect(grepLines({ logText: log, pattern: 'hello' })).toEqual(['Hello World', 'HELLO again'])
   })
+})
+
+describe('shouldIncludeFailedLog', () => {
+  it.each(['failure', 'timed_out', 'action_required', 'startup_failure'])(
+    'includes blocking conclusion %s',
+    (conclusion) => {
+      expect(shouldIncludeFailedLog(conclusion)).toBe(true)
+    },
+  )
+
+  it.each(['success', 'skipped', 'neutral', 'cancelled', null])(
+    'excludes non-blocking conclusion %s',
+    (conclusion) => {
+      expect(shouldIncludeFailedLog(conclusion)).toBe(false)
+    },
+  )
 })
