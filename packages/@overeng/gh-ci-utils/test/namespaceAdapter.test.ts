@@ -162,10 +162,11 @@ ${INSTANCE},2026-01-15 10:59:55 +0000 UTC,2026-01-15 11:00:00 +0000 UTC,,8,16,0.
 // =============================================================================
 // Pure decoders
 // =============================================================================
+const parseDescribe = (stdout: string) => parseJobDescribe({ stdout, expectedInstanceId: INSTANCE })
 
 describe('parseJobDescribe', () => {
   it('finds the instance behind a nested runner block', () => {
-    const parsed = parseJobDescribe(DESCRIBE_JSON)
+    const parsed = parseDescribe(DESCRIBE_JSON)
     expect(parsed).toEqual({
       _tag: 'parsed',
       job: {
@@ -182,8 +183,50 @@ describe('parseJobDescribe', () => {
     })
   })
 
+  it('selects the expected instance regardless of attempt order', () => {
+    const previousAttempt = {
+      instance_id: 'previous-instance',
+      instance_status: 'DESTROYED',
+      destroyed_at: '2026-01-15T10:55:00Z',
+      runner_name: 'nsc-runner-previous-instance',
+      container_name: 'previous-container',
+      repository: 'previous-org/previous-repo',
+      workflow_name: 'Previous CI',
+      job_name: 'previous build',
+    }
+    const currentAttempt = {
+      instance_id: INSTANCE,
+      instance_status: 'RUNNING',
+      runner_name: `nsc-runner-${INSTANCE}`,
+      container_name: 'current-container',
+      repository: 'example-org/example-repo',
+      workflow_name: 'Current CI',
+      job_name: 'current build',
+    }
+
+    for (const attempts of [
+      [previousAttempt, currentAttempt],
+      [currentAttempt, previousAttempt],
+    ]) {
+      expect(parseDescribe(JSON.stringify({ attempts }))).toEqual({
+        _tag: 'parsed',
+        job: {
+          instanceId: INSTANCE,
+          instanceStatus: 'running',
+          instanceStatusRaw: 'RUNNING',
+          runnerName: `nsc-runner-${INSTANCE}`,
+          containerName: 'current-container',
+          repository: 'example-org/example-repo',
+          workflow: 'Current CI',
+          jobName: 'current build',
+          destroyedAt: null,
+        },
+      })
+    }
+  })
+
   it('reads generic status only from the record that owns the instance id', () => {
-    const parsed = parseJobDescribe(
+    const parsed = parseDescribe(
       JSON.stringify({
         status: 'completed',
         runner: {
@@ -197,7 +240,7 @@ describe('parseJobDescribe', () => {
   })
 
   it('ignores status owned by a nested previous attempt', () => {
-    const parsed = parseJobDescribe(
+    const parsed = parseDescribe(
       JSON.stringify({
         runner: {
           instance_id: INSTANCE,
@@ -214,7 +257,7 @@ describe('parseJobDescribe', () => {
   })
 
   it('ignores a destruction timestamp owned by an unrelated instance attempt', () => {
-    const parsed = parseJobDescribe(
+    const parsed = parseDescribe(
       JSON.stringify({
         runner: {
           instance_id: INSTANCE,
@@ -233,7 +276,7 @@ describe('parseJobDescribe', () => {
   })
 
   it('uses a destruction timestamp owned by the selected instance', () => {
-    const parsed = parseJobDescribe(
+    const parsed = parseDescribe(
       JSON.stringify({
         runner: {
           instance_id: INSTANCE,
@@ -247,7 +290,7 @@ describe('parseJobDescribe', () => {
   })
 
   it('reads camelCase field names too, since the CLI shape is not pinned', () => {
-    const parsed = parseJobDescribe(
+    const parsed = parseDescribe(
       JSON.stringify({ instanceId: INSTANCE, instanceStatus: 'running' }),
     )
     expect(parsed._tag === 'parsed' && parsed.job.instanceId).toBe(INSTANCE)
@@ -255,7 +298,7 @@ describe('parseJobDescribe', () => {
   })
 
   it('degrades an unrecognized status to unknown instead of assuming the instance is gone', () => {
-    const parsed = parseJobDescribe(
+    const parsed = parseDescribe(
       JSON.stringify({ instance_id: INSTANCE, instance_status: 'PROVISIONING_V2' }),
     )
     expect(parsed._tag === 'parsed' && parsed.job.instanceStatus).toBe('unknown')
@@ -263,13 +306,13 @@ describe('parseJobDescribe', () => {
   })
 
   it('treats a description with no instance id as unreadable rather than empty', () =>
-    expect(parseJobDescribe(JSON.stringify({ job: { name: 'build' } }))._tag).toBe('unrecognized'))
+    expect(parseDescribe(JSON.stringify({ job: { name: 'build' } }))._tag).toBe('unrecognized'))
 
   it('treats non-JSON stdout as unreadable', () =>
-    expect(parseJobDescribe('Error: something went wrong')._tag).toBe('unrecognized'))
+    expect(parseDescribe('Error: something went wrong')._tag).toBe('unrecognized'))
 
   it('treats empty stdout as unreadable', () =>
-    expect(parseJobDescribe('   ')._tag).toBe('unrecognized'))
+    expect(parseDescribe('   ')._tag).toBe('unrecognized'))
 })
 
 describe('deriveInstanceStatus', () => {
@@ -530,6 +573,32 @@ describe('observeNamespaceJob', () => {
     })
     expect(facts._tag).toBe('reported')
     expect(facts._tag === 'reported' && facts.job.instanceId).toBe(INSTANCE)
+  })
+
+  it('binds a multiple-attempt description to the GitHub runner instance', async () => {
+    const describe = JSON.stringify({
+      attempts: [
+        {
+          instance_id: 'previous-instance',
+          instance_status: 'DESTROYED',
+          runner_name: 'nsc-runner-previous-instance',
+        },
+        {
+          instance_id: INSTANCE,
+          instance_status: 'RUNNING',
+          runner_name: `nsc-runner-${INSTANCE}`,
+        },
+      ],
+    })
+    const { facts } = await observe({
+      github: githubFacts(),
+      respond: (argv) => (argv[0] === 'auth' ? output('ok') : output(describe)),
+    })
+
+    expect(facts._tag).toBe('reported')
+    expect(facts._tag === 'reported' && facts.job.instanceId).toBe(INSTANCE)
+    expect(facts._tag === 'reported' && facts.job.instanceStatusRaw).toBe('RUNNING')
+    expect(facts._tag === 'reported' && facts.job.runnerName).toBe(`nsc-runner-${INSTANCE}`)
   })
 
   it('does not run the report at all without --with-usage', async () => {

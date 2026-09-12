@@ -291,7 +291,13 @@ export const deriveInstanceStatus = ({
 }
 
 /** Decode `nsc github job describe -o json` stdout into Namespace job facts. */
-export const parseJobDescribe = (stdout: string): JobDescribeParse => {
+export const parseJobDescribe = ({
+  stdout,
+  expectedInstanceId,
+}: {
+  readonly stdout: string
+  readonly expectedInstanceId: string
+}): JobDescribeParse => {
   const trimmed = stdout.trim()
   if (trimmed.length === 0) return { _tag: 'unrecognized', detail: 'empty stdout' }
 
@@ -305,45 +311,45 @@ export const parseJobDescribe = (stdout: string): JobDescribeParse => {
     }
   }
 
-  const instanceId = findString({ root: parsed, keys: ['instance_id', 'instanceId'] })
-  if (instanceId === null) {
-    return { _tag: 'unrecognized', detail: 'no instance id in job description' }
-  }
-
   const instanceRecord = findRecord({
     root: parsed,
     keys: ['instance_id', 'instanceId'],
-    value: instanceId,
+    value: expectedInstanceId,
   })
-  const destroyedAt =
-    instanceRecord === null
-      ? null
-      : findOwnedString({ record: instanceRecord, keys: ['destroyed_at', 'destroyedAt'] })
-  const statusRaw =
-    instanceRecord === null
-      ? null
-      : findOwnedString({
-          record: instanceRecord,
-          keys: ['instance_status', 'instanceStatus', 'status', 'phase', 'state'],
-        })
+  if (instanceRecord === null) {
+    return {
+      _tag: 'unrecognized',
+      detail: `no record for expected instance ${expectedInstanceId} in job description`,
+    }
+  }
+
+  const findInstanceString = (keys: ReadonlyArray<string>): string | null =>
+    findOwnedString({ record: instanceRecord, keys }) ?? findString({ root: parsed, keys })
+  const destroyedAt = findOwnedString({
+    record: instanceRecord,
+    keys: ['destroyed_at', 'destroyedAt'],
+  })
+  const statusRaw = findOwnedString({
+    record: instanceRecord,
+    keys: ['instance_status', 'instanceStatus', 'status', 'phase', 'state'],
+  })
 
   return {
     _tag: 'parsed',
     job: {
-      instanceId,
+      instanceId: expectedInstanceId,
       instanceStatus: deriveInstanceStatus({ statusRaw, destroyedAt }),
       instanceStatusRaw: statusRaw,
-      runnerName: findString({ root: parsed, keys: ['runner_name', 'runnerName'] }),
-      containerName: findString({ root: parsed, keys: ['container_name', 'containerName'] }),
-      repository: findString({
-        root: parsed,
-        keys: ['repository', 'github_repository', 'githubRepository'],
-      }),
-      workflow: findString({
-        root: parsed,
-        keys: ['workflow', 'workflow_name', 'workflowName', 'github_job_workflow_name'],
-      }),
-      jobName: findString({ root: parsed, keys: ['job_name', 'jobName'] }),
+      runnerName: findInstanceString(['runner_name', 'runnerName']),
+      containerName: findInstanceString(['container_name', 'containerName']),
+      repository: findInstanceString(['repository', 'github_repository', 'githubRepository']),
+      workflow: findInstanceString([
+        'workflow',
+        'workflow_name',
+        'workflowName',
+        'github_job_workflow_name',
+      ]),
+      jobName: findInstanceString(['job_name', 'jobName']),
       destroyedAt,
     },
   }
@@ -616,6 +622,14 @@ export const observeNamespaceJob = ({
     }
 
     const commands: Array<ReadonlyArray<string>> = []
+    if (github.runnerInstance === null) {
+      return {
+        _tag: 'unavailable',
+        reason: 'unrecognized-output',
+        detail: 'GitHub identified a Namespace runner without an instance identity.',
+        commands,
+      }
+    }
 
     const checkLoginArgv = authCheckLoginArgv()
     commands.push(checkLoginArgv)
@@ -657,7 +671,10 @@ export const observeNamespaceJob = ({
       }
     }
 
-    const parsed = parseJobDescribe(describe.run.stdout)
+    const parsed = parseJobDescribe({
+      stdout: describe.run.stdout,
+      expectedInstanceId: github.runnerInstance,
+    })
     if (parsed._tag === 'unrecognized') {
       return { _tag: 'unavailable', reason: 'unrecognized-output', detail: parsed.detail, commands }
     }
