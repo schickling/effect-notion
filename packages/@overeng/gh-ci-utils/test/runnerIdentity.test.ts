@@ -1,8 +1,8 @@
 /**
  * Runner identity + step timing carried through the job view model.
  *
- * The TUI shows an abbreviated runner label (`dev3`), but consumers — and the
- * runner-scaler host join — need the raw name GitHub reported (`dev3-6038ddf9`).
+ * The TUI shows an abbreviated runner label (`runnera`), but consumers — and the
+ * runner-scaler host join — need the raw name GitHub reported (`runnera-1234abcd`).
  */
 import { describe, expect, it } from 'vitest'
 
@@ -10,18 +10,18 @@ import type { WorkflowJob } from '../src/isomorphic/GitHubSchemas.ts'
 import { toJobVM } from '../src/isomorphic/lib/summary.ts'
 import { resolveRunnerDisplay } from '../src/isomorphic/renderers/CiOutput/schema.ts'
 
-const RUN_HTML_URL = 'https://github.com/schickling/dotfiles/actions/runs/30397116975'
+const RUN_HTML_URL = 'https://github.com/example-org/example-repo/actions/runs/2001'
 
 const rawJob = (overrides: Partial<WorkflowJob> = {}): WorkflowJob => ({
-  id: 69067527707,
-  run_id: 30397116975,
+  id: 1001,
+  run_id: 2001,
   name: 'flake-build',
   status: 'completed',
   conclusion: 'success',
   started_at: new Date('2026-07-27T10:00:00Z'),
   completed_at: new Date('2026-07-27T10:05:00Z'),
-  runner_name: 'dev3-6038ddf9',
-  labels: ['sh-linux-x64'],
+  runner_name: 'runnera-1234abcd',
+  labels: ['linux-x64'],
   steps: [],
   ...overrides,
 })
@@ -30,35 +30,35 @@ describe('job view model runner identity', () => {
   it('keeps the raw runner name alongside the abbreviated display label', () => {
     const vm = toJobVM({ job: rawJob(), runHtmlUrl: RUN_HTML_URL, includeSteps: false })
 
-    expect(vm.runner).toBe('dev3')
-    expect(vm.runnerName).toBe('dev3-6038ddf9')
+    expect(vm.runner).toBe('runnera')
+    expect(vm.runnerName).toBe('runnera-1234abcd')
     expect(vm.runnerKind).toBe('self-hosted')
-    expect(vm.runnerInstance).toBe('dev3')
+    expect(vm.runnerInstance).toBe('runnera')
   })
 
   it('uses GitHub self-hosted labels when the runner name is not a scaler worker', () => {
     const vm = toJobVM({
-      job: rawJob({ runner_name: 'dev3', labels: ['self-hosted', 'Linux', 'X64'] }),
+      job: rawJob({ runner_name: 'runnera', labels: ['self-hosted', 'Linux', 'X64'] }),
       runHtmlUrl: RUN_HTML_URL,
       includeSteps: false,
     })
 
-    expect(vm.runner).toBe('dev3')
+    expect(vm.runner).toBe('runnera')
     expect(vm.runnerKind).toBe('self-hosted')
-    expect(vm.runnerInstance).toBe('dev3')
+    expect(vm.runnerInstance).toBe('runnera')
   })
 
   it('keeps the full Namespace runner id behind the truncated label', () => {
     const vm = toJobVM({
-      job: rawJob({ runner_name: 'nsc-runner-psmnb4mkjm3mq' }),
+      job: rawJob({ runner_name: 'nsc-runner-abc123example' }),
       runHtmlUrl: RUN_HTML_URL,
       includeSteps: false,
     })
 
-    expect(vm.runner).toBe('nsc:psmnb4')
-    expect(vm.runnerName).toBe('nsc-runner-psmnb4mkjm3mq')
+    expect(vm.runner).toBe('nsc:abc123')
+    expect(vm.runnerName).toBe('nsc-runner-abc123example')
     expect(vm.runnerKind).toBe('namespace')
-    expect(vm.runnerInstance).toBe('psmnb4mkjm3mq')
+    expect(vm.runnerInstance).toBe('abc123example')
   })
 
   it('reports a job with no assigned runner as unknown, with no invented instance', () => {
@@ -139,13 +139,13 @@ describe('runner host join', () => {
   const job = toJobVM({ job: rawJob(), runHtmlUrl: RUN_HTML_URL, includeSteps: false })
 
   it('joins on the raw runner name reported by runner-scaler', () => {
-    expect(
-      resolveRunnerDisplay({ job, entries: [['dev3-6038ddf9', 'dev3.tail-scale.ts.net']] }),
-    ).toBe('dev3.tail-scale.ts.net')
+    expect(resolveRunnerDisplay({ job, entries: [['runnera-1234abcd', 'runner-a.example']] })).toBe(
+      'runner-a.example',
+    )
   })
 
   it('does not join on the abbreviated label', () => {
-    expect(resolveRunnerDisplay({ job, entries: [['dev3', 'wrong-host']] })).toBe('dev3')
+    expect(resolveRunnerDisplay({ job, entries: [['runnera', 'wrong.example']] })).toBe('runnera')
   })
 
   it('falls back to the display label when the runner is unknown', () => {
@@ -155,6 +155,8 @@ describe('runner host join', () => {
       includeSteps: false,
     })
 
-    expect(resolveRunnerDisplay({ job: queued, entries: [['dev3-6038ddf9', 'dev3']] })).toBe('—')
+    expect(resolveRunnerDisplay({ job: queued, entries: [['runnera-1234abcd', 'runner-a']] })).toBe(
+      '—',
+    )
   })
 })
