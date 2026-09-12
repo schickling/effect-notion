@@ -103,7 +103,7 @@ are separate outcomes and never rewrite it.
 
 The Deletion Ledger (ontology) is one machine-readable instance per
 composition root, next to the composition lock, rendered into every progress
-view ([decision 0030](./.decisions/0030-complexity-gate-and-authority-ledger.md)).
+view ([decision 0031](./.decisions/0031-complexity-gate-and-authority-ledger.md)).
 This node owns the contract; the instance and its check live in the
 composition root because rows name private repositories.
 

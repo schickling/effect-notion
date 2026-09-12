@@ -1,4 +1,4 @@
-# 0030 Complexity Gate and Authority Ledger
+# 0031 Complexity Gate and Authority Ledger
 
 Status: accepted
 

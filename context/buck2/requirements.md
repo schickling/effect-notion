@@ -93,7 +93,7 @@ invariants named in its own document:
   deletes it. The ledger is machine-readable: one row per operation per
   repository, held in the composition root (the megarepo that composes every
   consumer) and rendered — never hand-typed — into any progress view
-  ([decision 0030](./.decisions/0030-complexity-gate-and-authority-ledger.md)).
+  ([decision 0031](./.decisions/0031-complexity-gate-and-authority-ledger.md)).
   A subsystem with no dissolution condition is a design defect, not an
   exemption.
 - **BUCK-R10 FOD dissolution:** Admitted repository-local tools reach Nix
@@ -137,7 +137,7 @@ invariants named in its own document:
   change may be net positive when its row records the amortization rationale
   (which later deletion pays for it); the per-change signal is advisory, the
   per-close gate is not
-  ([decision 0030](./.decisions/0030-complexity-gate-and-authority-ledger.md)).
+  ([decision 0031](./.decisions/0031-complexity-gate-and-authority-ledger.md)).
   When BUCK-R15 conflicts with coverage (BUCK-R01) or the wall-clock budgets
   (BUCK-R07), BUCK-R15 wins: the others are constraints with tolerances.
 - **BUCK-R16 Benchmark evidence:** Efficiency claims are measured, never
