@@ -581,12 +581,14 @@ const bundleImportSpecifiers = (bundle: string): readonly string[] => {
  */
 const verifyExternalSurface = ({
   allowed,
+  bundle = '',
   declaredCapabilities,
   gatedManifest,
   specifiers,
   target,
 }: {
   readonly allowed: readonly string[]
+  readonly bundle?: string
   readonly declaredCapabilities: readonly string[]
   readonly gatedManifest: PlatformGatedManifest
   readonly specifiers: readonly string[]
@@ -608,15 +610,23 @@ const verifyExternalSurface = ({
     )
   }
   // The capability set for the gated families is EXACT, in both directions.
-  // A missing declaration breaks the product on the user's machine; a surplus
-  // one silently grants a native closure the product never reaches, and the
-  // next reader cannot tell which of the two a declaration is.
+  // Static imports name one package. Some dispatch packages instead construct
+  // a platform package name at runtime; the emitted family prefix is then the
+  // fail-closed evidence that the bundle can reach the native family.
   const derived = new Set<string>()
   const required = new Set<string>()
   for (const family of gatedManifest.families) {
     if (family.capability === null) continue
     derived.add(family.capability)
-    if (modules.some((name) => family.packages.includes(name)) === false) continue
+    const packagePrefix = `${family.family}-`
+    const hasDynamicFamilyReference =
+      family.packages.every((name) => name.startsWith(packagePrefix)) &&
+      bundle.includes(packagePrefix)
+    if (
+      modules.some((name) => family.packages.includes(name)) === false &&
+      hasDynamicFamilyReference === false
+    )
+      continue
     required.add(family.capability)
   }
   const declared = new Set(declaredCapabilities)
@@ -633,7 +643,7 @@ const verifyExternalSurface = ({
   for (const capability of [...declared].toSorted()) {
     if (derived.has(capability) === true && required.has(capability) === false) {
       fail(
-        `product declares the native external capability ${capability}, but no bare import in the bundle requires it; remove the declaration`,
+        `product declares the native external capability ${capability}, but no static or dynamic import evidence in the bundle requires it; remove the declaration`,
       )
     }
   }
@@ -1033,6 +1043,7 @@ const runBundle = async (command: PackageCommand): Promise<void> => {
   if (command.kind === 'cli') assertNoUnboundRequireMain(text)
   const surface = verifyExternalSurface({
     allowed: external,
+    bundle: text,
     declaredCapabilities: command.externalCapabilities,
     gatedManifest,
     specifiers: bundleImportSpecifiers(text),

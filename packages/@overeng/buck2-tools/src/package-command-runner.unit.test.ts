@@ -543,7 +543,21 @@ describe('the verified external surface', () => {
     ).toThrow('does not declare that external capability')
   })
 
-  it('rejects a declared native capability no bare import in the bundle requires', () => {
+  it('requires a capability when a bundle constructs a gated package name dynamically', () => {
+    expect(
+      verifyExternalSurface({
+        allowed: ['@opentui/core-linux-x64'],
+        bundle:
+          'const packageName = `@opentui/core-${target.platform}-${target.arch}`; await import(packageName)',
+        declaredCapabilities: ['opentui-core-native'],
+        gatedManifest,
+        specifiers: [],
+        target: 'node',
+      }),
+    ).toStrictEqual({ capabilities: ['opentui-core-native'], modules: [] })
+  })
+
+  it('rejects a declared native capability without static or dynamic import evidence', () => {
     expect(() =>
       verifyExternalSurface({
         allowed: ['@opentui/core-linux-x64', 'fsevents'],
