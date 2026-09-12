@@ -848,7 +848,7 @@ in
   ];
   tasks."test:notion-integration:notion-md".after = lib.mkForce [ "buck2:editor:publish" ];
   tasks."test:notion-integration:notion-react".after = lib.mkForce [ "buck2:editor:publish" ];
-  tasks."weaver:live-check".after = [ "buck2:editor:publish" ];
+  tasks."weaver:live-check".after = lib.mkForce [ "buck2:editor:publish" ];
   tasks."test:pty-effect:unbounded".env = {
     NODE_PTY_NATIVE_PACKAGE = "${nodePtyNative}/node_modules/node-pty";
     NODE_OPTIONS = "--import=${./. + "/packages/@overeng/pty-effect/test/node-pty-native-hook.ts"}";
