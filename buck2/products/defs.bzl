@@ -194,7 +194,6 @@ def npm_package_product(
         package_json = package_json,
         product_name = product_name,
         archive_name = archive_name,
-        default_target_platform = "//buck2/platforms:javascript_portable",
         **kwargs
     )
 
