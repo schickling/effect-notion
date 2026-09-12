@@ -28,22 +28,22 @@ internal `git reset --hard FETCH_HEAD` (recorded as friction).
 
 ## Result
 
-| Probe | Result |
-| --- | --- |
-| Build + cross-cell load/dep | succeeds; output `member-b-v1\nmember-a-v1` |
-| Leaf dir `repos/member_a` absent | builds; the parent `repos/` must exist (`read_dir` error otherwise) |
-| Storage | `consumer/buck-out/extcells-proto/external_cells/git/<commit>/`, no `.git` retained |
-| Fetch argv | `git init` → `git fetch file:///…/member_a.git <sha>` → `git reset --hard FETCH_HEAD` |
-| Source change (v1→v2) | action digest `5b44…` → `9b60…`, reruns (correct) |
-| Unrelated-file commit only | action digest `9b60…` → `c435…`, **reruns**; output digest unchanged (`7ac24f62`) |
-| `[cells]` path `repos/`→`mounts/`, same commit | digest identical `c435…`; no command ran after `clean` + rebuild |
-| Second consumer root | refetches both members (second init/fetch/reset sequence); 24 MiB `buck-out` each |
-| Offline (origins renamed, daemon killed) | builds; tracer shows zero new git calls |
-| Commit advance latency (warm, local origin) | 0.31–0.38 s wall including one rerun |
-| Absolute `[cells]` path outside the root | rejected (interpreted under the project root) |
-| Relative `..` symlink cell | rejected as unnormalized |
-| Absolute symlink cell | accepted; edit behind it → no rerun, stale output (content-blind, as COMP-R08 states) |
-| Watcher | `file_watcher = notify`, no watchman warning |
+| Probe                                          | Result                                                                                |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Build + cross-cell load/dep                    | succeeds; output `member-b-v1\nmember-a-v1`                                           |
+| Leaf dir `repos/member_a` absent               | builds; the parent `repos/` must exist (`read_dir` error otherwise)                   |
+| Storage                                        | `consumer/buck-out/extcells-proto/external_cells/git/<commit>/`, no `.git` retained   |
+| Fetch argv                                     | `git init` → `git fetch file:///…/member_a.git <sha>` → `git reset --hard FETCH_HEAD` |
+| Source change (v1→v2)                          | action digest `5b44…` → `9b60…`, reruns (correct)                                     |
+| Unrelated-file commit only                     | action digest `9b60…` → `c435…`, **reruns**; output digest unchanged (`7ac24f62`)     |
+| `[cells]` path `repos/`→`mounts/`, same commit | digest identical `c435…`; no command ran after `clean` + rebuild                      |
+| Second consumer root                           | refetches both members (second init/fetch/reset sequence); 24 MiB `buck-out` each     |
+| Offline (origins renamed, daemon killed)       | builds; tracer shows zero new git calls                                               |
+| Commit advance latency (warm, local origin)    | 0.31–0.38 s wall including one rerun                                                  |
+| Absolute `[cells]` path outside the root       | rejected (interpreted under the project root)                                         |
+| Relative `..` symlink cell                     | rejected as unnormalized                                                              |
+| Absolute symlink cell                          | accepted; edit behind it → no rerun, stale output (content-blind, as COMP-R08 states) |
+| Watcher                                        | `file_watcher = notify`, no watchman warning                                          |
 
 An on-disk control cell (`member_a_disk`) did not share the local action
 entry, but its name differs, so that comparison is not apples-to-apples; the

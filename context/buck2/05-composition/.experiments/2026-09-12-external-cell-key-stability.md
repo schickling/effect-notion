@@ -28,11 +28,11 @@ adds an unrelated file. Argv and outputs compared across variants.
 
 ## Result
 
-| Case | D (on-disk) | E (external) | Same? |
-| --- | --- | --- | --- |
-| `member_a//:out` at bb539116 | `723b2845…:142` | `e4d9e012…:141` | no (argv and output identical) |
-| `member_a//:hidden` at c | `c80cb008…:142` | `704e441e…:141` | no |
-| `hidden`, unrelated bump c→d | digest unchanged, 0 commands | `080ce414…:141`, 1 local rerun, argv/output unchanged | — |
+| Case                         | D (on-disk)                  | E (external)                                          | Same?                          |
+| ---------------------------- | ---------------------------- | ----------------------------------------------------- | ------------------------------ |
+| `member_a//:out` at bb539116 | `723b2845…:142`              | `e4d9e012…:141`                                       | no (argv and output identical) |
+| `member_a//:hidden` at c     | `c80cb008…:142`              | `704e441e…:141`                                       | no                             |
+| `hidden`, unrelated bump c→d | digest unchanged, 0 commands | `080ce414…:141`, 1 local rerun, argv/output unchanged | —                              |
 
 Source path as seen by Buck: `buck2 audit` reports the virtual `repos/member_a`;
 `what-ran` shows `././input.txt`; resolving the action input yields the physical

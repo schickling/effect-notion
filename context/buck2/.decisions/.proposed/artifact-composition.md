@@ -65,13 +65,13 @@ establish what the composition machinery costs and who uses it:
 
 ## Options
 
-| Option                                                          | Tradeoff                                                                                                                         | Outcome  |
-| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| Cells for source deps (decision 0014/0020, status quo)          | Action-level reuse and source-granular invalidation across repos; pays L3 + the 0020 shape on every Buck-admitted consumer         | Reopened |
-| Git external cells as mounts                                    | Rejected in decision 0030                                                                                                        | Rejected |
-| Artifacts for effect-utils library edges; cells paused (this)   | Deletes the need for cross-repo cells; adds a publish layout + durable origin; keeps mounts for fork co-dev and generator sources | Proposed |
-| All edges as artifacts                                          | Needs per-commit fork-branch snapshots and a registry disposition nobody consumes; ruled out                                     | Rejected |
-| Thinner L3 implementation, same contract (decision-0020 projector) | Keeps criterion 6; unmeasured savings; the shape and its migration remain                                                      | Fallback |
+| Option                                                             | Tradeoff                                                                                                                          | Outcome  |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Cells for source deps (decision 0014/0020, status quo)             | Action-level reuse and source-granular invalidation across repos; pays L3 + the 0020 shape on every Buck-admitted consumer        | Reopened |
+| Git external cells as mounts                                       | Rejected in decision 0030                                                                                                         | Rejected |
+| Artifacts for effect-utils library edges; cells paused (this)      | Deletes the need for cross-repo cells; adds a publish layout + durable origin; keeps mounts for fork co-dev and generator sources | Proposed |
+| All edges as artifacts                                             | Needs per-commit fork-branch snapshots and a registry disposition nobody consumes; ruled out                                      | Rejected |
+| Thinner L3 implementation, same contract (decision-0020 projector) | Keeps criterion 6; unmeasured savings; the shape and its migration remain                                                         | Fallback |
 
 ## Proposed Decision
 
@@ -130,15 +130,15 @@ establish what the composition machinery costs and who uses it:
 
 ## Cost Ledger (BUCK-R15 inputs; document-grounded unless marked measured)
 
-| Item | Exists today | Missing |
-| --- | --- | --- |
-| Tarball transport + pin + drift refusal | pnpm URL deps + integrity; CAS HTTP (measured) | — |
-| Dist layout per package | 12/35 packages `types → dist`; `publishConfig` names shapes nothing builds | tested pack contract for 35 packages; 23 src-only packages need a dist |
-| Durable origin | buck2-products publisher for CLIs (GitHub Releases) | library-module extension; retention policy |
-| Consumer fetch under Buck2 | decision-0022 closure for registry entries | custom tarball URL entries (spike) |
-| Consumer type shims | per-consumer `tsconfig` `paths` into sources | deleted per migrated package |
-| Repin step | `mr` lock-sync ↔ `flake.lock` (proven in dotfiles) | source commit ↔ artifact hash mapping in the consumer lockfile |
-| L3 deletion | — | none now (paused, not retired) |
+| Item                                    | Exists today                                                               | Missing                                                                |
+| --------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Tarball transport + pin + drift refusal | pnpm URL deps + integrity; CAS HTTP (measured)                             | —                                                                      |
+| Dist layout per package                 | 12/35 packages `types → dist`; `publishConfig` names shapes nothing builds | tested pack contract for 35 packages; 23 src-only packages need a dist |
+| Durable origin                          | buck2-products publisher for CLIs (GitHub Releases)                        | library-module extension; retention policy                             |
+| Consumer fetch under Buck2              | decision-0022 closure for registry entries                                 | custom tarball URL entries (spike)                                     |
+| Consumer type shims                     | per-consumer `tsconfig` `paths` into sources                               | deleted per migrated package                                           |
+| Repin step                              | `mr` lock-sync ↔ `flake.lock` (proven in dotfiles)                         | source commit ↔ artifact hash mapping in the consumer lockfile         |
+| L3 deletion                             | —                                                                          | none now (paused, not retired)                                         |
 
 ## Falsification Spikes (before acceptance)
 

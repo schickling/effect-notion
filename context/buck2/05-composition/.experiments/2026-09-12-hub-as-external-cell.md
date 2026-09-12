@@ -35,7 +35,7 @@ effect_utils//packages/@overeng/tui-core:typecheck`. Remote cache disabled
   `File not found: effect_utils//.buck2/capabilities/defs.bzl`, from
   `buck2/toolchains/BUCK:1`. The complete set of generated-path references in
   the hub: `buck2/toolchains/BUCK:1` (`load("//.buck2/capabilities:defs.bzl",
-  "CAPABILITIES", "GENERATION")`), `buck2/toolchains/configured.bzl:5` (same
+"CAPABILITIES", "GENERATION")`), `buck2/toolchains/configured.bzl:5` (same
   load) and `configured.bzl:59` (label
   `//.buck2/capabilities/generations/{generation}/{platform}/{tool_id}`).
   `buck2/platforms` and the root `buck2/*.bzl` files contain none.

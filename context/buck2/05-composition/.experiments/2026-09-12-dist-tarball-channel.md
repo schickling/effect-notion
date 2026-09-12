@@ -32,17 +32,17 @@ empty store.
 
 ## Result
 
-| Measurement | Value |
-| --- | --- |
-| Tarball | 28,100 bytes; sha256 `c0dd8266…4875824`; integrity `sha512-T3t6…HNog==` |
-| CAS PUT / GET | 200 in 0.57 s / 200 in 1 ms; bytes identical (`cmp` exit 0) |
-| Lockfile | `resolution: {integrity: sha512-…, tarball: http://dev3:41046/cas/c0dd…}` recorded by pnpm |
-| Typecheck | `tsgo --noEmit` exit 0; resolution trace matched the `types` export → installed `dist/src/mod.d.ts` |
-| Cold install (empty store) | 1.75 s wall (9 downloaded, 1 reused) |
-| Warm rematerialization | 0.13 s wall (10 reused, 0 downloaded) |
-| `node_modules` | 55 MiB allocated / 50.3 MB apparent (dominated by `effect`) |
-| Drift | frozen install exit 1, `ERR_PNPM_TARBALL_INTEGRITY` naming wanted vs actual digest |
-| CAS state | `CurrSize` 3.44 GB of 500 GiB; LRU, not durable |
+| Measurement                | Value                                                                                               |
+| -------------------------- | --------------------------------------------------------------------------------------------------- |
+| Tarball                    | 28,100 bytes; sha256 `c0dd8266…4875824`; integrity `sha512-T3t6…HNog==`                             |
+| CAS PUT / GET              | 200 in 0.57 s / 200 in 1 ms; bytes identical (`cmp` exit 0)                                         |
+| Lockfile                   | `resolution: {integrity: sha512-…, tarball: http://dev3:41046/cas/c0dd…}` recorded by pnpm          |
+| Typecheck                  | `tsgo --noEmit` exit 0; resolution trace matched the `types` export → installed `dist/src/mod.d.ts` |
+| Cold install (empty store) | 1.75 s wall (9 downloaded, 1 reused)                                                                |
+| Warm rematerialization     | 0.13 s wall (10 reused, 0 downloaded)                                                               |
+| `node_modules`             | 55 MiB allocated / 50.3 MB apparent (dominated by `effect`)                                         |
+| Drift                      | frozen install exit 1, `ERR_PNPM_TARBALL_INTEGRITY` naming wanted vs actual digest                  |
+| CAS state                  | `CurrSize` 3.44 GB of 500 GiB; LRU, not durable                                                     |
 
 ## Conclusion
 

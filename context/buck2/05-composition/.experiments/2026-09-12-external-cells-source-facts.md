@@ -38,7 +38,7 @@ Source read of the pinned tag: `app/buck2_common/src/legacy_configs/cells.rs`
   (`buck_out_path.rs:253-358`, `artifact_path_resolver.rs:64-83`). The path
   string still matters for tree-file handling and `expand-external-cell`.
 - Fetch (`git.rs:121-170`): `git init [--object-format]`, `git fetch <origin>
-  <commit_hash>`, `git reset --hard FETCH_HEAD`, then `.git` is deleted
+<commit_hash>`, `git reset --hard FETCH_HEAD`, then `.git` is deleted
   (`git.rs:200-208`). Git is a PATH subprocess (`background_command("git")`),
   not libgit2 and not a Buck action. No `--depth`, `--filter`, sparse checkout,
   or submodule handling. The checkout is per project root and isolation dir;

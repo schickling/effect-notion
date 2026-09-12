@@ -46,16 +46,16 @@ of effect-utils from the local bare store exceeded 120 s.
 
 ## Options
 
-| Option                                                       | Tradeoff                                                                                      | Outcome  |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- | -------- |
-| Keep cp -a mounts (decision 0020) for any cross-repo cell    | Content-real, key-stable, shared store; mr owns the mount pipeline                            | Accepted |
-| Git external cells as member mounts                          | Commit-keyed physical paths split the cache namespace; no store; no projection channel        | Rejected |
-| External cells for the hub's rules/platforms only            | Viable only after the capability projection moves to a root-owned cell; no action inputs read | Deferred |
+| Option                                                    | Tradeoff                                                                                      | Outcome  |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------- |
+| Keep cp -a mounts (decision 0020) for any cross-repo cell | Content-real, key-stable, shared store; mr owns the mount pipeline                            | Accepted |
+| Git external cells as member mounts                       | Commit-keyed physical paths split the cache namespace; no store; no projection channel        | Rejected |
+| External cells for the hub's rules/platforms only         | Viable only after the capability projection moves to a root-owned cell; no action inputs read | Deferred |
 
 ## Decision
 
 Git external cells are not admitted as a member-mount mechanism under
-05-composition. Where a composition needs another repository's *sources* as
+05-composition. Where a composition needs another repository's _sources_ as
 action inputs, the mount is an on-disk content-real directory (COMP-R08/R10)
 and mr materializes it. External cells remain admissible in Buck2's designed
 role — the bundled prelude and immutable third-party inputs that no action
@@ -71,7 +71,7 @@ rules-distribution role.
 ## Consequences
 
 - No change to COMP-R08/R10, decision 0020, or mr's mount pipeline from this
-  decision alone. What changes the mount pipeline's *scope* is the separate
+  decision alone. What changes the mount pipeline's _scope_ is the separate
   proposal [.proposed/artifact-composition.md](./.proposed/artifact-composition.md),
   which asks whether Buck2 should compose cells across repositories at all.
 - The root-owned capability cell is recorded as an open question in
