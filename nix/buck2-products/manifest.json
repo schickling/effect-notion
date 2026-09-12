@@ -180,7 +180,16 @@
         "externalCapabilities": [
           "opentui-core-native"
         ],
-        "externalModules": [],
+        "externalModules": [
+          "@opentui/core-darwin-arm64",
+          "@opentui/core-darwin-x64",
+          "@opentui/core-linux-arm64",
+          "@opentui/core-linux-arm64-musl",
+          "@opentui/core-linux-x64",
+          "@opentui/core-linux-x64-musl",
+          "@opentui/core-win32-arm64",
+          "@opentui/core-win32-x64"
+        ],
         "integrity": "sha256-3wgnUdxiucnd0EUcdlz/aA0OQFof+npBlCT2cVQUt1Q=",
         "modulePath": "notion-db.js",
         "platform": {
@@ -202,7 +211,7 @@
         "sizeBytes": 6560459,
         "target": "effect_utils//packages/@overeng/notion-cli:notion-db-candidate"
       },
-      "descriptorSha256": "d01154f0f90af7cd883667f800d9ab06902ba44c787a23a30f12dacd4161ce4f",
+      "descriptorSha256": "bcafb7d0274ea251c243ad83eab378373faee995217e8ad6d62f1f58130bacde",
       "release": {
         "hash": "sha256-3wgnUdxiucnd0EUcdlz/aA0OQFof+npBlCT2cVQUt1Q=",
         "name": "df082751dc62b9c9ddd0451c765cff680d0e405a1ffa7a419424f6715414b754-notion-db.js",
