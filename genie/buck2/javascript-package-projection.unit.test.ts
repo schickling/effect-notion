@@ -31,3 +31,44 @@ describe('buck2/javascript.bzl test cache participation', () => {
     )
   })
 })
+
+describe('portable JavaScript product cache policy', () => {
+  const packageTools = readFileSync('buck2/package_tools.bzl', 'utf8')
+  const productRules = readFileSync('buck2/products/defs.bzl', 'utf8')
+
+  it('admits deterministic local product actions for shared-cache upload and reuse', () => {
+    expect(packageTools).toContain(`category = "package_bin_artifact",
+        local_only = True,
+        allow_cache_upload = True,`)
+    expect(productRules).toContain(`category = "javascript_product_descriptor",
+        local_only = True,
+        allow_cache_upload = True,`)
+    expect(packageTools).toContain(
+      'default_target_platform = "//buck2/platforms:javascript_portable",',
+    )
+  })
+
+  it('keeps every result-affecting tool and product artifact in the action command line', () => {
+    expect(packageTools).toContain(`toolchain.executable,
+        _runner(ctx),
+        "bundle",
+        toolchain.executable,
+        package_tree.tree,`)
+    expect(packageTools).toContain('"--platform-gated-manifest",')
+    expect(packageTools).toContain('gated.manifest,')
+    expect(packageTools).toContain('args.add(cmd_args(hidden = package_tree.read_roots))')
+    expect(productRules).toContain(`toolchain.executable,
+        _runner(ctx),
+        "product-descriptor",`)
+    expect(productRules).toContain(`"--module-descriptor",
+        module.descriptor,`)
+  })
+
+  it('retains the non-product package check and build cache exceptions', () => {
+    for (const category of ['package_bin_check', 'package_bin_build']) {
+      expect(packageTools).toContain(`category = "${category}",
+        local_only = True,
+        allow_cache_upload = False,`)
+    }
+  })
+})

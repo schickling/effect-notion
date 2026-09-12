@@ -264,7 +264,7 @@ def _package_bundle_impl(ctx):
         args,
         category = "package_bin_artifact",
         local_only = True,
-        allow_cache_upload = False,
+        allow_cache_upload = True,
     )
     return [
         DefaultInfo(

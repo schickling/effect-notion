@@ -57,7 +57,7 @@ def _javascript_product_impl(ctx):
         args,
         category = "javascript_product_descriptor",
         local_only = True,
-        allow_cache_upload = False,
+        allow_cache_upload = True,
     )
     return [
         DefaultInfo(
