@@ -12,6 +12,7 @@ import { copyFile, mkdir, writeFile } from 'node:fs/promises'
 import { builtinModules } from 'node:module'
 import { tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { gzipSync } from 'node:zlib'
 
 import type { BunPlugin } from 'bun'
 
@@ -31,6 +32,8 @@ export {
   bundleImportSpecifiers,
   createEntryOverridePlugin,
   normalizePortableCommonJsGlobals,
+  packDistPackage,
+  parseDistPackageCommand,
   parseProductDescriptorCommand,
   planPackageLaunch,
   projectProductDescriptor,
@@ -911,6 +914,234 @@ const projectProductDescriptor = ({
   }
 }
 
+/** One deterministic npm package archive projection. */
+export type DistPackageCommand = {
+  readonly descriptor: string
+  readonly dist: string
+  readonly output: string
+  readonly packageJson: string
+  readonly productName: string
+  readonly targetIdentity: string
+}
+
+/** Parses the dist-package projection command emitted by `buck2/products.bzl`. */
+const parseDistPackageCommand = (argv: readonly string[]): DistPackageCommand => {
+  const values: Record<string, string> = {}
+  for (let index = 0; index < argv.length; index += 2) {
+    const flag = argv[index] ?? fail('missing dist-package argument')
+    const value = argv[index + 1] ?? fail(`missing value for ${flag}`)
+    if (
+      flag !== '--descriptor' &&
+      flag !== '--dist' &&
+      flag !== '--output' &&
+      flag !== '--package-json' &&
+      flag !== '--product-name' &&
+      flag !== '--target-identity'
+    ) {
+      fail(`unknown argument: ${flag}`)
+    }
+    values[flag] = value
+  }
+  return {
+    descriptor: values['--descriptor'] ?? fail('dist-package descriptor output is missing'),
+    dist: values['--dist'] ?? fail('dist-package dist input is missing'),
+    output: values['--output'] ?? fail('dist-package archive output is missing'),
+    packageJson: values['--package-json'] ?? fail('dist-package package.json input is missing'),
+    productName: values['--product-name'] ?? fail('dist-package product name is missing'),
+    targetIdentity: values['--target-identity'] ?? fail('dist-package target identity is missing'),
+  }
+}
+
+const writeTarString = ({
+  header,
+  length,
+  offset,
+  value,
+}: {
+  readonly header: Uint8Array
+  readonly length: number
+  readonly offset: number
+  readonly value: string
+}): void => {
+  const bytes = new TextEncoder().encode(value)
+  if (bytes.byteLength > length) fail(`tar field exceeds ${length} bytes: ${value}`)
+  header.set(bytes, offset)
+}
+
+const writeTarOctal = ({
+  header,
+  length,
+  offset,
+  value,
+}: {
+  readonly header: Uint8Array
+  readonly length: number
+  readonly offset: number
+  readonly value: number
+}): void => {
+  const text = value.toString(8).padStart(length - 1, '0')
+  if (text.length !== length - 1) fail(`tar numeric field exceeds ${length} bytes: ${value}`)
+  writeTarString({ header, length: length - 1, offset, value: text })
+}
+
+const tarEntry = ({
+  bytes,
+  path,
+}: {
+  readonly bytes: Uint8Array
+  readonly path: string
+}): Uint8Array => {
+  const header = new Uint8Array(512)
+  writeTarString({ header, length: 100, offset: 0, value: path })
+  writeTarOctal({ header, length: 8, offset: 100, value: 0o644 })
+  writeTarOctal({ header, length: 8, offset: 108, value: 0 })
+  writeTarOctal({ header, length: 8, offset: 116, value: 0 })
+  writeTarOctal({ header, length: 12, offset: 124, value: bytes.byteLength })
+  writeTarOctal({ header, length: 12, offset: 136, value: 0 })
+  header.fill(0x20, 148, 156)
+  header[156] = 0x30
+  writeTarString({ header, length: 6, offset: 257, value: 'ustar' })
+  writeTarString({ header, length: 2, offset: 263, value: '00' })
+  writeTarString({ header, length: 32, offset: 265, value: 'root' })
+  writeTarString({ header, length: 32, offset: 297, value: 'root' })
+  const checksum = header.reduce((sum, byte) => sum + byte, 0)
+  writeTarString({
+    header,
+    length: 8,
+    offset: 148,
+    value: `${checksum.toString(8).padStart(6, '0')}\0 `,
+  })
+  const padding = (512 - (bytes.byteLength % 512)) % 512
+  const entry = new Uint8Array(header.byteLength + bytes.byteLength + padding)
+  entry.set(header)
+  entry.set(bytes, header.byteLength)
+  return entry
+}
+
+const collectDistEntries = ({
+  directory,
+  prefix,
+}: {
+  readonly directory: string
+  readonly prefix: string
+}): readonly { readonly bytes: Uint8Array; readonly path: string }[] =>
+  readdirSync(directory)
+    .toSorted()
+    .flatMap((name) => {
+      const source = join(directory, name)
+      const relativePath = `${prefix}/${name}`
+      const stat = lstatSync(source)
+      if (stat.isSymbolicLink() === true) fail(`dist package contains a symlink: ${relativePath}`)
+      if (stat.isDirectory() === true)
+        return collectDistEntries({ directory: source, prefix: relativePath })
+      if (stat.isFile() === false)
+        fail(`dist package contains an unsupported entry: ${relativePath}`)
+      return [{ bytes: readFileSync(source), path: `package/${relativePath}` }]
+    })
+
+const projectDistExportTargets = ({
+  dist,
+  value,
+}: {
+  readonly dist: string
+  readonly value: unknown
+}): unknown => {
+  if (typeof value === 'string') {
+    if (value.startsWith('./dist/') === false) {
+      fail(`published export does not point into dist: ${value}`)
+    }
+    const relativeTarget = value.slice('./dist/'.length)
+    const directTarget = resolve(dist, relativeTarget)
+    if (lstatSync(directTarget, { throwIfNoEntry: false })?.isFile() === true) return value
+    const emittedTarget = resolve(dist, 'src', relativeTarget)
+    if (lstatSync(emittedTarget, { throwIfNoEntry: false })?.isFile() === true) {
+      return `./dist/src/${relativeTarget}`
+    }
+    fail(`published export has no dist file: ${value}`)
+  }
+  if (value === null || typeof value !== 'object' || Array.isArray(value) === true) {
+    fail('publishConfig.exports must contain only strings and condition objects')
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([condition, target]) => [
+      condition,
+      projectDistExportTargets({ dist, value: target }),
+    ]),
+  )
+}
+
+/** Packs a TypeScript dist tree and its publication manifest as a deterministic npm tarball. */
+const packDistPackage = async (command: DistPackageCommand): Promise<void> => {
+  const packageJson = JSON.parse(readFileSync(resolve(command.packageJson), 'utf8')) as Record<
+    string,
+    unknown
+  >
+  if (packageJson['name'] !== command.productName) {
+    fail(
+      `package manifest name ${String(packageJson['name'])} does not match ${command.productName}`,
+    )
+  }
+  const publishConfig = packageJson['publishConfig']
+  if (
+    publishConfig === null ||
+    typeof publishConfig !== 'object' ||
+    Array.isArray(publishConfig) === true
+  ) {
+    fail('package manifest has no publishConfig object')
+  }
+  const exports = projectDistExportTargets({
+    dist: resolve(command.dist),
+    value: (publishConfig as Record<string, unknown>)['exports'],
+  })
+  const publishedManifest = { ...packageJson, exports, private: false }
+  const manifestBytes = new TextEncoder().encode(
+    `${JSON.stringify(publishedManifest, undefined, 2)}\n`,
+  )
+  const entries = [
+    { bytes: manifestBytes, path: 'package/package.json' },
+    ...collectDistEntries({ directory: resolve(command.dist), prefix: 'dist' }),
+  ].toSorted((left, right) => left.path.localeCompare(right.path))
+  const tarSize = entries.reduce((size, entry) => size + tarEntry(entry).byteLength, 1024)
+  const tar = new Uint8Array(tarSize)
+  let offset = 0
+  for (const entry of entries) {
+    const bytes = tarEntry(entry)
+    tar.set(bytes, offset)
+    offset += bytes.byteLength
+  }
+  const archive = gzipSync(tar, { level: 9 })
+  await mkdir(dirname(resolve(command.output)), { recursive: true })
+  await writeFile(resolve(command.output), archive)
+  const digest = new Bun.CryptoHasher('sha256').update(archive).digest('base64')
+  await writeFile(
+    resolve(command.descriptor),
+    `${JSON.stringify(
+      {
+        schema: 'effect-utils/npm-package-product/v1',
+        productName: command.productName,
+        productKind: 'package',
+        runtimeKind: 'node',
+        runtimeContract: 'npm-package',
+        runtimeContractVersion: 'v1',
+        platform: PORTABLE_PRODUCT_PLATFORM,
+        modulePath: basename(command.output),
+        integrity: `sha256-${digest}`,
+        sizeBytes: archive.byteLength,
+        target: command.targetIdentity,
+        externalCapabilities: [],
+        externalModules: [],
+        provenance: {
+          configuredTarget: command.targetIdentity,
+          dependencyClosureIdentity: `dist=${command.targetIdentity}`,
+          module: command.targetIdentity,
+        },
+      },
+      undefined,
+      2,
+    )}\n`,
+  )
+}
+
 /** One non-bundle launch's process shape: what to run, where, and what it writes. */
 export type PackageLaunchPlan = {
   /** The child's argv, every path already absolute. */
@@ -1101,7 +1332,9 @@ if (import.meta.main) {
   const main =
     argv[0] === 'product-descriptor'
       ? runProductDescriptor(parseProductDescriptorCommand(argv.slice(1)))
-      : run(parsePackageCommand(argv))
+      : argv[0] === 'dist-package'
+        ? packDistPackage(parseDistPackageCommand(argv.slice(1)))
+        : run(parsePackageCommand(argv))
   main.catch((error: unknown) => {
     console.error(error instanceof Error ? (error.stack ?? error.message) : String(error))
     process.exitCode = 1

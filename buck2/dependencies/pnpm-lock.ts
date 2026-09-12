@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { defineRepoContext } from '../../packages/@overeng/genie/src/runtime/repo-context/mod.ts'
 import { buck2SemanticFingerprint } from '../../genie/buck2/mod.ts'
+import { defineRepoContext } from '../../packages/@overeng/genie/src/runtime/repo-context/mod.ts'
 
 const repo = defineRepoContext({ name: 'effect-utils', importMetaUrl: import.meta.url })
 
@@ -547,11 +547,18 @@ export const translatePnpmLock = ({
     }
     rejectUnknownFields({
       record: resolution,
-      allowed: ['integrity'],
+      allowed: ['integrity', 'tarball'],
       location: `${location}.resolution`,
     })
     const integrity = stringField({ record: resolution, field: 'integrity', location: location })
     integrityBytes({ integrity: integrity, location: `${location}.resolution.integrity` })
+    const tarball =
+      resolution.tarball === undefined
+        ? archiveUrl({ name, version })
+        : stringField({ record: resolution, field: 'tarball', location: location })
+    if (tarball.startsWith('https://') === false) {
+      return fail(`${location}.resolution.tarball must use https:`)
+    }
     const patch = workspacePatches[`${name}@${version}`]
     packages[key] = {
       cpu,
@@ -563,7 +570,7 @@ export const translatePnpmLock = ({
       ...(patch === undefined ? {} : { patch }),
       resolution: 'registry',
       target: pnpmTargetName({ prefix: 'package', identity: key }),
-      url: archiveUrl({ name, version }),
+      url: tarball,
       version,
     }
   }

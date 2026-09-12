@@ -1,6 +1,6 @@
 # Composition Open Questions
 
-## Open 2026-09-12: is cross-repository cell composition worth its shape?
+## Open 2026-09-12: should cross-repository reuse use cells or artifacts?
 
 Composed cells exist for vision criterion 6 (a consumer builds producer
 targets from the shared cache with source-granular invalidation). The cost is
@@ -9,10 +9,11 @@ by attribution), paid today by effect-utils alone: no repository authors an
 `effect_utils//` label and Phase 6 has not started. The only Buck2-native
 alternative, git external cells, is rejected
 ([decision 0030](../.decisions/0030-external-cells-are-not-a-composition-mechanism.md)).
-[.proposed/artifact-composition.md](../.decisions/.proposed/artifact-composition.md)
-proposes artifact-granular reuse for the effect-utils library edges and pauses
-composed-by-default; it lists the VRS edits and falsification spikes. Blocked
-on: Johannes' decision on criterion 6, and spikes 1–2 of the proposal.
+The artifact-composition spikes are recorded in
+[2026-09-13-artifact-composition-spikes](./.experiments/2026-09-13-artifact-composition-spikes.md).
+They establish the mechanism and its remaining gaps without choosing between
+artifact-granular reuse and composed cells. Blocked on: Johannes' decision on
+criterion 6 and the durable package-product publication contract.
 
 ## Open 2026-09-12: root-owned capability cell
 

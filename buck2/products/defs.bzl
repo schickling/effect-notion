@@ -4,6 +4,7 @@ load("//buck2/package_tools.bzl", "JavaScriptModuleInfo")
 load("//buck2/platforms:defs.bzl", "ProductPlatformInfo", "native_execution_constraints")
 load("//buck2/provenance:defs.bzl", "ProductExecutableInfo")
 load("//buck2/toolchains:defs.bzl", "BunToolchainInfo")
+load("//buck2/typescript.bzl", "TsgoEmitInfo")
 
 BuildProductInfo = provider(fields = {
     "descriptor": Artifact,
@@ -21,6 +22,21 @@ def _validate_product_name(value):
     for character in value.elems():
         if character not in allowed:
             fail("javascript_product product_name contains an unsupported character: {}".format(character))
+
+def _validate_npm_package_name(value):
+    if not value:
+        fail("npm_package_product product_name must not be empty")
+    parts = value.split("/")
+    if value.startswith("@"):
+        if len(parts) != 2 or len(parts[0]) == 1 or not parts[1]:
+            fail("npm_package_product scoped product_name must be @scope/name")
+    elif len(parts) != 1:
+        fail("npm_package_product product_name must be an npm package name")
+    allowed = "abcdefghijklmnopqrstuvwxyz0123456789-._~@/"
+    for character in value.elems():
+        if character not in allowed:
+            fail("npm_package_product product_name contains an unsupported character: {}".format(character))
+
 
 def _runner(ctx):
     return cmd_args(
@@ -102,6 +118,82 @@ def javascript_product(
         product_name = product_name,
         product_kind = product_kind,
         default_target_platform = "//buck2/platforms:javascript_portable",
+        **kwargs
+    )
+
+def _npm_package_product_impl(ctx):
+    _validate_npm_package_name(ctx.attrs.product_name)
+    dist = ctx.attrs.dist[TsgoEmitInfo]
+    payload = ctx.actions.declare_output(ctx.attrs.archive_name)
+    descriptor = ctx.actions.declare_output("descriptor.json")
+    toolchain = ctx.attrs._bun[BunToolchainInfo]
+    ctx.actions.run(
+        cmd_args([
+            toolchain.executable,
+            _runner(ctx),
+            "dist-package",
+            "--descriptor",
+            descriptor.as_output(),
+            "--dist",
+            dist.directory,
+            "--output",
+            payload.as_output(),
+            "--package-json",
+            ctx.attrs.package_json,
+            "--product-name",
+            ctx.attrs.product_name,
+            "--target-identity",
+            str(ctx.label.raw_target()),
+        ]),
+        category = "npm_package_product",
+        local_only = True,
+        allow_cache_upload = True,
+    )
+    return [
+        DefaultInfo(
+            default_output = payload,
+            other_outputs = [descriptor],
+            sub_targets = {
+                "descriptor": [DefaultInfo(default_output = descriptor)],
+            },
+        ),
+        BuildProductInfo(descriptor = descriptor, payload = payload),
+    ]
+
+
+_npm_package_product = rule(
+    impl = _npm_package_product_impl,
+    attrs = {
+        "archive_name": attrs.string(),
+        "dist": attrs.dep(providers = [TsgoEmitInfo]),
+        "package_json": attrs.source(),
+        "product_name": attrs.string(),
+        "_bun": attrs.default_only(attrs.exec_dep(
+            default = "//buck2/toolchains:bun",
+            providers = [BunToolchainInfo],
+        )),
+        "_runner": attrs.default_only(attrs.dep(
+            default = "//:package_command_runtime",
+            providers = [DefaultInfo],
+        )),
+    },
+)
+
+
+def npm_package_product(
+        name,
+        dist,
+        package_json,
+        product_name,
+        archive_name,
+        **kwargs):
+    """Packages one TypeScript dist tree as a deterministic npm tarball."""
+    _npm_package_product(
+        name = name,
+        dist = dist,
+        package_json = package_json,
+        product_name = product_name,
+        archive_name = archive_name,
         **kwargs
     )
 

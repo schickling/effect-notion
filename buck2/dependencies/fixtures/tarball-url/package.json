@@ -1,0 +1,7 @@
+{
+  "name": "buck2-url-tarball-fixture",
+  "private": true,
+  "dependencies": {
+    "is-number": "https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz"
+  }
+}

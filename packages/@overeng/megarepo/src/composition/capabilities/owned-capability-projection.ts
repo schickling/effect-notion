@@ -185,21 +185,25 @@ const runExact = async ({
   await execFile(executable, [...args], { maxBuffer: 1024 * 1024 })
 }
 
-/** Mutation-free description of the owned capability projection boundary. */
+/** Mutation-free description of the root-owned capability projection boundary. */
 export const planOwnedCapabilityProjection = async ({
   memberKey,
   ownedMemberPath,
+  workspaceRoot,
   projectionPath,
 }: {
   readonly memberKey: string
   readonly ownedMemberPath: string
+  readonly workspaceRoot: string
   readonly projectionPath: string
 }): Promise<CompositionOwnedCapabilityProjectionPlan> => {
   normalizedAbsolute({ value: ownedMemberPath, name: 'ownedMemberPath' })
+  normalizedAbsolute({ value: workspaceRoot, name: 'workspaceRoot' })
   normalizedAbsolute({ value: projectionPath, name: 'projectionPath' })
   return {
     memberKey,
     ownedMemberPath,
+    workspaceRoot,
     projectionPath,
     operation: 'InstallOwnedCapabilityProjection',
     steps: ['ValidateOwnedMember', 'InstallProjectionAtomically', 'CheckProjection'],
@@ -207,23 +211,26 @@ export const planOwnedCapabilityProjection = async ({
 }
 
 /**
- * Copy a checked scratch projection into the writable member and publish it with one atomic
+ * Copy a checked scratch projection into the composition root and publish it with one atomic
  * directory exchange. Existing equal projections are left untouched.
  */
 export const installOwnedCapabilityProjection = async ({
   memberKey,
   ownedMemberPath: rawOwnedMemberPath,
+  workspaceRoot: rawWorkspaceRoot,
   projectionPath: rawProjectionPath,
   projectionDigest,
   runtime,
 }: {
   readonly memberKey: string
   readonly ownedMemberPath: string
+  readonly workspaceRoot: string
   readonly projectionPath: string
   readonly projectionDigest: string
   readonly runtime: OwnedCapabilityProjectionRuntime
 }): Promise<CompositionOwnedCapabilityProjectionResult> => {
   const ownedMemberPath = normalizedAbsolute({ value: rawOwnedMemberPath, name: 'ownedMemberPath' })
+  const workspaceRoot = normalizedAbsolute({ value: rawWorkspaceRoot, name: 'workspaceRoot' })
   const projectionPath = normalizedAbsolute({ value: rawProjectionPath, name: 'projectionPath' })
   normalizedAbsolute({ value: runtime.cpPath, name: 'cpPath' })
   normalizedAbsolute({ value: runtime.mvPath, name: 'mvPath' })
@@ -255,7 +262,7 @@ export const installOwnedCapabilityProjection = async ({
     })
   }
 
-  const capabilityParent = NodePath.join(ownedMemberPath, '.buck2')
+  const capabilityParent = NodePath.join(workspaceRoot, '.buck2')
   const destination = NodePath.join(capabilityParent, 'capabilities')
   let capabilityParentIdentity: DirectoryIdentity
   try {
@@ -266,13 +273,13 @@ export const installOwnedCapabilityProjection = async ({
     }
     capabilityParentIdentity = await captureContainedDirectory({
       path: capabilityParent,
-      parent: physicalOwned,
+      parent: await assertDirectory({ path: workspaceRoot }),
     })
   } catch (cause) {
     throw failure({
       reason: 'VerificationFailed',
       path: capabilityParent,
-      message: 'Owned .buck2 parent must be a real contained directory',
+      message: 'Root .buck2 parent must be a real contained directory',
       cause,
     })
   }

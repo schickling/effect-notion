@@ -1,0 +1,17 @@
+lockfileVersion: '9.0'
+
+importers:
+  .:
+    dependencies:
+      is-number:
+        specifier: https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz
+        version: https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz
+
+packages:
+  is-number@https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz:
+    resolution:
+      integrity: sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==
+      tarball: https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz
+
+snapshots:
+  is-number@https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz: {}

@@ -1,0 +1,21 @@
+load("//buck2/dependencies:defs.bzl", "pnpm_package")
+
+# This target pins the lock fixture's non-registry tarball URL as a declared Buck input.
+pnpm_package(
+    name = "is_number",
+    package_name = "is-number",
+    url = "https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz",
+    sha256 = "7b75c1057198cf97696909a9bee176c9c5e9bcb5b03bf3ecef2f484defadd51e",
+    bins = {},
+    visibility = ["PUBLIC"],
+)
+
+# A one-byte expected-integrity drift must be rejected by Buck's downloader.
+pnpm_package(
+    name = "is_number_one_byte_drift",
+    package_name = "is-number",
+    url = "https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz",
+    sha256 = "6b75c1057198cf97696909a9bee176c9c5e9bcb5b03bf3ecef2f484defadd51e",
+    bins = {},
+    visibility = ["PUBLIC"],
+)

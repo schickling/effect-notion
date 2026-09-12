@@ -484,6 +484,12 @@ const runEmit = async (options: EmitOptions): Promise<number> => {
       recursive: true,
       verbatimSymlinks: true,
     })
+    const stagedNodeModules = join(packageRoot, 'node_modules')
+    const sourceNodeModules = join(packageTree, 'node_modules')
+    if ((await lstat(stagedNodeModules)).isSymbolicLink() === true) {
+      await rm(stagedNodeModules)
+      await symlink(sourceNodeModules, stagedNodeModules)
+    }
     await prepareStagedOutput({ outDir: options.outDir, output, packageRoot })
     await makeTreeReadOnly(packageRoot)
     status = await runTsgo({
