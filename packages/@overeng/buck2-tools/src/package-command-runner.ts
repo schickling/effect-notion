@@ -595,15 +595,16 @@ const verifyExternalSurface = ({
   readonly target: 'bun' | 'node'
 }): { readonly capabilities: readonly string[]; readonly modules: readonly string[] } => {
   const allowedSet = new Set(allowed)
-  const modules = [
-    ...new Set(
-      specifiers.flatMap((specifier) => {
-        const name = bareSpecifierPackage({ specifier, target })
-        return name === undefined ? [] : [name]
-      }),
-    ),
-  ].toSorted((left, right) => (left < right ? -1 : left > right ? 1 : 0))
-  const undeclared = modules.filter((name) => allowedSet.has(name) === false)
+  const moduleSet = new Set(
+    specifiers.flatMap((specifier) => {
+      const name = bareSpecifierPackage({ specifier, target })
+      return name === undefined ? [] : [name]
+    }),
+  )
+  const staticModules = [...moduleSet].toSorted((left, right) =>
+    left < right ? -1 : left > right ? 1 : 0,
+  )
+  const undeclared = staticModules.filter((name) => allowedSet.has(name) === false)
   if (undeclared.length > 0) {
     fail(
       `bundle leaves undeclared bare imports external: ${undeclared.join(', ')}; declare them or keep them resolvable`,
@@ -622,11 +623,10 @@ const verifyExternalSurface = ({
     const hasDynamicFamilyReference =
       family.packages.every((name) => name.startsWith(packagePrefix)) &&
       bundle.includes(packagePrefix)
-    if (
-      modules.some((name) => family.packages.includes(name)) === false &&
-      hasDynamicFamilyReference === false
-    )
-      continue
+    const hasStaticFamilyReference = staticModules.some((name) => family.packages.includes(name))
+    if (hasStaticFamilyReference === false && hasDynamicFamilyReference === false) continue
+    if (hasDynamicFamilyReference)
+      for (const packageName of family.packages) moduleSet.add(packageName)
     required.add(family.capability)
   }
   const declared = new Set(declaredCapabilities)
@@ -651,7 +651,7 @@ const verifyExternalSurface = ({
     capabilities: [...declaredCapabilities].toSorted((left, right) =>
       left < right ? -1 : left > right ? 1 : 0,
     ),
-    modules,
+    modules: [...moduleSet].toSorted((left, right) => (left < right ? -1 : left > right ? 1 : 0)),
   }
 }
 

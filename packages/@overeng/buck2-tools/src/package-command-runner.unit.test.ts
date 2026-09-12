@@ -554,7 +554,10 @@ describe('the verified external surface', () => {
         specifiers: [],
         target: 'node',
       }),
-    ).toStrictEqual({ capabilities: ['opentui-core-native'], modules: [] })
+    ).toStrictEqual({
+      capabilities: ['opentui-core-native'],
+      modules: ['@opentui/core-linux-x64'],
+    })
   })
 
   it('rejects a declared native capability without static or dynamic import evidence', () => {
