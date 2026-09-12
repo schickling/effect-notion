@@ -38,7 +38,8 @@
         "externalCapabilities": [
           "actionlint",
           "effect-tsgo",
-          "oxfmt"
+          "oxfmt",
+          "typescript-api-server"
         ],
         "externalModules": [],
         "integrity": "sha256-s6EWEOMp0rUoQMecUeObTil2QjF5ancdplQivAkRN/o=",
@@ -62,7 +63,7 @@
         "sizeBytes": 3236268,
         "target": "effect_utils//packages/@overeng/genie:genie-candidate"
       },
-      "descriptorSha256": "b88ef3bac66984640f0453339ff96876f5321bae5cc855638c11deba940ae086",
+      "descriptorSha256": "df9000283b8366256f0dc8788ffd8ff4115864ebbc2781adbbed463454236755",
       "release": {
         "hash": "sha256-s6EWEOMp0rUoQMecUeObTil2QjF5ancdplQivAkRN/o=",
         "name": "b3a11610e329d2b52840c79c51e39b4e29764231796a771da65422bc091137fa-genie.js",
@@ -72,7 +73,9 @@
     },
     {
       "descriptor": {
-        "externalCapabilities": [],
+        "externalCapabilities": [
+          "typescript-api-server"
+        ],
         "externalModules": [],
         "integrity": "sha256-SN4MPityKu/Q2F37mDPYufDOxp4RqCzj6++uZJK0nUM=",
         "modulePath": "genie-bootstrap-closure-check.js",
@@ -95,7 +98,7 @@
         "sizeBytes": 561262,
         "target": "effect_utils//packages/@overeng/genie:genie-bootstrap-closure-check-candidate"
       },
-      "descriptorSha256": "a6349825e72634f74d4a55b61e39b28a8d1af65a2997f5d44850eb0e8bd06653",
+      "descriptorSha256": "00f89f944ed69f6556f0fffe34b3f850660ac46e4b18bc297f3dc6673af6db6b",
       "release": {
         "hash": "sha256-SN4MPityKu/Q2F37mDPYufDOxp4RqCzj6++uZJK0nUM=",
         "name": "48de0c3e2b722aefd0d85dfb9833d8b9f0cec69e11a82ce3ebefae6492b49d43-genie-bootstrap-closure-check.js",
@@ -113,7 +116,7 @@
           "watchman"
         ],
         "externalModules": [],
-        "integrity": "sha256-WtIsf9ApVDB66IbkPlcguf52b9dbZjqYQdk/qkIxjAY=",
+        "integrity": "sha256-98QXdmKdNOjpkQNl0Z7Off7WhKdal6Lz45Z7P6/S7xU=",
         "modulePath": "mr.js",
         "platform": {
           "abi": "any",
@@ -131,15 +134,15 @@
         "runtimeContractVersion": "v1",
         "runtimeKind": "node",
         "schema": "effect-utils/javascript-product/v2",
-        "sizeBytes": 3760853,
+        "sizeBytes": 3760990,
         "target": "effect_utils//packages/@overeng/megarepo:megarepo-candidate"
       },
-      "descriptorSha256": "808f35345081279d95c47483d7ebeb316bf77c9408c0f10e25a989c6466edec2",
+      "descriptorSha256": "19f23a00cace4ff4af8683f31c582b924c59a0b78ca0ab0218391f6548ed6fd0",
       "release": {
-        "hash": "sha256-WtIsf9ApVDB66IbkPlcguf52b9dbZjqYQdk/qkIxjAY=",
-        "name": "5ad22c7fd02954307ae886e43e5720b9fe766fd75b663a9841d93faa42318c06-mr.js",
-        "tag": "buck2-product-v3-megarepo-5ad22c7fd02954307ae886e43e5720b9fe766fd75b663a9841d93faa42318c06",
-        "url": "https://github.com/overengineeringstudio/effect-utils/releases/download/buck2-product-v3-megarepo-5ad22c7fd02954307ae886e43e5720b9fe766fd75b663a9841d93faa42318c06/5ad22c7fd02954307ae886e43e5720b9fe766fd75b663a9841d93faa42318c06-mr.js"
+        "hash": "sha256-98QXdmKdNOjpkQNl0Z7Off7WhKdal6Lz45Z7P6/S7xU=",
+        "name": "f7c41776629d34e8e9910365d19ece7dfed684a75a97a2f3e3967b3fafd2ef15-mr.js",
+        "tag": "buck2-product-v3-megarepo-f7c41776629d34e8e9910365d19ece7dfed684a75a97a2f3e3967b3fafd2ef15",
+        "url": "https://github.com/overengineeringstudio/effect-utils/releases/download/buck2-product-v3-megarepo-f7c41776629d34e8e9910365d19ece7dfed684a75a97a2f3e3967b3fafd2ef15/f7c41776629d34e8e9910365d19ece7dfed684a75a97a2f3e3967b3fafd2ef15-mr.js"
       }
     },
     {
