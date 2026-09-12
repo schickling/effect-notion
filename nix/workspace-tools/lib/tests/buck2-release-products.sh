@@ -123,6 +123,9 @@ expect_failure "unpublished declaration" "declared target inventory does not mat
 write_target_mutation '.products[0].target = .products[1].target'
 expect_failure "duplicate declared target" "target inventory product targets must be unique"
 
+write_target_mutation '.products[0].target += "[descriptor]"'
+expect_failure "configured declared target" "target inventory products are malformed"
+
 jq -r '.releases | to_entries[] | "buck2-release-products-test: \(.key) \(.value.tag)"' <<<"$summary"
 
 publisher="$repo_root/nix/buck2-products/publish.sh"

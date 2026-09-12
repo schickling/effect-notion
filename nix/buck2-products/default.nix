@@ -219,7 +219,7 @@ assert lib.assertMsg (
     && builtins.isString product.name
     && builtins.match "[A-Za-z0-9][A-Za-z0-9._+-]*" product.name != null
     && builtins.isString product.target
-    && builtins.match "([A-Za-z0-9_]+)?//[^[:space:]\\[\\]]+:[^[:space:]\\[\\]]+" product.target != null
+    && builtins.match "([A-Za-z0-9_]+)?//[^][[:space:]]+:[^][[:space:]]+" product.target != null
   ) targets.products
 ) "buck2-products: target inventory products are malformed";
 assert lib.assertMsg (
