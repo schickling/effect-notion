@@ -115,7 +115,12 @@ let
       if printf '%s\n' "$load_commands" | ${pkgs.gnugrep}/bin/grep -Eq '^      cmd LC_RPATH$'; then
         fail "Mach-O LC_RPATH must be absent: $relative"
       fi
-      local signature_offset signature_size file_size magic declared_size count index slot blob_offset blob_magic blob_size flags
+      local signing_policy signature_offset signature_size file_size magic declared_size count index slot blob_offset blob_magic blob_size flags cms_size cms_count
+      signing_policy="$(${pkgs.jq}/bin/jq -r '.runtime.signingPolicy' "$descriptor")"
+      case "$signing_policy" in
+        adhoc/v1|embedded/v1) ;;
+        *) fail "unsupported Mach-O signing policy: $signing_policy" ;;
+      esac
       read -r signature_offset signature_size < <(printf '%s\n' "$load_commands" | ${pkgs.gawk}/bin/awk '
         /^      cmd LC_CODE_SIGNATURE$/ { in_signature = 1; matches++; next }
         in_signature && /^  dataoff / { offset = $2; next }
@@ -138,6 +143,8 @@ let
         && [ "$count" -le "$(( (declared_size - 12) / 8 ))" ] \
         || fail "malformed Mach-O code signature superblob: $relative"
       flags=
+      cms_size=
+      cms_count=0
       index=0
       while [ "$index" -lt "$count" ]; do
         slot="$(read_be32 "$executable" "$((signature_offset + 12 + index * 8))")"
@@ -148,9 +155,11 @@ let
           blob_magic="$(read_be32 "$executable" "$((signature_offset + blob_offset))")"
           blob_size="$(read_be32 "$executable" "$((signature_offset + blob_offset + 4))")"
           [ "$blob_magic" -eq 4208855809 ] \
-            && [ "$blob_size" -eq 8 ] \
+            && [ "$blob_size" -ge 8 ] \
             && [ "$((blob_offset + blob_size))" -le "$declared_size" ] \
-            || fail "Mach-O CMS signature blob must be empty: $relative"
+            || fail "Mach-O CMS signature blob is invalid: $relative"
+          cms_size="$blob_size"
+          cms_count="$((cms_count + 1))"
         fi
         if [ "$slot" -eq 0 ]; then
           blob_magic="$(read_be32 "$executable" "$((signature_offset + blob_offset))")"
@@ -165,7 +174,14 @@ let
         index="$((index + 1))"
       done
       [ -n "$flags" ] || fail "Mach-O CodeDirectory must be present: $relative"
-      [ "$((flags & 2))" -eq 2 ] || fail "Mach-O CodeDirectory must carry the ad-hoc flag: $relative"
+      [ "$cms_count" -eq 1 ] || fail "Mach-O CMS signature wrapper must be present exactly once: $relative"
+      if [ "$signing_policy" = adhoc/v1 ]; then
+        [ "$((flags & 2))" -eq 2 ] || fail "Mach-O CodeDirectory must carry the ad-hoc flag: $relative"
+        [ "$cms_size" -eq 8 ] || fail "Mach-O CMS signature blob must be empty: $relative"
+      else
+        [ "$((flags & 2))" -eq 0 ] || fail "Mach-O CodeDirectory must not carry the ad-hoc flag: $relative"
+        [ "$cms_size" -gt 8 ] || fail "Mach-O CMS signature blob must be embedded: $relative"
+      fi
     }
 
     while IFS= read -r entrypoint; do

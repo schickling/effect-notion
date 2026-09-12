@@ -370,12 +370,18 @@ fn be_u32(bytes: &[u8], offset: usize) -> ToolResult<u32> {
     read_u32(bytes, offset, Endian::Big)
 }
 
-fn is_ad_hoc_signature(bytes: &[u8], offset: usize, size: usize) -> ToolResult<bool> {
+fn mach_o_signing_policy(bytes: &[u8], offset: usize, size: usize) -> ToolResult<&'static str> {
+    let signature_end = offset
+        .checked_add(size)
+        .ok_or_else(|| fail("BUCK2_PRODUCT_MACHO", "invalid Mach-O code signature range"))?;
     let signature = bytes
-        .get(offset..offset + size)
+        .get(offset..signature_end)
         .ok_or_else(|| fail("BUCK2_PRODUCT_MACHO", "truncated Mach-O code signature"))?;
     if be_u32(signature, 0)? != 0xfade_0cc0 {
-        return Ok(false);
+        return Err(fail(
+            "BUCK2_PRODUCT_MACHO",
+            "Mach-O code signature is not a superblob",
+        ));
     }
     let declared_size = usize::try_from(be_u32(signature, 4)?)
         .map_err(|_| fail("BUCK2_PRODUCT_MACHO", "invalid code signature size"))?;
@@ -389,13 +395,21 @@ fn is_ad_hoc_signature(bytes: &[u8], offset: usize, size: usize) -> ToolResult<b
             "malformed code signature superblob",
         ));
     }
+    let mut code_directory_found = false;
     let mut ad_hoc_code_directory = false;
+    let mut cms_size = None;
     for index in 0..count {
         let entry = 12 + index * 8;
         let slot = be_u32(signature, entry)?;
         let blob_offset = usize::try_from(be_u32(signature, entry + 4)?)
             .map_err(|_| fail("BUCK2_PRODUCT_MACHO", "invalid code signature offset"))?;
         if slot == 0x1_0000 {
+            if blob_offset > declared_size.saturating_sub(8) {
+                return Err(fail("BUCK2_PRODUCT_MACHO", "invalid CMS signature offset"));
+            }
+            if cms_size.is_some() {
+                return Err(fail("BUCK2_PRODUCT_MACHO", "duplicate CMS signature blob"));
+            }
             let magic = be_u32(signature, blob_offset)?;
             let blob_size = usize::try_from(be_u32(signature, blob_offset + 4)?)
                 .map_err(|_| fail("BUCK2_PRODUCT_MACHO", "invalid CMS signature size"))?;
@@ -405,19 +419,47 @@ fn is_ad_hoc_signature(bytes: &[u8], offset: usize, size: usize) -> ToolResult<b
             {
                 return Err(fail("BUCK2_PRODUCT_MACHO", "invalid CMS signature blob"));
             }
-            if blob_size > 8 {
-                return Ok(false);
-            }
+            cms_size = Some(blob_size);
         }
         if slot == 0 || (0x1000..=0x1005).contains(&slot) {
+            if blob_offset > declared_size.saturating_sub(16) {
+                return Err(fail("BUCK2_PRODUCT_MACHO", "invalid CodeDirectory offset"));
+            }
             let magic = be_u32(signature, blob_offset)?;
-            if !(0xfade_0c02..=0xfade_0c04).contains(&magic) {
+            let blob_size = usize::try_from(be_u32(signature, blob_offset + 4)?)
+                .map_err(|_| fail("BUCK2_PRODUCT_MACHO", "invalid CodeDirectory size"))?;
+            if !(0xfade_0c02..=0xfade_0c04).contains(&magic)
+                || blob_size < 16
+                || blob_offset.saturating_add(blob_size) > declared_size
+            {
                 return Err(fail("BUCK2_PRODUCT_MACHO", "invalid CodeDirectory blob"));
             }
+            code_directory_found = true;
             ad_hoc_code_directory |= be_u32(signature, blob_offset + 12)? & 0x2 != 0;
         }
     }
-    Ok(ad_hoc_code_directory)
+    if !code_directory_found {
+        return Err(fail(
+            "BUCK2_PRODUCT_MACHO",
+            "Mach-O CodeDirectory is missing",
+        ));
+    }
+    match (ad_hoc_code_directory, cms_size) {
+        (true, Some(8)) => Ok("adhoc/v1"),
+        (false, Some(size)) if size > 8 => Ok("embedded/v1"),
+        (true, Some(_)) => Err(fail(
+            "BUCK2_PRODUCT_MACHO",
+            "ad-hoc Mach-O CodeDirectory has a non-empty CMS signature",
+        )),
+        (false, _) => Err(fail(
+            "BUCK2_PRODUCT_MACHO",
+            "non-ad-hoc Mach-O CodeDirectory has no embedded CMS signature",
+        )),
+        (true, None) => Err(fail(
+            "BUCK2_PRODUCT_MACHO",
+            "ad-hoc Mach-O CodeDirectory has no empty CMS wrapper",
+        )),
+    }
 }
 
 fn packed_version(value: u32) -> String {
@@ -538,12 +580,7 @@ fn mach_o_runtime(bytes: &[u8], architecture: &str) -> ToolResult<Value> {
     let (signature_offset, signature_size) = signature
         .filter(|(_, size)| *size > 0)
         .ok_or_else(|| fail("BUCK2_PRODUCT_MACHO", "Mach-O has no code signature"))?;
-    if !is_ad_hoc_signature(bytes, signature_offset, signature_size)? {
-        return Err(fail(
-            "BUCK2_PRODUCT_MACHO",
-            "Mach-O signature is not ad hoc",
-        ));
-    }
+    let signing_policy = mach_o_signing_policy(bytes, signature_offset, signature_size)?;
     Ok(json!({
         "architecture": observed_architecture,
         "dylibs": dylibs,
@@ -552,7 +589,7 @@ fn mach_o_runtime(bytes: &[u8], architecture: &str) -> ToolResult<Value> {
         "kind": "mach-o-dynamic",
         "minimumOs": minimum_os.ok_or_else(|| fail("BUCK2_PRODUCT_MACHO", "Mach-O has no LC_BUILD_VERSION"))?,
         "rpathPolicy": "empty/v1",
-        "signingPolicy": "adhoc/v1",
+        "signingPolicy": signing_policy,
     }))
 }
 
@@ -999,12 +1036,12 @@ mod tests {
         assert_eq!(descriptor["runtime"]["machine"], std::env::consts::ARCH);
     }
 
-    #[test]
-    fn accepts_empty_cms_wrapper_in_ad_hoc_signature() {
+    fn signature_with_cms(code_directory_flags: u32, cms_size: u32) -> Vec<u8> {
+        let declared_size = 44 + cms_size;
         let mut signature = Vec::new();
         for value in [
             0xfade_0cc0u32,
-            52,
+            declared_size,
             2,
             0,
             28,
@@ -1013,13 +1050,29 @@ mod tests {
             0xfade_0c02,
             16,
             0,
-            0x2,
+            code_directory_flags,
             0xfade_0b01,
-            8,
+            cms_size,
         ] {
             signature.extend_from_slice(&value.to_be_bytes());
         }
-        assert!(is_ad_hoc_signature(&signature, 0, signature.len()).unwrap());
+        signature.resize(usize::try_from(declared_size).unwrap(), 0);
+        signature
+    }
+
+    #[test]
+    fn distinguishes_ad_hoc_and_embedded_mach_o_signatures() {
+        let ad_hoc = signature_with_cms(0x2, 8);
+        assert_eq!(
+            mach_o_signing_policy(&ad_hoc, 0, ad_hoc.len()).unwrap(),
+            "adhoc/v1"
+        );
+
+        let embedded = signature_with_cms(0, 16);
+        assert_eq!(
+            mach_o_signing_policy(&embedded, 0, embedded.len()).unwrap(),
+            "embedded/v1"
+        );
     }
 
     #[test]

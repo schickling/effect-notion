@@ -373,9 +373,14 @@ expect_eval_failure \
     runtime = validMachO.runtime // { rpathPolicy = "declared/v1"; };
   })'
 
+embedded_mach_o_digest="$(eval_raw 'contract.descriptorDigest (validMachO // {
+  runtime = validMachO.runtime // { signingPolicy = "embedded/v1"; };
+})')"
+[[ "$embedded_mach_o_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+
 expect_eval_failure \
   "Mach-O signing policy mismatch" \
-  "descriptor.runtime.signingPolicy must be adhoc/v1" \
+  "descriptor.runtime.signingPolicy is unsupported" \
   'contract.descriptorDigest (validMachO // {
     runtime = validMachO.runtime // { signingPolicy = "unsigned/v1"; };
   })'

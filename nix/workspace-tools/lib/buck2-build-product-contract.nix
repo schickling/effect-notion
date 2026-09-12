@@ -280,7 +280,10 @@ let
               runtime.installNamePolicy == "system-only/v1"
             ) "descriptor.runtime.installNamePolicy must be system-only/v1")
             (ensure (runtime.rpathPolicy == "empty/v1") "descriptor.runtime.rpathPolicy must be empty/v1")
-            (ensure (runtime.signingPolicy == "adhoc/v1") "descriptor.runtime.signingPolicy must be adhoc/v1")
+            (ensure (builtins.elem runtime.signingPolicy [
+              "adhoc/v1"
+              "embedded/v1"
+            ]) "descriptor.runtime.signingPolicy is unsupported")
             (ensure (
               runtime.dylibs == builtins.sort builtins.lessThan runtime.dylibs
             ) "descriptor.runtime.dylibs must be sorted")

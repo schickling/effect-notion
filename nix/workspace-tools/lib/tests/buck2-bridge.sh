@@ -294,10 +294,18 @@ jq '.entrypoints = ["bin/no-adhoc-tool"]' "$mach_o_descriptor" >"$mach_o_descrip
 expect_command_failure "Mach-O CodeDirectory without ad-hoc flag" "must carry the ad-hoc flag" \
   "$mach_o_inspector_out" "$mach_o_descriptor.no-adhoc" "$mach_o_root"
 cp "$mach_o_root/bin/fixture-tool" "$mach_o_root/bin/cms-tool"
-printf '\011' | dd of="$mach_o_root/bin/cms-tool" bs=1 seek=123 conv=notrunc status=none
+printf '\024' | dd of="$mach_o_root/bin/cms-tool" bs=1 seek=99 conv=notrunc status=none
+printf '\060' | dd of="$mach_o_root/bin/cms-tool" bs=1 seek=91 conv=notrunc status=none
+printf '\372\336\013\001\000\000\000\014\001\002\003\004' \
+  | dd of="$mach_o_root/bin/cms-tool" bs=1 seek=112 conv=notrunc status=none
 jq '.entrypoints = ["bin/cms-tool"]' "$mach_o_descriptor" >"$mach_o_descriptor.cms"
-expect_command_failure "Mach-O non-empty CMS signature wrapper" "CMS signature blob must be empty" \
+expect_command_failure "ad-hoc Mach-O with non-empty CMS signature" "CMS signature blob must be empty" \
   "$mach_o_inspector_out" "$mach_o_descriptor.cms" "$mach_o_root"
+cp "$mach_o_root/bin/cms-tool" "$mach_o_root/bin/embedded-tool"
+printf '\000\000\000\000' | dd of="$mach_o_root/bin/embedded-tool" bs=1 seek=104 conv=notrunc status=none
+jq '.entrypoints = ["bin/embedded-tool"] | .runtime.signingPolicy = "embedded/v1"' \
+  "$mach_o_descriptor" >"$mach_o_descriptor.embedded"
+"$mach_o_inspector_out" "$mach_o_descriptor.embedded" "$mach_o_root"
 hostile_mach_o_inspector_expr="let
   $common_let
 in import (repo + \"/nix/workspace-tools/lib/buck2-runtime-inspect-mach-o-dynamic.nix\") {
@@ -323,7 +331,8 @@ fat_mach_o_inspector_out="$(build_expr "$fat_mach_o_inspector_expr")"
 expect_command_failure "Mach-O universal binary" "must contain exactly one architecture" \
   "$fat_mach_o_inspector_out" "$mach_o_descriptor" "$mach_o_root"
 rm -rf "$mach_o_root"
-rm -f "$mach_o_descriptor" "$mach_o_descriptor.no-adhoc" "$mach_o_descriptor.cms"
+rm -f "$mach_o_descriptor" "$mach_o_descriptor.no-adhoc" "$mach_o_descriptor.cms" \
+  "$mach_o_descriptor.embedded"
 
 tampered_archive="$(mktemp)"
 cp "$dynamic_export/artifact.tar" "$tampered_archive"
