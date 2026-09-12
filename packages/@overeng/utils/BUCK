@@ -4,7 +4,7 @@
 # Projection source: packages/@overeng/utils/BUCK.genie.ts
 # Projection schema version: 11
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
-# Semantic fingerprint: sha256:796fd657638ece4abd0623e2b611df08232ea024b277ab489cb5e1a7b2e2e652
+# Semantic fingerprint: sha256:ca84c8a3e7c8c8fd333888e7a2c73e62191aabfab608e0a33c184b60a3b3b57f
 # Semantic inputs: buck2/dependencies/BUCK.genie.ts, buck2/dependencies/pnpm-lock.sha256.json.genie.ts, buck2/static_checks.bzl, genie/buck2/mod.ts, genie/buck2/typescript-package-projection.ts, genie/packages.ts, package.json.genie.ts, packages/@overeng/buck2-tools/src/javascript-runner.ts, packages/@overeng/buck2-tools/src/package-tree.ts, packages/@overeng/buck2-tools/src/real-path.ts, packages/@overeng/buck2-tools/src/typescript-runner.ts, packages/@overeng/effect-distributed-lock/BUCK.genie.ts, packages/@overeng/effect-distributed-lock/package.json.genie.ts, packages/@overeng/otel-contract/BUCK.genie.ts, packages/@overeng/otel-contract/package.json.genie.ts, packages/@overeng/utils-dev/BUCK.genie.ts, packages/@overeng/utils-dev/package.json.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/BUCK.genie.ts, packages/@overeng/utils/package.json.genie.ts, packages/@overeng/utils/src/**/*.cts, packages/@overeng/utils/src/**/*.js, packages/@overeng/utils/src/**/*.mts, packages/@overeng/utils/src/**/*.spec.cjs, packages/@overeng/utils/src/**/*.spec.jsx, packages/@overeng/utils/src/**/*.spec.mjs, packages/@overeng/utils/src/**/*.test.cjs, packages/@overeng/utils/src/**/*.test.jsx, packages/@overeng/utils/src/**/*.test.mjs, packages/@overeng/utils/src/**/*.ts, packages/@overeng/utils/src/**/*.tsx, packages/@overeng/utils/src/**/__snapshots__/*.snap, packages/@overeng/utils/tsconfig.json.genie.ts
 # Regenerate: devenv tasks run genie:run
 
@@ -105,6 +105,10 @@ export_materialization_inputs([
     "src/node/storybook/gate/cli.ts",
     "src/node/storybook/gate/constants.ts",
     "src/node/storybook/gate/mod.ts",
+    "src/node/storybook/gate/portable-stories.ts",
+    "src/node/storybook/gate/portable-stories.unit.test.ts",
+    "src/node/storybook/gate/project-annotations.ts",
+    "src/node/storybook/gate/project-annotations.unit.test.ts",
     "src/node/storybook/gate/project.ts",
     "src/node/storybook/gate/project.unit.test.ts",
     "src/node/storybook/gate/run.ts",
@@ -235,6 +239,10 @@ package_view(
         "src/node/storybook/gate/cli.ts": "src/node/storybook/gate/cli.ts",
         "src/node/storybook/gate/constants.ts": "src/node/storybook/gate/constants.ts",
         "src/node/storybook/gate/mod.ts": "src/node/storybook/gate/mod.ts",
+        "src/node/storybook/gate/portable-stories.ts": "src/node/storybook/gate/portable-stories.ts",
+        "src/node/storybook/gate/portable-stories.unit.test.ts": "src/node/storybook/gate/portable-stories.unit.test.ts",
+        "src/node/storybook/gate/project-annotations.ts": "src/node/storybook/gate/project-annotations.ts",
+        "src/node/storybook/gate/project-annotations.unit.test.ts": "src/node/storybook/gate/project-annotations.unit.test.ts",
         "src/node/storybook/gate/project.ts": "src/node/storybook/gate/project.ts",
         "src/node/storybook/gate/project.unit.test.ts": "src/node/storybook/gate/project.unit.test.ts",
         "src/node/storybook/gate/run.ts": "src/node/storybook/gate/run.ts",
@@ -350,6 +358,10 @@ package_view(
         "src/node/storybook/gate/cli.ts": "src/node/storybook/gate/cli.ts",
         "src/node/storybook/gate/constants.ts": "src/node/storybook/gate/constants.ts",
         "src/node/storybook/gate/mod.ts": "src/node/storybook/gate/mod.ts",
+        "src/node/storybook/gate/portable-stories.ts": "src/node/storybook/gate/portable-stories.ts",
+        "src/node/storybook/gate/portable-stories.unit.test.ts": "src/node/storybook/gate/portable-stories.unit.test.ts",
+        "src/node/storybook/gate/project-annotations.ts": "src/node/storybook/gate/project-annotations.ts",
+        "src/node/storybook/gate/project-annotations.unit.test.ts": "src/node/storybook/gate/project-annotations.unit.test.ts",
         "src/node/storybook/gate/project.ts": "src/node/storybook/gate/project.ts",
         "src/node/storybook/gate/project.unit.test.ts": "src/node/storybook/gate/project.unit.test.ts",
         "src/node/storybook/gate/run.ts": "src/node/storybook/gate/run.ts",
