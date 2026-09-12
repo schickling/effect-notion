@@ -459,15 +459,16 @@ export const selectUsageRow = ({
 
     const allocatedCpu = finiteOrNull(row['resources_cpu'])
     const allocatedRamGb = finiteOrNull(row['resources_ram_gb'])
-    const cpuMaxFraction = finiteOrNull(row['resources_cpu_actual_max'])
+    const cpuMaxCores = finiteOrNull(row['resources_cpu_actual_max'])
     const ramMaxFraction = finiteOrNull(row['resources_ram_gb_actual_max_percent'])
     if (
       allocatedCpu === null ||
+      allocatedCpu <= 0 ||
       allocatedRamGb === null ||
-      cpuMaxFraction === null ||
+      cpuMaxCores === null ||
       ramMaxFraction === null
     ) {
-      /** A row missing the numbers we would reason about is not usage evidence. */
+      /** A row missing usable numbers we would reason about is not usage evidence. */
       continue
     }
 
@@ -479,7 +480,7 @@ export const selectUsageRow = ({
       githubJobId: wantedJobId,
       allocatedCpu,
       allocatedRamGb,
-      cpuMaxFraction,
+      cpuMaxFraction: cpuMaxCores / allocatedCpu,
       ramMaxFraction,
       createdAt: created === undefined || created.length === 0 ? null : created,
       startedAt: started === undefined || started.length === 0 ? null : started,

@@ -23,7 +23,10 @@ import {
 } from 'effect/unstable/process/ChildProcessSpawner'
 import { describe, expect, it } from 'vitest'
 
-import type { InspectGitHubFacts } from '../src/isomorphic/lib/inspectFacts.ts'
+import {
+  RESOURCE_PRESSURE_FRACTION,
+  type InspectGitHubFacts,
+} from '../src/isomorphic/lib/inspectFacts.ts'
 import {
   authCheckLoginArgv,
   deriveInstanceStatus,
@@ -310,18 +313,58 @@ describe('selectUsageRow', () => {
     return parsed._tag === 'parsed' ? parsed.rows : []
   })()
 
-  it('reads the allocated and observed numbers off the matching row', () =>
-    expect(selectUsageRow({ rows, jobId: JOB_ID, instanceId: INSTANCE })).toEqual({
+  const selectCpuUsage = ({
+    allocatedCpu,
+    cpuMaxCores,
+  }: {
+    readonly allocatedCpu: string
+    readonly cpuMaxCores: string
+  }) =>
+    selectUsageRow({
+      rows: [
+        {
+          instance_id: INSTANCE,
+          github_job_id: String(JOB_ID),
+          resources_cpu: allocatedCpu,
+          resources_ram_gb: '16',
+          resources_cpu_actual_max: cpuMaxCores,
+          resources_ram_gb_actual_max_percent: '0.31',
+        },
+      ],
+      jobId: JOB_ID,
+      instanceId: INSTANCE,
+    })
+
+  it('normalizes peak cores against a multi-CPU allocation, avoiding false pressure', () => {
+    const usage = selectUsageRow({ rows, jobId: JOB_ID, instanceId: INSTANCE })
+
+    expect(usage).toEqual({
       instanceId: INSTANCE,
       githubJobId: String(JOB_ID),
       allocatedCpu: 8,
       allocatedRamGb: 16,
-      cpuMaxFraction: 0.97,
+      cpuMaxFraction: 0.97 / 8,
       ramMaxFraction: 0.31,
       createdAt: '2026-01-15 10:59:55 +0000 UTC',
       startedAt: '2026-01-15 11:00:00 +0000 UTC',
       destroyedAt: null,
-    }))
+    })
+    expect(usage?.cpuMaxFraction).toBeCloseTo(0.121)
+    expect(usage?.cpuMaxFraction).toBeLessThan(RESOURCE_PRESSURE_FRACTION)
+  })
+
+  it('normalizes peak cores against a fractional allocation, avoiding false negatives', () => {
+    const usage = selectCpuUsage({ allocatedCpu: '0.5', cpuMaxCores: '0.48' })
+
+    expect(usage?.allocatedCpu).toBe(0.5)
+    expect(usage?.cpuMaxFraction).toBeCloseTo(0.96)
+    expect(usage?.cpuMaxFraction).toBeGreaterThanOrEqual(RESOURCE_PRESSURE_FRACTION)
+  })
+
+  it('treats missing or zero CPU allocations as unavailable usage', () => {
+    expect(selectCpuUsage({ allocatedCpu: '', cpuMaxCores: '0.48' })).toBeNull()
+    expect(selectCpuUsage({ allocatedCpu: '0', cpuMaxCores: '0.48' })).toBeNull()
+  })
 
   it('requires the instance to match, not just the job', () =>
     expect(selectUsageRow({ rows, jobId: JOB_ID, instanceId: 'someotherinstance' })).toBeNull())
@@ -518,7 +561,7 @@ describe('observeNamespaceJob', () => {
       facts._tag === 'reported' && facts.usage._tag === 'sampled'
         ? facts.usage.sample.cpuMaxFraction
         : null,
-    ).toBe(0.97)
+    ).toBe(0.97 / 8)
 
     const window = deriveReportWindow({
       startedAt: '2026-01-15T11:00:00.000Z',
