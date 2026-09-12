@@ -26,6 +26,8 @@ All notable changes to this project will be documented in this file.
   a local opt-out; and immutable-release digest-manifest, consumer, and
   publisher machinery. Ordinary checks do not publish products; pnpm, `tsgo`,
   and Vitest remain authoritative for this change.
+- **Buck2 cache posture**: documented the public-versus-private CI trust matrix,
+  candidate evidence, and the proposed isolated public cache tier.
 - **@overeng/utils**: `@overeng/utils/node/storybook/gate` — a reusable
   story-driven visual and accessibility gate. Every story becomes a browser
   test that renders, plays, checks accessibility and compares a screenshot
