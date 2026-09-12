@@ -157,6 +157,12 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **Nix (pnpm)**: `mkPnpm` now bundles the linux-arm64 native executable
+  alongside the eval-platform one and points it at the cross glibc loader,
+  so `resolveInstalledBinary()` finds a working binary on aarch64 builders
+  even when the wrapper was evaluated on x86_64. Previously the lookup
+  walked into ancestor `node_modules` and spawned a half-installed copy,
+  failing Pi (aarch64) pnpm builds with a bare spawnSync ENOENT.
 - **@overeng/megarepo**: `StoreLayer` now resolves a symlinked store root to
   its real path before building the Store. Git registers worktrees under real
   paths while member identity checks compare paths lexically, so a default
