@@ -21,6 +21,17 @@ const meta = {
   rateLimitLimit: 5_000,
 }
 
+describe('CiOutput story fixtures', () => {
+  it('derives the default job identity from one synthetic runner', () => {
+    expect(makeJob()).toMatchObject({
+      runner: 'runnera',
+      runnerName: 'runnera-1234abcd',
+      runnerKind: 'self-hosted',
+      runnerInstance: 'runnera',
+    })
+  })
+})
+
 describe('CLI JSON output contracts', () => {
   it('preserves representative status JSON', () => {
     const run = makeRun({

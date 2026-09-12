@@ -50,7 +50,7 @@ export type RunnerIdentity =
 
 /** Namespace cloud runners: `nsc-runner-<id>` (abbreviated to the first 6 id chars). */
 const NAMESPACE_RUNNER = /^nsc-runner-(.{6,})$/
-/** runner-scaler workers: `<host>-<8 hex>`. */
+/** runner-scaler workers: `<host>-<8 hex>`, e.g. `runnera-1234abcd`. */
 const SELF_HOSTED_RUNNER = /^(.+)-[a-f0-9]{8}$/
 
 /** Parse a raw runner name into its provider kind and stable instance identity. */

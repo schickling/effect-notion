@@ -52,7 +52,7 @@ export const lookupRunnerHost = ({
  * Runner label to show for a job: the runner-scaler host when the job's raw
  * runner name is one we polled, else the abbreviated runner label.
  *
- * The join must use the raw name (`dev3-6038ddf9`), since that is what the
+ * The join must use the raw name (`runnera-1234abcd`), since that is what the
  * runner-scaler `/jobs` endpoint reports; the abbreviated label never matches.
  */
 export const resolveRunnerDisplay = ({

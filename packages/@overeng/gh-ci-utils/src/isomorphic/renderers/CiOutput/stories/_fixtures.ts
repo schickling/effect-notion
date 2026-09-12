@@ -1,7 +1,7 @@
 /** Synthetic CiOutput story fixtures with realistic CI shapes. */
 
 import type { ApiMeta } from '../../../lib/apiMeta.ts'
-import { parseRunnerIdentity } from '../../../lib/format.ts'
+import { formatRunnerIdentity, parseRunnerIdentity } from '../../../lib/format.ts'
 import { computeSummary, directRunSelection } from '../../../lib/summary.ts'
 import type {
   AnnotationInfo,
@@ -73,13 +73,13 @@ export const makeJob = (overrides: JobOverrides = {}): WorkflowJobVM => {
   const { steps: stepOverrides, ...rest } = overrides
   const id = rest.id ?? nextId()
   const steps = stepOverrides?.map((step, ord) => makeStep({ step, ord }))
-  /** Stories set the abbreviated `runner`; derive a plausible raw name from it. */
+  /** Derive all default identity fields from one clearly synthetic raw runner name. */
   const runnerName =
     rest.runnerName !== undefined
       ? rest.runnerName
       : rest.runner === '—'
         ? null
-        : (rest.runner ?? 'dev3')
+        : (rest.runner ?? 'runnera-1234abcd')
   const identity = parseRunnerIdentity({ name: runnerName })
   return {
     id,
@@ -87,7 +87,7 @@ export const makeJob = (overrides: JobOverrides = {}): WorkflowJobVM => {
     status: 'completed',
     conclusion: 'success',
     durationSeconds: 300,
-    runner: 'linux-runner-a',
+    runner: formatRunnerIdentity(identity),
     runnerName,
     runnerKind: identity._tag,
     runnerInstance: identity.instance,
