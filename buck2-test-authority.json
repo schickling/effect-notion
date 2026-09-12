@@ -179,6 +179,20 @@
       "unboundedFiles": []
     },
     {
+      "collectionTarget": "effect_utils//packages/@overeng/effect-schema-form-aria:test_collect",
+      "excludes": [],
+      "packageName": "effect-schema-form-aria",
+      "packagePath": "packages/@overeng/effect-schema-form-aria",
+      "runner": "vitest",
+      "selectedTestFiles": ["src/mod.unit.test.tsx"],
+      "sourceOwners": {},
+      "target": "effect_utils//packages/@overeng/effect-schema-form-aria:test",
+      "taskName": "test:effect-schema-form-aria",
+      "testFiles": ["src/mod.unit.test.tsx"],
+      "unboundedAfter": [],
+      "unboundedFiles": []
+    },
+    {
       "collectionTarget": "effect_utils//packages/@overeng/effect-schema-form:test_collect",
       "excludes": [],
       "packageName": "effect-schema-form",

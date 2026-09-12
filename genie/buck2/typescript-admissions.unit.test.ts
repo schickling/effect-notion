@@ -107,7 +107,7 @@ describe('Buck2 test lane registry', () => {
     expect(buck2TestLanes.length).toBe(declaredLanes.length)
     // The lanes that exist today. A registry that silently shrinks moves tests out of the
     // gate without anyone deciding to, so the floor is asserted rather than described.
-    expect(buck2TestLanes.length).toBeGreaterThanOrEqual(32)
+    expect(buck2TestLanes.length).toBeGreaterThanOrEqual(34)
     expect(new Set(buck2TestLanes.map(({ target }) => target)).size).toBe(buck2TestLanes.length)
     expect(new Set(buck2TestLanes.map(({ taskName }) => taskName)).size).toBe(buck2TestLanes.length)
   })
@@ -196,6 +196,28 @@ describe('Buck2 test lane registry', () => {
         target: 'effect_utils//packages/@overeng/pty-effect:test',
       },
     ])
+  })
+
+  it('keeps effect-schema-form-aria out of the source-side fallback partition', () => {
+    const lane = buck2TestLanes.find(
+      ({ packagePath }) => packagePath === 'packages/@overeng/effect-schema-form-aria',
+    )
+
+    expect(lane).toEqual({
+      collectionTarget:
+        'effect_utils//packages/@overeng/effect-schema-form-aria:test_collect',
+      excludes: [],
+      packageName: 'effect-schema-form-aria',
+      packagePath: 'packages/@overeng/effect-schema-form-aria',
+      runner: 'vitest',
+      selectedTestFiles: ['src/mod.unit.test.tsx'],
+      sourceOwners: {},
+      target: 'effect_utils//packages/@overeng/effect-schema-form-aria:test',
+      taskName: 'test:effect-schema-form-aria',
+      testFiles: ['src/mod.unit.test.tsx'],
+      unboundedAfter: [],
+      unboundedFiles: [],
+    })
   })
 
   it('publishes the derived registry verbatim as the generated bridge', () => {

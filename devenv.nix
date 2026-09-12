@@ -183,7 +183,7 @@ let
   buck2TestAuthorityFile = ./buck2-test-authority.json;
   buck2TestAuthority = builtins.fromJSON (builtins.readFile buck2TestAuthorityFile);
   # Deliberate floor, not a derived value: shrinking the registry means editing this number.
-  buck2TestAuthorityMinimumLanes = 32;
+  buck2TestAuthorityMinimumLanes = 34;
   buck2TestAuthorityLanes =
     if (buck2TestAuthority.schemaVersion or null) == 2 then
       buck2TestAuthority.lanes

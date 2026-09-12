@@ -690,6 +690,38 @@ describe('derived test collection targets', () => {
     }
   })
 
+  it('projects the effect-schema-form-aria census as one wholly bounded JSX lane', () => {
+    const admitted = admittedTestLanes.find(
+      ({ packagePath }) => packagePath === 'packages/@overeng/effect-schema-form-aria',
+    )
+    expect(admitted).toBeDefined()
+    const census = admitted === undefined ? [] : collectableTestModulesOf(admitted)
+    const lane = buck2TestLanes.find(
+      ({ packagePath }) => packagePath === 'packages/@overeng/effect-schema-form-aria',
+    )
+
+    expect(census).toEqual(['src/mod.unit.test.tsx'])
+    expect(lane?.selectedTestFiles).toEqual(census)
+    expect(lane?.excludes).toEqual([])
+    expect(lane?.sourceOwners).toEqual({})
+    expect(lane?.unboundedFiles).toEqual([])
+    expect(lane?.unboundedTaskName).toBeUndefined()
+    expect(admitted?.output).toContain(
+      [
+        'vitest_test(',
+        '    name = "test",',
+        '    package_tree = ":test_package_tree",',
+      ].join('\n'),
+    )
+    expect(admitted?.output).toContain(
+      [
+        'vitest_collect(',
+        '    name = "test_collect",',
+        '    package_tree = ":test_package_tree",',
+      ].join('\n'),
+    )
+  })
+
   it('keeps the JSX census inside the partition it stages', () => {
     const reactInspector = admittedTestLanes.find(
       (lane) => lane.packagePath === 'packages/@overeng/react-inspector',

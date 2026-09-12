@@ -63,6 +63,34 @@ Source-only package partition:
 
 The three counts are disjoint and total the 433-file repository census.
 
+### Follow-up admission — `@overeng/effect-schema-form-aria` (2026-09-12)
+
+The original totals above are the accepted proof snapshot. At the exact
+`24ce88a08c729df567689260300ed5c767f8fb58` baseline, later test additions had
+grown the repository census to 435 files and the registry to 33 lanes. The
+source-only partition contained 14 files: 13 in `@overeng/buck2-tools` and the
+sole collectable `@overeng/effect-schema-form-aria` test,
+`src/mod.unit.test.tsx`. The latter package had no test lane in its local
+`BUCK.genie.ts` and no row in `buck2-test-authority.json`, so the derived
+source-side `test:effect-schema-form-aria` task was its sole producer.
+
+The package-local admission now projects the default Vitest execution and
+collection targets over that exact one-file census. The lane has no excludes,
+explicit source owners, or generic unbounded files, so its source complement is
+empty and source Vitest no longer schedules the package. The story files are
+not Vitest test modules and remain outside this census; there are no package
+integration or Playwright test files to assign. The registry now carries 34
+lanes, and the only source-only test package is `@overeng/buck2-tools` with its
+13 files; the repository census remains 435.
+
+#### Deletion ledger
+
+- Removed the package from the derived source-only test-package partition by
+  admitting its complete collectable census to Buck.
+- Added no fallback or duplicate source producer: an empty complement projects
+  no `test:effect-schema-form-aria:unbounded` task, while the public
+  `test:effect-schema-form-aria` task now addresses the Buck lane.
+
 ### Deliberate constraints
 
 - Duplicate and nested lane packages are rejected in generation and the runtime decoder. Adding an overlapping lane is a hard failure, not ambiguous ownership.
