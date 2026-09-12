@@ -2,7 +2,7 @@ import * as NodePath from 'node:path'
 
 import { NodeServices } from '@effect/platform-node'
 import { describe, it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Deferred, Effect, Fiber } from 'effect'
 import * as FileSystem from 'effect/FileSystem'
 import { afterAll, beforeAll, expect } from 'vitest'
 
@@ -101,16 +101,104 @@ describe('direct composed worktree creation', () => {
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
   )
 
-  it.effect('retries an exact generation failure without moving or replacing W', () =>
+  it.effect('cleans an interrupted birth with a stale index lock and permits retry', () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem
       const fixture = yield* makeFixture
-      yield* create(fixture, () => Effect.fail('interrupted')).pipe(Effect.flip)
-      const before = yield* fs.stat(EffectPath.unsafe.absoluteDir(`${fixture.ownedWorktree}/`))
+      const failure = yield* create(fixture, ({ ownedWorktree }) =>
+        Effect.gen(function* () {
+          const dotGit = NodePath.join(ownedWorktree, '.git')
+          const pointer = (yield* fs.readFileString(EffectPath.unsafe.absoluteFile(dotGit))).trim()
+          const adminDir = NodePath.resolve(
+            NodePath.dirname(dotGit),
+            pointer.slice('gitdir: '.length),
+          )
+          yield* fs.writeFileString(
+            EffectPath.unsafe.absoluteFile(NodePath.join(adminDir, 'index.lock')),
+            '',
+          )
+          return yield* Effect.fail('interrupted')
+        }),
+      ).pipe(Effect.flip)
+      expect(failure.reason).toBe('GenerationFailed')
+      expect(yield* fs.exists(EffectPath.unsafe.absoluteDir(`${fixture.workspaceRoot}/`))).toBe(
+        true,
+      )
+      expect(yield* Git.listWorktrees(fixture.bareRepo)).toHaveLength(1)
+      expect(yield* Git.refExists({ repoPath: fixture.bareRepo, ref: 'refs/heads/feature' })).toBe(
+        true,
+      )
+      const dotGit = NodePath.join(fixture.ownedWorktree, '.git')
+      const pointer = (yield* fs.readFileString(EffectPath.unsafe.absoluteFile(dotGit))).trim()
+      const adminDir = NodePath.resolve(NodePath.dirname(dotGit), pointer.slice('gitdir: '.length))
+      expect(
+        yield* fs.exists(EffectPath.unsafe.absoluteFile(NodePath.join(adminDir, 'index.lock'))),
+      ).toBe(false)
+
       const result = yield* create(fixture, () => Effect.void)
-      const after = yield* fs.stat(EffectPath.unsafe.absoluteDir(`${fixture.ownedWorktree}/`))
       expect(result.ownedWorktree).toBe(fixture.ownedWorktree)
-      expect(after.ino).toStrictEqual(before.ino)
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+  )
+
+  it.effect('keeps an interrupted generation recoverable through the exact retry path', () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const fixture = yield* makeFixture
+      const generationStarted = yield* Deferred.make<void>()
+      const fiber = yield* Effect.forkChild(
+        create(fixture, () =>
+          Deferred.succeed(generationStarted, undefined).pipe(Effect.andThen(Effect.never)),
+        ),
+      )
+      yield* Deferred.await(generationStarted)
+      yield* Fiber.interrupt(fiber)
+
+      expect(yield* fs.exists(EffectPath.unsafe.absoluteDir(`${fixture.workspaceRoot}/`))).toBe(
+        true,
+      )
+      expect(yield* Git.listWorktrees(fixture.bareRepo)).toHaveLength(1)
+      expect(yield* Git.refExists({ repoPath: fixture.bareRepo, ref: 'refs/heads/feature' })).toBe(
+        true,
+      )
+      expect((yield* create(fixture, () => Effect.void)).ownedWorktree).toBe(fixture.ownedWorktree)
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+  )
+
+  it.effect('uses physical identity below a symlinked store root', () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const fixture = yield* makeFixture
+      const linkedStore = NodePath.join(fixture.tmp, 'linked-store')
+      yield* fs.symlink(fixture.tmp, linkedStore)
+      const linkedWorkspaceRoot = NodePath.join(linkedStore, 'workspace')
+      const linkedBareRepo = NodePath.join(linkedStore, 'repo.git')
+
+      const result = yield* createComposedOwnedWorkspace({
+        bareRepo: linkedBareRepo,
+        workspaceRoot: linkedWorkspaceRoot,
+        ownedMember: 'owner',
+        branch: 'feature',
+        startPoint: 'main',
+        generate: () => Effect.void,
+      })
+
+      expect(result.workspaceRoot).toBe(fixture.workspaceRoot)
+      expect(result.ownedWorktree).toBe(fixture.ownedWorktree)
+      expect(
+        yield* resolveStoreBranchWorktree({
+          bareRepo: linkedBareRepo,
+          workspaceRoot: linkedWorkspaceRoot,
+          branch: 'feature',
+        }),
+      ).toBe(`${fixture.ownedWorktree}/`)
+      expect(
+        (yield* assertComposedOwnedWorkspace({
+          bareRepo: linkedBareRepo,
+          workspaceRoot: linkedWorkspaceRoot,
+          ownedMember: 'owner',
+          branch: 'feature',
+        })).workspaceRoot,
+      ).toBe(fixture.workspaceRoot)
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
   )
 

@@ -197,6 +197,8 @@ let
       guard = "mr";
       description = "Materialize committed root members without fetching or rewriting locks";
       exec = trace.exec "mr:setup" ''
+        set -euo pipefail
+
         if [ ! -f ./megarepo.kdl ] && [ ! -f ./megarepo.json ]; then
           exit 0
         fi
@@ -213,6 +215,8 @@ let
       guard = "mr";
       description = "Fetch latest refs and apply to workspace";
       exec = trace.exec "mr:fetch-apply" ''
+        set -euo pipefail
+
         if [ ! -f ./megarepo.kdl ] && [ ! -f ./megarepo.json ]; then
           exit 0
         fi
@@ -243,6 +247,8 @@ let
       guard = "mr";
       description = "Apply megarepo.lock to workspace";
       exec = trace.exec "mr:apply" ''
+        set -euo pipefail
+
         if [ ! -f ./megarepo.kdl ] && [ ! -f ./megarepo.json ]; then
           exit 0
         fi

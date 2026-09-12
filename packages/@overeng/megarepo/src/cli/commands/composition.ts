@@ -608,7 +608,7 @@ const resolveComposedMembers = ({
   })
 
 /** Run one composition application against a validated composed root. */
-const applyCompositionAtRoot = ({
+export const applyCompositionAtRoot = ({
   context,
   env,
 }: {

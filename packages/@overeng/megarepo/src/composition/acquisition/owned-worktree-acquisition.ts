@@ -1,6 +1,6 @@
 import * as NodePath from 'node:path'
 
-import { Effect, Option } from 'effect'
+import { Effect, Exit, Option } from 'effect'
 import * as FileSystem from 'effect/FileSystem'
 import type { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 
@@ -41,6 +41,24 @@ const failure = ({
   })
 
 const normalizePath = (path: string): string => NodePath.resolve(path)
+
+/**
+ * Resolve the deepest existing ancestor so path identity matches Git even when the store root is
+ * a symlink and the final workspace path does not exist yet.
+ */
+const canonicalizePath = (path: string): Effect.Effect<string, never, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const normalized = normalizePath(path)
+    const segments = normalized.split(NodePath.sep)
+    for (let depth = segments.length; depth > 1; depth -= 1) {
+      const existing = segments.slice(0, depth).join(NodePath.sep) || NodePath.sep
+      const real = yield* fs.realPath(existing).pipe(Effect.orElseSucceed(() => undefined))
+      if (real === undefined) continue
+      return normalizePath(NodePath.join(real, ...segments.slice(depth)))
+    }
+    return normalized
+  })
 const asDir = (path: string): AbsoluteDirPath =>
   EffectPath.unsafe.absoluteDir(`${path.replace(/\/+$/u, '')}/`)
 const asFile = (path: string): AbsoluteFilePath => EffectPath.unsafe.absoluteFile(path)
@@ -186,6 +204,27 @@ const ensureRootConfig = ({
     return rootConfig
   })
 
+const linkedWorktreeAdminDir = ({
+  fs,
+  bareRepo,
+  worktree,
+}: {
+  readonly fs: FileSystem.FileSystem
+  readonly bareRepo: string
+  readonly worktree: string
+}) =>
+  Effect.gen(function* () {
+    const dotGit = NodePath.join(worktree, '.git')
+    const pointer = yield* fs.readFileString(asFile(dotGit)).pipe(Effect.orElseSucceed(() => ''))
+    const match = /^gitdir: (.+)$/u.exec(pointer.trim())
+    const adminDir =
+      match === null ? undefined : NodePath.resolve(NodePath.dirname(dotGit), match[1]!)
+    return adminDir !== undefined &&
+      NodePath.dirname(adminDir) === NodePath.join(bareRepo, 'worktrees')
+      ? adminDir
+      : undefined
+  })
+
 const assertGitIdentity = ({
   fs,
   bareRepo,
@@ -268,8 +307,8 @@ const assertGitIdentity = ({
 
 /** Validate an existing composed root from Git registration and its W `.git` identity. */
 export const assertComposedOwnedWorkspace = ({
-  bareRepo,
-  workspaceRoot,
+  bareRepo: rawBareRepo,
+  workspaceRoot: rawWorkspaceRoot,
   ownedMember,
   branch,
 }: {
@@ -284,6 +323,8 @@ export const assertComposedOwnedWorkspace = ({
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
+    const bareRepo = yield* canonicalizePath(rawBareRepo)
+    const workspaceRoot = yield* canonicalizePath(rawWorkspaceRoot)
     const paths = composedWorkspacePaths({ workspaceRoot, ownedMember })
     if (paths === undefined) {
       return yield* failure({
@@ -292,7 +333,7 @@ export const assertComposedOwnedWorkspace = ({
         message: `Invalid owned member '${ownedMember}'`,
       })
     }
-    yield* assertGitIdentity({ fs, bareRepo: normalizePath(bareRepo), branch, paths })
+    yield* assertGitIdentity({ fs, bareRepo, branch, paths })
     const { configPath, configName } = yield* readConfig(paths.ownedWorktree)
     yield* ensureRootConfig({ fs, paths, configName, createIfMissing: false })
     return {
@@ -302,7 +343,7 @@ export const assertComposedOwnedWorkspace = ({
       configPath,
       configName,
       ownedMember,
-      bareRepo: normalizePath(bareRepo),
+      bareRepo,
       branch,
     }
   }).pipe(
@@ -311,8 +352,8 @@ export const assertComposedOwnedWorkspace = ({
         ? cause
         : failure({
             reason: 'IoFailure',
-            path: workspaceRoot,
-            message: `Could not validate composed workspace '${workspaceRoot}'`,
+            path: rawWorkspaceRoot,
+            message: `Could not validate composed workspace '${rawWorkspaceRoot}'`,
             cause,
           }),
     ),
@@ -320,7 +361,7 @@ export const assertComposedOwnedWorkspace = ({
 
 /**
  * Create W directly at P/repos/<owned>, or resume that exact Git-authoritative birth.
- * No existing worktree is moved and no path is ever deleted on failure.
+ * A failed new birth removes only the workspace artifacts created by that invocation.
  */
 export const createComposedOwnedWorkspace = <R, E>({
   bareRepo: rawBareRepo,
@@ -343,8 +384,9 @@ export const createComposedOwnedWorkspace = <R, E>({
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
-    const bareRepo = normalizePath(rawBareRepo)
-    const paths = composedWorkspacePaths({ workspaceRoot: rawWorkspaceRoot, ownedMember })
+    const bareRepo = yield* canonicalizePath(rawBareRepo)
+    const workspaceRoot = yield* canonicalizePath(rawWorkspaceRoot)
+    const paths = composedWorkspacePaths({ workspaceRoot, ownedMember })
     if (paths === undefined || branch.length === 0 || branch.startsWith('-') === true) {
       return yield* failure({
         reason: 'InvalidRequest',
@@ -368,33 +410,160 @@ export const createComposedOwnedWorkspace = <R, E>({
       })
     }
 
-    if (exactRegistration.length === 0) {
-      if ((yield* fs.exists(asDir(paths.workspaceRoot))) === true) {
-        const canonicalRoot = (yield* fs.realPath(asDir(paths.workspaceRoot))).replace(/\/+$/u, '')
-        if (canonicalRoot !== paths.workspaceRoot) {
-          return yield* failure({
-            reason: 'ForeignRoot',
+    if (exactRegistration.length === 1) {
+      const { configName } = yield* readConfig(paths.ownedWorktree)
+      yield* ensureRootConfig({ fs, paths, configName, createIfMissing: true })
+      const composed = yield* assertComposedOwnedWorkspace({
+        bareRepo,
+        workspaceRoot: paths.workspaceRoot,
+        ownedMember,
+        branch,
+      })
+      const adminDir = yield* linkedWorktreeAdminDir({
+        fs,
+        bareRepo,
+        worktree: paths.ownedWorktree,
+      })
+      const clearIndexLock =
+        adminDir === undefined
+          ? Effect.void
+          : fs.remove(NodePath.join(adminDir, 'index.lock'), { force: true }).pipe(Effect.ignore)
+      yield* generate({
+        workspaceRoot: asDir(composed.workspaceRoot),
+        ownedWorktree: asDir(composed.ownedWorktree),
+        configPath: asFile(composed.configPath),
+        configName: composed.configName,
+      }).pipe(
+        Effect.mapError((cause) =>
+          failure({
+            reason: 'GenerationFailed',
             path: paths.workspaceRoot,
-            message: `Workspace root '${paths.workspaceRoot}' resolves to foreign path '${canonicalRoot}'`,
-          })
-        }
-        const rootStat = yield* fs.stat(asDir(paths.workspaceRoot))
-        if (rootStat.type !== 'Directory') {
-          return yield* failure({
-            reason: 'ForeignRoot',
-            path: paths.workspaceRoot,
-            message: `Workspace root '${paths.workspaceRoot}' is not a directory`,
-          })
-        }
-        const rootEntries = yield* fs.readDirectory(asDir(paths.workspaceRoot))
-        if (rootEntries.some((entry) => entry !== 'repos') === true) {
-          return yield* failure({
-            reason: 'ForeignRoot',
-            path: paths.workspaceRoot,
-            message: `Refusing existing workspace root '${paths.workspaceRoot}'; before Git registration it may contain only an empty 'repos' directory (found: ${rootEntries.join(', ')})`,
-          })
-        }
+            message: `Composition generation failed for '${paths.workspaceRoot}'`,
+            cause,
+          }),
+        ),
+        Effect.onExit((exit) => (Exit.isFailure(exit) === true ? clearIndexLock : Effect.void)),
+      )
+      return composed
+    }
+
+    const workspaceRootExisted = yield* fs.exists(asDir(paths.workspaceRoot))
+    if (workspaceRootExisted === true) {
+      const canonicalRoot = (yield* fs.realPath(asDir(paths.workspaceRoot))).replace(/\/+$/u, '')
+      if (canonicalRoot !== paths.workspaceRoot) {
+        return yield* failure({
+          reason: 'ForeignRoot',
+          path: paths.workspaceRoot,
+          message: `Workspace root '${paths.workspaceRoot}' resolves to foreign path '${canonicalRoot}'`,
+        })
       }
+      const rootStat = yield* fs.stat(asDir(paths.workspaceRoot))
+      if (rootStat.type !== 'Directory') {
+        return yield* failure({
+          reason: 'ForeignRoot',
+          path: paths.workspaceRoot,
+          message: `Workspace root '${paths.workspaceRoot}' is not a directory`,
+        })
+      }
+      const rootEntries = yield* fs.readDirectory(asDir(paths.workspaceRoot))
+      if (rootEntries.some((entry) => entry !== 'repos') === true) {
+        return yield* failure({
+          reason: 'ForeignRoot',
+          path: paths.workspaceRoot,
+          message: `Refusing existing workspace root '${paths.workspaceRoot}'; before Git registration it may contain only an empty 'repos' directory (found: ${rootEntries.join(', ')})`,
+        })
+      }
+    }
+    const reposExisted = yield* fs.exists(asDir(paths.reposPath))
+    const branchExisted =
+      startPoint === undefined
+        ? true
+        : yield* Git.refExists({ repoPath: bareRepo, ref: `refs/heads/${branch}` })
+
+    let createdWorktree = false
+    let generationStarted = false
+    let createdAdminDir: string | undefined
+    const rollback = Effect.gen(function* () {
+      if (createdWorktree === false) {
+        if (
+          reposExisted === false &&
+          (yield* fs.exists(asDir(paths.reposPath))) === true &&
+          (yield* fs.readDirectory(asDir(paths.reposPath))).length === 0
+        ) {
+          yield* fs.remove(asDir(paths.reposPath), { recursive: true })
+        }
+        if (
+          workspaceRootExisted === false &&
+          (yield* fs.exists(asDir(paths.workspaceRoot))) === true &&
+          (yield* fs.readDirectory(asDir(paths.workspaceRoot))).length === 0
+        ) {
+          yield* fs.remove(asDir(paths.workspaceRoot), { recursive: true })
+        }
+        return
+      }
+
+      const rootConfigs = ['megarepo.kdl', 'megarepo.json'] as const
+      for (const configName of rootConfigs) {
+        const rootConfig = NodePath.join(paths.workspaceRoot, configName)
+        const target = NodePath.join('repos', paths.ownedMember, configName)
+        const link = yield* fs.readLink(rootConfig).pipe(Effect.orElseSucceed(() => undefined))
+        if (link === target) yield* fs.remove(rootConfig)
+      }
+
+      const currentRegistrations = yield* command({
+        path: bareRepo,
+        effect: Git.listWorktrees(bareRepo),
+      })
+      const registeredHere = currentRegistrations.some(
+        (candidate) => normalizePath(candidate.path) === paths.ownedWorktree,
+      )
+      if (registeredHere === true) {
+        const removed = yield* Git.removeWorktree({
+          repoPath: bareRepo,
+          worktreePath: paths.ownedWorktree,
+          force: true,
+        }).pipe(Effect.result)
+        if (removed._tag === 'Failure') {
+          if (createdAdminDir !== undefined) {
+            yield* fs
+              .remove(NodePath.join(createdAdminDir, 'index.lock'), { force: true })
+              .pipe(Effect.ignore)
+          }
+          yield* Git.removeWorktree({
+            repoPath: bareRepo,
+            worktreePath: paths.ownedWorktree,
+            force: true,
+          })
+        }
+      } else if ((yield* fs.exists(asDir(paths.ownedWorktree))) === true) {
+        yield* fs.remove(asDir(paths.ownedWorktree), { recursive: true })
+        yield* Git.pruneWorktrees(bareRepo)
+      }
+
+      if (
+        startPoint !== undefined &&
+        branchExisted === false &&
+        (yield* Git.refExists({ repoPath: bareRepo, ref: `refs/heads/${branch}` })) === true
+      ) {
+        yield* Git.deleteBranch({ repoPath: bareRepo, branch, force: true })
+      }
+      if (
+        reposExisted === false &&
+        (yield* fs.exists(asDir(paths.reposPath))) === true &&
+        (yield* fs.readDirectory(asDir(paths.reposPath))).length === 0
+      ) {
+        yield* fs.remove(asDir(paths.reposPath), { recursive: true })
+      }
+      if (
+        workspaceRootExisted === false &&
+        (yield* fs.exists(asDir(paths.workspaceRoot))) === true &&
+        (yield* fs.readDirectory(asDir(paths.workspaceRoot))).length === 0
+      ) {
+        yield* fs.remove(asDir(paths.workspaceRoot), { recursive: true })
+      }
+    })
+
+    return yield* Effect.gen(function* () {
       yield* fs.makeDirectory(asDir(paths.reposPath), { recursive: true })
       const canonicalRepos = (yield* fs.realPath(asDir(paths.reposPath))).replace(/\/+$/u, '')
       if (canonicalRepos !== paths.reposPath) {
@@ -412,43 +581,68 @@ export const createComposedOwnedWorkspace = <R, E>({
           message: `Refusing non-empty unregistered repos directory '${paths.reposPath}' (found: ${repoEntries.join(', ')})`,
         })
       }
-      yield* command({
-        path: paths.ownedWorktree,
-        effect: Git.createWorktree({
-          repoPath: bareRepo,
-          worktreePath: paths.ownedWorktree,
-          branch,
-          createBranch: startPoint !== undefined,
-          ...(startPoint === undefined ? {} : { startPoint }),
-        }),
+      yield* Effect.uninterruptible(
+        command({
+          path: paths.ownedWorktree,
+          effect: Git.createWorktree({
+            repoPath: bareRepo,
+            worktreePath: paths.ownedWorktree,
+            branch,
+            createBranch: startPoint !== undefined,
+            ...(startPoint === undefined ? {} : { startPoint }),
+          }),
+        }).pipe(
+          Effect.tap(() =>
+            Effect.sync(() => {
+              createdWorktree = true
+            }),
+          ),
+        ),
+      )
+      createdAdminDir = yield* linkedWorktreeAdminDir({
+        fs,
+        bareRepo,
+        worktree: paths.ownedWorktree,
       })
-    }
 
-    const { configName } = yield* readConfig(paths.ownedWorktree)
-    yield* ensureRootConfig({ fs, paths, configName, createIfMissing: true })
-    const composed = yield* assertComposedOwnedWorkspace({
-      bareRepo,
-      workspaceRoot: paths.workspaceRoot,
-      ownedMember,
-      branch,
-    })
-    const context: OwnedWorkspaceGenerationContext = {
-      workspaceRoot: asDir(composed.workspaceRoot),
-      ownedWorktree: asDir(composed.ownedWorktree),
-      configPath: asFile(composed.configPath),
-      configName: composed.configName,
-    }
-    yield* generate(context).pipe(
-      Effect.mapError((cause) =>
-        failure({
-          reason: 'GenerationFailed',
-          path: paths.workspaceRoot,
-          message: `Composition generation failed for '${paths.workspaceRoot}'`,
-          cause,
-        }),
+      const { configName } = yield* readConfig(paths.ownedWorktree)
+      yield* ensureRootConfig({ fs, paths, configName, createIfMissing: true })
+      const composed = yield* assertComposedOwnedWorkspace({
+        bareRepo,
+        workspaceRoot: paths.workspaceRoot,
+        ownedMember,
+        branch,
+      })
+      generationStarted = true
+      yield* generate({
+        workspaceRoot: asDir(composed.workspaceRoot),
+        ownedWorktree: asDir(composed.ownedWorktree),
+        configPath: asFile(composed.configPath),
+        configName: composed.configName,
+      }).pipe(
+        Effect.mapError((cause) =>
+          failure({
+            reason: 'GenerationFailed',
+            path: paths.workspaceRoot,
+            message: `Composition generation failed for '${paths.workspaceRoot}'`,
+            cause,
+          }),
+        ),
+      )
+      return composed
+    }).pipe(
+      Effect.onExit((exit) =>
+        Exit.isFailure(exit) === false
+          ? Effect.void
+          : generationStarted === true
+            ? createdAdminDir === undefined
+              ? Effect.void
+              : fs
+                  .remove(NodePath.join(createdAdminDir, 'index.lock'), { force: true })
+                  .pipe(Effect.ignore)
+            : rollback,
       ),
     )
-    return composed
   }).pipe(
     Effect.mapError((cause) =>
       cause instanceof OwnedWorktreeAcquisitionError
@@ -464,8 +658,8 @@ export const createComposedOwnedWorkspace = <R, E>({
 
 /** Resolve a store branch root to W when Git registers the canonical composed shape. */
 export const resolveComposedStoreWorktree = ({
-  bareRepo,
-  workspaceRoot,
+  bareRepo: rawBareRepo,
+  workspaceRoot: rawWorkspaceRoot,
   branch,
 }: {
   readonly bareRepo: string
@@ -477,6 +671,8 @@ export const resolveComposedStoreWorktree = ({
   FileSystem.FileSystem | ChildProcessSpawner
 > =>
   Effect.gen(function* () {
+    const bareRepo = yield* canonicalizePath(rawBareRepo)
+    const workspaceRoot = yield* canonicalizePath(rawWorkspaceRoot)
     const registrations = yield* command({
       path: bareRepo,
       effect: Git.listWorktrees(bareRepo),
@@ -530,8 +726,8 @@ export const resolveStoreBranchWorktree = ({
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
-    const bareRepo = normalizePath(rawBareRepo)
-    const workspaceRoot = normalizePath(rawWorkspaceRoot)
+    const bareRepo = yield* canonicalizePath(rawBareRepo)
+    const workspaceRoot = yield* canonicalizePath(rawWorkspaceRoot)
     const registrations = yield* command({
       path: bareRepo,
       effect: Git.listWorktrees(bareRepo),

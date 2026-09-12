@@ -63,6 +63,7 @@ import { readWorktreeInUse, type InUseHolder } from '../../../store/store-inuse.
 import {
   collectStoreLiveSet,
   isPathProtected,
+  refreshWorkspaceRegistry,
   type StoreLiveSet,
 } from '../../../store/store-liveness.ts'
 import { StoreLock } from '../../../store/store-lock.ts'
@@ -91,6 +92,7 @@ import type {
   StoreWorktreeStatus,
   StoreWorktreeIssue,
 } from '../../renderers/StoreOutput/mod.ts'
+import { applyCompositionAtRoot } from '../composition.ts'
 
 /**
  * Entry returned by collectStoreWorktrees — `broken` indicates a directory that looks like a
@@ -3416,26 +3418,6 @@ const storeWorktreeNewCommand = Cli.Command.make(
       // Compute worktree path
       const worktreePath = store.getWorktreePath({ source, ref: targetRef, refType })
 
-      // Fail if worktree already exists
-      const worktreeExists = yield* store.hasWorktree({ source, ref: targetRef, refType })
-      if (worktreeExists === true) {
-        yield* run(
-          StoreApp,
-          (tui) =>
-            Effect.sync(() => {
-              tui.dispatch({
-                _tag: 'SetError',
-                error: 'worktree_exists',
-                message: `Worktree already exists at ${worktreePath}`,
-              })
-            }),
-          { view: React.createElement(StoreView, { stateAtom: StoreApp.stateAtom }) },
-        ).pipe(Effect.provide(outputModeLayer(output)))
-        return yield* new StoreCommandError({
-          message: `Worktree already exists at ${worktreePath}`,
-        })
-      }
-
       // Create parent directory
       const worktreeParent = EffectPath.ops.parent(worktreePath)
       if (worktreeParent !== undefined) {
@@ -3461,6 +3443,25 @@ const storeWorktreeNewCommand = Cli.Command.make(
               bareRepoPath,
               rev: compositionIntentRev,
             })
+      // Fail if worktree already exists
+      const worktreeExists = yield* store.hasWorktree({ source, ref: targetRef, refType })
+      if (worktreeExists === true && composedMember === undefined) {
+        yield* run(
+          StoreApp,
+          (tui) =>
+            Effect.sync(() => {
+              tui.dispatch({
+                _tag: 'SetError',
+                error: 'worktree_exists',
+                message: `Worktree already exists at ${worktreePath}`,
+              })
+            }),
+          { view: React.createElement(StoreView, { stateAtom: StoreApp.stateAtom }) },
+        ).pipe(Effect.provide(outputModeLayer(output)))
+        return yield* new StoreCommandError({
+          message: `Worktree already exists at ${worktreePath}`,
+        })
+      }
       const composedOwnedPath =
         composedMember === undefined
           ? undefined
@@ -3470,7 +3471,15 @@ const storeWorktreeNewCommand = Cli.Command.make(
               ownedMember: composedMember,
               branch: targetRef,
               ...(base === undefined ? {} : { startPoint: base }),
-              generate: () => Effect.void,
+              generate: (context) =>
+                Effect.gen(function* () {
+                  yield* refreshWorkspaceRegistry({
+                    workspaceRoot: context.workspaceRoot,
+                    store,
+                    now: yield* Clock.currentTimeMillis,
+                  })
+                  yield* applyCompositionAtRoot({ context, env: process.env })
+                }),
             }).pipe(
               Effect.mapError(
                 (cause) =>

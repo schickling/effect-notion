@@ -234,4 +234,16 @@ done
 echo "  ok: source-mode mr receives the canonical composition runtime"
 
 echo ""
+echo "Test 9: shared mutation tasks preserve mr failures"
+for task in mr:setup mr:fetch-apply mr:apply
+do
+  task_block="$(sed -n "/\"$task\" = {/,/status =/p" "$module_file")"
+  if ! grep -F 'set -euo pipefail' <<< "$task_block" >/dev/null; then
+    echo "FAIL: $task can mask a failed mr command"
+    exit 1
+  fi
+done
+echo "  ok: shared mutation tasks stop after a failed mr command"
+
+echo ""
 echo "All megarepo status tests passed"
