@@ -60,15 +60,12 @@ describe('store: symlinked store root', () => {
 
   it.effect(
     'keeps a non-existent store path lexical (no realpath failure)',
-    Effect.fnUntraced(
-      function* () {
-        const missingDir = EffectPath.unsafe.absoluteDir('/nonexistent-megarepo-store-root/')
-        yield* setStoreEnv(missingDir)
+    Effect.fnUntraced(function* () {
+      const missingDir = EffectPath.unsafe.absoluteDir('/nonexistent-megarepo-store-root/')
+      yield* setStoreEnv(missingDir)
 
-        const store = yield* Layer.build(StoreLayer).pipe(Effect.map(Context.get(Store)))
-        expect(store.basePath).toBe(missingDir)
-      },
-      Effect.provide(NodeServices.layer),
-    ),
+      const store = yield* Layer.build(StoreLayer).pipe(Effect.map(Context.get(Store)))
+      expect(store.basePath).toBe(missingDir)
+    }, Effect.provide(NodeServices.layer)),
   )
 })

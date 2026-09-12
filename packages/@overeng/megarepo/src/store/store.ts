@@ -449,10 +449,16 @@ const expandStorePath = (path: string): AbsoluteDirPath => {
  * would otherwise reject every branch member with GitIdentityConflict
  * ("registered outside canonical P or P/repos/<owned>").
  */
-const canonicalizeStorePath = (fs: FileSystem.FileSystem, path: AbsoluteDirPath) =>
+const canonicalizeStorePath = ({
+  fs,
+  path,
+}: {
+  fs: FileSystem.FileSystem
+  path: AbsoluteDirPath
+}) =>
   fs.exists(path).pipe(
     Effect.flatMap((exists) =>
-      exists
+      exists === true
         ? fs.realPath(path).pipe(
             Effect.map((real) => {
               const withTrailingSlash = real.endsWith('/') === true ? real : `${real}/`
@@ -491,7 +497,7 @@ export const StoreLayer = Layer.effect(
     const storePathRaw = Option.fromUndefinedOr(process.env[ENV_VARS.STORE]).pipe(
       Option.getOrElse(() => DEFAULT_STORE_PATH),
     )
-    const basePath = yield* canonicalizeStorePath(fs, expandStorePath(storePathRaw))
+    const basePath = yield* canonicalizeStorePath({ fs, path: expandStorePath(storePathRaw) })
     return make({ config: { basePath }, fs })
   }),
 ).pipe((storeOnly) => {
