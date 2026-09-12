@@ -67,23 +67,17 @@ describe('run-level terminal conclusion banner', () => {
 
 describe('parseRunnerIdentity', () => {
   it('keeps the full Namespace runner id, not just the abbreviated prefix', () =>
-     expect(parseRunnerIdentity({ name: 'nsc-runner-example123' })).toEqual({
-     expect(parseRunnerIdentity({ name: 'runnera-1234abcd' })).toEqual({
-     expect(parseRunnerIdentity({ name: 'runnerb-9876fedc' })).toEqual({
+    expect(parseRunnerIdentity({ name: 'nsc-runner-abc123example' })).toEqual({
       _tag: 'namespace',
-      instance: 'example123',
+      instance: 'abc123example',
     }))
 
   it('resolves self-hosted runner-scaler workers to their host', () => {
-     expect(parseRunnerIdentity({ name: 'nsc-runner-example123' })).toEqual({
-     expect(parseRunnerIdentity({ name: 'runnera-1234abcd' })).toEqual({
-     expect(parseRunnerIdentity({ name: 'runnerb-9876fedc' })).toEqual({
+    expect(parseRunnerIdentity({ name: 'runnera-1234abcd' })).toEqual({
       _tag: 'self-hosted',
       instance: 'runnera',
     })
-     expect(parseRunnerIdentity({ name: 'nsc-runner-example123' })).toEqual({
-     expect(parseRunnerIdentity({ name: 'runnera-1234abcd' })).toEqual({
-     expect(parseRunnerIdentity({ name: 'runnerb-9876fedc' })).toEqual({
+    expect(parseRunnerIdentity({ name: 'runnerb-abcdef12' })).toEqual({
       _tag: 'self-hosted',
       instance: 'runnerb',
     })

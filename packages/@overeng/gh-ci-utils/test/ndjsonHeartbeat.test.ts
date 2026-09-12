@@ -270,8 +270,8 @@ describe('ndjson watch liveness', () => {
         status: 'completed',
         conclusion: 'success',
         number: 1,
-        startedAt: '2026-09-10T11:00:00.000Z',
-        completedAt: '2026-09-10T11:00:06.000Z',
+        startedAt: '2026-01-15T11:00:00.000Z',
+        completedAt: '2026-01-15T11:00:06.000Z',
       },
     ]
     const events = fromCiAction({
@@ -314,7 +314,7 @@ describe('ndjson watch liveness', () => {
         status: 'in_progress',
         conclusion: null,
         number: 1,
-        startedAt: '2026-09-10T11:00:00.000Z',
+        startedAt: '2026-01-15T11:00:00.000Z',
         completedAt: null,
       },
     ]
