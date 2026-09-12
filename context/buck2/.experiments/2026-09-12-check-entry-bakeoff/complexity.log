@@ -1,0 +1,5 @@
+$ wc -l nix/devenv-modules/tasks/shared/check.nix
+110 nix/devenv-modules/tasks/shared/check.nix
+runs: 1
+
+Prototype diff commands and results are in shape-a.log and shape-b.log.

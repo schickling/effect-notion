@@ -1,0 +1,34 @@
+Host: dev3
+Date: 2026-09-12
+Timezone for elapsed measurements: PTY metadata timestamps are UTC.
+
+Initial pre-prototype probe:
+$ df -h /
+captured result: 1.1T available, 35% used
+runs: 1
+
+Recorded verification probe:
+$ df -h /
+Filesystem             Size  Used Avail Use% Mounted on
+/dev/mapper/vg0-root0  1.7T  576G  1.1T  36% /
+runs: 1
+
+$ nix build .#buck2 --no-link --print-out-paths
+/nix/store/kv0z81bpxb9yzpdiqhavx0f7v0mgz545-buck2-unstable-2026-09-01
+exit: 0
+runs: 1
+elapsed from PTY metadata: 1.053 s
+stderr: warning: error: cannot open connection to Nix trace log '/srv/bulk/observability/nix-trace/trace.jsonl': Permission denied
+
+$ nix build nixpkgs#watchman --no-link --print-out-paths
+/nix/store/m12cfb146gpa1n5k4x9jd2907kdd0ylg-watchman-2026.07.27.00
+exit: 0
+runs: 1
+elapsed from PTY metadata: 0.907 s
+stderr: warning: error: cannot open connection to Nix trace log '/srv/bulk/observability/nix-trace/trace.jsonl': Permission denied
+
+$ which nc && nc -z -w 3 dev3 41045
+/etc/profiles/per-user/schickling/bin/nc
+exit: 0
+runs: 1
+result: the configured REAPI TCP endpoint was reachable; no Buck action reached cache lookup
