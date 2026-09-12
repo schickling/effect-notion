@@ -82,6 +82,7 @@ let
     workflow-report = import ./nix/devenv-modules/tasks/shared/workflow-report.nix;
     lint-genie = ./nix/devenv-modules/tasks/shared/lint-genie.nix;
     lint-nix = import ./nix/devenv-modules/tasks/shared/lint-nix.nix;
+    nix-cli = import ./nix/devenv-modules/tasks/shared/nix-cli.nix;
     lint-oxc = import ./nix/devenv-modules/tasks/shared/lint-oxc.nix;
     bun = import ./nix/devenv-modules/tasks/shared/bun.nix;
     pnpm = import ./nix/devenv-modules/tasks/shared/pnpm.nix;
@@ -647,8 +648,10 @@ in
     taskModules.genie
     (taskModules.megarepo { mrPkg = mrCli; })
     (taskModules.lint-nix { })
+    # No repository JavaScript package is source-built by Nix anymore. Import
+    # the empty module contract to retain repository-wide flake validation.
+    (taskModules.nix-cli { cliPackages = [ ]; })
     (taskModules.check {
-      hasNixCheck = false;
       extraChecks = [
         "devenv:trace-audit"
         "workspace:check"

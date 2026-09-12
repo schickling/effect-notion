@@ -105,6 +105,8 @@ const reaches = ({ start, target }) => {
 for (const name of [
   'check:quick',
   'check:all',
+  'nix:check:quick',
+  'nix:flake:check',
   'buck2:check',
   'buck2:typescript:materialize-dist',
   'buck2:editor:bootstrap',
@@ -127,6 +129,12 @@ for (const name of [
   ok({
     condition: tasks.has(name) === false,
     name: `${name} is absent after its Buck authority cutover`,
+  })
+}
+for (const name of ['nix:build', 'nix:check']) {
+  ok({
+    condition: tasks.has(name) === false,
+    name: `${name} is absent without repository pnpm FOD producers`,
   })
 }
 
@@ -154,6 +162,14 @@ for (const name of ['check:quick', 'check:all']) {
     name: `${name} reaches the Buck-owned TypeScript gate`,
   })
 }
+ok({
+  condition: reaches({ start: 'check:quick', target: 'nix:check:quick' }),
+  name: 'check:quick retains the empty Nix fingerprint aggregate',
+})
+ok({
+  condition: reaches({ start: 'check:all', target: 'nix:flake:check' }),
+  name: 'check:all retains repository-wide Nix flake validation',
+})
 // `test:run` must schedule the one Buck aggregate and the source-side batches which own
 // packages absent from the authority plus admitted lanes' exact unbounded complements. Either
 // edge going missing would silently omit a disjoint side of the test partition.

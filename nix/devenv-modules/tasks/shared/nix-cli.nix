@@ -350,15 +350,30 @@ let
   hasPackages = cliPackages != [ ];
 
 in
-lib.mkIf hasPackages {
+{
   tasks = lib.mkMerge (
-    # Per-package tasks
-    (map mkBuildTask cliPackages)
-    ++ (map mkCheckTask cliPackages)
-    ++ (map mkQuickCheckTask packagesWithLockfile)
-    ++
-      # Aggregate tasks
-      [
+    [
+      {
+        # These are repository-wide Nix validation surfaces, not pnpm FOD
+        # surfaces. Keep them present even when no source-built CLI packages
+        # remain so check:quick and check:all retain valid dependency edges.
+        "nix:check:quick" = {
+          description = "Quick lockfile fingerprint check for all CLI packages";
+          after = map (p: "nix:check:quick:${p.name}") packagesWithLockfile;
+        };
+
+        "nix:flake:check" = {
+          description = "Full nix flake validation (builds all flake packages)";
+          exec = trace.exec "nix:flake:check" "${pkgs.nix}/bin/nix flake check";
+        };
+      }
+    ]
+    ++ lib.optionals hasPackages (
+      # Source-build and FOD checks exist only when consumers declare packages.
+      (map mkBuildTask cliPackages)
+      ++ (map mkCheckTask cliPackages)
+      ++ (map mkQuickCheckTask packagesWithLockfile)
+      ++ [
         {
           "nix:build" = {
             description = "Build all CLI Nix packages";
@@ -370,17 +385,8 @@ lib.mkIf hasPackages {
             exec = trace.exec "nix:check" "${sequentialNixCheckScript}";
             after = lib.optional (packagesWithLockfile != [ ] && dependencyTask != null) dependencyTask;
           };
-
-          "nix:check:quick" = {
-            description = "Quick lockfile fingerprint check for all CLI packages";
-            after = map (p: "nix:check:quick:${p.name}") packagesWithLockfile;
-          };
-
-          "nix:flake:check" = {
-            description = "Full nix flake validation (builds all flake packages)";
-            exec = trace.exec "nix:flake:check" "${pkgs.nix}/bin/nix flake check";
-          };
         }
       ]
+    )
   );
 }

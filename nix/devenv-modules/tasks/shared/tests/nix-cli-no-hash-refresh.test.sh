@@ -14,8 +14,16 @@ if grep -qi 'ever''green' "$module"; then
   exit 1
 fi
 
+if grep -q '^lib\.mkIf hasPackages {' "$module"; then
+  echo "empty cliPackages still disables repository-wide Nix validation"
+  exit 1
+fi
+
+grep -q 'lib.optionals hasPackages' "$module"
+grep -q '"nix:check:quick"' "$module"
+grep -q '"nix:flake:check"' "$module"
 grep -q 'nix:build' "$module"
 grep -q 'nix:check' "$module"
 grep -q 'refresh Nix FOD hashes' "$module"
 
-echo "nix-cli hash-refresh task surfaces are absent"
+echo "nix-cli keeps universal validation while hash-refresh surfaces stay absent"
