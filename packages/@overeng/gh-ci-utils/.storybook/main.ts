@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 
 import { createTuiStorybookConfig } from '@overeng/utils/node/storybook/config'
 
-const effectUtilsRoot = resolve(import.meta.dirname, '..', '..', '..', 'repos', 'effect-utils')
+const effectUtilsRoot = resolve(import.meta.dirname, '..', '..', '..', '..')
 
 /** Resolve a package entry point from effect-utils node_modules (needed in CI where linked packages are in megarepo-store) */
 const resolveFromEffectUtils = (pkg: string) => {
