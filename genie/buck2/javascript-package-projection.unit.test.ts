@@ -36,13 +36,17 @@ describe('portable JavaScript product cache policy', () => {
   const packageTools = readFileSync('buck2/package_tools.bzl', 'utf8')
   const productRules = readFileSync('buck2/products/defs.bzl', 'utf8')
 
-  it('admits deterministic local product actions for shared-cache upload and reuse', () => {
-    expect(packageTools).toContain(`category = "package_bin_artifact",
-        local_only = True,
-        allow_cache_upload = True,`)
-    expect(productRules).toContain(`category = "javascript_product_descriptor",
-        local_only = True,
-        allow_cache_upload = True,`)
+  it('admits deterministic local product actions under the root shared-cache policy', () => {
+    for (const source of [packageTools, productRules]) {
+      expect(source).toContain(
+        'load("//buck2/platforms:defs.bzl",',
+      )
+      expect(source).toContain('"root_allow_cache_uploads"')
+      expect(source).toContain('"root_remote_cache_enabled"')
+      expect(source).toContain(
+        'allow_cache_upload = root_remote_cache_enabled() and root_allow_cache_uploads(),',
+      )
+    }
     expect(packageTools).toContain(
       'default_target_platform = "//buck2/platforms:javascript_portable",',
     )

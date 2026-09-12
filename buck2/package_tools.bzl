@@ -2,6 +2,7 @@
 
 load("//buck2/dependencies:defs.bzl", "PnpmPlatformGatedPackagesInfo")
 load("//buck2/materialization.bzl", "PackageTreeInfo")
+load("//buck2/platforms:defs.bzl", "root_allow_cache_uploads", "root_remote_cache_enabled")
 load("//buck2/toolchains:defs.bzl", "BunToolchainInfo")
 JavaScriptModuleInfo = provider(fields = {
     "module": Artifact,
@@ -264,7 +265,7 @@ def _package_bundle_impl(ctx):
         args,
         category = "package_bin_artifact",
         local_only = True,
-        allow_cache_upload = True,
+        allow_cache_upload = root_remote_cache_enabled() and root_allow_cache_uploads(),
     )
     return [
         DefaultInfo(

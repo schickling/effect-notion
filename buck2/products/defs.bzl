@@ -1,7 +1,7 @@
 """Language-neutral portable build-product packaging contract."""
 
 load("//buck2/package_tools.bzl", "JavaScriptModuleInfo")
-load("//buck2/platforms:defs.bzl", "ProductPlatformInfo", "native_execution_constraints")
+load("//buck2/platforms:defs.bzl", "ProductPlatformInfo", "native_execution_constraints", "root_allow_cache_uploads", "root_remote_cache_enabled")
 load("//buck2/provenance:defs.bzl", "ProductExecutableInfo")
 load("//buck2/toolchains:defs.bzl", "BunToolchainInfo")
 
@@ -57,7 +57,7 @@ def _javascript_product_impl(ctx):
         args,
         category = "javascript_product_descriptor",
         local_only = True,
-        allow_cache_upload = True,
+        allow_cache_upload = root_remote_cache_enabled() and root_allow_cache_uploads(),
     )
     return [
         DefaultInfo(
