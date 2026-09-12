@@ -30,11 +30,13 @@ execution-platforms and target-execution subsystems.
 - **EXEC-R01 Configured platforms:** Every admitted action selects an explicit
   target platform and execution platform. Platform labels are canonical and
   shared across composition shapes: the label, not its content, enters the
-  configuration hash ([05-composition](../05-composition/requirements.md)).
+  configuration hash ([decision 0003](../.decisions/0003-platform-proof-and-rust-convergence.md)).
 - **EXEC-R02 Exact tools from the store:** Every executable provider binds tool
   bytes, protocol, runtime requirements, and execution-platform compatibility,
   and resolves through `/nix/store` paths. Per-worktree tool paths are
-  forbidden: they enter action command lines and split cache keys.
+  forbidden: they enter action command lines and split cache keys
+  ([decision 0009](../.decisions/0009-admitted-prelude-live-origin.md);
+  [decision 0029](../.decisions/0029-official-go-release-toolchain.md)).
 - **EXEC-R03 No ambient discovery:** An action must not discover an
   authoritative executable through `PATH`, shell startup, or mutable host
   state; missing or incompatible providers fail closed without selecting a
@@ -52,7 +54,8 @@ execution-platforms and target-execution subsystems.
   dependency closure, configuration, tools, platforms, and policy.
 - **EXEC-R07 Deterministic contract:** Equal configured input produces equal
   declared output where an artifact is promised, and an equal semantic verdict
-  for checks and tests.
+  for checks and tests
+  ([decision 0026](../.decisions/0026-buck-owned-unit-tests.md)).
 - **EXEC-R08 No live effects:** An action must not install against live state,
   publish, deploy, activate, or mutate anything outside its declared output
   boundary.
@@ -68,3 +71,5 @@ execution-platforms and target-execution subsystems.
   failure, an undeclared-access failure, and relevant/irrelevant mutation
   controls (BUCK-R12); after transfer, normal developer and CI surfaces
   delegate to Buck and the prior producer is deleted (BUCK-R09).
+  Foundation changes and product joins remain independently reviewable
+  ([decision 0007](../.decisions/0007-sibling-foundations-and-product-joins.md)).

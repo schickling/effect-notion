@@ -29,7 +29,8 @@ This subsystem owns the only shared Buck-to-system boundary: a portable
   architecture, ABI, tagged runtime contract, toolchain, recipe, and Buck
   target.
 - **BRIDGE-R04 No live state:** The descriptor contains no registry,
-  deployment, activation, rollback, health, fleet, or secret state.
+  deployment, activation, rollback, health, fleet, or secret state
+  ([decision 0008](../.decisions/0008-untrusted-oci-and-offline-nix-authority.md)).
 
 ### Must import independently
 

@@ -95,10 +95,12 @@ staged tree, for cache-upload economics.
 ## Rust Actions
 
 Authored `Cargo.toml` is the request authority; workspace binding follows the
-rust-cargo decisions (0017–0019). Rust admission converges through the same
-provider and platform contracts; complete-lock Nix vendoring remains the
-transitional packaging boundary until products cross the bridge (BUCK-R10,
-roadmap Phase 5).
+rust-cargo decisions (0017–0019). Third-party source supply and product ordering
+follow [decision 0023](../.decisions/0023-buck-fetched-rust-crates.md) and
+[decision 0024](../.decisions/0024-rust-workspace-before-product-proof.md).
+Rust admission converges through the same provider and platform contracts;
+complete-lock Nix vendoring remains the transitional packaging boundary until
+products cross the bridge (BUCK-R10, roadmap Phase 5).
 
 ## Action Lifecycle
 
