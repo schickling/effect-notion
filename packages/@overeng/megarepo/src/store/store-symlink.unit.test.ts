@@ -1,11 +1,11 @@
 /**
  * Regression: a symlinked store root must resolve to its real path before the
- * Store is built. dev3 moved `~/.megarepo` to `/srv/bulk/megarepo` behind a
- * compat symlink; Git registers worktrees under the real path while member
- * identity checks compare paths lexically, so an unresolved symlink root
- * rejected every branch member with GitIdentityConflict ("registered outside
- * canonical P or P/repos/<owned>") and `mr apply` silently materialized
- * nothing (dotfiles#2720 family).
+ * Store is built (e.g. a store relocated to a bulk disk behind a compat
+ * symlink at the original path). Git registers worktrees under the real path
+ * while member identity checks compare paths lexically, so an unresolved
+ * symlink root rejected every branch member with GitIdentityConflict
+ * ("registered outside canonical P or P/repos/<owned>") and `mr apply`
+ * silently materialized nothing.
  */
 
 import { NodeServices } from '@effect/platform-node'

@@ -445,7 +445,7 @@ const expandStorePath = (path: string): AbsoluteDirPath => {
 /**
  * Resolve a symlinked store root to its real path. Git registers worktrees
  * under real paths while downstream identity checks compare paths lexically,
- * so a symlinked default store (e.g. `~/.megarepo -> /srv/bulk/megarepo`)
+ * so a symlinked default store (e.g. `~/.megarepo -> /mnt/bulk/megarepo`)
  * would otherwise reject every branch member with GitIdentityConflict
  * ("registered outside canonical P or P/repos/<owned>").
  */
