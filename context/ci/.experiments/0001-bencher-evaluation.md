@@ -10,7 +10,7 @@ Date: 2026-05-19.
 Purpose: evaluate whether Bencher should replace or complement the
 GitHub-native CI measurement gate.
 
-### Setup
+## Method
 
 The experiment used a local self-hosted Bencher instance and synthetic metrics
 that mimic our current measurement families:
@@ -51,7 +51,7 @@ bencher run --host http://localhost:61018 \
   --format json
 ```
 
-### Findings
+## Result
 
 Bencher worked well for:
 
@@ -74,7 +74,7 @@ Bencher did not model our primary wall-clock gate:
 - comments and checks would be Bencher-shaped alerts, not our semantic PR
   report with paired `n` and delta evidence intervals.
 
-### Decision
+## Conclusion
 
 Bencher is not the authority for PR merge gates.
 
@@ -95,3 +95,11 @@ Disallowed use:
 The native `ci-measure` engine should own gate semantics. A future Bencher
 exporter can publish selected observations after `ci-measure compare` has
 produced the authoritative decision.
+
+## VRS Impact
+
+The GitHub-native measurement artifact, paired wall-clock comparison, metric-specific deterministic budgets,
+and native PR report remain authoritative as specified in
+[measurements.md](../measurements.md) and
+[measurement-engine.md](../measurement-engine.md). Bencher remains an optional downstream trend or export
+backend; this experiment changes no requirement.

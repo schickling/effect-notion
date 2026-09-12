@@ -2,6 +2,8 @@
 
 Status: accepted
 
+Implementation: `rust/buck2-tools/core/cargo-buck2-package-projection.ts`.
+
 ## Context
 
 Cargo dependency requests enable default features unless the authoritative

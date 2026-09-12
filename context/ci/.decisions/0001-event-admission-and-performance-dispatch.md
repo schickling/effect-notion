@@ -1,12 +1,12 @@
 # Decision: admit semantic events and dispatch performance explicitly
 
-## Status
-
-Accepted.
+Status: accepted
 
 ## Context
 
 The CI workflow admitted `pull_request:labeled` only so a `ci:perf` label could start the paired `devenv-perf` lane. Every other job then needed a guard because applying a label did not change the revision under test. The event created workflow and check-suite noise, coupled a repository label to execution, and made event admission describe implementation mechanics rather than outcomes.
+
+## Evidence and Argument
 
 `devenv-perf` previously ran on every pull request and later on a nightly schedule plus label opt-in. Three consecutive runs took 35.0, 35.7, and 35.0 minutes against a 37.4-minute whole-run wall clock. With historical comparison advisory, it did not make a merge decision. The nightly execution was likewise not needed for the deterministic measurement trend report.
 

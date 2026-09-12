@@ -52,3 +52,5 @@ buck-projection sub-subsystems; language-specific binding detail lives in the
 - **GRAPH-R08 No private facts in shared schema:** Shared graph schemas and
   rule facades carry no physical tool paths, private topology, or
   repository-private labels (BUCK-R14).
+  Horizontal authoring bindings keep those facts out of shared schemas
+  ([decision 0006](../.decisions/0006-horizontal-authoring-bindings.md)).

@@ -55,7 +55,8 @@ invariants named in its own document:
   bounded deterministic repository-local operation. Admission proceeds slice by
   slice in value order ([roadmap](./roadmap.md)); each admitted slice has Buck
   as its only producer and gate, and no slice retains a permanent fallback
-  ([decision 0001](./.decisions/0001-exclusive-buck-authority.md)).
+  ([decision 0001](./.decisions/0001-exclusive-buck-authority.md);
+  [decision 0012](./.decisions/0012-vertical-slice-replay-phase.md)).
 - **BUCK-R02 Bounded operation:** Admission names an operation whose inputs,
   outputs, failure semantics, target platform, and execution platform are
   finite and deterministic. Live effects are outside Buck success.

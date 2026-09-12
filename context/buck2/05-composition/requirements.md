@@ -27,7 +27,10 @@ BUCK-R05 and BUCK-R14. Architecture:
   CI, and standalone — runs from a synthesized composition root. A bare
   checkout as its own project root is a cache island and is not a supported
   build shape. The workspace root is located at the store worktree path and is
-  not itself a git repository; the owned member is.
+  not itself a git repository; the owned member is
+  ([decision 0027](../.decisions/0027-composed-default-worktrees.md)).
+  Git external cells are not a composition mechanism
+  ([decision 0030](../.decisions/0030-external-cells-are-not-a-composition-mechanism.md)).
 - **COMP-R02 Canonical mounts including the hub:** Every repository — including
   the one under development — has one canonical mount path (`repos/<name>`),
   identical in every composition and at every nesting level. No repo builds
