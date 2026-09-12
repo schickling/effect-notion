@@ -2,7 +2,7 @@
 
 load("//buck2/platforms:defs.bzl", "host_execution_constraints")
 load("//buck2/toolchains:defs.bzl", "host_capability_platform")
-load("capabilities//:defs.bzl", "CAPABILITIES")
+load("@capabilities//:defs.bzl", "CAPABILITIES")
 
 BuckSupportToolInfo = provider(fields = {
     "content_digest": str,

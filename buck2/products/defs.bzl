@@ -23,6 +23,21 @@ def _validate_product_name(value):
         if character not in allowed:
             fail("javascript_product product_name contains an unsupported character: {}".format(character))
 
+def _validate_npm_package_name(value):
+    if not value:
+        fail("npm_package_product product_name must not be empty")
+    parts = value.split("/")
+    if value.startswith("@"):
+        if len(parts) != 2 or len(parts[0]) == 1 or not parts[1]:
+            fail("npm_package_product scoped product_name must be @scope/name")
+    elif len(parts) != 1:
+        fail("npm_package_product product_name must be an npm package name")
+    allowed = "abcdefghijklmnopqrstuvwxyz0123456789-._~@/"
+    for character in value.elems():
+        if character not in allowed:
+            fail("npm_package_product product_name contains an unsupported character: {}".format(character))
+
+
 def _runner(ctx):
     return cmd_args(
         ctx.attrs._runner[DefaultInfo].default_outputs[0],
@@ -107,7 +122,7 @@ def javascript_product(
     )
 
 def _npm_package_product_impl(ctx):
-    _validate_product_name(ctx.attrs.product_name)
+    _validate_npm_package_name(ctx.attrs.product_name)
     dist = ctx.attrs.dist[TsgoEmitInfo]
     payload = ctx.actions.declare_output(ctx.attrs.archive_name)
     descriptor = ctx.actions.declare_output("descriptor.json")
