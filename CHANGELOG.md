@@ -12,6 +12,9 @@ All notable changes to this project will be documented in this file.
 - **@overeng/gh-ci-utils**: Preserve runner identity and step details in
   status JSON and NDJSON output.
 
+- **@overeng/gh-ci-utils**: Add `inspect` to correlate GitHub job facts with
+  Namespace runner state and resource usage.
+
 - **Buck2 (context)**: decision 0030 — git external cells are not a
   member-mount mechanism (the physical `buck-out/.../git/<sha>` path enters
   the input Merkle tree, so an external cell's action digests diverge from
