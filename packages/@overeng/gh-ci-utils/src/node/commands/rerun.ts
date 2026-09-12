@@ -18,14 +18,15 @@ import { detectCurrentBranch, resolveConfig } from '../Config.ts'
 import { GitHubClient } from '../GitHubClient.ts'
 import { collectApiMeta } from '../lib/apiMeta.ts'
 import {
-  parseTarget,
-  resolveTarget,
+  resolveActiveTarget,
   resolveActiveTargetOrCurrentBranch,
+  resolveTarget,
   resolveTargetOrCurrentBranch,
+  resolveWorkflowDispatchTarget,
   targetArg,
-  watchOption,
   timeoutOption,
   watchModeOption,
+  watchOption,
   workflowOption,
 } from '../RunId.ts'
 
@@ -154,35 +155,27 @@ export const runCommand = Cli.Command.make('run', {
         )) as TuiHandle
 
         const config = yield* resolveConfig({})
-        const repo = config.repos[0]
-        if (!repo) {
-          tui.dispatch({
-            _tag: 'SetError',
-            error: 'No repo configured',
-            message: 'Could not detect repo. Use owner/repo as target.',
-          })
-          return
+        const localRepo = Option.fromNullishOr(config.repos[0])
+
+        let target: { repo: string; branch: string }
+        if (Option.isSome(targetInput)) {
+          target = yield* resolveWorkflowDispatchTarget(targetInput.value, localRepo)
+        } else {
+          if (Option.isNone(localRepo)) {
+            tui.dispatch({
+              _tag: 'SetError',
+              error: 'No repo configured',
+              message: 'Could not detect repo. Use owner/repo as target.',
+            })
+            return
+          }
+          target = {
+            repo: localRepo.value,
+            branch: yield* detectCurrentBranch,
+          }
         }
 
-        let branch: string
-        let targetRepo = repo
-        if (Option.isSome(targetInput)) {
-          const targetStr = targetInput.value as string
-          const parsed = parseTarget(targetStr)
-          switch (parsed._tag) {
-            case 'RepoBranch':
-              targetRepo = `${parsed.owner}/${parsed.repo}`
-              branch = parsed.branch
-              break
-            case 'LocalBranch':
-              branch = parsed.branch
-              break
-            default:
-              branch = targetStr
-          }
-        } else {
-          branch = yield* detectCurrentBranch
-        }
+        const { repo: targetRepo, branch } = target
 
         const dispatchedAt = new Date()
         yield* ChildProcessSpawner.use((spawner) =>
@@ -265,23 +258,30 @@ export const cancelCommand = Cli.Command.make('cancel', {
         )) as TuiHandle
 
         const config = yield* resolveConfig({})
-        const repo = config.repos[0]
-        if (!repo) {
-          tui.dispatch({
-            _tag: 'SetError',
-            error: 'No repo configured',
-            message: 'Could not detect repo. Use owner/repo as target.',
-          })
-          return
+        const localRepo = Option.fromNullishOr(config.repos[0])
+        const preferWorkflow = Option.isSome(workflowOpt) ? workflowOpt.value : undefined
+
+        let resolved: { runId: number; repo: string }
+        if (Option.isSome(targetInput)) {
+          resolved = yield* resolveActiveTarget(targetInput.value, localRepo, preferWorkflow)
+        } else {
+          if (Option.isNone(localRepo)) {
+            tui.dispatch({
+              _tag: 'SetError',
+              error: 'No repo configured',
+              message: 'Could not detect repo. Use owner/repo as target.',
+            })
+            return
+          }
+          resolved = yield* resolveActiveTargetOrCurrentBranch(
+            targetInput,
+            localRepo.value,
+            preferWorkflow,
+          )
         }
 
-        const preferWorkflow = Option.isSome(workflowOpt) ? workflowOpt.value : undefined
         const github = yield* GitHubClient
-        const { runId, repo: resolvedRepo } = yield* resolveActiveTargetOrCurrentBranch(
-          targetInput,
-          repo,
-          preferWorkflow,
-        )
+        const { runId, repo: resolvedRepo } = resolved
 
         yield* github.cancelRun({ repo: resolvedRepo, runId })
         tui.dispatch({
@@ -318,7 +318,17 @@ const dispatchMeta = (tui: TuiHandle) =>
     tui.dispatch({ _tag: 'SetMeta', _meta: meta })
   })
 
-/** Detect a newly dispatched run by filtering to runs created after `dispatchedAt`. */
+/** Whether GitHub reports a run in the dispatch second or a later second. */
+export const isRunCreatedForDispatch = ({
+  runCreatedAt,
+  dispatchedAt,
+}: {
+  runCreatedAt: Date
+  dispatchedAt: Date
+}): boolean =>
+  Math.floor(runCreatedAt.getTime() / 1000) >= Math.floor(dispatchedAt.getTime() / 1000)
+
+/** Detect a newly dispatched run without excluding GitHub's whole-second timestamps. */
 const detectTriggeredRun = ({
   repo,
   branch,
@@ -337,7 +347,7 @@ const detectTriggeredRun = ({
       const runs = yield* github.getRecentRunsForBranch({ repo, branch })
       const match = runs.find(
         (run) =>
-          run.created_at > dispatchedAt &&
+          isRunCreatedForDispatch({ runCreatedAt: run.created_at, dispatchedAt }) &&
           (run.name === workflowName || run.path.includes(workflowName)),
       )
       if (match) return match

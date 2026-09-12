@@ -388,6 +388,26 @@ const requireLocalRepo = (localRepo: Option.Option<string>) =>
     onSome: Effect.succeed,
   })
 
+/** Resolve the repository and ref accepted by `gh workflow run`. */
+export const resolveWorkflowDispatchTarget = Effect.fn('resolve-workflow-dispatch-target')(
+  (input: string, localRepo: Option.Option<string>) =>
+    Effect.gen(function* () {
+      const parsed = parseTarget(input)
+
+      if (parsed._tag === 'RepoBranch') {
+        return {
+          repo: `${parsed.owner}/${parsed.repo}`,
+          branch: parsed.branch,
+        }
+      }
+
+      return {
+        repo: yield* requireLocalRepo(localRepo),
+        branch: parsed._tag === 'LocalBranch' ? parsed.branch : input,
+      }
+    }),
+)
+
 /** Resolve an explicit target string to a concrete run ID + repo + how it was chosen. */
 export const resolveTarget = Effect.fn('resolve-target')(
   (input: string, localRepo: Option.Option<string>, preferWorkflow?: string) =>

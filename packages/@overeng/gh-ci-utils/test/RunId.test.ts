@@ -1,6 +1,7 @@
+import { Effect, Option } from 'effect'
 import { describe, expect, it } from 'vitest'
 
-import { parseTarget } from '../src/node/RunId.ts'
+import { parseTarget, resolveWorkflowDispatchTarget } from '../src/node/RunId.ts'
 
 describe('parseTarget', () => {
   it('parses numeric run IDs', () => {
@@ -107,5 +108,29 @@ describe('parseTarget', () => {
 
   it('treats floats as branch names', () => {
     expect(parseTarget('1.5')).toEqual({ _tag: 'LocalBranch', branch: '1.5' })
+  })
+})
+
+describe('resolveWorkflowDispatchTarget', () => {
+  it('resolves an explicit cross-repo branch without a local repository', () => {
+    expect(
+      Effect.runSync(
+        resolveWorkflowDispatchTarget('example-org/example-repo@release/next', Option.none()),
+      ),
+    ).toEqual({
+      repo: 'example-org/example-repo',
+      branch: 'release/next',
+    })
+  })
+
+  it('requires a local repository for a local branch target', () => {
+    const error = Effect.runSync(
+      Effect.flip(resolveWorkflowDispatchTarget('@release/next', Option.none())),
+    )
+
+    expect(error).toMatchObject({
+      _tag: 'ConfigError',
+      message: 'No local repo available. Use owner/repo as target to specify.',
+    })
   })
 })
