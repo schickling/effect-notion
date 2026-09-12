@@ -84,6 +84,16 @@ export const classifyInspection = ({
       : ` (reported as "${job.instanceStatusRaw}")`
   }.`
 
+  if (github.runnerInstance !== job.instanceId) {
+    return {
+      disposition: 'unknown',
+      evidence: [githubEvidence, instanceEvidence],
+      limitations: [
+        `GitHub identifies runner instance ${github.runnerInstance ?? '(none)'}, but Namespace reported ${job.instanceId}; the observations cannot be correlated.`,
+      ],
+    }
+  }
+
   /**
    * Pressure outranks liveness: a runner pinned at its allocation is the
    * actionable finding whether or not the job is still moving.

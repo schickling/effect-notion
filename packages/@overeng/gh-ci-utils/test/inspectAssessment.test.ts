@@ -155,6 +155,16 @@ describe('classifyInspection precedence', () => {
       }).disposition,
     ).toBe('unknown'))
 
+  it('reports unknown when GitHub and Namespace identify different instances', () => {
+    const assessment = classifyInspection({
+      github: github(),
+      namespace: reported({ job: { instanceId: 'different-instance' } }),
+    })
+    expect(assessment.disposition).toBe('unknown')
+    expect(assessment.limitations.join(' ')).toContain(INSTANCE)
+    expect(assessment.limitations.join(' ')).toContain('different-instance')
+  })
+
   it('reports unknown, not active, when the two sources conflict', () => {
     const assessment = classifyInspection({
       github: github(),
