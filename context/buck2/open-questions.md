@@ -37,7 +37,14 @@ Subsystem questions live in their subsystem (`03-materialization`,
 - Resolution signal: a spike per candidate recording reachability, hit rate on
   an unchanged head, wall-clock, secret surface, and the trust boundary
   (BUCK-A05 says trust follows the tailnet; a public runner is outside it).
-- Blocker: no spike has been run.
+- Signal status (2026-09-12): met by
+  [the cache-posture experiment](./04-reuse/.experiments/2026-09-12-ci-cache-posture.md).
+- Proposed resolution: isolate public and private cache storage; public pull
+  requests read but never write, protected public `main` reads and writes, both
+  private lanes read and write. See
+  [the proposed decision](./.decisions/.proposed/ci-cache-posture.md).
+- Acceptance blocker: the proposal needs a refinement of BUCK-R06 and REUSE-R01
+  plus a deployed public-only cache tier; until then public CI stays force-cold.
 
 ## OQ3: What must an external livestore contributor install?
 
