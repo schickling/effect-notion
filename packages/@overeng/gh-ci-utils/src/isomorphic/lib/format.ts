@@ -54,12 +54,19 @@ const NAMESPACE_RUNNER = /^nsc-runner-(.{6,})$/
 const SELF_HOSTED_RUNNER = /^(.+)-[a-f0-9]{8}$/
 
 /** Parse a raw runner name into its provider kind and stable instance identity. */
-export const parseRunnerIdentity = (name: string | null): RunnerIdentity => {
+export const parseRunnerIdentity = ({
+  name,
+  labels = [],
+}: {
+  name: string | null
+  labels?: ReadonlyArray<string>
+}): RunnerIdentity => {
   if (!name) return { _tag: 'unknown', instance: null }
   const namespace = NAMESPACE_RUNNER.exec(name)
   if (namespace) return { _tag: 'namespace', instance: namespace[1]! }
   const selfHosted = SELF_HOSTED_RUNNER.exec(name)
   if (selfHosted) return { _tag: 'self-hosted', instance: selfHosted[1]! }
+  if (labels.includes('self-hosted')) return { _tag: 'self-hosted', instance: name }
   return { _tag: 'other', instance: name }
 }
 
@@ -88,4 +95,4 @@ export const formatRunnerIdentity = (identity: RunnerIdentity): string => {
 
 /** Abbreviate a runner hostname for compact display */
 export const abbreviateRunner = (name: string | null): string =>
-  formatRunnerIdentity(parseRunnerIdentity(name))
+  formatRunnerIdentity(parseRunnerIdentity({ name }))

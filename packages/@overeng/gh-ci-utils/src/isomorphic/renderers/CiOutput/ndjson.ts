@@ -7,7 +7,7 @@
 import { Schema } from 'effect'
 
 import { isBlockingConclusion } from '../../lib/summary.ts'
-import { SummaryOverallStatus } from '../../lib/viewModels.ts'
+import { RunnerKind, StepInfoSchema, SummaryOverallStatus } from '../../lib/viewModels.ts'
 import type { CiAction, CiState } from './schema.ts'
 
 /** Event emitted per job status change */
@@ -21,6 +21,9 @@ export const CiJobUpdate = Schema.TaggedStruct('JobUpdate', {
   runner: Schema.String,
   /** Raw `runner_name` from GitHub — `null` when no runner was assigned. */
   runnerName: Schema.NullOr(Schema.String),
+  runnerKind: RunnerKind,
+  runnerInstance: Schema.NullOr(Schema.String),
+  steps: Schema.optional(Schema.Array(StepInfoSchema)),
 }).annotate({ identifier: 'CiNdjson.JobUpdate' })
 
 /** Event emitted when errors are extracted from a failed job */
@@ -166,6 +169,9 @@ export const fromCiAction = ({
         durationSeconds: job.durationSeconds,
         runner: job.runner,
         runnerName: job.runnerName,
+        runnerKind: job.runnerKind,
+        runnerInstance: job.runnerInstance,
+        ...(job.steps === undefined ? {} : { steps: job.steps }),
       })
     }
   }

@@ -36,6 +36,18 @@ describe('job view model runner identity', () => {
     expect(vm.runnerInstance).toBe('dev3')
   })
 
+  it('uses GitHub self-hosted labels when the runner name is not a scaler worker', () => {
+    const vm = toJobVM({
+      job: rawJob({ runner_name: 'dev3', labels: ['self-hosted', 'Linux', 'X64'] }),
+      runHtmlUrl: RUN_HTML_URL,
+      includeSteps: false,
+    })
+
+    expect(vm.runner).toBe('dev3')
+    expect(vm.runnerKind).toBe('self-hosted')
+    expect(vm.runnerInstance).toBe('dev3')
+  })
+
   it('keeps the full Namespace runner id behind the truncated label', () => {
     const vm = toJobVM({
       job: rawJob({ runner_name: 'nsc-runner-psmnb4mkjm3mq' }),

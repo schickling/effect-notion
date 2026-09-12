@@ -80,7 +80,7 @@ export const makeJob = (overrides: JobOverrides = {}): WorkflowJobVM => {
       : rest.runner === '—'
         ? null
         : (rest.runner ?? 'dev3')
-  const identity = parseRunnerIdentity(runnerName)
+  const identity = parseRunnerIdentity({ name: runnerName })
   return {
     id,
     name: 'build',

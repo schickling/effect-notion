@@ -86,7 +86,7 @@ export const toJobVM = ({
   runHtmlUrl: string
   includeSteps: boolean
 }): WorkflowJobVM => {
-  const runnerIdentity = parseRunnerIdentity(job.runner_name)
+  const runnerIdentity = parseRunnerIdentity({ name: job.runner_name, labels: job.labels })
   return {
     id: job.id,
     name: job.name,

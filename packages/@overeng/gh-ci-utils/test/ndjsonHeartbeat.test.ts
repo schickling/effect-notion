@@ -222,14 +222,24 @@ describe('ndjson watch liveness', () => {
     expect(Schema.decodeUnknownSync(CiNdjsonEvent)(complete)).toEqual(complete)
   })
 
-  it('carries the raw runner name on JobUpdate, so consumers can join on runner identity', () => {
+  it('carries structured runner identity and requested step facts on JobUpdate', () => {
     const prev = loadedState('in_progress')
     const lint = prev.jobs[0]!
+    const steps = [
+      {
+        name: 'Set up job',
+        status: 'completed',
+        conclusion: 'success',
+        number: 1,
+        startedAt: '2026-09-10T11:00:00.000Z',
+        completedAt: '2026-09-10T11:00:06.000Z',
+      },
+    ]
     const events = fromCiAction({
       action: {
         _tag: 'SetLoaded',
         run: prev.run,
-        jobs: [{ ...lint, status: 'completed', conclusion: 'success' }],
+        jobs: [{ ...lint, status: 'completed', conclusion: 'success', steps }],
         errors: [],
         annotations: [],
         runnerHostMap: [],
@@ -249,6 +259,9 @@ describe('ndjson watch liveness', () => {
       durationSeconds: 100,
       runner: 'nsc:x',
       runnerName: 'nsc-runner-x1y2z3w4v5',
+      runnerKind: 'namespace',
+      runnerInstance: 'x1y2z3w4v5',
+      steps,
     })
     expect(Schema.decodeUnknownSync(CiNdjsonEvent)(update)).toEqual(update)
   })

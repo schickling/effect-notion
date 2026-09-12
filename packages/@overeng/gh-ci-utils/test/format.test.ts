@@ -67,33 +67,39 @@ describe('run-level terminal conclusion banner', () => {
 
 describe('parseRunnerIdentity', () => {
   it('keeps the full Namespace runner id, not just the abbreviated prefix', () =>
-    expect(parseRunnerIdentity('nsc-runner-example123')).toEqual({
+     expect(parseRunnerIdentity({ name: 'nsc-runner-example123' })).toEqual({
+     expect(parseRunnerIdentity({ name: 'runnera-1234abcd' })).toEqual({
+     expect(parseRunnerIdentity({ name: 'runnerb-9876fedc' })).toEqual({
       _tag: 'namespace',
       instance: 'example123',
     }))
 
   it('resolves self-hosted runner-scaler workers to their host', () => {
-    expect(parseRunnerIdentity('runnera-1234abcd')).toEqual({
+     expect(parseRunnerIdentity({ name: 'nsc-runner-example123' })).toEqual({
+     expect(parseRunnerIdentity({ name: 'runnera-1234abcd' })).toEqual({
+     expect(parseRunnerIdentity({ name: 'runnerb-9876fedc' })).toEqual({
       _tag: 'self-hosted',
       instance: 'runnera',
     })
-    expect(parseRunnerIdentity('runnerb-9876fedc')).toEqual({
+     expect(parseRunnerIdentity({ name: 'nsc-runner-example123' })).toEqual({
+     expect(parseRunnerIdentity({ name: 'runnera-1234abcd' })).toEqual({
+     expect(parseRunnerIdentity({ name: 'runnerb-9876fedc' })).toEqual({
       _tag: 'self-hosted',
       instance: 'runnerb',
     })
   })
 
   it('reports unrecognized names verbatim rather than guessing a scheme', () => {
-    expect(parseRunnerIdentity('some-other-runner')).toEqual({
+    expect(parseRunnerIdentity({ name: 'some-other-runner' })).toEqual({
       _tag: 'other',
       instance: 'some-other-runner',
     })
-    expect(parseRunnerIdentity('ubuntu-latest')).toEqual({
+    expect(parseRunnerIdentity({ name: 'ubuntu-latest' })).toEqual({
       _tag: 'other',
       instance: 'ubuntu-latest',
     })
   })
 
   it('distinguishes "no runner assigned" from an unrecognized runner', () =>
-    expect(parseRunnerIdentity(null)).toEqual({ _tag: 'unknown', instance: null }))
+    expect(parseRunnerIdentity({ name: null })).toEqual({ _tag: 'unknown', instance: null }))
 })
