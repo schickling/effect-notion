@@ -90,8 +90,12 @@ invariants named in its own document:
 
 - **BUCK-R09 Deletion ledger:** Every admission names the devenv task, script,
   CI job, Nix builder, or install step it supersedes, and the transfer change
-  deletes it. A subsystem with no dissolution condition is a design defect, not
-  an exemption.
+  deletes it. The ledger is machine-readable: one row per operation per
+  repository, held in the composition root (the megarepo that composes every
+  consumer) and rendered — never hand-typed — into any progress view
+  ([decision 0030](./.decisions/0030-complexity-gate-and-authority-ledger.md)).
+  A subsystem with no dissolution condition is a design defect, not an
+  exemption.
 - **BUCK-R10 FOD dissolution:** Admitted repository-local tools reach Nix
   consumers only through product import; their dependency closures cause zero
   fixed-output hash maintenance.
@@ -122,16 +126,23 @@ invariants named in its own document:
 
 ### Must reduce global complexity measurably
 
-- **BUCK-R15 Net complexity accounting:** The adoption reduces global build
+- **BUCK-R15 Net complexity gate:** The adoption reduces global build
   complexity; growth in one place is justified only by larger deletion
-  elsewhere. Every phase reconciliation records a net ledger of build-machinery
-  lines added versus legacy lines deleted (excluding VRS documents, tests, and
-  lockfiles) together with the amortization rationale across consuming
-  repositories. A phase that increases the net ledger without a recorded
-  rationale is a regression, not progress.
+  elsewhere. The ledger (BUCK-R09) carries, per row, build-machinery lines added
+  versus legacy lines deleted (excluding VRS documents, tests, and lockfiles).
+  The gate is hard and folds per repository: when a repository's residual
+  non-Buck gate list reaches zero (its adoption close), the sum of its rows must
+  be negative, and at every such close the cumulative sum across all repositories
+  must be negative; a violation blocks widening to the next repository. A single
+  change may be net positive when its row records the amortization rationale
+  (which later deletion pays for it); the per-change signal is advisory, the
+  per-close gate is not
+  ([decision 0030](./.decisions/0030-complexity-gate-and-authority-ledger.md)).
+  When BUCK-R15 conflicts with coverage (BUCK-R01) or the wall-clock budgets
+  (BUCK-R07), BUCK-R15 wins: the others are constraints with tolerances.
 - **BUCK-R16 Benchmark evidence:** Efficiency claims are measured, never
-  asserted. Each admission records warm no-op time, fresh-context time with a
-  warm shared cache, cache hit rate for unchanged targets, and CI wall-clock
-  delta against the pre-admission baseline. A regression against the BUCK-R07
-  budgets or the recorded baseline blocks further widening until it is fixed or
-  explicitly accepted in a decision record.
+  asserted. Each admission's ledger row records warm no-op time, fresh-context
+  time with a warm shared cache, cache hit rate for unchanged targets, and CI
+  wall-clock delta against the pre-admission baseline. A regression against the
+  BUCK-R07 budgets or the recorded baseline blocks further widening until it is
+  fixed or explicitly accepted in a decision record.

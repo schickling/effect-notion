@@ -93,3 +93,13 @@ assembler, so any cgo-enabled Go package (and any Rust crate with `.S` sources)
 fails analysis with `Could not find compiler for extension '.S'`; and
 `http_archive` on a `.zip` shells out to `unzip` from the ambient PATH, which
 only the Go lane exercises because the module proxy serves nothing else.
+
+## VRS Impact
+
+- [decision 0029](../.decisions/0029-official-go-release-toolchain.md) settles
+  the Go toolchain source in favour of the official release archive.
+- `02-execution` gains no new requirement: `elf-static/v1` covers Go on Linux
+  unchanged, so the runtime contract stays singular.
+- Two hub gaps are recorded as work, not as requirements: the `cxx` toolchain
+  declares no assembler, and `http_archive` on `.zip` depends on ambient
+  `unzip` (BUCK-R04 hermeticity is violated on that path until fixed).
