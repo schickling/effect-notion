@@ -99,14 +99,65 @@ are separate outcomes and never rewrite it.
 - No component interposes a launcher between the caller and Buck
   ([decision 0011](./.decisions/0011-direct-native-evidence-observation.md)).
 
+## Authority Ledger
+
+The Deletion Ledger (ontology) is one machine-readable instance per
+composition root, next to the composition lock, rendered into every progress
+view ([decision 0031](./.decisions/0031-complexity-gate-and-authority-ledger.md)).
+This node owns the contract; the instance and its check live in the
+composition root because rows name private repositories.
+
+```text
+ledger
+  version                       contract version
+  repos[]                       every composed member: name, remote, ledger path patterns
+                                (what counts as build machinery: include/exclude globs)
+  rows[]                        one per (repo, operation, subject)
+    id                          "<repo>/<operation>/<subject>"
+    operation                   Semantic Operation (typecheck, dist, unit-test, lint, format,
+                                product, dependency-view, ...)
+    subject                     package, crate, or root the operation is for
+    status                      buck-owned | residual | legacy | claimed | excluded
+    producer                    current producer (buck | devenv | nix | pnpm | cargo | other)
+    target                      Buck label once buck-owned or claimed
+    dissolution                 for residual/legacy: the condition that retires the producer
+    exclusion                   for excluded: why it is outside Buck by policy (unbounded, live)
+    transfer                    pr, merged revision, deleted producers (BUCK-R09)
+    net                         added, deleted, measured-at revision, measuring command,
+                                amortization rationale when added > deleted (BUCK-R15)
+    benchmark                   warm no-op, fresh with warm cache, hit rate unchanged,
+                                CI delta, evidence URI (BUCK-R16)
+    owner                       agent or human identity that holds the row while claimed
+  closes[]                      one per repository adoption close: repo, revision, repo net,
+                                cumulative net
+```
+
+Semantics the check enforces:
+
+- A row's `status` is derived from its fields, never free: `buck-owned`
+  requires `transfer.merged` and `net`; `claimed` requires `owner` and an
+  open `transfer.pr`; `residual`/`legacy` require `dissolution`; `excluded`
+  requires `exclusion`.
+- `net` is recomputed from the merged revision using the repo's path patterns;
+  a stored value that disagrees fails the check.
+- A repository closes when it has no `residual`, `legacy`, or `claimed` rows.
+  At every close, that repository's row sum and the cumulative sum must be
+  negative (BUCK-R15). The check fails on any later change to a closed
+  repository that flips the sign.
+- Rendering is deterministic: the same instance renders the same progress
+  view; the view carries no fact absent from the instance.
+- The instance carries no secrets and no fleet endpoints; those stay in the
+  member configuration it references.
+
 ## Requirement Trace
 
-| Requirements                 | Refinement            |
-| ---------------------------- | --------------------- |
-| BUCK-R01, BUCK-R05           | 01 Semantic Graph     |
-| BUCK-R02, BUCK-R04           | 02 Execution          |
-| BUCK-R08, BUCK-R11           | 03 Materialization    |
-| BUCK-R06, BUCK-R07           | 04 Reuse              |
-| BUCK-R05, BUCK-R14           | 05 Composition        |
-| BUCK-R03, BUCK-R10           | 06 Nix Bridge         |
-| BUCK-R09, BUCK-R12, BUCK-R13 | Root + all subsystems |
+| Requirements                 | Refinement             |
+| ---------------------------- | ---------------------- |
+| BUCK-R01, BUCK-R05           | 01 Semantic Graph      |
+| BUCK-R02, BUCK-R04           | 02 Execution           |
+| BUCK-R08, BUCK-R11           | 03 Materialization     |
+| BUCK-R06, BUCK-R07           | 04 Reuse               |
+| BUCK-R05, BUCK-R14           | 05 Composition         |
+| BUCK-R03, BUCK-R10           | 06 Nix Bridge          |
+| BUCK-R09, BUCK-R15, BUCK-R16 | Root: Authority Ledger |
+| BUCK-R12, BUCK-R13           | Root + all subsystems  |
