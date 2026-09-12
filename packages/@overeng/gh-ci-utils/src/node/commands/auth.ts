@@ -1,4 +1,4 @@
-import { Effect, Option, Schema, Stream } from 'effect'
+import { Console, Effect, Option, Schema, Stream } from 'effect'
 /**
  * gh-ci-utils auth
  *
@@ -9,7 +9,12 @@ import * as Cli from 'effect/unstable/cli'
 import * as ChildProcess from 'effect/unstable/process/ChildProcess'
 import { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 
-import { outputModeLayer, outputOption } from '@overeng/tui-react/node'
+import {
+  type OutputModeValue,
+  outputModeLayer,
+  outputOption,
+  resolveOutputMode,
+} from '@overeng/tui-react/node'
 
 import { ConfigError } from '../../isomorphic/Errors.ts'
 import {
@@ -24,6 +29,44 @@ const LoginResult = Schema.Struct({
   expiresAt: Schema.Finite,
   user: Schema.NullOr(Schema.String),
 })
+
+/** Structured, non-secret result emitted by auth commands in JSON modes. */
+const AuthOutputSchema = Schema.Union([
+  Schema.TaggedStruct('Authenticated', {
+    user: Schema.NullOr(Schema.String),
+    expiresAt: Schema.NullOr(Schema.String),
+    nearExpiry: Schema.Boolean,
+  }),
+  Schema.TaggedStruct('Unauthenticated', {}),
+])
+type AuthOutput = typeof AuthOutputSchema.Type
+
+/** Project a stored session into the public auth result without exposing its cookie. */
+const authOutputForSession = (session: SessionData | undefined): AuthOutput =>
+  session === undefined
+    ? { _tag: 'Unauthenticated' }
+    : {
+        _tag: 'Authenticated',
+        user: session.user ?? null,
+        expiresAt: session.expiresAt > 0 ? new Date(session.expiresAt * 1000).toISOString() : null,
+        nearExpiry: isSessionNearExpiry(session),
+      }
+
+const encodeAuthOutput = Schema.encodeSync(Schema.fromJsonString(AuthOutputSchema))
+
+/** Emit structured stdout in JSON modes, otherwise preserve the command's human log line. */
+export const reportAuthResult = ({
+  output,
+  session,
+  humanMessage,
+}: {
+  output: OutputModeValue
+  session: SessionData | undefined
+  humanMessage: string
+}) =>
+  resolveOutputMode(output)._tag === 'json'
+    ? Console.log(encodeAuthOutput(authOutputForSession(session)))
+    : Effect.log(humanMessage)
 
 /**
  * Launch Playwright browser for GitHub login and extract the user_session cookie.
@@ -152,7 +195,11 @@ const loginCommand = Cli.Command.make('login', { output: outputOption }).pipe(
         session.expiresAt > 0
           ? new Date(session.expiresAt * 1000).toISOString().split('T')[0]
           : 'unknown'
-      yield* Effect.log(`Logged in as ${session.user ?? 'unknown'}. Session expires ${expiresStr}.`)
+      yield* reportAuthResult({
+        output,
+        session,
+        humanMessage: `Logged in as ${session.user ?? 'unknown'}. Session expires ${expiresStr}.`,
+      })
     }).pipe(Effect.provide(outputModeLayer(output))),
   ),
   Cli.Command.withDescription('Log in to GitHub via browser for enhanced CI features'),
@@ -166,9 +213,12 @@ const authStatusCommand = Cli.Command.make('status', { output: outputOption }).p
       )
 
       if (Option.isNone(session)) {
-        yield* Effect.log(
-          'No active session. Run `gh-ci-utils auth login` for per-step logs and live streaming.',
-        )
+        yield* reportAuthResult({
+          output,
+          session: undefined,
+          humanMessage:
+            'No active session. Run `gh-ci-utils auth login` for per-step logs and live streaming.',
+        })
         return
       }
 
@@ -176,9 +226,11 @@ const authStatusCommand = Cli.Command.make('status', { output: outputOption }).p
       const nearExpiry = isSessionNearExpiry(data)
       const expiresStr =
         data.expiresAt > 0 ? new Date(data.expiresAt * 1000).toISOString().split('T')[0] : 'unknown'
-      yield* Effect.log(
-        `Session: ${data.user ?? 'unknown'} | Expires: ${expiresStr}${nearExpiry ? ' (expiring soon, run auth login)' : ''}`,
-      )
+      yield* reportAuthResult({
+        output,
+        session: data,
+        humanMessage: `Session: ${data.user ?? 'unknown'} | Expires: ${expiresStr}${nearExpiry ? ' (expiring soon, run auth login)' : ''}`,
+      })
     }).pipe(Effect.provide(outputModeLayer(output))),
   ),
   Cli.Command.withDescription('Show session status'),

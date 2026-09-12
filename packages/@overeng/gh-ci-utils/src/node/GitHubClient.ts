@@ -362,7 +362,7 @@ const makeGitHubClient = Effect.gen(function* () {
     )
     if (claimedNotice) {
       yield* Effect.logWarning(
-        `No GitHub App installation configured for \`${source.owner}\` — falling back to the local \`gh\` CLI token. Add \`auth.installationIDs.${source.owner}\` in nixpkgs/home-manager/modules/gh-ci-utils.nix to use the App instead.`,
+        `No GitHub App installation configured for \`${source.owner}\` — falling back to the local \`gh\` CLI token. Add \`auth.installationIDs.${source.owner}\` to ~/.config/gh-ci-utils/config.json to use the App instead.`,
       )
     }
 

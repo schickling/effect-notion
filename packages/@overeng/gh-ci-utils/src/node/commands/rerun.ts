@@ -28,6 +28,7 @@ import {
   watchModeOption,
   watchOption,
   workflowOption,
+  type ResolvedTarget,
 } from '../RunId.ts'
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))
@@ -62,7 +63,7 @@ export const rerunCommand = Cli.Command.make('rerun', {
           const preferWorkflow = Option.isSome(workflowOpt) ? workflowOpt.value : undefined
           const localRepo = config.repos[0]
 
-          let resolved: { runId: number; repo: string }
+          let resolved: ResolvedTarget
           if (Option.isSome(targetInput)) {
             resolved = yield* resolveTarget(
               targetInput.value as string,
@@ -80,6 +81,7 @@ export const rerunCommand = Cli.Command.make('rerun', {
             }
             resolved = yield* resolveTargetOrCurrentBranch(targetInput, localRepo, preferWorkflow)
           }
+          yield* validateMutationWorkflowMatch({ action: 'rerun', resolved })
 
           const { runId, repo: resolvedRepo } = resolved
           const github = yield* GitHubClient
@@ -289,7 +291,7 @@ export const cancelCommand = Cli.Command.make('cancel', {
         const localRepo = Option.fromNullishOr(config.repos[0])
         const preferWorkflow = Option.isSome(workflowOpt) ? workflowOpt.value : undefined
 
-        let resolved: { runId: number; repo: string }
+        let resolved: ResolvedTarget
         if (Option.isSome(targetInput)) {
           resolved = yield* resolveActiveTarget(targetInput.value, localRepo, preferWorkflow)
         } else {
@@ -307,6 +309,7 @@ export const cancelCommand = Cli.Command.make('cancel', {
             preferWorkflow,
           )
         }
+        yield* validateMutationWorkflowMatch({ action: 'cancel', resolved })
 
         const github = yield* GitHubClient
         const { runId, repo: resolvedRepo } = resolved
@@ -345,6 +348,19 @@ const dispatchMeta = (tui: TuiHandle) =>
     const meta = yield* collectApiMeta
     tui.dispatch({ _tag: 'SetMeta', _meta: meta })
   })
+
+/** Refuse a mutation when resolution fell back to a run from another workflow. */
+export const validateMutationWorkflowMatch = Effect.fn('validate-mutation-workflow-match')(
+  function* ({ action, resolved }: { action: 'rerun' | 'cancel'; resolved: ResolvedTarget }) {
+    const workflow = resolved.selection.expectedWorkflow
+    if (workflow === null || resolved.selection.matchedExpectedWorkflow) return
+
+    return yield* new ConfigError({
+      message: `No run matching workflow '${workflow}' was found in ${resolved.repo}; refusing to ${action} run ${resolved.runId}`,
+      cause: 'workflow not found',
+    })
+  },
+)
 
 /** Whether GitHub reports a run in the dispatch second or a later second. */
 export const isRunCreatedForDispatch = ({

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   isRunAttemptReady,
   isRunCreatedForDispatch,
+  validateMutationWorkflowMatch,
   validateWorkflowDispatchExit,
 } from '../src/node/commands/rerun.ts'
 
@@ -59,4 +60,36 @@ describe('validateWorkflowDispatchExit', () => {
       cause: 'could not find any workflows named CI',
     })
   })
+})
+
+describe('validateMutationWorkflowMatch', () => {
+  it.each(['rerun', 'cancel'] as const)(
+    'rejects %s when explicit workflow resolution fell back to another workflow',
+    (action) => {
+      const error = Effect.runSync(
+        Effect.flip(
+          validateMutationWorkflowMatch({
+            action,
+            resolved: {
+              runId: 123,
+              repo: 'example-org/example-repo',
+              selection: {
+                prNumber: null,
+                expectedHeadSha: null,
+                expectedWorkflow: 'release.yml',
+                matchedExpectedWorkflow: false,
+                runHeadSha: 'abc123',
+              },
+            },
+          }),
+        ),
+      )
+
+      expect(error).toMatchObject({
+        _tag: 'ConfigError',
+        message: `No run matching workflow 'release.yml' was found in example-org/example-repo; refusing to ${action} run 123`,
+        cause: 'workflow not found',
+      })
+    },
+  )
 })

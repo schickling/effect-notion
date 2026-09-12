@@ -1,5 +1,5 @@
-import { Schema } from 'effect'
-import { describe, expect, it } from 'vitest'
+import { Effect, Schema } from 'effect'
+import { describe, expect, it, vi } from 'vitest'
 
 import { CiStateSchema } from '../src/isomorphic/renderers/CiOutput/schema.ts'
 import {
@@ -9,6 +9,7 @@ import {
 } from '../src/isomorphic/renderers/CiOutput/stories/_fixtures.ts'
 import { MutationStateSchema } from '../src/isomorphic/renderers/MutationOutput/schema.ts'
 import { RunnersStateSchema } from '../src/isomorphic/renderers/RunnersOutput/schema.ts'
+import { reportAuthResult } from '../src/node/commands/auth.ts'
 
 const encodeJson = <T, E, RD>(schema: Schema.Codec<T, E, RD, never>, value: T) =>
   Schema.encodeUnknownSync(Schema.fromJsonString(schema))(value)
@@ -78,5 +79,44 @@ describe('CLI JSON output contracts', () => {
     ).toMatchInlineSnapshot(
       `"{"_tag":"Dispatched","runId":23601797547,"repo":"example-org/example-repo","message":"Re-running failed jobs","url":"https://github.com/example-org/example-repo/actions/runs/23601797547","_meta":{"apiRequests":3,"apiRequestsCached":1,"rateLimitRemaining":4997,"rateLimitLimit":5000}}"`,
     )
+  })
+
+  it('emits valid, non-secret auth login and status JSON to stdout', async () => {
+    const stdout = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await Effect.runPromise(
+        reportAuthResult({
+          output: 'json',
+          session: {
+            userSession: 'must-not-be-rendered',
+            expiresAt: 2_000_000_000,
+            savedAt: '2026-09-12T00:00:00.000Z',
+            user: 'example-user',
+          },
+          humanMessage: 'Logged in as example-user.',
+        }),
+      )
+      await Effect.runPromise(
+        reportAuthResult({
+          output: 'json',
+          session: undefined,
+          humanMessage: 'No active session.',
+        }),
+      )
+
+      const documents = stdout.mock.calls.map(([line]) => JSON.parse(String(line)))
+      expect(documents).toEqual([
+        {
+          _tag: 'Authenticated',
+          user: 'example-user',
+          expiresAt: '2033-05-18T03:33:20.000Z',
+          nearExpiry: false,
+        },
+        { _tag: 'Unauthenticated' },
+      ])
+      expect(stdout.mock.calls.join('\n')).not.toContain('must-not-be-rendered')
+    } finally {
+      stdout.mockRestore()
+    }
   })
 })

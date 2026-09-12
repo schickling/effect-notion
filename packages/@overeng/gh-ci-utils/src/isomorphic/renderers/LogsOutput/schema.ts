@@ -65,7 +65,8 @@ export const logsReducer = ({
       return {
         _tag: 'Loaded',
         jobName: action.jobName,
-        conclusion: action.conclusion,
+        conclusion:
+          state._tag === 'Loaded' && state.conclusion === 'failure' ? 'failure' : action.conclusion,
         lines: action.lines,
         notice: action.notice,
         truncation: action.truncation,

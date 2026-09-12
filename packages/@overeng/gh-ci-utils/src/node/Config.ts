@@ -1,9 +1,9 @@
 import os from 'node:os'
 import path from 'node:path'
 
-import { Context, Effect, FileSystem, Option, Schema } from 'effect'
+import { Context, Effect, FileSystem, Schema } from 'effect'
 /**
- * Configuration service — auto-detects repo from git remote, provides defaults for runner hosts.
+ * Configuration service — auto-detects the repo and reads optional runner hosts from config.
  */
 import * as ChildProcess from 'effect/unstable/process/ChildProcess'
 import { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
@@ -38,31 +38,40 @@ export class GitHubAuthConfigTag extends Context.Service<GitHubAuthConfigTag, Gi
 
 const GhCiUtilsFileConfig = Schema.Struct({
   auth: GitHubAuthConfig.pipe(Schema.withDecodingDefault(Effect.succeed(defaultGitHubAuthConfig))),
+  repos: Schema.Array(Schema.String).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
+  runnerHosts: Schema.Array(Schema.String).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
 })
 
-/** Read `~/.config/gh-ci-utils/config.json` and return the `auth` field, defaulting to `gh-cli`. */
-export const loadAuthConfig = Effect.gen(function* () {
-  const fs = yield* FileSystem.FileSystem
-  const configPath = path.join(os.homedir(), '.config', 'gh-ci-utils', 'config.json')
-  const exists = yield* fs.exists(configPath)
-  if (!exists) return defaultGitHubAuthConfig
+const defaultFileConfig: typeof GhCiUtilsFileConfig.Type = {
+  auth: defaultGitHubAuthConfig,
+  repos: [],
+  runnerHosts: [],
+}
 
-  const raw = yield* fs
-    .readFileString(configPath)
-    .pipe(
+const loadFileConfig = (
+  configPath = path.join(os.homedir(), '.config', 'gh-ci-utils', 'config.json'),
+) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const exists = yield* fs.exists(configPath)
+    if (!exists) return defaultFileConfig
+
+    const raw = yield* fs
+      .readFileString(configPath)
+      .pipe(
+        Effect.mapError(
+          (cause) => new ConfigError({ message: `Failed to read config: ${configPath}`, cause }),
+        ),
+      )
+    return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(GhCiUtilsFileConfig))(raw).pipe(
       Effect.mapError(
-        (cause) => new ConfigError({ message: `Failed to read config: ${configPath}`, cause }),
+        (cause) => new ConfigError({ message: 'Invalid gh-ci-utils config format', cause }),
       ),
     )
-  const decoded = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(GhCiUtilsFileConfig))(
-    raw,
-  ).pipe(
-    Effect.mapError(
-      (cause) => new ConfigError({ message: 'Invalid gh-ci-utils config format', cause }),
-    ),
-  )
-  return decoded.auth
-})
+  })
+
+/** Read `~/.config/gh-ci-utils/config.json` and return the `auth` field, defaulting to `gh-cli`. */
+export const loadAuthConfig = loadFileConfig().pipe(Effect.map((config) => config.auth))
 
 /** Service providing CI utilities configuration (owner, repo, token) */
 export const CiUtilsConfig = Schema.Struct({
@@ -72,15 +81,6 @@ export const CiUtilsConfig = Schema.Struct({
   runnerHosts: Schema.Array(Schema.String),
 })
 export type CiUtilsConfig = typeof CiUtilsConfig.Type
-
-const RunnerInventory = Schema.Struct({
-  allHosts: Schema.Array(Schema.String),
-  /** Repos directly served by this self-hosted fleet. Namespace-hosted repos are passed explicitly. */
-  managedRepos: Schema.Array(Schema.String),
-})
-type RunnerInventory = typeof RunnerInventory.Type
-
-const DEFAULT_RUNNER_HOSTS = ['dev3', 'dev4', 'mbp2021']
 
 /** Detect the current repo from `git remote get-url origin`. */
 const detectRepo = Effect.gen(function* () {
@@ -136,74 +136,27 @@ export const detectCurrentBranch = Effect.gen(function* () {
   return branch
 })
 
-const detectWorkspaceRoot = commandString({
-  command: 'git',
-  args: ['rev-parse', '--show-toplevel'],
-}).pipe(Effect.map((s) => s.trim()))
-
-const loadInventory = Effect.gen(function* () {
-  const fs = yield* FileSystem.FileSystem
-
-  const workspaceRoot = yield* Effect.option(detectWorkspaceRoot)
-  if (Option.isNone(workspaceRoot)) {
-    return Option.none<RunnerInventory>()
-  }
-
-  const inventoryPath = path.join(
-    workspaceRoot.value,
-    'nixpkgs/modules/runner-scaler-inventory.nix',
-  )
-
-  const exists = yield* fs.exists(inventoryPath)
-  if (!exists) {
-    return Option.none<RunnerInventory>()
-  }
-
-  const output = yield* Effect.option(
-    commandString({
-      command: 'nix',
-      args: ['eval', '--json', '--file', inventoryPath, 'cli'],
-    }).pipe(Effect.map((s) => s.trim())),
-  )
-  if (Option.isNone(output)) {
-    return Option.none<RunnerInventory>()
-  }
-
-  const decoded = yield* Effect.option(
-    Schema.decodeUnknownEffect(Schema.fromJsonString(RunnerInventory))(output.value),
-  )
-  if (Option.isNone(decoded)) {
-    return Option.none<RunnerInventory>()
-  }
-
-  return Option.some(decoded.value)
-})
-
-/** Resolve config with repo auto-detection and inventory-backed defaults. */
+/** Resolve config with repo auto-detection and neutral, file-backed defaults. */
 export const resolveConfig = ({
   partial,
-  options,
+  configPath,
 }: {
   partial?: { repos?: string[]; runnerHosts?: string[] }
-  options?: { preferManagedRepos?: boolean }
+  configPath?: string
 } = {}) =>
   Effect.gen(function* () {
-    const inventory = yield* loadInventory
-    let repos = partial?.repos ?? []
+    const fileConfig = yield* loadFileConfig(configPath)
+    let repos = partial?.repos ?? fileConfig.repos
 
     if (repos.length === 0) {
       const detected = yield* Effect.result(detectRepo)
       if (detected._tag === 'Success') {
         repos = [detected.success]
-      } else if (options?.preferManagedRepos && Option.isSome(inventory)) {
-        repos = [...inventory.value.managedRepos]
       }
     }
 
     return {
       repos,
-      runnerHosts:
-        partial?.runnerHosts ??
-        (Option.isSome(inventory) ? [...inventory.value.allHosts] : DEFAULT_RUNNER_HOSTS),
+      runnerHosts: partial?.runnerHosts ?? fileConfig.runnerHosts,
     } satisfies CiUtilsConfig
   })
