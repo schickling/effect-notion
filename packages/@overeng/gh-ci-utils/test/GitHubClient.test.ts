@@ -229,6 +229,59 @@ describe('GitHubClient paginated workflow selection', () => {
   })
 })
 
+describe('GitHubClient mutations and annotations', () => {
+  it('requests only graceful cancellation after GitHub accepts a normal cancel', async () => {
+    const { requests } = await runWithSyntheticAppClient({
+      responseFor: (url) =>
+        url.pathname.endsWith('/cancel')
+          ? new Response(null, { status: 202 })
+          : new Response(null, { status: 404 }),
+      program: (client) =>
+        client.cancelRun({ repo: 'example-org/example-repo', runId: 70000000123 }),
+    })
+
+    expect(requests.slice(1).map(({ method, url }) => ({ method, url }))).toEqual([
+      {
+        method: 'POST',
+        url: 'https://api.github.com/repos/example-org/example-repo/actions/runs/70000000123/cancel',
+      },
+    ])
+  })
+
+  it('collects check-run annotations from every page', async () => {
+    const annotation = (line: number) => ({
+      path: 'src/synthetic.ts',
+      start_line: line,
+      end_line: line,
+      annotation_level: 'failure',
+      message: `Synthetic failure ${line}`,
+      title: null,
+      raw_details: null,
+    })
+    const firstPage = Array.from({ length: 100 }, (_, index) => annotation(index + 1))
+    const finalAnnotation = annotation(101)
+    const { requests, result } = await runWithSyntheticAppClient({
+      responseFor: (url) =>
+        new Response(
+          JSON.stringify(url.searchParams.get('page') === '1' ? firstPage : [finalAnnotation]),
+          { status: 200 },
+        ),
+      program: (client) =>
+        client.getCheckAnnotations({
+          repo: 'example-org/example-repo',
+          checkRunId: 80000000123,
+        }),
+    })
+
+    expect(result).toHaveLength(101)
+    expect(result[100]).toEqual(finalAnnotation)
+    expect(requests.slice(1).map((request) => request.url)).toEqual([
+      'https://api.github.com/repos/example-org/example-repo/check-runs/80000000123/annotations?per_page=100&page=1',
+      'https://api.github.com/repos/example-org/example-repo/check-runs/80000000123/annotations?per_page=100&page=2',
+    ])
+  })
+})
+
 describe('resolveConfig', () => {
   it('loads repositories and runner hosts from the user config', async () => {
     const config = await Effect.gen(function* () {

@@ -331,11 +331,20 @@ describe('status verdict state table (FB-276)', () => {
     })
   })
 
-  it('a real failure still wins over a missing expected workflow', () => {
+  it('rejects a blocking conclusion from the wrong workflow before judging it', () => {
     expect(verdict({ conclusions: ['failure'], selection: missingWorkflowSelection })).toEqual({
-      status: 'failing',
-      exitCode: 1,
+      status: 'no_checks',
+      exitCode: 3,
     })
+  })
+
+  it('rejects a blocking conclusion from a stale run before judging it', () => {
+    expect(
+      verdict({
+        conclusions: ['failure'],
+        selection: { ...matchedPrSelection, runHeadSha: 'cafebabe' },
+      }),
+    ).toEqual({ status: 'no_checks', exitCode: 3 })
   })
 
   it('a stale run (verdict describes another commit) -> no_checks / 3', () => {

@@ -1,5 +1,6 @@
 import { createTuiApp } from '@overeng/tui-react'
 
+import { isUnsuccessfulConclusion } from '../../lib/summary.ts'
 import {
   type MutationState,
   MutationActionSchema,
@@ -15,14 +16,13 @@ export const MutationApp = createTuiApp({
   initial: createInitialMutationState(),
   reducer: mutationReducer,
   exitCode: (state: MutationState) => {
-    if (state._tag === 'Error') return 1
-    if (state._tag === 'Watching') {
-      const hasFailed = state.jobs.some(
-        (j: { conclusion: string | null }) =>
-          j.conclusion !== null && j.conclusion !== 'success' && j.conclusion !== 'skipped',
-      )
-      if (hasFailed) return 1
-    }
+    if (state._tag === 'Error') return state.error === 'Timeout' ? 2 : 1
+    if (
+      state._tag === 'Watching' &&
+      (isUnsuccessfulConclusion(state.conclusion) ||
+        state.jobs.some((job) => isUnsuccessfulConclusion(job.conclusion)))
+    )
+      return 1
     return 0
   },
 })

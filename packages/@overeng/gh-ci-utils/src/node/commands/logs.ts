@@ -14,6 +14,7 @@ import type { WorkflowJob } from '../../isomorphic/GitHubSchemas.ts'
 import { DEFAULT_LOG_TAIL, LOG_POLL_INTERVAL } from '../../isomorphic/lib/constants.ts'
 import { splitOwnerRepo } from '../../isomorphic/lib/format.ts'
 import { selectLogLines, shouldIncludeFailedLog } from '../../isomorphic/lib/logFilter.ts'
+import { isUnsuccessfulConclusion } from '../../isomorphic/lib/summary.ts'
 import { LogsApp, LogsView, type LogsAction } from '../../isomorphic/renderers/LogsOutput/mod.ts'
 import { resolveConfig } from '../Config.ts'
 import { GitHubClient, type GitHubClientShape } from '../GitHubClient.ts'
@@ -47,16 +48,27 @@ export interface CollectedJobLog {
   readonly truncation: { totalLines: number; offset: number; pageSize: number } | null
 }
 
-/** A first-failure watch must retain the failure that stopped it, even while rendering a live step. */
+/** A watch must retain an unsuccessful verdict while rendering a live step. */
 export const liveStepWatchConclusion = ({
   stepStatus,
-  failFast,
-  hasFailed,
+  hasUnsuccessfulConclusion,
 }: {
   stepStatus: string
-  failFast: boolean
-  hasFailed: boolean
-}): string => (failFast && hasFailed ? 'failure' : stepStatus)
+  hasUnsuccessfulConclusion: boolean
+}): string => (hasUnsuccessfulConclusion ? 'failure' : stepStatus)
+
+/** Derive the logs command's process verdict from the run and every job, as status does. */
+export const logsVerdictConclusion = ({
+  runConclusion,
+  jobConclusions,
+}: {
+  runConclusion: string | null
+  jobConclusions: readonly (string | null)[]
+}): 'success' | 'failure' =>
+  isUnsuccessfulConclusion(runConclusion) ||
+  jobConclusions.some((conclusion) => isUnsuccessfulConclusion(conclusion))
+    ? 'failure'
+    : 'success'
 
 /** Decide whether watch finalization needs a no-logs state without replacing rendered live output. */
 export const shouldFinalizeWatchWithNoLogs = ({
@@ -95,25 +107,22 @@ export const collectLogText = ({
   })
 
   const totalLines = lines.length
-  if (!filters.full && totalLines > filters.tail + filters.offset) {
-    const end = totalLines - filters.offset
-    const start = Math.max(0, end - filters.tail)
-    return {
-      jobName,
-      conclusion,
-      lines: lines.slice(start, end),
-      notice,
-      truncation: { totalLines, offset: filters.offset, pageSize: filters.tail },
-    }
+  if (filters.full) {
+    return { jobName, conclusion, lines, notice, truncation: null }
   }
 
+  const effectiveOffset = Math.min(totalLines, Math.max(0, filters.offset))
+  const end = Math.max(0, totalLines - effectiveOffset)
+  const start = Math.max(0, end - filters.tail)
+  const hasHiddenLines = start > 0 || effectiveOffset > 0
   return {
     jobName,
     conclusion,
-    lines:
-      filters.offset > 0 && !filters.full ? lines.slice(0, totalLines - filters.offset) : lines,
+    lines: lines.slice(start, end),
     notice,
-    truncation: null,
+    truncation: hasHiddenLines
+      ? { totalLines, offset: effectiveOffset, pageSize: filters.tail }
+      : null,
   }
 }
 
@@ -269,7 +278,11 @@ export const logsCommand = Cli.Command.make('logs', {
               const run = yield* github.getWorkflowRun({ repo: resolvedRepo, runId })
               const { jobs } = yield* github.listWorkflowJobs({ repo: resolvedRepo, runId })
               const completed = run.status === 'completed'
-              const hasFailed = jobs.some((job) => shouldIncludeFailedLog(job.conclusion))
+              const verdictConclusion = logsVerdictConclusion({
+                runConclusion: run.conclusion,
+                jobConclusions: jobs.map((job) => job.conclusion),
+              })
+              const hasUnsuccessfulConclusion = verdictConclusion === 'failure'
 
               let filteredJobs: WorkflowJob[] = jobs
               if (failed) {
@@ -294,7 +307,7 @@ export const logsCommand = Cli.Command.make('logs', {
                 if (Option.isNone(sessionResult)) {
                   terminalError = true
                   tui.dispatch(missingStepSessionAuthError)
-                  return { completed, hasFailed }
+                  return { completed, hasUnsuccessfulConclusion, verdictConclusion }
                 }
 
                 if (Option.isSome(sessionResult)) {
@@ -345,8 +358,7 @@ export const logsCommand = Cli.Command.make('logs', {
                         jobName: `${j.name} > ${matchingStep.name}`,
                         conclusion: liveStepWatchConclusion({
                           stepStatus: matchingStep.status,
-                          failFast: watch && failFast,
-                          hasFailed,
+                          hasUnsuccessfulConclusion,
                         }),
                         filters: logFilters,
                       })
@@ -364,7 +376,9 @@ export const logsCommand = Cli.Command.make('logs', {
                       const result = collectLogText({
                         logText,
                         jobName: `${j.name} > ${matchingStep.name}`,
-                        conclusion: matchingStep.conclusion ?? matchingStep.status,
+                        conclusion: hasUnsuccessfulConclusion
+                          ? 'failure'
+                          : (matchingStep.conclusion ?? matchingStep.status),
                         filters: logFilters,
                       })
                       tui.dispatch({ _tag: 'SetLogs', ...result })
@@ -375,9 +389,10 @@ export const logsCommand = Cli.Command.make('logs', {
                     tui.dispatch({
                       _tag: 'SetNoLogs',
                       message: `No step matching '${stepFilter.value}' in any job`,
+                      conclusion: verdictConclusion,
                     })
                   }
-                  return { completed, hasFailed }
+                  return { completed, hasUnsuccessfulConclusion, verdictConclusion }
                 }
               }
 
@@ -387,8 +402,9 @@ export const logsCommand = Cli.Command.make('logs', {
                   message: failed
                     ? 'No failed jobs found.'
                     : `No jobs matching filter in run ${runId}.`,
+                  conclusion: verdictConclusion,
                 })
-                return { completed, hasFailed }
+                return { completed, hasUnsuccessfulConclusion, verdictConclusion }
               }
 
               /** Tier 1: REST API full job logs */
@@ -404,15 +420,15 @@ export const logsCommand = Cli.Command.make('logs', {
                 tui.dispatch({
                   _tag: 'SetNoLogs',
                   message: 'No completed jobs with logs yet.',
+                  conclusion: verdictConclusion,
                 })
-                return { completed, hasFailed }
+                return { completed, hasUnsuccessfulConclusion, verdictConclusion }
               }
 
               /** Collect all job logs, then dispatch once to avoid per-job state overwrites */
               const allLines: string[] = []
               /** Distinct per-job notices; identical fallbacks collapse into one line. */
               const notices = new Set<string>()
-              let anyFailed = false
               for (const j of newJobs) {
                 const r = yield* collectJobLog({
                   github,
@@ -422,7 +438,6 @@ export const logsCommand = Cli.Command.make('logs', {
                 })
                 allLines.push(`── ${r.jobName} (${r.conclusion}) ──`, ...r.lines, '')
                 if (r.notice !== null) notices.add(r.notice)
-                if (shouldIncludeFailedLog(r.conclusion)) anyFailed = true
                 displayedJobIds.add(j.id)
               }
 
@@ -430,24 +445,34 @@ export const logsCommand = Cli.Command.make('logs', {
                 tui.dispatch({
                   _tag: 'SetLogs',
                   jobName: newJobs.length === 1 ? newJobs[0]!.name : `${newJobs.length} jobs`,
-                  conclusion: anyFailed ? 'failure' : 'success',
+                  conclusion: verdictConclusion,
                   lines: allLines,
                   notice: notices.size === 0 ? null : [...notices].join(' · '),
                   truncation: null,
                 })
               }
 
-              return { completed, hasFailed }
+              return { completed, hasUnsuccessfulConclusion, verdictConclusion }
             })
 
-          const initial = yield* fetchAndDisplayLogs()
+          let finalResult = yield* fetchAndDisplayLogs()
 
-          if (watch && !terminalError && !initial.completed && !(failFast && initial.hasFailed)) {
+          if (
+            watch &&
+            !terminalError &&
+            !finalResult.completed &&
+            !(failFast && finalResult.hasUnsuccessfulConclusion)
+          ) {
             const startTime = Date.now()
             while (true) {
               yield* Effect.sleep(LOG_POLL_INTERVAL)
-              const result = yield* fetchAndDisplayLogs()
-              if (terminalError || result.completed || (failFast && result.hasFailed)) break
+              finalResult = yield* fetchAndDisplayLogs()
+              if (
+                terminalError ||
+                finalResult.completed ||
+                (failFast && finalResult.hasUnsuccessfulConclusion)
+              )
+                break
               const elapsed = (Date.now() - startTime) / 1000
               if (elapsed >= timeout) {
                 tui.dispatch({
@@ -471,9 +496,8 @@ export const logsCommand = Cli.Command.make('logs', {
           ) {
             tui.dispatch({
               _tag: 'SetNoLogs',
-              message: failed
-                ? 'No failed jobs found (run completed successfully).'
-                : 'No matching jobs produced logs.',
+              message: failed ? 'No failed job logs found.' : 'No matching jobs produced logs.',
+              conclusion: finalResult.verdictConclusion,
             })
           }
 

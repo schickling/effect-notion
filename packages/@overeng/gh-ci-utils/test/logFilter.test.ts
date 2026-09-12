@@ -248,6 +248,46 @@ describe('live and completed step log pagination', () => {
     })
   })
 
+  it('clamps an offset beyond the start to an empty page with accurate metadata', () => {
+    const result = collectLogText({
+      logText: Array.from({ length: 100 }, (_, index) => `line-${index + 1}`).join('\n'),
+      jobName: 'build',
+      conclusion: 'failure',
+      filters: {
+        tail: 10,
+        offset: 150,
+        errorOnly: false,
+        grep: Option.none(),
+        full: false,
+      },
+    })
+
+    expect(result).toMatchObject({
+      lines: [],
+      truncation: { totalLines: 100, offset: 100, pageSize: 10 },
+    })
+  })
+
+  it('retains pagination metadata for a partial page at the start', () => {
+    const result = collectLogText({
+      logText: ['line-1', 'line-2', 'line-3', 'line-4'].join('\n'),
+      jobName: 'build',
+      conclusion: 'failure',
+      filters: {
+        tail: 2,
+        offset: 3,
+        errorOnly: false,
+        grep: Option.none(),
+        full: false,
+      },
+    })
+
+    expect(result).toMatchObject({
+      lines: ['line-1'],
+      truncation: { totalLines: 4, offset: 3, pageSize: 2 },
+    })
+  })
+
   it('applies error extraction and lets --full bypass tail and offset', () => {
     const result = collectLogText({
       logText: [

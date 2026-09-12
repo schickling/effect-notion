@@ -9,8 +9,9 @@
  * - The `user_session` cookie is extracted and saved
  * - Internal API calls send it as `Cookie: user_session=...`
  */
-import { FileSystem } from 'effect'
-import { Effect, Option, Schema } from 'effect'
+import { randomUUID } from 'node:crypto'
+
+import { Effect, FileSystem, Option, Schema } from 'effect'
 
 import { ConfigError } from '../isomorphic/Errors.ts'
 
@@ -59,20 +60,13 @@ export const loadSession = Effect.gen(function* () {
   return Option.some(data)
 })
 
-/** Save session to disk. */
+/** Save session through a private staging file so failed writes never replace the last good session. */
 export const saveSession = (data: SessionData) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const dir = resolveHome(SESSION_DIR)
     const path = resolveHome(SESSION_FILE)
-
-    yield* fs
-      .makeDirectory(dir, { recursive: true })
-      .pipe(
-        Effect.mapError(
-          (cause) => new ConfigError({ message: `Failed to create session dir: ${dir}`, cause }),
-        ),
-      )
+    const stagingPath = `${path}.tmp-${process.pid}-${randomUUID()}`
 
     const json = yield* Schema.encodeUnknownEffect(Schema.fromJsonString(SessionData))(data).pipe(
       Effect.mapError(
@@ -81,22 +75,59 @@ export const saveSession = (data: SessionData) =>
     )
 
     yield* fs
-      .writeFileString(path, json)
+      .makeDirectory(dir, { recursive: true, mode: 0o700 })
       .pipe(
         Effect.mapError(
-          (cause) => new ConfigError({ message: `Failed to write session file: ${path}`, cause }),
+          (cause) => new ConfigError({ message: `Failed to create session dir: ${dir}`, cause }),
         ),
       )
-
-    yield* fs.chmod(path, 0o600).pipe(
+    yield* fs.chmod(dir, 0o700).pipe(
       Effect.mapError(
         (cause) =>
           new ConfigError({
-            message: `Failed to set permissions on session file: ${path}`,
+            message: `Failed to set permissions on session dir: ${dir}`,
             cause,
           }),
       ),
     )
+
+    yield* Effect.gen(function* () {
+      /** Establish exact permissions on an empty file before writing the session cookie. */
+      yield* fs.writeFileString(stagingPath, '', { flag: 'wx', mode: 0o600 }).pipe(
+        Effect.mapError(
+          (cause) =>
+            new ConfigError({
+              message: `Failed to create private session file: ${stagingPath}`,
+              cause,
+            }),
+        ),
+      )
+      yield* fs.chmod(stagingPath, 0o600).pipe(
+        Effect.mapError(
+          (cause) =>
+            new ConfigError({
+              message: `Failed to set permissions on session file: ${stagingPath}`,
+              cause,
+            }),
+        ),
+      )
+      yield* fs
+        .writeFileString(stagingPath, json)
+        .pipe(
+          Effect.mapError(
+            (cause) =>
+              new ConfigError({ message: `Failed to write session file: ${stagingPath}`, cause }),
+          ),
+        )
+      yield* fs
+        .rename(stagingPath, path)
+        .pipe(
+          Effect.mapError(
+            (cause) =>
+              new ConfigError({ message: `Failed to replace session file: ${path}`, cause }),
+          ),
+        )
+    }).pipe(Effect.ensuring(fs.remove(stagingPath).pipe(Effect.ignore)))
   })
 
 /** Build Cookie header from session. Only `user_session` is needed. */

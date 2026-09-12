@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   classifyRunWatch,
   isRunAttemptReady,
-  validateMutationWorkflowMatch,
+  validateMutationRunSelection,
 } from '../src/node/commands/rerun.ts'
 
 describe('isRunAttemptReady', () => {
@@ -55,13 +55,13 @@ describe('classifyRunWatch', () => {
   )
 })
 
-describe('validateMutationWorkflowMatch', () => {
+describe('validateMutationRunSelection', () => {
   it.each(['rerun', 'cancel'] as const)(
     'rejects %s when explicit workflow resolution fell back to another workflow',
     (action) => {
       const error = Effect.runSync(
         Effect.flip(
-          validateMutationWorkflowMatch({
+          validateMutationRunSelection({
             action,
             resolved: {
               runId: 123,
@@ -85,4 +85,32 @@ describe('validateMutationWorkflowMatch', () => {
       })
     },
   )
+
+  it('rejects a stale PR head selection before rerunning', () => {
+    const error = Effect.runSync(
+      Effect.flip(
+        validateMutationRunSelection({
+          action: 'rerun',
+          resolved: {
+            runId: 456,
+            repo: 'example-org/example-repo',
+            selection: {
+              prNumber: 42,
+              expectedHeadSha: 'current-head-sha',
+              expectedWorkflow: 'ci.yml',
+              matchedExpectedWorkflow: true,
+              runHeadSha: 'stale-head-sha',
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(error).toMatchObject({
+      _tag: 'ConfigError',
+      message:
+        'Run 456 targets stale-head-sha, not expected PR head current-head-sha; refusing to rerun the stale run',
+      cause: 'stale run selection',
+    })
+  })
 })

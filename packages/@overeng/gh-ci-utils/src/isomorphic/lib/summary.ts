@@ -105,7 +105,7 @@ export const toJobVM = ({
 })
 
 /** True when the inspected run describes a different commit than the one under review. */
-const isStaleRun = (selection: RunSelection): boolean =>
+export const isStaleRunSelection = (selection: RunSelection): boolean =>
   selection.expectedHeadSha !== null &&
   selection.runHeadSha !== null &&
   selection.expectedHeadSha !== selection.runHeadSha
@@ -118,7 +118,7 @@ const isStaleRun = (selection: RunSelection): boolean =>
  * run is judged on its own jobs. Guarding both the verdict and the warning on this one
  * predicate keeps `no_checks` from ever appearing without a warning naming why.
  */
-const isWrongWorkflow = (selection: RunSelection): boolean =>
+export const isWrongWorkflowSelection = (selection: RunSelection): boolean =>
   selection.expectedWorkflow !== null && !selection.matchedExpectedWorkflow
 
 const computeOverallStatus = ({
@@ -130,6 +130,10 @@ const computeOverallStatus = ({
   jobs: readonly WorkflowJobVM[]
   selection: RunSelection
 }): SummaryOverallStatus => {
+  // A verdict about the wrong workflow or the wrong commit is not a verdict.
+  // Validate the selection before considering conclusions from an unrelated fallback.
+  if (isWrongWorkflowSelection(selection) || isStaleRunSelection(selection)) return 'no_checks'
+
   if (
     isBlockingConclusion(run.conclusion) ||
     jobs.some((job) => isBlockingConclusion(job.conclusion))
@@ -138,11 +142,6 @@ const computeOverallStatus = ({
 
   if (run.conclusion === 'cancelled' || jobs.some((job) => job.conclusion === 'cancelled'))
     return 'cancelled'
-
-  // A verdict about the wrong workflow or the wrong commit is not a verdict.
-  // Reported before `in_progress` so callers never wait on a run that cannot
-  // answer the question they asked.
-  if (isWrongWorkflow(selection) || isStaleRun(selection)) return 'no_checks'
 
   // Anything short of `completed` — queued, waiting, requested, pending, in_progress —
   // means the answer is still coming. The run's own status matters on its own: a freshly
@@ -182,7 +181,7 @@ export const computeSummary = ({
     }))
 
   const warnings: WarningItem[] = []
-  if (isWrongWorkflow(selection)) {
+  if (isWrongWorkflowSelection(selection)) {
     warnings.push({
       _tag: 'ExpectedWorkflowMissing',
       workflow: selection.expectedWorkflow!,
@@ -190,7 +189,7 @@ export const computeSummary = ({
       inspectedWorkflowPath: run.workflowPath,
     })
   }
-  if (isStaleRun(selection)) {
+  if (isStaleRunSelection(selection)) {
     warnings.push({
       _tag: 'StaleRun',
       expectedHeadSha: selection.expectedHeadSha!,

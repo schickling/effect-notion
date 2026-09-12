@@ -10,8 +10,10 @@ import {
   createInitialLogsState,
   logsReducer,
 } from '../src/isomorphic/renderers/LogsOutput/schema.ts'
+import { MutationApp } from '../src/isomorphic/renderers/MutationOutput/app.ts'
 import {
   liveStepWatchConclusion,
+  logsVerdictConclusion,
   missingStepSessionAuthError,
   shouldFinalizeWatchWithNoLogs,
 } from '../src/node/commands/logs.ts'
@@ -93,6 +95,33 @@ describe('CiApp exitCode', () => {
   })
 })
 
+describe('MutationApp exitCode', () => {
+  it('returns 2 for a mutation watch timeout', () => {
+    expect(
+      MutationApp.config.exitCode?.({
+        _tag: 'Error',
+        error: 'Timeout',
+        message: 'Watch timed out after 30s.',
+        _meta: defaultApiMeta,
+      }),
+    ).toBe(2)
+  })
+
+  it('uses the shared terminal-conclusion policy while watching', () => {
+    const state = {
+      _tag: 'Watching' as const,
+      runId: 1,
+      repo: 'example-org/example-repo',
+      status: 'completed',
+      conclusion: 'cancelled',
+      jobs: [{ name: 'cleanup', status: 'completed', conclusion: 'neutral', runner: 'runner-a' }],
+      _meta: defaultApiMeta,
+    }
+
+    expect(MutationApp.config.exitCode?.(state)).toBe(1)
+  })
+})
+
 describe('LogsApp exitCode', () => {
   it('preserves a failed watch verdict when a later tick displays successful logs', () => {
     const failed = logsReducer({
@@ -122,6 +151,54 @@ describe('LogsApp exitCode', () => {
     expect(LogsApp.config.exitCode?.(afterLaterSuccess)).toBe(1)
   })
 
+  it('does not fail while a selected live step is still in progress', () => {
+    const state = logsReducer({
+      state: createInitialLogsState(),
+      action: {
+        _tag: 'SetLogs',
+        jobName: 'build > compile',
+        conclusion: 'in_progress',
+        lines: ['still compiling'],
+        notice: null,
+        truncation: null,
+      },
+    })
+
+    expect(LogsApp.config.exitCode?.(state)).toBe(0)
+  })
+
+  it('maps a logs watch timeout to exit 2', () => {
+    expect(
+      LogsApp.config.exitCode?.({
+        _tag: 'Error',
+        error: 'Timeout',
+        message: 'Watch timed out after 30s.',
+        _meta: defaultApiMeta,
+      }),
+    ).toBe(2)
+  })
+
+  it.each(['startup_failure', 'action_required', 'cancelled'])(
+    'keeps terminal run conclusion %s when no job log is blocking',
+    (runConclusion) => {
+      const conclusion = logsVerdictConclusion({
+        runConclusion,
+        jobConclusions: ['success'],
+      })
+      const state = logsReducer({
+        state: createInitialLogsState(),
+        action: {
+          _tag: 'SetNoLogs',
+          message: 'No matching jobs produced logs.',
+          conclusion,
+        },
+      })
+
+      expect(state).toMatchObject({ _tag: 'NoLogs', conclusion: 'failure' })
+      expect(LogsApp.config.exitCode?.(state)).toBe(1)
+    },
+  )
+
   it('returns nonzero structured error state when --step lacks session auth', () => {
     const state = logsReducer({
       state: createInitialLogsState(),
@@ -145,8 +222,7 @@ describe('LogsApp exitCode', () => {
         jobName: 'build > compile',
         conclusion: liveStepWatchConclusion({
           stepStatus: 'in_progress',
-          failFast: true,
-          hasFailed: true,
+          hasUnsuccessfulConclusion: true,
         }),
         lines: ['still compiling'],
         notice: null,
@@ -163,7 +239,11 @@ describe('LogsApp exitCode', () => {
     ) {
       finalState = logsReducer({
         state: finalState,
-        action: { _tag: 'SetNoLogs', message: 'No matching jobs produced logs.' },
+        action: {
+          _tag: 'SetNoLogs',
+          message: 'No matching jobs produced logs.',
+          conclusion: 'failure',
+        },
       })
     }
 

@@ -10,7 +10,12 @@ import React from 'react'
 import { outputModeLayer, outputOption } from '@overeng/tui-react/node'
 
 import { ConfigError } from '../../isomorphic/Errors.ts'
-import { isBlockingConclusion, isUnsuccessfulConclusion } from '../../isomorphic/lib/summary.ts'
+import {
+  isBlockingConclusion,
+  isStaleRunSelection,
+  isUnsuccessfulConclusion,
+  isWrongWorkflowSelection,
+} from '../../isomorphic/lib/summary.ts'
 import { MutationApp, MutationView } from '../../isomorphic/renderers/MutationOutput/mod.ts'
 import type { MutationAction } from '../../isomorphic/renderers/MutationOutput/schema.ts'
 import { detectCurrentBranch, resolveConfig } from '../Config.ts'
@@ -80,7 +85,7 @@ export const rerunCommand = Cli.Command.make('rerun', {
             }
             resolved = yield* resolveTargetOrCurrentBranch(targetInput, localRepo, preferWorkflow)
           }
-          yield* validateMutationWorkflowMatch({ action: 'rerun', resolved })
+          yield* validateMutationRunSelection({ action: 'rerun', resolved })
 
           const { runId, repo: resolvedRepo } = resolved
           const github = yield* GitHubClient
@@ -266,7 +271,7 @@ export const cancelCommand = Cli.Command.make('cancel', {
             preferWorkflow,
           )
         }
-        yield* validateMutationWorkflowMatch({ action: 'cancel', resolved })
+        yield* validateMutationRunSelection({ action: 'cancel', resolved })
 
         const github = yield* GitHubClient
         const { runId, repo: resolvedRepo } = resolved
@@ -306,14 +311,20 @@ const dispatchMeta = (tui: TuiHandle) =>
     tui.dispatch({ _tag: 'SetMeta', _meta: meta })
   })
 
-/** Refuse a mutation when resolution fell back to a run from another workflow. */
-export const validateMutationWorkflowMatch = Effect.fn('validate-mutation-workflow-match')(
+/** Refuse a mutation when target resolution selected a run the action may not safely change. */
+export const validateMutationRunSelection = Effect.fn('validate-mutation-run-selection')(
   function* ({ action, resolved }: { action: 'rerun' | 'cancel'; resolved: ResolvedTarget }) {
-    const workflow = resolved.selection.expectedWorkflow
-    if (workflow === null || resolved.selection.matchedExpectedWorkflow) return
+    const selection = resolved.selection
+    if (action === 'rerun' && isStaleRunSelection(selection)) {
+      return yield* new ConfigError({
+        message: `Run ${resolved.runId} targets ${selection.runHeadSha}, not expected PR head ${selection.expectedHeadSha}; refusing to rerun the stale run`,
+        cause: 'stale run selection',
+      })
+    }
 
+    if (!isWrongWorkflowSelection(selection)) return
     return yield* new ConfigError({
-      message: `No run matching workflow '${workflow}' was found in ${resolved.repo}; refusing to ${action} run ${resolved.runId}`,
+      message: `No run matching workflow '${selection.expectedWorkflow}' was found in ${resolved.repo}; refusing to ${action} run ${resolved.runId}`,
       cause: 'workflow not found',
     })
   },

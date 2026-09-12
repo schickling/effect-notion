@@ -28,7 +28,11 @@ export const LogsStateSchema = Schema.Union([
     truncation: Schema.NullOr(TruncationSchema),
     _meta: ApiMetaSchema,
   }),
-  Schema.TaggedStruct('NoLogs', { message: Schema.String, _meta: ApiMetaSchema }),
+  Schema.TaggedStruct('NoLogs', {
+    message: Schema.String,
+    conclusion: Schema.String,
+    _meta: ApiMetaSchema,
+  }),
   Schema.TaggedStruct('Error', {
     error: Schema.String,
     message: Schema.String,
@@ -47,7 +51,7 @@ export const LogsActionSchema = Schema.Union([
     truncation: Schema.NullOr(TruncationSchema),
   }),
   Schema.TaggedStruct('SetError', { error: Schema.String, message: Schema.String }),
-  Schema.TaggedStruct('SetNoLogs', { message: Schema.String }),
+  Schema.TaggedStruct('SetNoLogs', { message: Schema.String, conclusion: Schema.String }),
   Schema.TaggedStruct('SetMeta', { _meta: ApiMetaSchema }),
 ])
 export type LogsAction = typeof LogsActionSchema.Type
@@ -75,7 +79,12 @@ export const logsReducer = ({
     case 'SetError':
       return { _tag: 'Error', error: action.error, message: action.message, _meta: state._meta }
     case 'SetNoLogs':
-      return { _tag: 'NoLogs', message: action.message, _meta: state._meta }
+      return {
+        _tag: 'NoLogs',
+        message: action.message,
+        conclusion: action.conclusion,
+        _meta: state._meta,
+      }
     case 'SetMeta':
       return { ...state, _meta: action._meta }
   }

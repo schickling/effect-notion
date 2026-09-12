@@ -849,11 +849,20 @@ const makeGitHubClient = Effect.gen(function* () {
    * set comes back as an unbilled `304`.
    */
   const getCheckAnnotations = ({ repo, checkRunId }: { repo: string; checkRunId: number }) =>
-    apiGet({
-      repo,
-      path: `/repos/${repo}/check-runs/${checkRunId}/annotations?per_page=100`,
-      schema: Schema.Array(GH.CheckAnnotation),
-      useETag: true,
+    Effect.gen(function* () {
+      const annotations: GH.CheckAnnotation[] = []
+      let page = 1
+      while (true) {
+        const pageAnnotations = yield* apiGet({
+          repo,
+          path: `/repos/${repo}/check-runs/${checkRunId}/annotations?per_page=100&page=${page}`,
+          schema: Schema.Array(GH.CheckAnnotation),
+          useETag: true,
+        })
+        annotations.push(...pageAnnotations)
+        if (pageAnnotations.length < 100) return annotations
+        page++
+      }
     }).pipe(
       withGitHubSpan({
         name: 'github-client.getCheckAnnotations',
@@ -1260,33 +1269,11 @@ const makeGitHubClient = Effect.gen(function* () {
       withGitHubSpan({ name: 'github-client.rerunFailedJobs', attributes: { repo, runId } }),
     )
 
-  /** Force-cancel a workflow run (needed for runs stuck in queued state that regular cancel can't reach). */
-  const forceCancelRun = ({ repo, runId }: { repo: string; runId: number }) =>
-    apiPost({ repo, path: `/repos/${repo}/actions/runs/${runId}/force-cancel` }).pipe(
-      withGitHubSpan({ name: 'github-client.forceCancelRun', attributes: { repo, runId } }),
-    )
-
-  /**
-   * Cancel a workflow run with automatic escalation to force-cancel.
-   * Regular cancel doesn't work on jobs that were never picked up by a runner —
-   * force-cancel is the only way to terminate those.
-   */
+  /** Request graceful cancellation of a workflow run. */
   const cancelRun = ({ repo, runId }: { repo: string; runId: number }) =>
-    Effect.gen(function* () {
-      yield* apiPost({ repo, path: `/repos/${repo}/actions/runs/${runId}/cancel` })
-
-      /** Poll briefly to verify cancellation took effect */
-      yield* Effect.sleep('2 seconds')
-      const run = yield* getWorkflowRun({ repo, runId })
-
-      if (run.status === 'completed') return
-
-      /** Run is still active — escalate to force-cancel (handles stuck queued jobs) */
-      yield* Effect.logWarning(
-        `Regular cancel did not terminate run ${runId} (status: ${run.status}), escalating to force-cancel`,
-      )
-      yield* forceCancelRun({ repo, runId })
-    }).pipe(withGitHubSpan({ name: 'github-client.cancelRun', attributes: { repo, runId } }))
+    apiPost({ repo, path: `/repos/${repo}/actions/runs/${runId}/cancel` }).pipe(
+      withGitHubSpan({ name: 'github-client.cancelRun', attributes: { repo, runId } }),
+    )
 
   /** Get the default branch name for a repository. */
   const getDefaultBranch = (repo: string) =>
@@ -1329,7 +1316,6 @@ const makeGitHubClient = Effect.gen(function* () {
     rerunWorkflow,
     rerunFailedJobs,
     cancelRun,
-    forceCancelRun,
     getRateLimit,
     getRequestCount,
     getRestRequestCount,

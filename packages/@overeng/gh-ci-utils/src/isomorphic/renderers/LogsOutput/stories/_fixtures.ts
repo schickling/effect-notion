@@ -23,6 +23,7 @@ export const loadingState = (): LogsState => ({
 export const noLogsState = (): LogsState => ({
   _tag: 'NoLogs',
   message: 'No logs available for this job. The job may still be queued.',
+  conclusion: 'success',
   _meta: realisticMeta,
 })
 
@@ -319,6 +320,7 @@ export const createNoLogsTimeline = (): TimelineStep[] => {
       action: {
         _tag: 'SetNoLogs',
         message: s.message,
+        conclusion: s.conclusion,
       },
     },
   ]
