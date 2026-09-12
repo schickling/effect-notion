@@ -47,6 +47,28 @@ export interface CollectedJobLog {
   readonly truncation: { totalLines: number; offset: number; pageSize: number } | null
 }
 
+/** A first-failure watch must retain the failure that stopped it, even while rendering a live step. */
+export const liveStepWatchConclusion = ({
+  stepStatus,
+  failFast,
+  hasFailed,
+}: {
+  stepStatus: string
+  failFast: boolean
+  hasFailed: boolean
+}): string => (failFast && hasFailed ? 'failure' : stepStatus)
+
+/** Decide whether watch finalization needs a no-logs state without replacing rendered live output. */
+export const shouldFinalizeWatchWithNoLogs = ({
+  watch,
+  displayedJobCount,
+  renderedLiveStepOutput,
+}: {
+  watch: boolean
+  displayedJobCount: number
+  renderedLiveStepOutput: boolean
+}): boolean => watch && displayedJobCount === 0 && !renderedLiveStepOutput
+
 const collectLogText = ({
   logText,
   jobName,
@@ -226,8 +248,11 @@ export const logsCommand = Cli.Command.make('logs', {
           const github = yield* GitHubClient
           const logFilters: LogFilterOptions = { tail, offset, errorOnly, grep, full }
 
-          /** Tracks which jobs we already displayed logs for (watch mode) */
+          const failFast = watchMode === 'first-failure'
+          /** Tracks which completed jobs we already displayed logs for in watch mode. */
           const displayedJobIds = new Set<number>()
+          /** Live backscroll is rendered repeatedly and therefore is not a completed displayed job. */
+          let renderedLiveStepOutput = false
 
           const fetchAndDisplayLogs = () =>
             Effect.gen(function* () {
@@ -322,7 +347,11 @@ export const logsCommand = Cli.Command.make('logs', {
                       tui.dispatch({
                         _tag: 'SetLogs',
                         jobName: `${j.name} > ${matchingStep.name}`,
-                        conclusion: matchingStep.status,
+                        conclusion: liveStepWatchConclusion({
+                          stepStatus: matchingStep.status,
+                          failFast: watch && failFast,
+                          hasFailed,
+                        }),
                         lines: displayLines,
                         notice: null,
                         truncation:
@@ -330,6 +359,7 @@ export const logsCommand = Cli.Command.make('logs', {
                             ? { totalLines: lines.length, offset: 0, pageSize: tail }
                             : null,
                       })
+                      renderedLiveStepOutput = true
                     } else {
                       const logText = yield* internal.getCompletedStepLog({
                         owner,
@@ -408,7 +438,6 @@ export const logsCommand = Cli.Command.make('logs', {
               return { completed, hasFailed }
             })
 
-          const failFast = watchMode === 'first-failure'
           const initial = yield* fetchAndDisplayLogs()
 
           if (watch && !initial.completed && !(failFast && initial.hasFailed)) {
@@ -429,8 +458,14 @@ export const logsCommand = Cli.Command.make('logs', {
             }
           }
 
-          /** If watch completed but no logs were ever displayed, emit a final state */
-          if (watch && displayedJobIds.size === 0) {
+          /** If watch completed but no logs were ever rendered, emit a final state. */
+          if (
+            shouldFinalizeWatchWithNoLogs({
+              watch,
+              displayedJobCount: displayedJobIds.size,
+              renderedLiveStepOutput,
+            })
+          ) {
             tui.dispatch({
               _tag: 'SetNoLogs',
               message: failed

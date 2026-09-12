@@ -94,6 +94,26 @@ export const isRunActive = (run: Pick<GH.WorkflowRun, 'status'>): boolean =>
 /** Workflow file a status verdict prefers when the caller named none. */
 export const DEFAULT_EXPECTED_WORKFLOW = 'ci.yml'
 
+/**
+ * Match either an exact normalized workflow path or an exact basename.
+ *
+ * A path argument remains path-specific, while `ci.yml` matches the basename
+ * without also accepting suffixes such as `foo-ci.yml`.
+ */
+export const workflowPathMatches = ({
+  candidatePath,
+  workflow,
+}: {
+  candidatePath: string
+  workflow: string
+}): boolean => {
+  const candidate = candidatePath.replaceAll('\\', '/').replace(/^\.?\/+/u, '')
+  const wanted = workflow.replaceAll('\\', '/').replace(/^\.?\/+/u, '')
+  return wanted.includes('/')
+    ? candidate === wanted
+    : candidate.slice(candidate.lastIndexOf('/') + 1) === wanted
+}
+
 /** Which run a verdict should describe, and what it may claim about the workflow. */
 export type VerdictRunPick = {
   readonly run: GH.WorkflowRun | null
@@ -133,7 +153,9 @@ export const selectRunForVerdict = ({
     }
 
   const wanted = preferWorkflow ?? DEFAULT_EXPECTED_WORKFLOW
-  const match = candidates.find((run) => run.path.includes(wanted))
+  const match = candidates.find((run) =>
+    workflowPathMatches({ candidatePath: run.path, workflow: wanted }),
+  )
   if (match) return { run: match, expectedWorkflow: wanted, matchedExpectedWorkflow: true }
 
   const fallback = candidates[0] ?? null
@@ -800,14 +822,28 @@ const makeGitHubClient = Effect.gen(function* () {
       }),
     )
 
-  /** Get the latest run for a branch. */
-  const getLatestRunForBranch = ({ repo, branch }: { repo: string; branch: string }) =>
+  /** Get the latest run for a branch, preferring the requested workflow (or ci.yml by default). */
+  const getLatestRunForBranch = ({
+    repo,
+    branch,
+    preferWorkflow,
+  }: {
+    repo: string
+    branch: string
+    preferWorkflow?: string
+  }) =>
     apiGet({
       repo,
-      path: `/repos/${repo}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=1`,
+      path: `/repos/${repo}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=25`,
       schema: GH.WorkflowRunsResponse,
     }).pipe(
-      Effect.map((resp) => resp.workflow_runs[0] ?? null),
+      Effect.map(
+        (resp) =>
+          selectRunForVerdict({
+            runs: resp.workflow_runs,
+            ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),
+          }).run,
+      ),
       withGitHubSpan({ name: 'github-client.getLatestRunForBranch', attributes: { repo, branch } }),
     )
 
@@ -1088,8 +1124,7 @@ const makeGitHubClient = Effect.gen(function* () {
       const match = listed.workflows.find(
         (candidate) =>
           candidate.name === workflow ||
-          candidate.path === workflow ||
-          candidate.path.endsWith(`/${workflow}`),
+          workflowPathMatches({ candidatePath: candidate.path, workflow }),
       )
       if (match === undefined) {
         return yield* new GitHubApiError({

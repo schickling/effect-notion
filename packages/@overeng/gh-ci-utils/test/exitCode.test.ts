@@ -10,6 +10,10 @@ import {
   createInitialLogsState,
   logsReducer,
 } from '../src/isomorphic/renderers/LogsOutput/schema.ts'
+import {
+  liveStepWatchConclusion,
+  shouldFinalizeWatchWithNoLogs,
+} from '../src/node/commands/logs.ts'
 
 const testRun = {
   id: 1,
@@ -115,5 +119,44 @@ describe('LogsApp exitCode', () => {
 
     expect(afterLaterSuccess).toMatchObject({ _tag: 'Loaded', conclusion: 'failure' })
     expect(LogsApp.config.exitCode?.(afterLaterSuccess)).toBe(1)
+  })
+
+  it('keeps rendered live step logs and the blocking first-failure verdict', () => {
+    const renderedLiveStepOutput = true
+    let finalState = logsReducer({
+      state: createInitialLogsState(),
+      action: {
+        _tag: 'SetLogs',
+        jobName: 'build > compile',
+        conclusion: liveStepWatchConclusion({
+          stepStatus: 'in_progress',
+          failFast: true,
+          hasFailed: true,
+        }),
+        lines: ['still compiling'],
+        notice: null,
+        truncation: null,
+      },
+    })
+
+    if (
+      shouldFinalizeWatchWithNoLogs({
+        watch: true,
+        displayedJobCount: 0,
+        renderedLiveStepOutput,
+      })
+    ) {
+      finalState = logsReducer({
+        state: finalState,
+        action: { _tag: 'SetNoLogs', message: 'No matching jobs produced logs.' },
+      })
+    }
+
+    expect(finalState).toMatchObject({
+      _tag: 'Loaded',
+      conclusion: 'failure',
+      lines: ['still compiling'],
+    })
+    expect(LogsApp.config.exitCode?.(finalState)).toBe(1)
   })
 })

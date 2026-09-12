@@ -91,10 +91,7 @@ describe('GitHubClient dispatchWorkflow', () => {
       const directory = yield* fs.makeTempDirectoryScoped()
       const privateKeyPath = path.join(directory, 'synthetic-app.pem')
       const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
-      yield* fs.writeFileString(
-        privateKeyPath,
-        privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
-      )
+      yield* fs.writeFileString(privateKeyPath, privateKey.export({ type: 'pkcs8', format: 'pem' }))
       const authLayer = Layer.succeed(GitHubAuthConfigTag, {
         _tag: 'github-app' as const,
         clientID: 'synthetic-app-client',

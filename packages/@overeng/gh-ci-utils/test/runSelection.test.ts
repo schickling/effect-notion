@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest'
 
 import { WorkflowRunsResponse } from '../src/isomorphic/GitHubSchemas.ts'
 import { selectRunForVerdict } from '../src/node/GitHubClient.ts'
+import { selectNewestWorkflowRun } from '../src/node/RunId.ts'
 
 const decodeRuns = (workflow_runs: readonly unknown[]) =>
   Schema.decodeUnknownSync(WorkflowRunsResponse)({
@@ -146,6 +147,89 @@ describe('selectRunForVerdict (FB-276)', () => {
     expect(picked.matchedExpectedWorkflow).toBe(true)
   })
 
+  it('matches an exact workflow basename instead of a longer suffix', () => {
+    const picked = selectRunForVerdict({
+      runs: decodeRuns([
+        run({
+          id: 70000000004,
+          name: 'Foo CI',
+          path: '.github/workflows/foo-ci.yml',
+          head_sha: '1111111111111111111111111111111111111111',
+          status: 'completed',
+          conclusion: 'failure',
+          event: 'push',
+          created_at: '2026-07-28T21:00:00Z',
+        }),
+        run({
+          id: 70000000003,
+          name: 'CI',
+          path: '.github/workflows/ci.yml',
+          head_sha: '1111111111111111111111111111111111111111',
+          status: 'completed',
+          conclusion: 'success',
+          event: 'push',
+          created_at: '2026-07-28T20:37:05Z',
+        }),
+      ]),
+      preferWorkflow: 'ci.yml',
+    })
+
+    expect(picked.run?.id).toBe(70000000003)
+    expect(picked.matchedExpectedWorkflow).toBe(true)
+  })
+
+  it('does not claim foo-ci.yml matched an explicit ci.yml mutation target', () => {
+    const picked = selectRunForVerdict({
+      runs: decodeRuns([
+        run({
+          id: 70000000004,
+          name: 'Foo CI',
+          path: '.github/workflows/foo-ci.yml',
+          head_sha: '1111111111111111111111111111111111111111',
+          status: 'completed',
+          conclusion: 'success',
+          event: 'push',
+          created_at: '2026-07-28T21:00:00Z',
+        }),
+      ]),
+      preferWorkflow: 'ci.yml',
+    })
+
+    expect(picked.run?.id).toBe(70000000004)
+    expect(picked.matchedExpectedWorkflow).toBe(false)
+  })
+
+  it('keeps an explicit normalized workflow path path-specific', () => {
+    const picked = selectRunForVerdict({
+      runs: decodeRuns([
+        run({
+          id: 70000000004,
+          name: 'Nested CI',
+          path: 'nested/ci.yml',
+          head_sha: '1111111111111111111111111111111111111111',
+          status: 'completed',
+          conclusion: 'failure',
+          event: 'push',
+          created_at: '2026-07-28T21:00:00Z',
+        }),
+        run({
+          id: 70000000003,
+          name: 'CI',
+          path: '.github/workflows/ci.yml',
+          head_sha: '1111111111111111111111111111111111111111',
+          status: 'completed',
+          conclusion: 'success',
+          event: 'push',
+          created_at: '2026-07-28T20:37:05Z',
+        }),
+      ]),
+      preferWorkflow: './.github/workflows/ci.yml',
+    })
+
+    expect(picked.run?.id).toBe(70000000003)
+    expect(picked.matchedExpectedWorkflow).toBe(true)
+  })
+
   it('reports no run and no match for an empty candidate set', () => {
     expect(selectRunForVerdict({ runs: [] })).toEqual({
       run: null,
@@ -211,5 +295,34 @@ describe('selectRunForVerdict (FB-276)', () => {
       matchedExpectedWorkflow: false,
     })
     expect(selectRunForVerdict({ runs: HEAD_SHA_RUNS, activeOnly: true }).run?.id).toBe(70000000003)
+  })
+})
+
+describe('selectNewestWorkflowRun', () => {
+  it('selects a newer dispatch run over an older pull request run on the same branch', () => {
+    const [olderPullRequestRun, newerDispatchRun] = decodeRuns([
+      run({
+        id: 70000000005,
+        name: 'CI',
+        path: '.github/workflows/ci.yml',
+        head_sha: '1111111111111111111111111111111111111111',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'pull_request',
+        created_at: '2026-07-28T20:00:00Z',
+      }),
+      run({
+        id: 70000000006,
+        name: 'CI',
+        path: '.github/workflows/ci.yml',
+        head_sha: '1111111111111111111111111111111111111111',
+        status: 'completed',
+        conclusion: 'failure',
+        event: 'workflow_dispatch',
+        created_at: '2026-07-28T21:00:00Z',
+      }),
+    ])
+
+    expect(selectNewestWorkflowRun([olderPullRequestRun!, newerDispatchRun!])?.id).toBe(70000000006)
   })
 })

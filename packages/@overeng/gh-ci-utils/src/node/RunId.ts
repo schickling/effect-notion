@@ -17,9 +17,10 @@ import { Effect, Option, Schema } from 'effect'
 import * as Cli from 'effect/unstable/cli'
 
 import { ConfigError } from '../isomorphic/Errors.ts'
+import type { WorkflowRun } from '../isomorphic/GitHubSchemas.ts'
 import { directRunSelection, type RunSelection } from '../isomorphic/lib/summary.ts'
 import { detectCurrentBranch } from './Config.ts'
-import { GitHubClient, selectRunForVerdict } from './GitHubClient.ts'
+import { GitHubClient, selectRunForVerdict, workflowPathMatches } from './GitHubClient.ts'
 
 /** A resolved target: the run to inspect plus how it was chosen. */
 export type ResolvedTarget = {
@@ -256,9 +257,31 @@ const selectionForRun = ({
   prNumber,
   expectedHeadSha,
   expectedWorkflow: preferWorkflow ?? null,
-  matchedExpectedWorkflow: preferWorkflow === undefined || run.path.includes(preferWorkflow),
+  matchedExpectedWorkflow:
+    preferWorkflow === undefined ||
+    workflowPathMatches({ candidatePath: run.path, workflow: preferWorkflow }),
   runHeadSha: run.head_sha,
 })
+
+/** Select the newest run returned by independently filtered GitHub listings. */
+export const selectNewestWorkflowRun = (
+  runs: readonly (WorkflowRun | null)[],
+): WorkflowRun | null => {
+  let newest: WorkflowRun | null = null
+  for (const run of runs) {
+    if (run === null) continue
+    if (newest === null) {
+      newest = run
+      continue
+    }
+    const createdAt = run.created_at.getTime()
+    const newestCreatedAt = newest.created_at.getTime()
+    if (createdAt > newestCreatedAt || (createdAt === newestCreatedAt && run.id > newest.id)) {
+      newest = run
+    }
+  }
+  return newest
+}
 
 /** Resolve a PR number to the latest active CI run on its head branch. */
 const resolveActivePrRun = Effect.fn('resolve-active-pr-run')(
@@ -296,27 +319,20 @@ const resolveActivePrRun = Effect.fn('resolve-active-pr-run')(
     }),
 )
 
-/** Resolve a branch to the latest run (tries PR runs first for workflow preference). */
+/** Resolve a branch to the newest relevant run across PR and general branch listings. */
 const resolveBranchRun = Effect.fn('resolve-branch-run')(
   (repo: string, branch: string, preferWorkflow?: string) =>
     Effect.gen(function* () {
       const github = yield* GitHubClient
-      const prRun = yield* github.getLatestPRRun({
-        repo,
-        branch,
-        ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),
-      })
-      if (prRun)
-        return {
-          runId: prRun.id,
-          repo,
-          selection: selectionForRun({
-            run: prRun,
-            preferWorkflow,
-          }),
-        } satisfies ResolvedTarget
-
-      const run = yield* github.getLatestRunForBranch({ repo, branch })
+      const preference = preferWorkflow !== undefined ? { preferWorkflow } : {}
+      const [prRun, branchRun] = yield* Effect.all(
+        [
+          github.getLatestPRRun({ repo, branch, ...preference }),
+          github.getLatestRunForBranch({ repo, branch, ...preference }),
+        ],
+        { concurrency: 'unbounded' },
+      )
+      const run = selectNewestWorkflowRun([prRun, branchRun])
       if (!run) {
         return yield* new ConfigError({
           message: `No runs found for branch '${branch}' in ${repo}`,
@@ -334,31 +350,20 @@ const resolveBranchRun = Effect.fn('resolve-branch-run')(
     }),
 )
 
-/** Resolve a branch to the latest active run, preferring PR runs first for workflow preference. */
+/** Resolve a branch to the newest active run across PR and general branch listings. */
 const resolveActiveBranchRun = Effect.fn('resolve-active-branch-run')(
   (repo: string, branch: string, preferWorkflow?: string) =>
     Effect.gen(function* () {
       const github = yield* GitHubClient
-      const prRun = yield* github.getLatestActivePRRun({
-        repo,
-        branch,
-        ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),
-      })
-      if (prRun)
-        return {
-          runId: prRun.id,
-          repo,
-          selection: selectionForRun({
-            run: prRun,
-            preferWorkflow,
-          }),
-        } satisfies ResolvedTarget
-
-      const run = yield* github.getLatestActiveRunForBranch({
-        repo,
-        branch,
-        ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),
-      })
+      const preference = preferWorkflow !== undefined ? { preferWorkflow } : {}
+      const [prRun, branchRun] = yield* Effect.all(
+        [
+          github.getLatestActivePRRun({ repo, branch, ...preference }),
+          github.getLatestActiveRunForBranch({ repo, branch, ...preference }),
+        ],
+        { concurrency: 'unbounded' },
+      )
+      const run = selectNewestWorkflowRun([prRun, branchRun])
       if (!run) {
         return yield* new ConfigError({
           message: `No active runs found for branch '${branch}' in ${repo}`,
