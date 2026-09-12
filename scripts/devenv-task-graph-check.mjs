@@ -107,9 +107,14 @@ for (const name of [
   'check:all',
   'nix:check:quick',
   'nix:flake:check',
+  'setup:strict',
+  'genie:run',
+  'genie:check',
+  'mr:apply',
   'buck2:check',
   'buck2:typescript:materialize-dist',
   'buck2:editor:bootstrap',
+  'buck2:editor:materialize',
   'buck2:editor:authority',
   'buck2:editor:publish',
   'buck2:editor:check',
@@ -214,7 +219,6 @@ for (const name of [...buck2UnboundedTaskNames, ...buck2ExternalOwnerTaskNames])
   })
 }
 for (const name of [
-  materializer,
   'buck2:check',
   'buck2:editor:authority',
   'buck2:editor:publish',
@@ -244,6 +248,20 @@ ok({
   name: 'editor bootstrap materializes committed dependencies before freshness without claiming it',
 })
 
+ok({
+  condition:
+    reaches({
+      start: 'buck2:typescript:materialize-dist',
+      target: 'buck2:editor:materialize',
+    }) === true &&
+    reaches({ start: 'setup:strict', target: 'buck2:editor:materialize' }) === true,
+  name: 'mutating setup and dist publication share the ordered editor materialization barrier',
+})
+ok({
+  condition: reaches({ start: 'genie:check', target: 'genie:run' }) === false,
+  name: 'standalone generation freshness never invokes the projection producer',
+})
+
 const source = readFileSync(`${root}/devenv.nix`, 'utf8')
 const taskSource = (name) => {
   const start = source.indexOf(`  tasks."${name}" = {`)
@@ -251,6 +269,26 @@ const taskSource = (name) => {
   const end = source.indexOf('\n  tasks."', start + 1)
   return source.slice(start, end === -1 ? source.length : end)
 }
+
+const editorMaterializeSource = taskSource('buck2:editor:materialize')
+const orderedMaterializationSteps = [
+  'devenv tasks run mr:setup',
+  'devenv tasks run buck2:editor:bootstrap --mode single',
+  'devenv tasks run genie:run --mode single',
+  'devenv tasks run genie:check --mode single',
+  'devenv tasks run mr:apply --mode single',
+  'devenv tasks run buck2:editor:publish --mode single',
+]
+const orderedMaterializationOffsets = orderedMaterializationSteps.map((step) =>
+  editorMaterializeSource.indexOf(step),
+)
+ok({
+  condition: orderedMaterializationOffsets.every(
+    (offset, index) =>
+      offset !== -1 && (index === 0 || offset > orderedMaterializationOffsets[index - 1]),
+  ),
+  name: 'editor materialization runs bootstrap, generation, freshness, composition, and publication in order',
+})
 
 const materializerSource = taskSource(materializer)
 const typescriptAuthorityRuntimePath = 'genie/buck2/typescript-authority-runtime.ts'

@@ -147,6 +147,13 @@ identity, both symlink hops, state-root containment, pointer liveness, snapshot
 completeness, immutable payloads, retention state, and admitted versus recorded
 digests. It does not use tsgo as an oracle.
 
+The mutating `buck2:editor:materialize` entrypoint serializes `mr:setup`,
+bootstrap publication, `genie:run`, `genie:check`, `mr:apply`, and authoritative
+editor publication. TypeScript declaration publication waits for that barrier.
+This does not change the standalone freshness contract: `genie:check` still
+runs after bootstrap without invoking `genie:run`, so it cannot repair the
+projection it proves.
+
 Missing, malformed, escaping, dangling, incomplete, or stale state fails with
 the recorded and current identities. `buck2:editor:recover-lock` is the only
 recovery surface; it requires both `EDITOR_VIEW_PACKAGE` and the exact printed

@@ -785,15 +785,9 @@ in
       # Reuse the Genie semantic-input SSOT in the cheap Git-index outer
       # fingerprint so a warm shell cannot bypass projection invalidation.
       extraFingerprintGlobs = genieExtraInputGlobs;
-      # Bootstrap the source-generator closure from committed projections,
-      # regenerate, recompose the fresh graph, then publish authoritative views.
-      optionalTasks = [
-        "mr:setup"
-        "buck2:editor:bootstrap"
-        "genie:run"
-        "mr:apply"
-        "buck2:editor:publish"
-      ];
+      # Run the one ordered mutating entrypoint. Its internal task sequence
+      # preserves generator/freshness/composition/publication happens-before.
+      optionalTasks = [ "buck2:editor:materialize" ];
       completionsCliNames = [
         "genie"
         "mr"
@@ -1155,6 +1149,24 @@ in
     exec = editorViewExec "bootstrap";
   };
 
+  # Authoring and declaration publication need generated projections to be
+  # updated before freshness is checked, but standalone genie:check must remain
+  # mutation-free. Keep that mutating sequence in one explicit entrypoint
+  # rather than adding global edges between genie:run and genie:check.
+  tasks."buck2:editor:materialize" = {
+    description = "Regenerate, freshness-check, recompose, and publish every editor dependency view in order";
+    exec = trace.exec "buck2:editor:materialize" ''
+      set -euo pipefail
+      export DEVENV_TUI=false
+      devenv tasks run mr:setup
+      devenv tasks run buck2:editor:bootstrap --mode single
+      devenv tasks run genie:run --mode single
+      devenv tasks run genie:check --mode single
+      devenv tasks run mr:apply --mode single
+      devenv tasks run buck2:editor:publish --mode single
+    '';
+  };
+
   tasks."buck2:editor:authority" = {
     description = "Prove complete Buck ownership of every workspace editor dependency view";
     after = [ "mr:apply" ];
@@ -1189,10 +1201,7 @@ in
 
   tasks."buck2:typescript:materialize-dist" = {
     description = "Atomically materialize all Buck-owned TypeScript declarations";
-    after = [
-      "mr:apply"
-      "genie:run"
-    ];
+    after = [ "buck2:editor:materialize" ];
     exec = trace.exec "buck2:typescript:materialize-dist" ''
       set -euo pipefail
       ${composedWorkspaceRootPredicate}
