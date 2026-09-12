@@ -157,6 +157,13 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **@overeng/megarepo**: `StoreLayer` now resolves a symlinked store root to
+  its real path before building the Store. Git registers worktrees under real
+  paths while member identity checks compare paths lexically, so a default
+  store reached through a symlink (e.g. a bulk-disk relocation behind a
+  compat link) rejected every branch member with `GitIdentityConflict` and
+  `mr apply` silently materialized nothing. Non-existent store paths stay
+  lexical, and realpath failures fall back to the lexical path.
 - **CI**: keep draft assistant PRs mergeable by completing the auto-review job
   successfully when no review request is needed.
 - **CI**: stop requiring `main`-only Notion integration, live-deploy, and
