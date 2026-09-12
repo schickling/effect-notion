@@ -320,10 +320,12 @@ export const parseJobDescribe = (stdout: string): JobDescribeParse => {
       ? null
       : findOwnedString({ record: instanceRecord, keys: ['destroyed_at', 'destroyedAt'] })
   const statusRaw =
-    findString({ root: parsed, keys: ['instance_status', 'instanceStatus'] }) ??
-    (instanceRecord === null
+    instanceRecord === null
       ? null
-      : findString({ root: instanceRecord, keys: ['status', 'phase', 'state'] }))
+      : findOwnedString({
+          record: instanceRecord,
+          keys: ['instance_status', 'instanceStatus', 'status', 'phase', 'state'],
+        })
 
   return {
     _tag: 'parsed',

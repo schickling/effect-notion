@@ -193,6 +193,23 @@ describe('parseJobDescribe', () => {
     expect(parsed._tag === 'parsed' && parsed.job.instanceStatusRaw).toBe('RUNNING')
   })
 
+  it('ignores status owned by a nested previous attempt', () => {
+    const parsed = parseJobDescribe(
+      JSON.stringify({
+        runner: {
+          instance_id: INSTANCE,
+          status: 'RUNNING',
+          previous_attempt: {
+            instance_id: 'previous-instance',
+            instance_status: 'DESTROYED',
+          },
+        },
+      }),
+    )
+    expect(parsed._tag === 'parsed' && parsed.job.instanceStatus).toBe('running')
+    expect(parsed._tag === 'parsed' && parsed.job.instanceStatusRaw).toBe('RUNNING')
+  })
+
   it('ignores a destruction timestamp owned by an unrelated instance attempt', () => {
     const parsed = parseJobDescribe(
       JSON.stringify({
