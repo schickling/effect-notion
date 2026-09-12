@@ -22,6 +22,15 @@ export const COMPOSITION_ROOT_SCHEMA_VERSION = 1 as const
 export const DEFAULT_BUCK_ISOLATION_DIR = 'megarepo' as const
 
 const strictParseOptions = { errors: 'all', onExcessProperty: 'error' } as const
+const buckMemberManifestField: Readonly<Record<string, true>> = {
+  schemaVersion: true,
+  cell: true,
+  mount: true,
+  remoteCache: true,
+  projectIgnore: true,
+  distOverlays: true,
+  capabilities: true,
+}
 const textEncoder = new TextEncoder()
 
 const compareCodeUnits = ({
@@ -343,11 +352,18 @@ export const normalizeBuckMemberManifest = (manifest: BuckMemberManifest): BuckM
     ),
 })
 
-/** Strictly decode and canonically normalize an untrusted member manifest. */
-export const decodeBuckMemberManifest = (input: unknown): BuckMemberManifest =>
-  normalizeBuckMemberManifest(
-    Schema.decodeUnknownSync(BuckMemberManifestSchema, strictParseOptions)(input),
+/** Decode known top-level fields while preserving strict validation within each known field. */
+export const decodeBuckMemberManifest = (input: unknown): BuckMemberManifest => {
+  const projectedInput =
+    typeof input === 'object' && input !== null && Array.isArray(input) === false
+      ? Object.fromEntries(
+          Object.entries(input).filter(([field]) => buckMemberManifestField[field] === true),
+        )
+      : input
+  return normalizeBuckMemberManifest(
+    Schema.decodeUnknownSync(BuckMemberManifestSchema, strictParseOptions)(projectedInput),
   )
+}
 
 /** Strictly encode a member manifest with canonical arrays. */
 export const encodeBuckMemberManifest = (
@@ -358,11 +374,9 @@ export const encodeBuckMemberManifest = (
     strictParseOptions,
   )(normalizeBuckMemberManifest(manifest))
 
-/** Strictly decode the tracked JSON representation. */
+/** Decode the tracked JSON representation while projecting unknown newer top-level fields. */
 export const decodeBuckMemberManifestJson = (json: string): BuckMemberManifest =>
-  decodeBuckMemberManifest(
-    Schema.decodeSync(Schema.fromJsonString(Schema.Unknown), strictParseOptions)(json),
-  )
+  decodeBuckMemberManifest(Schema.decodeSync(Schema.fromJsonString(Schema.Unknown))(json))
 
 /** Canonical tracked JSON bytes, including one trailing newline. */
 export const encodeBuckMemberManifestJson = (manifest: BuckMemberManifest): string =>

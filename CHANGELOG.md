@@ -164,6 +164,11 @@ All notable changes to this project will be documented in this file.
   compat link) rejected every branch member with `GitIdentityConflict` and
   `mr apply` silently materialized nothing. Non-existent store paths stay
   lexical, and realpath failures fall back to the lexical path.
+- **@overeng/megarepo**: make composed worktree creation transactional,
+  including interruption and stale Git lock cleanup; project unknown newer
+  top-level Buck member manifest fields while retaining strict validation of
+  known fields; generate composed roots during `store worktree new`; and
+  preserve failed `mr` exit codes in shared devenv tasks.
 - **CI**: keep draft assistant PRs mergeable by completing the auto-review job
   successfully when no review request is needed.
 - **CI**: stop requiring `main`-only Notion integration, live-deploy, and

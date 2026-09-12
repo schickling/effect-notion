@@ -212,7 +212,6 @@ describe('buck2 member manifest', () => {
   })
 
   it.each([
-    ['unknown field', { ...manifest({ cell: 'alpha' }), unknown: true }],
     ['invalid cell', { ...manifest({ cell: 'bad/cell' }), cell: 'bad/cell' }],
     ['invalid mount', { ...manifest({ cell: 'alpha' }), mount: '/repos/alpha' }],
     ['parent ignore', { ...manifest({ cell: 'alpha' }), projectIgnore: ['../escape'] }],

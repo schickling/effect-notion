@@ -114,4 +114,17 @@ describe('@overeng/megarepo/buck2-manifest', () => {
       },
     ])
   })
+
+  it('projects unknown top-level fields from newer member manifests', () => {
+    const decoded = decodeBuckMemberManifest({
+      ...manifest,
+      newerProjection: { enabled: true },
+    })
+
+    expect(decoded).toEqual({
+      ...manifest,
+      projectIgnore: ['**/dist', 'target'],
+    })
+    expect(encodeBuckMemberManifestJson(decoded)).not.toContain('newerProjection')
+  })
 })
