@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { formatDuration, abbreviateRunner } from '../src/isomorphic/lib/format.ts'
+import { runTerminalConclusionText } from '../src/isomorphic/renderers/CiOutput/view.tsx'
 
 describe('formatDuration', () => {
   it('formats seconds', () => expect(formatDuration(45)).toBe('45s'))
@@ -20,4 +21,18 @@ describe('abbreviateRunner', () => {
   it('passes through non-matching names', () =>
     expect(abbreviateRunner('some-other-runner')).toBe('some-other-runner'))
   it('handles null', () => expect(abbreviateRunner(null)).toBe('—'))
+})
+
+describe('run-level terminal conclusion banner', () => {
+  it.each([
+    ['startup_failure', 'failing', 'STARTUP FAILURE — workflow run failed before jobs started'],
+    ['action_required', 'failing', 'ACTION REQUIRED — workflow run requires manual action'],
+    ['timed_out', 'failing', 'TIMED OUT — workflow run exceeded its time limit'],
+    ['cancelled', 'cancelled', 'CANCELLED — workflow run was cancelled'],
+  ] as const)(
+    'renders %s when successful jobs cannot explain the run verdict',
+    (conclusion, status, text) => {
+      expect(runTerminalConclusionText({ conclusion, overallStatus: status })).toBe(text)
+    },
+  )
 })

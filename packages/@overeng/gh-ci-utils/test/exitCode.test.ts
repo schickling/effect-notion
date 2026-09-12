@@ -12,6 +12,7 @@ import {
 } from '../src/isomorphic/renderers/LogsOutput/schema.ts'
 import {
   liveStepWatchConclusion,
+  missingStepSessionAuthError,
   shouldFinalizeWatchWithNoLogs,
 } from '../src/node/commands/logs.ts'
 
@@ -119,6 +120,20 @@ describe('LogsApp exitCode', () => {
 
     expect(afterLaterSuccess).toMatchObject({ _tag: 'Loaded', conclusion: 'failure' })
     expect(LogsApp.config.exitCode?.(afterLaterSuccess)).toBe(1)
+  })
+
+  it('returns nonzero structured error state when --step lacks session auth', () => {
+    const state = logsReducer({
+      state: createInitialLogsState(),
+      action: missingStepSessionAuthError,
+    })
+
+    expect(state).toMatchObject({
+      _tag: 'Error',
+      error: 'Session auth required',
+      message: `Step filtering requires session auth (run 'gh-ci-utils auth login')`,
+    })
+    expect(LogsApp.config.exitCode?.(state)).toBe(1)
   })
 
   it('keeps rendered live step logs and the blocking first-failure verdict', () => {

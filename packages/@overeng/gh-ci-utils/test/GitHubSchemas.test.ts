@@ -106,6 +106,36 @@ describe('GitHubSchemas', () => {
       const result = Schema.decodeUnknownSync(GH.WorkflowJob)(input)
       expect(result.steps).toEqual([])
     })
+
+    it.each(['stale', 'startup_failure'] as const)(
+      'decodes the documented %s conclusion for jobs and steps',
+      (conclusion) => {
+        const result = Schema.decodeUnknownSync(GH.WorkflowJob)({
+          id: 456,
+          run_id: 123,
+          name: 'synthetic-conclusion',
+          status: 'completed',
+          conclusion,
+          started_at: null,
+          completed_at: null,
+          runner_name: null,
+          labels: [],
+          steps: [
+            {
+              name: 'Synthetic step',
+              status: 'completed',
+              conclusion,
+              number: 1,
+              started_at: null,
+              completed_at: null,
+            },
+          ],
+        })
+
+        expect(result.conclusion).toBe(conclusion)
+        expect(result.steps[0]?.conclusion).toBe(conclusion)
+      },
+    )
   })
 
   describe('CheckAnnotation', () => {

@@ -217,18 +217,20 @@ const verdict = ({
   selection = matchedPrSelection,
   statuses,
   runStatus = 'completed',
+  runConclusion = 'success',
   prHealth = null,
 }: {
   conclusions: readonly (string | null)[]
   selection?: RunSelection
   statuses?: readonly string[]
   runStatus?: string
+  runConclusion?: string | null
   prHealth?: PrHealth | null
 }) => {
   const jobs = conclusions.map((conclusion, i) =>
     job({ id: i + 1, conclusion, status: statuses?.[i] ?? 'completed' }),
   )
-  const run = { ...RUN, status: runStatus }
+  const run = { ...RUN, status: runStatus, conclusion: runConclusion }
   const summary = computeSummary({ run, jobs, prHealth, selection })
   return {
     status: summary.overallStatus,
@@ -287,6 +289,26 @@ describe('status verdict state table (FB-276)', () => {
   it('cancelled -> cancelled / 1', () => {
     expect(verdict({ conclusions: ['cancelled'] })).toEqual({ status: 'cancelled', exitCode: 1 })
   })
+
+  it.each([[[]], [['success']]] as const)(
+    'run-level cancellation is terminal with job conclusions %j',
+    (conclusions) => {
+      expect(verdict({ conclusions, runConclusion: 'cancelled' })).toEqual({
+        status: 'cancelled',
+        exitCode: 1,
+      })
+    },
+  )
+
+  it.each([[[]], [['success']]] as const)(
+    'a blocking run-level conclusion fails with job conclusions %j',
+    (conclusions) => {
+      expect(verdict({ conclusions, runConclusion: 'startup_failure' })).toEqual({
+        status: 'failing',
+        exitCode: 1,
+      })
+    },
+  )
 
   it('queued job -> in_progress / 0', () => {
     expect(verdict({ conclusions: [null], statuses: ['queued'] })).toEqual({

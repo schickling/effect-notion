@@ -21,6 +21,36 @@ export interface CiViewProps {
   readonly stateAtom: Atom.Atom<CiState>
 }
 
+/** Human banner text for a terminal conclusion owned by the workflow run itself. */
+export const runTerminalConclusionText = ({
+  conclusion,
+  overallStatus,
+}: {
+  readonly conclusion: RunInfo['conclusion']
+  readonly overallStatus: Summary['overallStatus']
+}): string | null => {
+  if (conclusion === 'cancelled' && overallStatus === 'cancelled') {
+    return 'CANCELLED — workflow run was cancelled'
+  }
+  if (conclusion === null || overallStatus !== 'failing' || !isBlockingConclusion(conclusion))
+    return null
+
+  switch (conclusion) {
+    case 'startup_failure':
+      return 'STARTUP FAILURE — workflow run failed before jobs started'
+    case 'action_required':
+      return 'ACTION REQUIRED — workflow run requires manual action'
+    case 'timed_out':
+      return 'TIMED OUT — workflow run exceeded its time limit'
+    case 'stale':
+      return 'STALE — workflow run was marked stale'
+    case 'failure':
+      return 'FAILED — workflow run concluded with failure'
+    default:
+      return `${conclusion.replaceAll('_', ' ').toUpperCase()} — workflow run did not succeed`
+  }
+}
+
 /** TUI view rendering CI run status, jobs, and steps */
 export const CiView = ({ stateAtom }: CiViewProps) => {
   const state = useTuiAtomValue(stateAtom) as CiState
@@ -94,8 +124,16 @@ const LoadedView = ({
   const branch = run.headBranch ?? ''
   const truncatedBranch = branch.length > 25 ? `${branch.slice(0, 22)}...` : branch
 
+  const terminalConclusionText = runTerminalConclusionText({
+    conclusion: run.conclusion,
+    overallStatus: summary.overallStatus,
+  })
+
   return (
     <Box flexDirection="column">
+      {terminalConclusionText !== null && (
+        <RunTerminalConclusionSection text={terminalConclusionText} />
+      )}
       {failedJobs.length > 0 && (
         <CriticalSection failedJobs={failedJobs} run={run} runnerHostMap={runnerHostMap} />
       )}
@@ -149,6 +187,24 @@ const LoadedView = ({
 // =============================================================================
 // Shared Components
 // =============================================================================
+
+/** Visible terminal verdict when the run failed independently of its job list. */
+const RunTerminalConclusionSection = ({ text }: { readonly text: string }) => {
+  const symbols = useSymbols()
+
+  return (
+    <>
+      <Box flexDirection="row">
+        <Text color="red">{symbols.status.cross}</Text>
+        <Text color="red" bold>
+          {' '}
+          {text}
+        </Text>
+      </Box>
+      <Text> </Text>
+    </>
+  )
+}
 
 const CriticalSection = ({
   failedJobs,

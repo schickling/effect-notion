@@ -1,3 +1,4 @@
+import { Option } from 'effect'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -6,6 +7,7 @@ import {
   selectLogLines,
   shouldIncludeFailedLog,
 } from '../src/isomorphic/lib/logFilter.ts'
+import { collectLogText } from '../src/node/commands/logs.ts'
 
 describe('extractErrorLines', () => {
   it('extracts ##[error] lines', () => {
@@ -224,6 +226,53 @@ describe('selectLogLines', () => {
   })
 })
 
+describe('live and completed step log pagination', () => {
+  it('applies grep before shared tail and offset pagination', () => {
+    const result = collectLogText({
+      logText: ['noise', 'match-1', 'match-2', 'match-3', 'match-4'].join('\n'),
+      jobName: 'build > compile',
+      conclusion: 'in_progress',
+      filters: {
+        tail: 2,
+        offset: 1,
+        errorOnly: false,
+        grep: Option.some('match'),
+        full: false,
+      },
+    })
+
+    expect(result).toMatchObject({
+      lines: ['match-2', 'match-3'],
+      notice: null,
+      truncation: { totalLines: 4, offset: 1, pageSize: 2 },
+    })
+  })
+
+  it('applies error extraction and lets --full bypass tail and offset', () => {
+    const result = collectLogText({
+      logText: [
+        '2026-01-01T00:00:00Z ##[error]first synthetic failure',
+        '2026-01-01T00:00:01Z ##[error]second synthetic failure',
+      ].join('\n'),
+      jobName: 'build > compile',
+      conclusion: 'failure',
+      filters: {
+        tail: 1,
+        offset: 99,
+        errorOnly: true,
+        grep: Option.none(),
+        full: true,
+      },
+    })
+
+    expect(result).toMatchObject({
+      lines: ['first synthetic failure', 'second synthetic failure'],
+      notice: null,
+      truncation: null,
+    })
+  })
+})
+
 describe('grepLines', () => {
   it('filters case-insensitive', () => {
     const log = 'Hello World\ngoodbye world\nHELLO again'
@@ -232,7 +281,7 @@ describe('grepLines', () => {
 })
 
 describe('shouldIncludeFailedLog', () => {
-  it.each(['failure', 'timed_out', 'action_required', 'startup_failure'])(
+  it.each(['failure', 'timed_out', 'action_required', 'stale', 'startup_failure'])(
     'includes blocking conclusion %s',
     (conclusion) => {
       expect(shouldIncludeFailedLog(conclusion)).toBe(true)

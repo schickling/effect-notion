@@ -56,7 +56,7 @@ export const directRunSelection: RunSelection = {
 }
 
 /**
- * A job conclusion that must block a green verdict.
+ * A workflow run or job conclusion that must block a green verdict.
  *
  * Excluded, each for its own reason:
  * - `success` — the pass itself.
@@ -71,6 +71,10 @@ export const isBlockingConclusion = (conclusion: string | null): boolean =>
   conclusion !== 'skipped' &&
   conclusion !== 'cancelled' &&
   conclusion !== 'neutral'
+
+/** A terminal conclusion that did not complete successfully. */
+export const isUnsuccessfulConclusion = (conclusion: string | null): boolean =>
+  conclusion === 'cancelled' || isBlockingConclusion(conclusion)
 
 /** Map a GitHub Actions job onto its display/JSON view model. */
 export const toJobVM = ({
@@ -126,7 +130,14 @@ const computeOverallStatus = ({
   jobs: readonly WorkflowJobVM[]
   selection: RunSelection
 }): SummaryOverallStatus => {
-  if (jobs.some((j) => isBlockingConclusion(j.conclusion))) return 'failing'
+  if (
+    isBlockingConclusion(run.conclusion) ||
+    jobs.some((job) => isBlockingConclusion(job.conclusion))
+  )
+    return 'failing'
+
+  if (run.conclusion === 'cancelled' || jobs.some((job) => job.conclusion === 'cancelled'))
+    return 'cancelled'
 
   // A verdict about the wrong workflow or the wrong commit is not a verdict.
   // Reported before `in_progress` so callers never wait on a run that cannot
@@ -137,11 +148,11 @@ const computeOverallStatus = ({
   // means the answer is still coming. The run's own status matters on its own: a freshly
   // queued run has no jobs yet, and calling that `no_checks` tells a caller to give up
   // on CI that is about to start.
-  if (run.status !== 'completed' || jobs.some((j) => j.status !== 'completed')) return 'in_progress'
+  if (run.status !== 'completed' || jobs.some((job) => job.status !== 'completed'))
+    return 'in_progress'
 
-  if (jobs.some((j) => j.conclusion === 'cancelled')) return 'cancelled'
   if (jobs.length === 0) return 'no_checks'
-  if (jobs.every((j) => j.conclusion === 'skipped')) return 'skipped'
+  if (jobs.every((job) => job.conclusion === 'skipped')) return 'skipped'
   return 'passing'
 }
 

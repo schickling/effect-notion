@@ -4,31 +4,8 @@ import { describe, expect, it } from 'vitest'
 import {
   classifyRunWatch,
   isRunAttemptReady,
-  isRunCreatedForDispatch,
   validateMutationWorkflowMatch,
 } from '../src/node/commands/rerun.ts'
-
-describe('isRunCreatedForDispatch', () => {
-  const dispatchedAt = new Date('2026-09-12T12:34:56.789Z')
-
-  it('accepts GitHub timestamps rounded down within the dispatch second', () => {
-    expect(
-      isRunCreatedForDispatch({
-        runCreatedAt: new Date('2026-09-12T12:34:56.000Z'),
-        dispatchedAt,
-      }),
-    ).toBe(true)
-  })
-
-  it('rejects a run created in an earlier second', () => {
-    expect(
-      isRunCreatedForDispatch({
-        runCreatedAt: new Date('2026-09-12T12:34:55.000Z'),
-        dispatchedAt,
-      }),
-    ).toBe(false)
-  })
-})
 
 describe('isRunAttemptReady', () => {
   it('keeps waiting while GitHub still returns the completed previous attempt', () => {
@@ -62,6 +39,20 @@ describe('classifyRunWatch', () => {
       }),
     ).toBe('continue')
   })
+
+  it.each([[[]], [['success']]] as const)(
+    'treats a completed cancelled run as terminal non-success with job conclusions %j',
+    (jobConclusions) => {
+      expect(
+        classifyRunWatch({
+          runStatus: 'completed',
+          runConclusion: 'cancelled',
+          jobConclusions,
+          failFast: false,
+        }),
+      ).toBe('cancelled')
+    },
+  )
 })
 
 describe('validateMutationWorkflowMatch', () => {

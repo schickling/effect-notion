@@ -552,8 +552,8 @@ const makeGitHubClient = Effect.gen(function* () {
       )
     })
 
-  /** Make an authenticated POST request for GitHub mutations. */
-  const apiPost = ({ repo, path, body }: { repo: string; path: string; body?: unknown }) =>
+  /** Execute an authenticated POST request and retain the response for optional decoding. */
+  const apiPostResponse = ({ repo, path, body }: { repo: string; path: string; body?: unknown }) =>
     Effect.gen(function* () {
       yield* awaitBudget('rest')
       const token = yield* getTokenForRepo(repo)
@@ -588,6 +588,47 @@ const makeGitHubClient = Effect.gen(function* () {
           cause: `HTTP ${response.status}`,
         })
       }
+      return response
+    })
+
+  /** Make an authenticated POST request for a GitHub mutation with no response payload. */
+  const apiPost = (options: { repo: string; path: string; body?: unknown }) =>
+    Effect.gen(function* () {
+      yield* apiPostResponse(options)
+    })
+
+  /** Make an authenticated POST request and decode its JSON response. */
+  const apiPostJson = <TValue, TEncoded>({
+    repo,
+    path,
+    body,
+    schema,
+  }: {
+    repo: string
+    path: string
+    body?: unknown
+    schema: Schema.Codec<TValue, TEncoded>
+  }) =>
+    Effect.gen(function* () {
+      const response = yield* apiPostResponse({ repo, path, body })
+      const json = yield* response.json.pipe(
+        Effect.mapError(
+          (cause) =>
+            new GitHubApiError({
+              message: `Failed to parse JSON from: POST ${path}`,
+              cause,
+            }),
+        ),
+      )
+      return yield* Schema.decodeUnknownEffect(schema)(json).pipe(
+        Effect.mapError(
+          (cause) =>
+            new GitHubApiError({
+              message: `Schema decode failed for: POST ${path}`,
+              cause,
+            }),
+        ),
+      )
     })
 
   /**
@@ -822,6 +863,65 @@ const makeGitHubClient = Effect.gen(function* () {
       }),
     )
 
+  /**
+   * List enough branch runs to preserve exact `--workflow` matching.
+   *
+   * The unqualified path keeps the small first page used for the default preference.
+   * An explicit workflow scans later pages until its newest eligible run is found,
+   * while retaining the newest eligible run as the existing unmatched fallback.
+   */
+  const listRunsForBranchSelection = ({
+    repo,
+    branch,
+    event,
+    preferWorkflow,
+    activeOnly,
+  }: {
+    repo: string
+    branch: string
+    event?: 'pull_request'
+    preferWorkflow?: string
+    activeOnly: boolean
+  }) =>
+    Effect.gen(function* () {
+      const eventQuery = event === undefined ? '' : `&event=${event}`
+      if (preferWorkflow === undefined) {
+        const response = yield* apiGet({
+          repo,
+          path: `/repos/${repo}/actions/runs?branch=${encodeURIComponent(branch)}${eventQuery}&per_page=25`,
+          schema: GH.WorkflowRunsResponse,
+        })
+        return response.workflow_runs
+      }
+
+      let page = 1
+      let fallbackRun: GH.WorkflowRun | undefined
+      while (true) {
+        const response = yield* apiGet({
+          repo,
+          path: `/repos/${repo}/actions/runs?branch=${encodeURIComponent(branch)}${eventQuery}&per_page=100&page=${page}`,
+          schema: GH.WorkflowRunsResponse,
+        })
+        const eligibleRuns = activeOnly
+          ? response.workflow_runs.filter(isRunActive)
+          : response.workflow_runs
+        fallbackRun ??= eligibleRuns[0]
+
+        const match = eligibleRuns.find((run) =>
+          workflowPathMatches({ candidatePath: run.path, workflow: preferWorkflow }),
+        )
+        if (match !== undefined) {
+          return fallbackRun === undefined || fallbackRun.id === match.id
+            ? [match]
+            : [fallbackRun, match]
+        }
+        if (page * 100 >= response.total_count || response.workflow_runs.length === 0) {
+          return fallbackRun === undefined ? [] : [fallbackRun]
+        }
+        page++
+      }
+    })
+
   /** Get the latest run for a branch, preferring the requested workflow (or ci.yml by default). */
   const getLatestRunForBranch = ({
     repo,
@@ -832,15 +932,16 @@ const makeGitHubClient = Effect.gen(function* () {
     branch: string
     preferWorkflow?: string
   }) =>
-    apiGet({
+    listRunsForBranchSelection({
       repo,
-      path: `/repos/${repo}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=25`,
-      schema: GH.WorkflowRunsResponse,
+      branch,
+      ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),
+      activeOnly: false,
     }).pipe(
       Effect.map(
-        (resp) =>
+        (runs) =>
           selectRunForVerdict({
-            runs: resp.workflow_runs,
+            runs,
             ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),
           }).run,
       ),
@@ -857,35 +958,22 @@ const makeGitHubClient = Effect.gen(function* () {
     branch: string
     preferWorkflow?: string
   }) =>
-    apiGet({
+    listRunsForBranchSelection({
       repo,
-      path: `/repos/${repo}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=25`,
-      schema: GH.WorkflowRunsResponse,
+      branch,
+      ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),
+      activeOnly: true,
     }).pipe(
       Effect.map(
-        (resp) =>
+        (runs) =>
           selectRunForVerdict({
-            runs: resp.workflow_runs,
+            runs,
             ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),
             activeOnly: true,
           }).run,
       ),
       withGitHubSpan({
         name: 'github-client.getLatestActiveRunForBranch',
-        attributes: { repo, branch },
-      }),
-    )
-
-  /** Get the 5 most recent runs for a branch. */
-  const getRecentRunsForBranch = ({ repo, branch }: { repo: string; branch: string }) =>
-    apiGet({
-      repo,
-      path: `/repos/${repo}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=5`,
-      schema: GH.WorkflowRunsResponse,
-    }).pipe(
-      Effect.map((resp) => resp.workflow_runs),
-      withGitHubSpan({
-        name: 'github-client.getRecentRunsForBranch',
         attributes: { repo, branch },
       }),
     )
@@ -921,15 +1009,17 @@ const makeGitHubClient = Effect.gen(function* () {
     branch: string
     preferWorkflow?: string
   }) =>
-    apiGet({
+    listRunsForBranchSelection({
       repo,
-      path: `/repos/${repo}/actions/runs?branch=${encodeURIComponent(branch)}&event=pull_request&per_page=25`,
-      schema: GH.WorkflowRunsResponse,
+      branch,
+      event: 'pull_request',
+      ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),
+      activeOnly: false,
     }).pipe(
       Effect.map(
-        (resp) =>
+        (runs) =>
           selectRunForVerdict({
-            runs: resp.workflow_runs,
+            runs,
             ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),
           }).run,
       ),
@@ -946,15 +1036,17 @@ const makeGitHubClient = Effect.gen(function* () {
     branch: string
     preferWorkflow?: string
   }) =>
-    apiGet({
+    listRunsForBranchSelection({
       repo,
-      path: `/repos/${repo}/actions/runs?branch=${encodeURIComponent(branch)}&event=pull_request&per_page=25`,
-      schema: GH.WorkflowRunsResponse,
+      branch,
+      event: 'pull_request',
+      ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),
+      activeOnly: true,
     }).pipe(
       Effect.map(
-        (resp) =>
+        (runs) =>
           selectRunForVerdict({
-            runs: resp.workflow_runs,
+            runs,
             ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),
             activeOnly: true,
           }).run,
@@ -1092,6 +1184,7 @@ const makeGitHubClient = Effect.gen(function* () {
     )
 
   const WorkflowList = Schema.Struct({
+    total_count: Schema.Finite,
     workflows: Schema.Array(
       Schema.Struct({
         id: Schema.Finite,
@@ -1099,6 +1192,12 @@ const makeGitHubClient = Effect.gen(function* () {
         path: Schema.String,
       }),
     ),
+  })
+
+  const WorkflowDispatchResponse = Schema.Struct({
+    workflow_run_id: Schema.Finite,
+    run_url: Schema.String,
+    html_url: Schema.String,
   })
 
   /**
@@ -1116,28 +1215,34 @@ const makeGitHubClient = Effect.gen(function* () {
     ref: string
   }) =>
     Effect.gen(function* () {
-      const listed = yield* apiGet({
-        repo,
-        path: `/repos/${repo}/actions/workflows?per_page=100`,
-        schema: WorkflowList,
-      })
-      const match = listed.workflows.find(
-        (candidate) =>
-          candidate.name === workflow ||
-          workflowPathMatches({ candidatePath: candidate.path, workflow }),
-      )
-      if (match === undefined) {
-        return yield* new GitHubApiError({
-          message: `Could not find workflow '${workflow}' in ${repo}`,
-          cause: 'workflow not found',
+      let page = 1
+      while (true) {
+        const listed = yield* apiGet({
+          repo,
+          path: `/repos/${repo}/actions/workflows?per_page=100&page=${page}`,
+          schema: WorkflowList,
         })
+        const match = listed.workflows.find(
+          (candidate) =>
+            candidate.name === workflow ||
+            workflowPathMatches({ candidatePath: candidate.path, workflow }),
+        )
+        if (match !== undefined) {
+          return yield* apiPostJson({
+            repo,
+            path: `/repos/${repo}/actions/workflows/${match.id}/dispatches`,
+            body: { ref, return_run_details: true },
+            schema: WorkflowDispatchResponse,
+          })
+        }
+        if (page * 100 >= listed.total_count || listed.workflows.length === 0) {
+          return yield* new GitHubApiError({
+            message: `Could not find workflow '${workflow}' in ${repo}`,
+            cause: 'workflow not found',
+          })
+        }
+        page++
       }
-
-      yield* apiPost({
-        repo,
-        path: `/repos/${repo}/actions/workflows/${match.id}/dispatches`,
-        body: { ref },
-      })
     }).pipe(
       withGitHubSpan({
         name: 'github-client.dispatchWorkflow',
@@ -1216,7 +1321,6 @@ const makeGitHubClient = Effect.gen(function* () {
     getCheckAnnotations,
     getLatestRunForBranch,
     getLatestActiveRunForBranch,
-    getRecentRunsForBranch,
     listRunsForHeadSha,
     getLatestPRRun,
     getLatestActivePRRun,

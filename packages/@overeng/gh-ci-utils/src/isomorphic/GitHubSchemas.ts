@@ -23,20 +23,22 @@ export const RunStatus = Schema.Literals([
 ])
 export type RunStatus = typeof RunStatus.Type
 
-/** Final conclusion of a completed workflow run */
-export const RunConclusion = Schema.NullOr(
-  Schema.Literals([
-    'success',
-    'failure',
-    'cancelled',
-    'skipped',
-    'timed_out',
-    'action_required',
-    'stale',
-    'neutral',
-    'startup_failure',
-  ]),
-)
+/** Final conclusion GitHub may report for a completed workflow run, job, or step. */
+export const WorkflowConclusion = Schema.Literals([
+  'success',
+  'failure',
+  'cancelled',
+  'skipped',
+  'timed_out',
+  'action_required',
+  'stale',
+  'neutral',
+  'startup_failure',
+])
+export type WorkflowConclusion = typeof WorkflowConclusion.Type
+
+/** Nullable conclusion reported while a workflow run has not completed. */
+export const RunConclusion = Schema.NullOr(WorkflowConclusion)
 export type RunConclusion = typeof RunConclusion.Type
 
 /** Schema for a GitHub Actions workflow run */
@@ -81,7 +83,7 @@ export const WorkflowStep = Schema.Struct({
     'waiting',
     'requested',
   ]),
-  conclusion: Schema.NullOr(Schema.Literals(['success', 'failure', 'cancelled', 'skipped'])),
+  conclusion: Schema.NullOr(WorkflowConclusion),
   number: Schema.Finite,
   started_at: Schema.NullOr(DateFromISO),
   completed_at: Schema.NullOr(DateFromISO),
@@ -101,17 +103,7 @@ export const WorkflowJob = Schema.Struct({
     'requested',
     'pending',
   ]),
-  conclusion: Schema.NullOr(
-    Schema.Literals([
-      'success',
-      'failure',
-      'cancelled',
-      'skipped',
-      'timed_out',
-      'action_required',
-      'neutral',
-    ]),
-  ),
+  conclusion: Schema.NullOr(WorkflowConclusion),
   started_at: Schema.NullOr(DateFromISO),
   completed_at: Schema.NullOr(DateFromISO),
   runner_name: Schema.NullOr(Schema.String),

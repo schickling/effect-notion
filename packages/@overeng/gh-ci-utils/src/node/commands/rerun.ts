@@ -10,7 +10,7 @@ import React from 'react'
 import { outputModeLayer, outputOption } from '@overeng/tui-react/node'
 
 import { ConfigError } from '../../isomorphic/Errors.ts'
-import { isBlockingConclusion } from '../../isomorphic/lib/summary.ts'
+import { isBlockingConclusion, isUnsuccessfulConclusion } from '../../isomorphic/lib/summary.ts'
 import { MutationApp, MutationView } from '../../isomorphic/renderers/MutationOutput/mod.ts'
 import type { MutationAction } from '../../isomorphic/renderers/MutationOutput/schema.ts'
 import { detectCurrentBranch, resolveConfig } from '../Config.ts'
@@ -187,28 +187,25 @@ export const runCommand = Cli.Command.make('run', {
 
         const { repo: targetRepo, branch } = target
 
-        const dispatchedAt = new Date()
-        yield* github.dispatchWorkflow({ repo: targetRepo, workflow, ref: branch })
-
-        const triggeredRun = yield* detectTriggeredRun({
+        const dispatched = yield* github.dispatchWorkflow({
           repo: targetRepo,
-          branch,
-          workflowName: workflow,
-          dispatchedAt,
+          workflow,
+          ref: branch,
         })
+        const runId = dispatched.workflow_run_id
         tui.dispatch({
           _tag: 'SetDispatched',
-          runId: triggeredRun.id,
+          runId,
           repo: targetRepo,
-          message: `Triggered run ${triggeredRun.id} for ${targetRepo} on ${branch}`,
-          url: triggeredRun.html_url,
+          message: `Triggered run ${runId} for ${targetRepo} on ${branch}`,
+          url: dispatched.html_url,
         })
 
         if (watch) {
           yield* watchRun({
             tui,
             repo: targetRepo,
-            runId: triggeredRun.id,
+            runId,
             intervalSeconds: 5,
             timeoutSeconds: timeout,
             failFast: watchMode === 'first-failure',
@@ -322,16 +319,6 @@ export const validateMutationWorkflowMatch = Effect.fn('validate-mutation-workfl
   },
 )
 
-/** Whether GitHub reports a run in the dispatch second or a later second. */
-export const isRunCreatedForDispatch = ({
-  runCreatedAt,
-  dispatchedAt,
-}: {
-  runCreatedAt: Date
-  dispatchedAt: Date
-}): boolean =>
-  Math.floor(runCreatedAt.getTime() / 1000) >= Math.floor(dispatchedAt.getTime() / 1000)
-
 /** Whether polling has reached the new attempt created by a rerun request. */
 export const isRunAttemptReady = ({
   runAttempt,
@@ -341,7 +328,7 @@ export const isRunAttemptReady = ({
   previousRunAttempt: number
 }): boolean => runAttempt > previousRunAttempt
 
-/** Decide whether a run watch should continue, succeed, or fail on this observation. */
+/** Decide whether a run watch should continue, succeed, fail, or report cancellation. */
 export const classifyRunWatch = ({
   runStatus,
   runConclusion,
@@ -352,44 +339,18 @@ export const classifyRunWatch = ({
   runConclusion: string | null
   jobConclusions: readonly (string | null)[]
   failFast: boolean
-}): 'continue' | 'success' | 'failure' => {
+}): 'continue' | 'success' | 'failure' | 'cancelled' => {
   const hasBlockingConclusion =
     isBlockingConclusion(runConclusion) || jobConclusions.some(isBlockingConclusion)
-  if (runStatus === 'completed') return hasBlockingConclusion ? 'failure' : 'success'
-  return failFast && hasBlockingConclusion ? 'failure' : 'continue'
+  const hasUnsuccessfulConclusion =
+    isUnsuccessfulConclusion(runConclusion) || jobConclusions.some(isUnsuccessfulConclusion)
+  if (runStatus === 'completed') {
+    if (!hasUnsuccessfulConclusion) return 'success'
+    return hasBlockingConclusion ? 'failure' : 'cancelled'
+  }
+  if (!failFast || !hasUnsuccessfulConclusion) return 'continue'
+  return hasBlockingConclusion ? 'failure' : 'cancelled'
 }
-
-/** Detect a newly dispatched run without excluding GitHub's whole-second timestamps. */
-const detectTriggeredRun = ({
-  repo,
-  branch,
-  workflowName,
-  dispatchedAt,
-}: {
-  repo: string
-  branch: string
-  workflowName: string
-  dispatchedAt: Date
-}) =>
-  Effect.gen(function* () {
-    const github = yield* GitHubClient
-
-    for (let attempt = 0; attempt < 30; attempt++) {
-      const runs = yield* github.getRecentRunsForBranch({ repo, branch })
-      const match = runs.find(
-        (run) =>
-          isRunCreatedForDispatch({ runCreatedAt: run.created_at, dispatchedAt }) &&
-          (run.name === workflowName || run.path.includes(workflowName)),
-      )
-      if (match) return match
-      yield* Effect.sleep('2 seconds')
-    }
-
-    return yield* new ConfigError({
-      message: `Timed out waiting for a new '${workflowName}' run on branch '${branch}' in ${repo}`,
-      cause: new Error('workflow dispatch timeout'),
-    })
-  })
 
 const watchRun = ({
   tui,
@@ -453,14 +414,20 @@ const watchRun = ({
         })
 
         if (watchResult !== 'continue') {
-          if (watchResult === 'failure') {
+          if (watchResult === 'success') {
+            tui.dispatch({ _tag: 'SetDone', message: `Run ${runId} completed successfully` })
+          } else if (watchResult === 'cancelled') {
+            tui.dispatch({
+              _tag: 'SetError',
+              error: 'Run cancelled',
+              message: `Workflow run ${runId} was cancelled`,
+            })
+          } else {
             tui.dispatch({
               _tag: 'SetError',
               error: 'Run failed',
               message: `Workflow run ${runId} ${run.status === 'completed' ? 'completed' : 'has a failed job'} with conclusion '${run.conclusion}'`,
             })
-          } else {
-            tui.dispatch({ _tag: 'SetDone', message: `Run ${runId} completed successfully` })
           }
           return
         }

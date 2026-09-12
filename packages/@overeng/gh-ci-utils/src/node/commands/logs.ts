@@ -14,7 +14,7 @@ import type { WorkflowJob } from '../../isomorphic/GitHubSchemas.ts'
 import { DEFAULT_LOG_TAIL, LOG_POLL_INTERVAL } from '../../isomorphic/lib/constants.ts'
 import { splitOwnerRepo } from '../../isomorphic/lib/format.ts'
 import { selectLogLines, shouldIncludeFailedLog } from '../../isomorphic/lib/logFilter.ts'
-import { LogsApp, LogsView } from '../../isomorphic/renderers/LogsOutput/mod.ts'
+import { LogsApp, LogsView, type LogsAction } from '../../isomorphic/renderers/LogsOutput/mod.ts'
 import { resolveConfig } from '../Config.ts'
 import { GitHubClient, type GitHubClientShape } from '../GitHubClient.ts'
 import { GitHubInternal } from '../GitHubInternal.ts'
@@ -69,7 +69,15 @@ export const shouldFinalizeWatchWithNoLogs = ({
   renderedLiveStepOutput: boolean
 }): boolean => watch && displayedJobCount === 0 && !renderedLiveStepOutput
 
-const collectLogText = ({
+/** Structured nonzero result when `--step` cannot access GitHub's internal log API. */
+export const missingStepSessionAuthError = {
+  _tag: 'SetError',
+  error: 'Session auth required',
+  message: `Step filtering requires session auth (run 'gh-ci-utils auth login')`,
+} as const satisfies LogsAction
+
+/** Apply the shared grep/error selection and tail pagination policy to log text. */
+export const collectLogText = ({
   logText,
   jobName,
   conclusion,
@@ -253,6 +261,8 @@ export const logsCommand = Cli.Command.make('logs', {
           const displayedJobIds = new Set<number>()
           /** Live backscroll is rendered repeatedly and therefore is not a completed displayed job. */
           let renderedLiveStepOutput = false
+          /** A required capability failure must survive watch/no-logs finalization. */
+          let terminalError = false
 
           const fetchAndDisplayLogs = () =>
             Effect.gen(function* () {
@@ -276,26 +286,14 @@ export const logsCommand = Cli.Command.make('logs', {
                 }
               }
 
-              if (filteredJobs.length === 0 && !watch) {
-                tui.dispatch({
-                  _tag: 'SetNoLogs',
-                  message: failed
-                    ? 'No failed jobs found.'
-                    : `No jobs matching filter in run ${runId}.`,
-                })
-                return { completed, hasFailed }
-              }
-
               /** Try per-step logs via internal API if session available and step filter given */
               if (Option.isSome(stepFilter)) {
                 const internal = yield* GitHubInternal
                 const sessionResult = yield* internal.getSession
 
                 if (Option.isNone(sessionResult)) {
-                  tui.dispatch({
-                    _tag: 'SetNoLogs',
-                    message: `Step filtering requires session auth (run 'gh-ci-utils auth login')`,
-                  })
+                  terminalError = true
+                  tui.dispatch(missingStepSessionAuthError)
                   return { completed, hasFailed }
                 }
 
@@ -334,7 +332,7 @@ export const logsCommand = Cli.Command.make('logs', {
 
                     anyStepMatched = true
                     if (matchingStep.status !== 'completed') {
-                      const result = yield* internal.getBackscroll({
+                      const backscroll = yield* internal.getBackscroll({
                         owner,
                         repo: repoName,
                         runId,
@@ -342,23 +340,17 @@ export const logsCommand = Cli.Command.make('logs', {
                         stepUuid: matchingStep.id,
                         session,
                       })
-                      const lines = result.lines.map((l) => l.line)
-                      const displayLines = lines.slice(-tail)
-                      tui.dispatch({
-                        _tag: 'SetLogs',
+                      const result = collectLogText({
+                        logText: backscroll.lines.map((line) => line.line).join('\n'),
                         jobName: `${j.name} > ${matchingStep.name}`,
                         conclusion: liveStepWatchConclusion({
                           stepStatus: matchingStep.status,
                           failFast: watch && failFast,
                           hasFailed,
                         }),
-                        lines: displayLines,
-                        notice: null,
-                        truncation:
-                          lines.length > tail
-                            ? { totalLines: lines.length, offset: 0, pageSize: tail }
-                            : null,
+                        filters: logFilters,
                       })
+                      tui.dispatch({ _tag: 'SetLogs', ...result })
                       renderedLiveStepOutput = true
                     } else {
                       const logText = yield* internal.getCompletedStepLog({
@@ -387,6 +379,16 @@ export const logsCommand = Cli.Command.make('logs', {
                   }
                   return { completed, hasFailed }
                 }
+              }
+
+              if (filteredJobs.length === 0 && !watch) {
+                tui.dispatch({
+                  _tag: 'SetNoLogs',
+                  message: failed
+                    ? 'No failed jobs found.'
+                    : `No jobs matching filter in run ${runId}.`,
+                })
+                return { completed, hasFailed }
               }
 
               /** Tier 1: REST API full job logs */
@@ -440,12 +442,12 @@ export const logsCommand = Cli.Command.make('logs', {
 
           const initial = yield* fetchAndDisplayLogs()
 
-          if (watch && !initial.completed && !(failFast && initial.hasFailed)) {
+          if (watch && !terminalError && !initial.completed && !(failFast && initial.hasFailed)) {
             const startTime = Date.now()
             while (true) {
               yield* Effect.sleep(LOG_POLL_INTERVAL)
               const result = yield* fetchAndDisplayLogs()
-              if (result.completed || (failFast && result.hasFailed)) break
+              if (terminalError || result.completed || (failFast && result.hasFailed)) break
               const elapsed = (Date.now() - startTime) / 1000
               if (elapsed >= timeout) {
                 tui.dispatch({
@@ -460,6 +462,7 @@ export const logsCommand = Cli.Command.make('logs', {
 
           /** If watch completed but no logs were ever rendered, emit a final state. */
           if (
+            !terminalError &&
             shouldFinalizeWatchWithNoLogs({
               watch,
               displayedJobCount: displayedJobIds.size,
