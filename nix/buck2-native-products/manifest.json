@@ -367,6 +367,138 @@
         "tag": "buck2-native-product-v1-otelite-linux-x86_64-glibc-3ba9a62fea6d6a088f8b57eee4876beb9ba018adc5e6f071f7411796579a9c7f",
         "url": "https://github.com/overengineeringstudio/effect-utils/releases/download/buck2-native-product-v1-otelite-linux-x86_64-glibc-3ba9a62fea6d6a088f8b57eee4876beb9ba018adc5e6f071f7411796579a9c7f/3ba9a62fea6d6a088f8b57eee4876beb9ba018adc5e6f071f7411796579a9c7f-otelite-linux-x86_64-glibc.tar"
       }
+    },
+    {
+      "descriptor": {
+        "entrypoints": [
+          "bin/typescript-api-server"
+        ],
+        "name": "typescript-api-server",
+        "payload": {
+          "digest": {
+            "algorithm": "sha256",
+            "sri": "sha256-GCZlVqZSA6OUM3KC04i8UobyDaLyhZNi3PvtIkeP2vg="
+          },
+          "file": "artifact.tar",
+          "format": "tar",
+          "sizeBytes": 27526144
+        },
+        "platform": {
+          "abi": "darwin",
+          "architecture": "aarch64",
+          "os": "darwin"
+        },
+        "runtime": {
+          "architecture": "arm64",
+          "dylibs": [
+            "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+            "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+            "/usr/lib/libSystem.B.dylib",
+            "/usr/lib/libresolv.9.dylib"
+          ],
+          "inspectionContract": "mach-o-dynamic/v1",
+          "installNamePolicy": "system-only/v1",
+          "kind": "mach-o-dynamic",
+          "minimumOs": "12.0",
+          "rpathPolicy": "empty/v1",
+          "signingPolicy": "embedded/v1"
+        },
+        "schema": "buck-build-product/v1",
+        "semanticProvenance": {
+          "recipe": "pnpm-lock:@typescript/typescript-platform/lib",
+          "target": "effect_utils//packages/@overeng/genie:typescript-api-server-product",
+          "toolchain": "pnpm-lockfile:pnpm-lock.yaml"
+        }
+      },
+      "descriptorSha256": "sha256:58992a4289d7bec05aa95520bd34156f8509b35643fd1ae9dd7ca8417df97cbf",
+      "release": {
+        "hash": "sha256-GCZlVqZSA6OUM3KC04i8UobyDaLyhZNi3PvtIkeP2vg=",
+        "name": "18266556a65203a394337282d388bc5286f20da2f2859362dcfbed22478fdaf8-typescript-api-server-darwin-aarch64-darwin.tar",
+        "tag": "buck2-native-product-v1-typescript-api-server-darwin-aarch64-darwin-18266556a65203a394337282d388bc5286f20da2f2859362dcfbed22478fdaf8",
+        "url": "https://github.com/overengineeringstudio/effect-utils/releases/download/buck2-native-product-v1-typescript-api-server-darwin-aarch64-darwin-18266556a65203a394337282d388bc5286f20da2f2859362dcfbed22478fdaf8/18266556a65203a394337282d388bc5286f20da2f2859362dcfbed22478fdaf8-typescript-api-server-darwin-aarch64-darwin.tar"
+      }
+    },
+    {
+      "descriptor": {
+        "entrypoints": [
+          "bin/typescript-api-server"
+        ],
+        "name": "typescript-api-server",
+        "payload": {
+          "digest": {
+            "algorithm": "sha256",
+            "sri": "sha256-OiekZgj4DbUlZ+IjPfwlSasrFPAYmeB4Cct7o5Ehq+s="
+          },
+          "file": "artifact.tar",
+          "format": "tar",
+          "sizeBytes": 26745856
+        },
+        "platform": {
+          "abi": "glibc",
+          "architecture": "aarch64",
+          "os": "linux"
+        },
+        "runtime": {
+          "elfClass": "ELF64",
+          "inspectionContract": "elf-static/v1",
+          "kind": "elf-static",
+          "machine": "aarch64"
+        },
+        "schema": "buck-build-product/v1",
+        "semanticProvenance": {
+          "recipe": "pnpm-lock:@typescript/typescript-platform/lib",
+          "target": "effect_utils//packages/@overeng/genie:typescript-api-server-product",
+          "toolchain": "pnpm-lockfile:pnpm-lock.yaml"
+        }
+      },
+      "descriptorSha256": "sha256:8aa2ab63b21fa9ec241d109547c333fe88d4e5afc784fd0ec5d260ae6c59fac0",
+      "release": {
+        "hash": "sha256-OiekZgj4DbUlZ+IjPfwlSasrFPAYmeB4Cct7o5Ehq+s=",
+        "name": "3a27a46608f80db52567e2233dfc2549ab2b14f01899e07809cb7ba39121abeb-typescript-api-server-linux-aarch64-glibc.tar",
+        "tag": "buck2-native-product-v1-typescript-api-server-linux-aarch64-glibc-3a27a46608f80db52567e2233dfc2549ab2b14f01899e07809cb7ba39121abeb",
+        "url": "https://github.com/overengineeringstudio/effect-utils/releases/download/buck2-native-product-v1-typescript-api-server-linux-aarch64-glibc-3a27a46608f80db52567e2233dfc2549ab2b14f01899e07809cb7ba39121abeb/3a27a46608f80db52567e2233dfc2549ab2b14f01899e07809cb7ba39121abeb-typescript-api-server-linux-aarch64-glibc.tar"
+      }
+    },
+    {
+      "descriptor": {
+        "entrypoints": [
+          "bin/typescript-api-server"
+        ],
+        "name": "typescript-api-server",
+        "payload": {
+          "digest": {
+            "algorithm": "sha256",
+            "sri": "sha256-+VGhK2JCY0snt9XFV0HQ4FXc528Sgzc5XhV3D7s8rgA="
+          },
+          "file": "artifact.tar",
+          "format": "tar",
+          "sizeBytes": 27974656
+        },
+        "platform": {
+          "abi": "glibc",
+          "architecture": "x86_64",
+          "os": "linux"
+        },
+        "runtime": {
+          "elfClass": "ELF64",
+          "inspectionContract": "elf-static/v1",
+          "kind": "elf-static",
+          "machine": "x86_64"
+        },
+        "schema": "buck-build-product/v1",
+        "semanticProvenance": {
+          "recipe": "pnpm-lock:@typescript/typescript-platform/lib",
+          "target": "effect_utils//packages/@overeng/genie:typescript-api-server-product",
+          "toolchain": "pnpm-lockfile:pnpm-lock.yaml"
+        }
+      },
+      "descriptorSha256": "sha256:bfdd155d0c6dbe69ea9a3a3525c61c9667ce3cc8559e4aeedb7417d6b737a0d1",
+      "release": {
+        "hash": "sha256-+VGhK2JCY0snt9XFV0HQ4FXc528Sgzc5XhV3D7s8rgA=",
+        "name": "f951a12b6242634b27b7d5c55741d0e055dce76f128337395e15770fbb3cae00-typescript-api-server-linux-x86_64-glibc.tar",
+        "tag": "buck2-native-product-v1-typescript-api-server-linux-x86_64-glibc-f951a12b6242634b27b7d5c55741d0e055dce76f128337395e15770fbb3cae00",
+        "url": "https://github.com/overengineeringstudio/effect-utils/releases/download/buck2-native-product-v1-typescript-api-server-linux-x86_64-glibc-f951a12b6242634b27b7d5c55741d0e055dce76f128337395e15770fbb3cae00/f951a12b6242634b27b7d5c55741d0e055dce76f128337395e15770fbb3cae00-typescript-api-server-linux-x86_64-glibc.tar"
+      }
     }
   ],
   "schema": "effect-utils/buck2-native-release-products/v1"

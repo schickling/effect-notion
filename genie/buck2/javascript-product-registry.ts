@@ -21,7 +21,7 @@ export const javaScriptProductRegistry = {
   'packages/@overeng/genie': [
     {
       entrypoint: 'bin/genie.tsx',
-      externalCapabilities: ['actionlint', 'effect-tsgo', 'oxfmt'],
+      externalCapabilities: ['actionlint', 'effect-tsgo', 'oxfmt', 'typescript-api-server'],
       kind: 'cli',
       output: 'genie.js',
       productName: 'genie',
@@ -32,6 +32,7 @@ export const javaScriptProductRegistry = {
     },
     {
       entrypoint: 'bin/bootstrap-closure-check.ts',
+      externalCapabilities: ['typescript-api-server'],
       kind: 'cli',
       output: 'genie-bootstrap-closure-check.js',
       productName: 'genie-bootstrap-closure-check',
