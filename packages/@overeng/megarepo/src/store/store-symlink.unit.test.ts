@@ -51,7 +51,13 @@ describe('store: symlinked store root', () => {
         yield* setStoreEnv(linkDir)
 
         const store = yield* Layer.build(StoreLayer).pipe(Effect.map(Context.get(Store)))
-        expect(store.basePath).toBe(realDir)
+        // macOS resolves /tmp -> /private/tmp, so the expectation is canonical
+        // too: the store resolves symlinks on both platforms.
+        const expected = yield* fs.realPath(realDir).pipe(Effect.orElseSucceed(() => realDir))
+        const expectedDir = EffectPath.unsafe.absoluteDir(
+          expected.endsWith('/') === true ? expected : `${expected}/`,
+        )
+        expect(store.basePath).toBe(expectedDir)
       },
       Effect.provide(NodeServices.layer),
       Effect.scoped,
