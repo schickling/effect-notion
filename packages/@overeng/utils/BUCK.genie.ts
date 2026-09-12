@@ -1,5 +1,6 @@
 import type { Buck2TypeScriptAdmission } from '../../../genie/buck2/typescript-admissions.ts'
 import { buck2TypeScriptPackageProjection } from '../../../genie/buck2/typescript-package-projection.ts'
+import { createGenieOutput } from '../genie/src/runtime/core.ts'
 
 export const buck2TypeScriptAdmission = {
   dependencyImporter: '//buck2/dependencies:importer_packages_overeng_utils_07fe64e7b8ad',
@@ -31,4 +32,21 @@ export const buck2TypeScriptAdmission = {
   },
 } as const satisfies Buck2TypeScriptAdmission
 
-export default buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)
+const projection = buck2TypeScriptPackageProjection(buck2TypeScriptAdmission)
+
+export default createGenieOutput({
+  ...projection,
+  stringify: (context) => `load("//buck2/products:defs.bzl", "npm_package_product")
+
+${projection.stringify(context)}
+
+npm_package_product(
+    name = "dist-package",
+    archive_name = "overeng-utils.tgz",
+    dist = ":dist",
+    package_json = "package.json",
+    product_name = "@overeng/utils",
+    visibility = ["PUBLIC"],
+)
+`,
+})

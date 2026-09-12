@@ -2,7 +2,7 @@
 
 load("//buck2/platforms:defs.bzl", "host_execution_constraints")
 load("//buck2/toolchains:defs.bzl", "host_capability_platform")
-load("//.buck2/capabilities:defs.bzl", "CAPABILITIES")
+load("capabilities//:defs.bzl", "CAPABILITIES")
 
 BuckSupportToolInfo = provider(fields = {
     "content_digest": str,
@@ -56,7 +56,7 @@ _support_tool = rule(
 def support_tool(name, protocol, tool_id, **kwargs):
     platform = host_capability_platform()
     metadata = CAPABILITIES[platform][tool_id]
-    capability = "//.buck2/capabilities/generations/{}/{}/{}".format(metadata["generation"], platform, tool_id)
+    capability = "capabilities//generations/{}/{}/{}".format(metadata["generation"], platform, tool_id)
     _support_tool(
         name = name,
         content_digest = metadata["contentDigest"],

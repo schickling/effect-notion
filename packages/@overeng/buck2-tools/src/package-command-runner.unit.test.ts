@@ -12,6 +12,7 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gunzipSync } from 'node:zlib'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -22,6 +23,7 @@ import {
   assertPortableModuleComments,
   bareSpecifierPackage,
   createEntryOverridePlugin,
+  packDistPackage,
   parsePackageCommand,
   planPackageLaunch,
   normalizePortableCommonJsGlobals,
@@ -675,6 +677,74 @@ describe('the product descriptor projection', () => {
   })
 })
 
+describe('the npm dist package projection', () => {
+  it('packs deterministic bytes whose manifest exports only the emitted dist tree', async () => {
+    const root = scratch('buck2-dist-package-')
+    const dist = join(root, 'dist')
+    mkdirSync(join(dist, 'src'), { recursive: true })
+    writeFileSync(join(dist, 'src', 'mod.js'), 'export const answer = 42\n')
+    const packageJson = join(root, 'package.json')
+    writeFileSync(
+      packageJson,
+      JSON.stringify({
+        name: '@overeng/utils',
+        private: true,
+        exports: { '.': './src/mod.ts' },
+        publishConfig: { access: 'public', exports: { '.': './dist/mod.js' } },
+      }),
+    )
+    const first = join(root, 'first.tgz')
+    const second = join(root, 'second.tgz')
+    const command = {
+      descriptor: join(root, 'descriptor.json'),
+      dist,
+      output: first,
+      packageJson,
+      productName: '@overeng/utils',
+      targetIdentity: '//packages/@overeng/utils:dist-package',
+    }
+
+    await packDistPackage(command)
+    await packDistPackage({ ...command, descriptor: join(root, 'second.json'), output: second })
+
+    expect(readFileSync(first)).toEqual(readFileSync(second))
+    const tar = gunzipSync(readFileSync(first)).toString('utf8')
+    expect(tar).toContain('"exports": {\n    ".": "./dist/src/mod.js"\n  }')
+    expect(tar).toContain('package/dist/src/mod.js')
+    expect(JSON.parse(readFileSync(command.descriptor, 'utf8'))).toMatchObject({
+      schema: 'effect-utils/npm-package-product/v1',
+      productName: '@overeng/utils',
+      productKind: 'package',
+      runtimeContract: 'npm-package',
+    })
+  })
+
+  it('refuses a publication export outside dist', async () => {
+    const root = scratch('buck2-dist-package-refusal-')
+    const dist = join(root, 'dist')
+    mkdirSync(dist)
+    const packageJson = join(root, 'package.json')
+    writeFileSync(
+      packageJson,
+      JSON.stringify({
+        name: '@overeng/utils',
+        publishConfig: { exports: { '.': './src/mod.ts' } },
+      }),
+    )
+
+    await expect(
+      packDistPackage({
+        descriptor: join(root, 'descriptor.json'),
+        dist,
+        output: join(root, 'package.tgz'),
+        packageJson,
+        productName: '@overeng/utils',
+        targetIdentity: '//packages/@overeng/utils:dist-package',
+      }),
+    ).rejects.toThrow('published export does not point into dist')
+  })
+})
+
 describe('package command runner', () => {
   it('rejects paths which can escape the declared package tree', () => {
     expect(() =>
@@ -1005,6 +1075,8 @@ describe('package command runner', () => {
         'bundleImportSpecifiers',
         'createEntryOverridePlugin',
         'normalizePortableCommonJsGlobals',
+        'packDistPackage',
+        'parseDistPackageCommand',
         'parsePackageCommand',
         'parseProductDescriptorCommand',
         'planPackageLaunch',

@@ -10,7 +10,8 @@ import {
   translatePnpmLock,
   validatePnpmSha256Sidecar,
 } from './pnpm-lock.ts'
-import { renderPnpmPackageTargets } from './pnpm-store-buck.ts'
+import { renderPnpmPackageTargets, renderPnpmStoreBuck } from './pnpm-store-buck.ts'
+import { makePnpmStoreProjection } from './pnpm-store.ts'
 
 const archive = new TextEncoder().encode('archive bytes')
 const archiveIntegrity = `sha512-${createHash('sha512').update(archive).digest('base64')}`
@@ -135,6 +136,71 @@ describe('translatePnpmLock', () => {
       url: 'https://registry.npmjs.org/foo/-/foo-1.0.0.tgz',
     })
     expect(first.packages['foo@1.0.0']!.target).toMatch(/^package_foo_1_0_0_[a-f0-9]{12}$/)
+  })
+
+  it('preserves a tarball URL lock entry through the declared Buck closure', async () => {
+    const url = 'https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz'
+    const identity = `is-number@${url}`
+    const metadata = translatePnpmLock({
+      lockfileText: lock({
+        importers: `  buck2/dependencies/fixtures/tarball-url:
+    dependencies:
+      is-number:
+        specifier: ${url}
+        version: ${url}`,
+        packages: `  ${identity}:
+    resolution: {integrity: ${archiveIntegrity}, tarball: ${url}}`,
+        snapshots: `  ${identity}: {}`,
+      }),
+      workspaceText: workspace(),
+    })
+    const sidecar = await generatePnpmSha256Sidecar({
+      metadata,
+      fetchArchive: async (requestedUrl) => {
+        expect(requestedUrl).toBe(url)
+        return archive
+      },
+    })
+    const store = makePnpmStoreProjection({ metadata, sidecar })
+    const packagesBuck = renderPnpmPackageTargets({ metadata, sidecar })
+    const storeBuck = renderPnpmStoreBuck(store)
+
+    expect(metadata.packages[identity]).toMatchObject({
+      integrity: archiveIntegrity,
+      name: 'is-number',
+      resolution: 'registry',
+      url,
+      version: url,
+    })
+    expect(packagesBuck).toContain(`    url = ${JSON.stringify(url)},`)
+    expect(storeBuck).toContain(
+      `    name = ${JSON.stringify(store.views.find(({ importer }) => importer === 'buck2/dependencies/fixtures/tarball-url')!.target)},`,
+    )
+    expect(storeBuck).toContain(
+      `        "is-number": ${JSON.stringify(store.entries.find(({ snapshot }) => snapshot === identity)!.storeKey)},`,
+    )
+  })
+
+  it('refuses one-byte drift for a tarball URL lock entry', async () => {
+    const url = 'https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz'
+    const identity = `is-number@${url}`
+    const metadata = translatePnpmLock({
+      lockfileText: lock({
+        importers: '  .: {}',
+        packages: `  ${identity}:
+    resolution: {integrity: ${archiveIntegrity}, tarball: ${url}}`,
+        snapshots: `  ${identity}: {}`,
+      }),
+      workspaceText: workspace(),
+    })
+
+    await expect(
+      generatePnpmSha256Sidecar({
+        metadata,
+        fetchArchive: async () =>
+          Uint8Array.from(archive, (byte, index) => byte ^ (index === 0 ? 1 : 0)),
+      }),
+    ).rejects.toThrow(/does not match downloaded archive/u)
   })
 
   it('includes dependency overrides in the semantic lock fingerprint', () => {

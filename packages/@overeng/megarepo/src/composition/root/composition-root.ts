@@ -521,6 +521,7 @@ export interface NormalizedCompositionRootInput {
 }
 
 const reservedCellNames: Readonly<Record<string, true>> = {
+  capabilities: true,
   prelude: true,
   toolchains: true,
   workspace: true,
@@ -844,6 +845,7 @@ const renderBuckconfig = (input: NormalizedCompositionRootInput): string => {
     '[cells]',
     '  workspace = .',
     '  prelude = prelude',
+    '  capabilities = .buck2/capabilities',
     ...input.members.map((member) => `  ${member.manifest.cell} = ${member.manifest.mount}`),
     '',
     '[cell_aliases]',

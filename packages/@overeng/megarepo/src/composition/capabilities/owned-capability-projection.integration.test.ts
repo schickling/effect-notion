@@ -48,6 +48,7 @@ describe('owned capability projection', () => {
       const published = await installOwnedCapabilityProjection({
         memberKey: 'owned',
         ownedMemberPath: owned,
+        workspaceRoot: fixture,
         projectionPath: first,
         projectionDigest: firstGeneration,
         runtime,
@@ -56,6 +57,7 @@ describe('owned capability projection', () => {
       const repeated = await installOwnedCapabilityProjection({
         memberKey: 'owned',
         ownedMemberPath: owned,
+        workspaceRoot: fixture,
         projectionPath: first,
         projectionDigest: firstGeneration,
         runtime,
@@ -64,12 +66,13 @@ describe('owned capability projection', () => {
       const advanced = await installOwnedCapabilityProjection({
         memberKey: 'owned',
         ownedMemberPath: owned,
+        workspaceRoot: fixture,
         projectionPath: second,
         projectionDigest: secondGeneration,
         runtime,
       })
       expect(advanced.changed).toBe(true)
-      expect(await readFile(NodePath.join(owned, '.buck2/capabilities/defs.bzl'), 'utf8')).toBe(
+      expect(await readFile(NodePath.join(fixture, '.buck2/capabilities/defs.bzl'), 'utf8')).toBe(
         `GENERATION = "${secondGeneration}"
 `,
       )
@@ -79,7 +82,7 @@ describe('owned capability projection', () => {
   })
 
   it.each(['symlink', 'file'] as const)(
-    'rejects a %s .buck2 parent without writing outside',
+    'rejects a %s root .buck2 parent without writing outside',
     async (kind) => {
       const fixture = await mkdtemp(NodePath.join(tmpdir(), 'owned-capability-parent-'))
       try {
@@ -90,14 +93,15 @@ describe('owned capability projection', () => {
         await Promise.all([mkdir(owned), mkdir(outside)])
         await writeFile(NodePath.join(owned, '.git'), 'gitdir: fixture\n')
         await writeProjection({ root: projection, generation })
-        if (kind === 'symlink') await symlink(outside, NodePath.join(owned, '.buck2'))
-        else await writeFile(NodePath.join(owned, '.buck2'), 'not a directory\n')
+        if (kind === 'symlink') await symlink(outside, NodePath.join(fixture, '.buck2'))
+        else await writeFile(NodePath.join(fixture, '.buck2'), 'not a directory\n')
         const coreutils = await resolvePinnedCoreutils()
 
         await expect(
           installOwnedCapabilityProjection({
             memberKey: 'owned',
             ownedMemberPath: owned,
+            workspaceRoot: fixture,
             projectionPath: projection,
             projectionDigest: generation,
             runtime: {
@@ -117,7 +121,7 @@ describe('owned capability projection', () => {
   )
 
   it.each(['copy', 'publish'] as const)(
-    'detects deterministic .buck2 replacement before %s without following the replacement',
+    'detects deterministic root .buck2 replacement before %s without following the replacement',
     async (phase) => {
       const fixture = await mkdtemp(NodePath.join(tmpdir(), 'owned-capability-race-'))
       try {
@@ -138,6 +142,7 @@ describe('owned capability projection', () => {
           installOwnedCapabilityProjection({
             memberKey: 'owned',
             ownedMemberPath: owned,
+            workspaceRoot: fixture,
             projectionPath: projection,
             projectionDigest: generation,
             runtime: {

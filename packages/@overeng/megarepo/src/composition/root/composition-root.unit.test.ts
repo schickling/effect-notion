@@ -447,6 +447,7 @@ describe('composition root goldens', () => {
     expect(text(output.get('.buckconfig')!)).toBe(`[cells]
   workspace = .
   prelude = prelude
+  capabilities = .buck2/capabilities
   alpha = repos/alpha
 
 [cell_aliases]
@@ -506,6 +507,7 @@ describe('composition root goldens', () => {
     expect(config).toBe(`[cells]
   workspace = .
   prelude = prelude
+  capabilities = .buck2/capabilities
   alpha = repos/alpha
   beta = repos/beta-source
 
@@ -537,6 +539,7 @@ describe('composition root goldens', () => {
     const output = filesByPath(input({ members: [alphaMember] }))
     const config = text(output.get('.buckconfig')!)
     const cellsSection = config.match(/\[cells\]\n([\s\S]*?)\n\n\[cell_aliases\]/u)?.[1]
+    expect(cellsSection).toContain('  capabilities = .buck2/capabilities')
     expect(cellsSection).not.toMatch(/^\s+(?:toolchains|none)\s*=/mu)
     expect(config).toContain('  toolchains = alpha')
     expect(config).toContain('  fbsource = prelude')

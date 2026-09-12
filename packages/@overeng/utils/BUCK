@@ -1,6 +1,8 @@
 # Generated file - DO NOT EDIT
 # Source: BUCK.genie.ts
 
+load("//buck2/products:defs.bzl", "npm_package_product")
+
 # Projection source: packages/@overeng/utils/BUCK.genie.ts
 # Projection schema version: 3
 # Projection generator: effect-utils/genie/buck2-typescript-package-projection
@@ -280,5 +282,15 @@ tsgo_emit(
         "src/node/stylex/mod-types.d.ts": "src/node/stylex/mod-types.d.ts",
     },
     declaration_entrypoint = "src/isomorphic/mod.d.ts",
+    visibility = ["PUBLIC"],
+)
+
+
+npm_package_product(
+    name = "dist-package",
+    archive_name = "overeng-utils.tgz",
+    dist = ":dist",
+    package_json = "package.json",
+    product_name = "@overeng/utils",
     visibility = ["PUBLIC"],
 )

@@ -198,11 +198,13 @@ export interface CompositionApplyRuntime {
     readonly plan: (input: {
       readonly memberKey: string
       readonly ownedMemberPath: string
+      readonly workspaceRoot: string
       readonly projectionPath: string
     }) => Promise<CompositionOwnedCapabilityProjectionPlan>
     readonly install: (input: {
       readonly memberKey: string
       readonly ownedMemberPath: string
+      readonly workspaceRoot: string
       readonly projectionPath: string
       readonly projectionDigest: string
     }) => Promise<CompositionOwnedCapabilityProjectionResult>
@@ -1059,6 +1061,7 @@ const applyComposition = async ({
       const ownedPlan = await runtime.ownedCapabilityProjection.plan({
         memberKey: request.ownedMemberKey,
         ownedMemberPath: request.ownedMemberPath,
+        workspaceRoot: request.workspaceRoot,
         projectionPath: ownedCapability.candidateRoot,
       })
       steps.push({
@@ -1151,6 +1154,7 @@ const applyComposition = async ({
       ownedProjection = await runtime.ownedCapabilityProjection.install({
         memberKey: request.ownedMemberKey,
         ownedMemberPath: request.ownedMemberPath,
+        workspaceRoot: request.workspaceRoot,
         projectionPath: ownedHandle.projectionPath,
         projectionDigest: ownedHandle.projectionDigest,
       })

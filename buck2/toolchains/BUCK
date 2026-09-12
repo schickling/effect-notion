@@ -1,4 +1,4 @@
-load("//.buck2/capabilities:defs.bzl", "CAPABILITIES", "GENERATION")
+load("capabilities//:defs.bzl", "CAPABILITIES", "GENERATION")
 load("//buck2/platforms:defs.bzl", "host_platform_label")
 load("//buck2/toolchains:defs.bzl", "bun_toolchain", "configured_rust_toolchain", "effect_tsgo_toolchain", "host_rust_target_triple", "nix_go_bootstrap_toolchain", "nix_python_bootstrap_toolchain")
 load("//buck2/rust:toolchains.bzl", "native_rust_toolchains")
