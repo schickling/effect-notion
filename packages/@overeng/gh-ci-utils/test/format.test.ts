@@ -89,6 +89,12 @@ describe('parseRunnerIdentity', () => {
     })
   })
 
+  it('keeps hostname hyphens in the stable self-hosted instance', () =>
+    expect(parseRunnerIdentity({ name: 'linux-host-a-1a2b3c4d' })).toEqual({
+      _tag: 'self-hosted',
+      instance: 'linux-host-a',
+    }))
+
   it('reports unrecognized names verbatim rather than guessing a scheme', () => {
     expect(parseRunnerIdentity({ name: 'some-other-runner' })).toEqual({
       _tag: 'other',

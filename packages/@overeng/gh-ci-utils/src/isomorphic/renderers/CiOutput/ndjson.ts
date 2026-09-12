@@ -128,7 +128,6 @@ const jobUpdateFactsChanged = ({
   previous.name !== current.name ||
   previous.status !== current.status ||
   previous.conclusion !== current.conclusion ||
-  previous.durationSeconds !== current.durationSeconds ||
   previous.runner !== current.runner ||
   previous.runnerName !== current.runnerName ||
   previous.runnerKind !== current.runnerKind ||

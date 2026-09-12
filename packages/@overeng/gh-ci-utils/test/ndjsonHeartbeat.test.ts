@@ -188,6 +188,45 @@ describe('ndjson watch liveness', () => {
     expect(events).toEqual([])
   })
 
+  it('ignores elapsed duration drift but still reports preserved job fact changes', () => {
+    const prev = loadedState('in_progress')
+    const lint = prev.jobs[0]!
+    const action = {
+      _tag: 'SetLoaded' as const,
+      run: prev.run,
+      errors: [],
+      annotations: [],
+      runnerHostMap: [],
+      prHealth: null,
+      summary: prev.summary,
+    }
+
+    expect(
+      fromCiAction({
+        action: { ...action, jobs: [{ ...lint, durationSeconds: lint.durationSeconds + 1 }] },
+        prevState: prev,
+      }),
+    ).toEqual([])
+
+    expect(
+      fromCiAction({
+        action: {
+          ...action,
+          jobs: [{ ...lint, status: 'completed', conclusion: 'success', durationSeconds: 101 }],
+        },
+        prevState: prev,
+      }),
+    ).toContainEqual(
+      expect.objectContaining({
+        _tag: 'JobUpdate',
+        jobId: lint.id,
+        status: 'completed',
+        conclusion: 'success',
+        durationSeconds: 101,
+      }),
+    )
+  })
+
   it('reports the verdict and every blocking failure when the run completes', () => {
     const prev = loadedState('in_progress')
     const lint = prev.jobs[0]!
