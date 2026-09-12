@@ -208,7 +208,7 @@ export const toInspectGitHubFacts = ({
   readonly job: WorkflowJob
   readonly repo: string
 }): InspectGitHubFacts => {
-  const identity = parseRunnerIdentity(job.runner_name)
+  const identity = parseRunnerIdentity({ name: job.runner_name, labels: job.labels })
   return {
     repo,
     jobId: job.id,

@@ -64,8 +64,20 @@ export const inspectCommand = Cli.Command.make('inspect', {
         }
 
         const github = yield* GitHubClient
-        const job = yield* github.getWorkflowJob({ repo, jobId })
-        const githubFacts = toInspectGitHubFacts({ job, repo })
+        const jobResult = yield* github.getWorkflowJob({ repo, jobId }).pipe(
+          Effect.tapError((error) =>
+            Effect.sync(() =>
+              tui.dispatch({
+                _tag: 'SetError',
+                error: 'GitHub job unavailable',
+                message: error.message,
+              }),
+            ),
+          ),
+          Effect.option,
+        )
+        if (Option.isNone(jobResult)) return
+        const githubFacts = toInspectGitHubFacts({ job: jobResult.value, repo })
 
         /**
          * The Namespace observation is deliberately sequenced after the GitHub

@@ -179,6 +179,20 @@ describe('parseJobDescribe', () => {
     })
   })
 
+  it('reads generic status only from the record that owns the instance id', () => {
+    const parsed = parseJobDescribe(
+      JSON.stringify({
+        status: 'completed',
+        runner: {
+          instance_id: INSTANCE,
+          status: 'RUNNING',
+        },
+      }),
+    )
+    expect(parsed._tag === 'parsed' && parsed.job.instanceStatus).toBe('running')
+    expect(parsed._tag === 'parsed' && parsed.job.instanceStatusRaw).toBe('RUNNING')
+  })
+
   it('reads camelCase field names too, since the CLI shape is not pinned', () => {
     const parsed = parseJobDescribe(
       JSON.stringify({ instanceId: INSTANCE, instanceStatus: 'running' }),
@@ -384,9 +398,25 @@ describe('observeNamespaceJob', () => {
     const { facts } = await observe({
       github: githubFacts(),
       respond: (argv) =>
-        argv[0] === 'auth' ? output('ok') : output('', { stderr: 'job 1 not found', exitCode: 1 }),
+        argv[0] === 'auth'
+          ? output('ok')
+          : output('', { stderr: `job ${JOB_ID} not found`, exitCode: 1 }),
     })
     expect(facts._tag === 'unavailable' && facts.reason).toBe('job-not-found')
+  })
+
+  it('does not call an unrelated missing resource a missing GitHub job', async () => {
+    const { facts } = await observe({
+      github: githubFacts(),
+      respond: (argv) =>
+        argv[0] === 'auth'
+          ? output('ok')
+          : output('', {
+              stderr: 'workspace configuration not found',
+              exitCode: 1,
+            }),
+    })
+    expect(facts._tag === 'unavailable' && facts.reason).toBe('command-failed')
   })
 
   it('reports output it cannot read as unrecognized rather than guessing', async () => {

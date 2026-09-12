@@ -211,6 +211,44 @@ const findString = ({
   return visit({ node: root, depth: 0 })
 }
 
+/** Find the object that directly owns a matching identity field. */
+const findRecord = ({
+  root,
+  keys,
+  value,
+}: {
+  root: unknown
+  keys: ReadonlyArray<string>
+  value: string
+}): object | null => {
+  const visit = ({ node, depth }: { node: unknown; depth: number }): object | null => {
+    if (depth > MAX_LOOKUP_DEPTH || typeof node !== 'object' || node === null) return null
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        const found = visit({ node: item, depth: depth + 1 })
+        if (found !== null) return found
+      }
+      return null
+    }
+
+    if (
+      keys.some((key) => {
+        const candidate = Reflect.get(node, key)
+        return candidate === value || (typeof candidate === 'number' && String(candidate) === value)
+      })
+    ) {
+      return node
+    }
+
+    for (const nested of Object.values(node)) {
+      const found = visit({ node: nested, depth: depth + 1 })
+      if (found !== null) return found
+    }
+    return null
+  }
+  return visit({ node: root, depth: 0 })
+}
+
 /** Status strings that positively establish a live instance. */
 const LIVE_STATUS = /^(running|live|ready|started|starting|active|in_use)$/i
 /** Status strings that positively establish a gone instance. */
@@ -257,10 +295,16 @@ export const parseJobDescribe = (stdout: string): JobDescribeParse => {
   }
 
   const destroyedAt = findString({ root: parsed, keys: ['destroyed_at', 'destroyedAt'] })
-  const statusRaw = findString({
+  const instanceRecord = findRecord({
     root: parsed,
-    keys: ['instance_status', 'instanceStatus', 'status', 'phase', 'state'],
+    keys: ['instance_id', 'instanceId'],
+    value: instanceId,
   })
+  const statusRaw =
+    findString({ root: parsed, keys: ['instance_status', 'instanceStatus'] }) ??
+    (instanceRecord === null
+      ? null
+      : findString({ root: instanceRecord, keys: ['status', 'phase', 'state'] }))
 
   return {
     _tag: 'parsed',
@@ -518,8 +562,13 @@ const unavailableFromFailure = (
   }
 }
 
-/** stderr that means "`nsc` does not know this job", rather than a real fault. */
-const NOT_FOUND_STDERR = /not found|no such|unknown job|does not exist/i
+/** stderr that specifically says "`nsc` does not know this job". */
+const isJobNotFoundStderr = ({ stderr, jobId }: { stderr: string; jobId: number }): boolean => {
+  if (stderr.includes(String(jobId)) === false) return false
+  return /\bjob\b[^\n]*(?:not found|does not exist)|(?:no such|unknown)\s+(?:github\s+)?job\b/i.test(
+    stderr,
+  )
+}
 
 // =============================================================================
 // The observation
@@ -576,7 +625,9 @@ export const observeNamespaceJob = ({
     if (describe.run.exitCode !== 0) {
       return {
         _tag: 'unavailable',
-        reason: NOT_FOUND_STDERR.test(describe.run.stderr) ? 'job-not-found' : 'command-failed',
+        reason: isJobNotFoundStderr({ stderr: describe.run.stderr, jobId: github.jobId })
+          ? 'job-not-found'
+          : 'command-failed',
         detail:
           describe.run.stderr.length > 0
             ? describe.run.stderr
