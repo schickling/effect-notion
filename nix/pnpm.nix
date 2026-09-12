@@ -18,6 +18,13 @@
 # preinstall hard-links it, so both the binary's own `dist/` lookup and
 # `bin/pnpm.mjs`'s `resolveInstalledBinary()` keep working without any
 # lifecycle script or network access at build time.
+# The linux-arm64 payload is bundled alongside the eval-platform one:
+# `resolveInstalledBinary()` probes the host's target directory, and a
+# wrapper evaluated on x86_64 but executed on aarch64 (remote Pi builders)
+# must find a working binary there. Without it, resolution walks into
+# ancestor `node_modules` and spawns whatever half-installed copy it finds
+# (typically missing its optional exe or carrying an unpatched interpreter),
+# failing with a bare spawnSync ENOENT.
 let
   lib = pkgs.lib;
   version = "12.4.1";
@@ -55,6 +62,21 @@ let
     url = "https://registry.npmjs.org/@pnpm/exe.${target}/-/exe.${target}-${version}.tgz";
     hash = exeHashes.${target};
   };
+
+  # The linux-arm64 executable is bundled alongside the eval-platform one so
+  # `resolveInstalledBinary()` finds a working binary on aarch64 builders
+  # even when this derivation was evaluated elsewhere. Omitted when the
+  # eval platform already is linux-arm64 (then it is the primary copy).
+  # All references below are lazy: nothing is fetched unless bundled.
+  wantArm64Exe = target != "linux-arm64";
+  arm64ExeSrc = pkgs.fetchurl {
+    url = "https://registry.npmjs.org/@pnpm/exe.linux-arm64/-/exe.linux-arm64-${version}.tgz";
+    hash = exeHashes."linux-arm64";
+  };
+  # Runtime closure for the foreign binary (interpreter + libgcc_s). Only
+  # referenced when the extra copy is bundled.
+  arm64Glibc = pkgs.pkgsCross.aarch64-multiplatform.glibc;
+  arm64GccLib = pkgs.pkgsCross.aarch64-multiplatform.gcc.cc.lib;
 in
 pkgs.stdenvNoCC.mkDerivation {
   pname = "pnpm";
@@ -84,6 +106,23 @@ pkgs.stdenvNoCC.mkDerivation {
     exeDir=$wrapper/node_modules/@pnpm/exe.${target}
     mkdir -p "$exeDir"
     ln -s ../../../pnpm "$exeDir/pnpm"
+
+    # A wrapper evaluated anywhere else still needs a working binary on
+    # aarch64 builders (remote Pi builds): unpack the linux-arm64 payload
+    # into its platform directory and point it at the cross glibc loader.
+    # autoPatchelfHook only covers the eval-platform binary and cannot run
+    # foreign binaries, so this is explicit. musl and darwin targets stay
+    # single-copy (musl is static; darwin builders evaluate natively).
+    ${lib.optionalString wantArm64Exe ''
+      arm64Dir=$wrapper/node_modules/@pnpm/exe.linux-arm64
+      mkdir -p "$arm64Dir"
+      tar -xzf ${arm64ExeSrc} -C "$arm64Dir" --strip-components=1 package/pnpm
+      chmod +x "$arm64Dir/pnpm"
+      ${pkgs.patchelf}/bin/patchelf \
+        --set-interpreter "${arm64Glibc}/lib/ld-linux-aarch64.so.1" \
+        --set-rpath "${arm64Glibc}/lib:${arm64GccLib}/lib" \
+        "$arm64Dir/pnpm"
+    ''}
 
     chmod +x "$wrapper/bin/pnpm.mjs" "$wrapper/bin/pnpx.mjs"
 
