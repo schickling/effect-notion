@@ -266,7 +266,7 @@ All notable changes to this project will be documented in this file.
   and `pnpm-install-contract.json`), the lock-mutator evaluation allowlist, and
   the pnpm fixture manifests. Verified on the built package: `pnpm --version`
   reports 12.4.1, the store layout stays `v11`, and `pnpm install
-  --frozen-lockfile --ignore-scripts` over all 39 workspace projects succeeds
+--frozen-lockfile --ignore-scripts` over all 39 workspace projects succeeds
   with the lockfile unchanged.
 
 - **pnpm**: move the ecosystem pin from pnpm 11.8.0 to 12.3.4 and retire the

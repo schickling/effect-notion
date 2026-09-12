@@ -1032,8 +1032,10 @@ const collectDistEntries = ({
       const relativePath = `${prefix}/${name}`
       const stat = lstatSync(source)
       if (stat.isSymbolicLink() === true) fail(`dist package contains a symlink: ${relativePath}`)
-      if (stat.isDirectory() === true) return collectDistEntries({ directory: source, prefix: relativePath })
-      if (stat.isFile() === false) fail(`dist package contains an unsupported entry: ${relativePath}`)
+      if (stat.isDirectory() === true)
+        return collectDistEntries({ directory: source, prefix: relativePath })
+      if (stat.isFile() === false)
+        fail(`dist package contains an unsupported entry: ${relativePath}`)
       return [{ bytes: readFileSync(source), path: `package/${relativePath}` }]
     })
 
@@ -1068,7 +1070,6 @@ const projectDistExportTargets = ({
   )
 }
 
-
 /** Packs a TypeScript dist tree and its publication manifest as a deterministic npm tarball. */
 const packDistPackage = async (command: DistPackageCommand): Promise<void> => {
   const packageJson = JSON.parse(readFileSync(resolve(command.packageJson), 'utf8')) as Record<
@@ -1081,7 +1082,11 @@ const packDistPackage = async (command: DistPackageCommand): Promise<void> => {
     )
   }
   const publishConfig = packageJson['publishConfig']
-  if (publishConfig === null || typeof publishConfig !== 'object' || Array.isArray(publishConfig) === true) {
+  if (
+    publishConfig === null ||
+    typeof publishConfig !== 'object' ||
+    Array.isArray(publishConfig) === true
+  ) {
     fail('package manifest has no publishConfig object')
   }
   const exports = projectDistExportTargets({

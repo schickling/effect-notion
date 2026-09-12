@@ -33,7 +33,7 @@ Can artifact-granular reuse replace source-composed cells without losing lockfil
 - `effect_utils//packages/@overeng/utils:dist-package` produced a deterministic `overeng-utils.tgz` and an `effect-utils/npm-package-product/v1` descriptor.
 - The fresh local build took 2 minutes 26.5 seconds. The archive is 375,775 bytes with SHA-256 `5225cbd0303b73163e6315223c91a02282d5e1471e062f2c621be54e1f874505` and SRI SHA-512 `sha512-gUaoJXIYsbXPvrusqxXy3RUI+yq4JkyEXS+xGiL9YKiBe4tsa+PYVZvXf1COiHIcC1/Ff0k2V89DzoMVlszGuQ==`.
 - The package manifest points its public export paths at emitted `dist/src/**` files. The packer refuses missing declared files and symlinks.
-- A publisher dry-run accepts the package product as `overeng-utils` and plans `effect_utils//packages/@overeng/utils:dist-package` plus its descriptor subtarget. Durable publication was not proved: GitBucket upload lacked an available SSH agent key, and the temporary dev3 content-addressed URL is evictable.
+- The existing publisher refused the dry-run inventory because its product-name contract excludes scoped npm names. Renaming the product to `overeng-utils` then failed the packer because the product identity must match the manifest name `@overeng/utils`. The live publisher also validates only `effect-utils/javascript-product/v2`, not the package schema. Durable publication was therefore falsified. GitBucket upload separately lacked an available SSH agent key; the temporary dev3 content-addressed URL is evictable.
 
 ### Dotfiles consumer
 
@@ -48,12 +48,12 @@ The current root override is all-or-nothing. A mixed source/artifact workspace n
 
 ## Cost ledger
 
-| Slice | Added | Deleted | Measurement |
-| --- | ---: | ---: | --- |
-| URL closure fixture and translator/tests | 122 | 4 | `git diff --numstat` against `origin/main` |
-| Root capability-cell generator/runtime/tests and three labels | 36 | 14 | same |
-| Package target, packer, TypeScript staging fix, and tests | 430 | 2 | same |
-| Dotfiles one-consumer candidate, not retained | 16 | 21 | measured before restore |
+| Slice                                                         | Added | Deleted | Measurement                                |
+| ------------------------------------------------------------- | ----: | ------: | ------------------------------------------ |
+| URL closure fixture and translator/tests                      |   122 |       4 | `git diff --numstat` against `origin/main` |
+| Root capability-cell generator/runtime/tests and three labels |    36 |      14 | same                                       |
+| Package target, packer, TypeScript staging fix, and tests     |   430 |       2 | same                                       |
+| Dotfiles one-consumer candidate, not retained                 |    16 |      21 | measured before restore                    |
 
 The branch was created at 23:05:59 Europe/Berlin. The first complete package artifact proof followed at about 01:01, approximately 1 hour 55 minutes from a fresh branch. The artifact's uncached Buck action took 2 minutes 26.5 seconds. The failed consumer installs each refused the model in under 10 seconds.
 
