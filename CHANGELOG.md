@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Buck2 (context)**: decision 0030 — git external cells are not a
+  member-mount mechanism (the physical `buck-out/.../git/<sha>` path enters
+  the input Merkle tree, so an external cell's action digests diverge from
+  the on-disk cell's) — with its evaluation experiments, plus the
+  `.proposed/` artifact-composition decision (artifact-granular
+  cross-repository reuse, cost ledger, falsification spikes), open for
+  acceptance or rejection. Roadmap Phase 6 and the composition open questions
+  reference the proposal; no ratified requirement changes.
+
 - **@overeng/megarepo**: composition-enabled branch worktrees are now created
   directly at their final `P/repos/<owned>` path and use Git registration as
   identity authority. Routine commands refuse legacy flat roots without

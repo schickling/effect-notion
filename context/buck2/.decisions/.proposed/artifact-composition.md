@@ -36,10 +36,10 @@ establish what the composition machinery costs and who uses it:
   per-consumer `tsconfig` `paths` shims into sources, not through `exports`.
 - Artifact channels that exist today: `nix/buck2-products/publish.sh`
   publishes content-addressed CLI products to immutable GitHub Releases
-  (sha256-tagged, manifest with SRI + provenance); diffstream publishes to
-  GitHub Packages (restricted); livestore runs a full changeset + per-PR
-  snapshot npm program. effect-utils' `npm-release` is decision-layer only
-  (no I/O; DELTA-001).
+  (sha256-tagged, manifest with SRI + provenance); one private downstream
+  member publishes to a restricted GitHub Packages registry; livestore runs
+  a full changeset + per-PR snapshot npm program. effect-utils'
+  `npm-release` is decision-layer only (no I/O; DELTA-001).
 - The overeng → livestore co-development fork is a branch-pinned mount reached
   through 86+ files (link: deps, tsconfigs into the mount's built dist, nested
   livestore-contrib composition). No artifact channel covers a co-dev branch.
