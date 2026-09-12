@@ -1,4 +1,4 @@
-/** All 12 dotfiles CI jobs passing — green run. */
+/** All 12 synthetic CI jobs passing — green run. */
 
 import type { Meta, StoryObj } from '@storybook/react'
 import React from 'react'

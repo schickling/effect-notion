@@ -1,6 +1,11 @@
+import { Effect } from 'effect'
 import { describe, expect, it } from 'vitest'
 
-import { isRunCreatedForDispatch } from '../src/node/commands/rerun.ts'
+import {
+  isRunAttemptReady,
+  isRunCreatedForDispatch,
+  validateWorkflowDispatchExit,
+} from '../src/node/commands/rerun.ts'
 
 describe('isRunCreatedForDispatch', () => {
   const dispatchedAt = new Date('2026-09-12T12:34:56.789Z')
@@ -21,5 +26,37 @@ describe('isRunCreatedForDispatch', () => {
         dispatchedAt,
       }),
     ).toBe(false)
+  })
+})
+
+describe('isRunAttemptReady', () => {
+  it('keeps waiting while GitHub still returns the completed previous attempt', () => {
+    expect(isRunAttemptReady({ runAttempt: 3, previousRunAttempt: 3 })).toBe(false)
+  })
+
+  it('accepts the incremented rerun attempt', () => {
+    expect(isRunAttemptReady({ runAttempt: 4, previousRunAttempt: 3 })).toBe(true)
+  })
+})
+
+describe('validateWorkflowDispatchExit', () => {
+  it('fails with gh stderr when workflow dispatch exits nonzero', () => {
+    const error = Effect.runSync(
+      Effect.flip(
+        validateWorkflowDispatchExit({
+          exitCode: 1,
+          stderr: 'could not find any workflows named CI',
+          workflow: 'CI',
+          repo: 'example-org/example-repo',
+          branch: 'main',
+        }),
+      ),
+    )
+
+    expect(error).toMatchObject({
+      _tag: 'ConfigError',
+      message: "Failed to trigger workflow 'CI' for example-org/example-repo on ref 'main'",
+      cause: 'could not find any workflows named CI',
+    })
   })
 })

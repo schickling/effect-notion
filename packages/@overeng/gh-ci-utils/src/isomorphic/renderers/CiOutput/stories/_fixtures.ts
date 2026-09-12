@@ -1,6 +1,4 @@
-/**
- * Test fixtures for CiOutput stories based on real dotfiles CI runs.
- */
+/** Synthetic CiOutput story fixtures with realistic CI shapes. */
 
 import type { ApiMeta } from '../../../lib/apiMeta.ts'
 import { computeSummary, directRunSelection } from '../../../lib/summary.ts'
@@ -31,7 +29,7 @@ const realisticMeta: ApiMeta = {
   rateLimitLimit: 5000,
 }
 
-let _id = 68716421100
+let _id = 10_000_000_000
 const nextId = () => _id++
 
 // =============================================================================
@@ -43,13 +41,13 @@ export const makeRun = (overrides: Partial<RunInfo> = {}): RunInfo => {
   return {
     id,
     name: 'CI',
-    runNumber: 1940 + (id % 100),
-    headBranch: 'schickling/2026-03-22-better-ci-runner',
+    runNumber: 100 + (id % 100),
+    headBranch: 'example/ci-update',
     status: 'completed',
     conclusion: 'success',
     event: 'push',
     workflowPath: '.github/workflows/ci.yml',
-    htmlUrl: `https://github.com/schickling/dotfiles/actions/runs/${id}`,
+    htmlUrl: `https://github.com/example-org/example-repo/actions/runs/${id}`,
     elapsedSeconds: 960,
     ...overrides,
   }
@@ -64,8 +62,8 @@ export const makeJob = (overrides: Partial<WorkflowJobVM> = {}): WorkflowJobVM =
     status: 'completed',
     conclusion: 'success',
     durationSeconds: 300,
-    runner: 'dev3',
-    jobUrl: `https://github.com/schickling/dotfiles/actions/runs/0/job/${id}`,
+    runner: 'linux-runner-a',
+    jobUrl: `https://github.com/example-org/example-repo/actions/runs/0/job/${id}`,
     ...(steps !== undefined ? { steps } : {}),
     failedStepName:
       overrides.failedStepName ?? steps?.find((s) => s.conclusion === 'failure')?.name ?? null,
@@ -88,39 +86,39 @@ export const makeSummary = ({
 }): Summary => computeSummary({ run, jobs, prHealth, selection: directRunSelection })
 
 export const makeJobError = (overrides: Partial<JobError> = {}): JobError => ({
-  jobName: 'flake-build',
+  jobName: 'workspace-build',
   stepName: 'Build flake outputs',
   errors: [
-    "error: hash mismatch in fixed-output derivation '/nix/store/abc-foo-pnpm-deps.drv':",
-    '         specified: sha256-Bmz3rCZlVPbo9LNQO0Kj7ePwnXBkkM0qoAedRcWYOP8=',
-    '            got:    sha256-D0hZ7lywB4yxAvZECPJFOoHR2vnO0S+wbtOj4HdhO7U=',
+    "error: hash mismatch in fixed-output derivation '/nix/store/00000000000000000000000000000000-example-package-deps.drv':",
+    '         specified: sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+    '            got:    sha256-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
   ],
   ...overrides,
 })
 
 export const prHealthConflicting: PrHealth = {
-  prNumber: 506,
+  prNumber: 42,
   mergeable: 'CONFLICTING',
   behindBy: 3,
   baseRefName: 'main',
 }
 
 export const prHealthBehind: PrHealth = {
-  prNumber: 506,
+  prNumber: 42,
   mergeable: 'MERGEABLE',
   behindBy: 7,
   baseRefName: 'main',
 }
 
 export const prHealthClean: PrHealth = {
-  prNumber: 506,
+  prNumber: 42,
   mergeable: 'MERGEABLE',
   behindBy: 0,
   baseRefName: 'main',
 }
 
 export const makeAnnotation = (overrides: Partial<AnnotationInfo> = {}): AnnotationInfo => ({
-  jobName: 'flake-build',
+  jobName: 'workspace-build',
   path: 'flake.nix',
   line: 1,
   message: 'Process completed with exit code 1',
@@ -129,147 +127,145 @@ export const makeAnnotation = (overrides: Partial<AnnotationInfo> = {}): Annotat
 })
 
 // =============================================================================
-// Real dotfiles CI: 12 jobs in typical start order
+// Synthetic CI: 12 jobs in a representative start order
 // =============================================================================
 
-const DOTFILES_JOBS_ALL_PASS: Partial<WorkflowJobVM>[] = [
-  { name: 'external-flakes-build', durationSeconds: 28, runner: 'dev3' },
-  { name: 'molty2-build', durationSeconds: 244, runner: 'dev4' },
-  { name: 'dev3-config-build', durationSeconds: 149, runner: 'dev3' },
-  { name: 'mbp2025-config-build', durationSeconds: 204, runner: 'mbp2021' },
-  { name: 'flake-build', durationSeconds: 317, runner: 'dev3' },
-  { name: 'test-molty-proxy', durationSeconds: 695, runner: 'dev3' },
-  { name: 'test-op-proxy', durationSeconds: 708, runner: 'dev3' },
-  { name: 'test-oi', durationSeconds: 682, runner: 'dev3' },
-  { name: 'test-factory', durationSeconds: 732, runner: 'dev3' },
-  { name: 'test-gh-ci-exporter', durationSeconds: 719, runner: 'dev3' },
-  { name: 'lint', durationSeconds: 954, runner: 'dev3' },
-  { name: 'test-otel-cli', durationSeconds: 979, runner: 'dev3' },
+const EXAMPLE_JOBS_ALL_PASS: Partial<WorkflowJobVM>[] = [
+  { name: 'dependencies-build', durationSeconds: 28, runner: 'linux-runner-a' },
+  { name: 'service-build', durationSeconds: 244, runner: 'linux-runner-b' },
+  { name: 'linux-config-build', durationSeconds: 149, runner: 'linux-runner-a' },
+  { name: 'macos-config-build', durationSeconds: 204, runner: 'macos-runner-a' },
+  { name: 'workspace-build', durationSeconds: 317, runner: 'linux-runner-a' },
+  { name: 'test-service', durationSeconds: 695, runner: 'linux-runner-a' },
+  { name: 'test-auth-helper', durationSeconds: 708, runner: 'linux-runner-a' },
+  { name: 'test-library', durationSeconds: 682, runner: 'linux-runner-a' },
+  { name: 'test-workflows', durationSeconds: 732, runner: 'linux-runner-a' },
+  { name: 'test-ci-exporter', durationSeconds: 719, runner: 'linux-runner-a' },
+  { name: 'lint', durationSeconds: 954, runner: 'linux-runner-a' },
+  { name: 'test-observability-cli', durationSeconds: 979, runner: 'linux-runner-a' },
 ]
 
 // =============================================================================
 // Pre-built Configs
 // =============================================================================
 
-export const allPassingJobs: readonly WorkflowJobVM[] = DOTFILES_JOBS_ALL_PASS.map((j) =>
-  makeJob(j),
-)
+export const allPassingJobs: readonly WorkflowJobVM[] = EXAMPLE_JOBS_ALL_PASS.map((j) => makeJob(j))
 
 export const nixHashMismatchJobs: readonly WorkflowJobVM[] = [
-  makeJob({ name: 'external-flakes-build', durationSeconds: 28, runner: 'dev3' }),
+  makeJob({ name: 'dependencies-build', durationSeconds: 28, runner: 'linux-runner-a' }),
   makeJob({
-    name: 'molty2-build',
+    name: 'service-build',
     conclusion: 'failure',
     durationSeconds: 102,
-    runner: 'dev4',
+    runner: 'linux-runner-b',
     steps: [{ name: 'Build NixOS configuration', status: 'completed', conclusion: 'failure' }],
   }),
   makeJob({
-    name: 'dev3-config-build',
+    name: 'linux-config-build',
     conclusion: 'failure',
     durationSeconds: 163,
-    runner: 'dev3',
+    runner: 'linux-runner-a',
     steps: [{ name: 'Build NixOS configuration', status: 'completed', conclusion: 'failure' }],
   }),
   makeJob({
-    name: 'mbp2025-config-build',
+    name: 'macos-config-build',
     conclusion: 'failure',
     durationSeconds: 106,
-    runner: 'mbp2021',
+    runner: 'macos-runner-a',
     steps: [{ name: 'Build nix-darwin configuration', status: 'completed', conclusion: 'failure' }],
   }),
   makeJob({
-    name: 'flake-build',
+    name: 'workspace-build',
     conclusion: 'failure',
     durationSeconds: 112,
-    runner: 'dev3',
+    runner: 'linux-runner-a',
     steps: [{ name: 'Build flake outputs', status: 'completed', conclusion: 'failure' }],
   }),
-  makeJob({ name: 'test-molty-proxy', durationSeconds: 695, runner: 'dev3' }),
-  makeJob({ name: 'test-op-proxy', durationSeconds: 708, runner: 'dev3' }),
-  makeJob({ name: 'test-oi', durationSeconds: 682, runner: 'dev3' }),
-  makeJob({ name: 'test-factory', durationSeconds: 732, runner: 'dev3' }),
-  makeJob({ name: 'test-gh-ci-exporter', durationSeconds: 719, runner: 'dev3' }),
-  makeJob({ name: 'lint', durationSeconds: 954, runner: 'dev3' }),
-  makeJob({ name: 'test-otel-cli', durationSeconds: 979, runner: 'dev3' }),
+  makeJob({ name: 'test-service', durationSeconds: 695, runner: 'linux-runner-a' }),
+  makeJob({ name: 'test-auth-helper', durationSeconds: 708, runner: 'linux-runner-a' }),
+  makeJob({ name: 'test-library', durationSeconds: 682, runner: 'linux-runner-a' }),
+  makeJob({ name: 'test-workflows', durationSeconds: 732, runner: 'linux-runner-a' }),
+  makeJob({ name: 'test-ci-exporter', durationSeconds: 719, runner: 'linux-runner-a' }),
+  makeJob({ name: 'lint', durationSeconds: 954, runner: 'linux-runner-a' }),
+  makeJob({ name: 'test-observability-cli', durationSeconds: 979, runner: 'linux-runner-a' }),
 ]
 
 export const nixHashMismatchErrors: readonly JobError[] = [
   makeJobError({
-    jobName: 'molty2-build',
+    jobName: 'service-build',
     stepName: 'Build NixOS configuration',
     errors: [
-      "error: hash mismatch in fixed-output derivation '/nix/store/86rvglikpzgrw7aad3x8i8ck26cdz5gj-op-proxy-pnpm-deps-47g6kspc-v3-0.0.0.drv':",
-      '         specified: sha256-Bmz3rCZlVPbo9LNQO0Kj7ePwnXBkkM0qoAedRcWYOP8=',
-      '            got:    sha256-D0hZ7lywB4yxAvZECPJFOoHR2vnO0S+wbtOj4HdhO7U=',
+      "error: hash mismatch in fixed-output derivation '/nix/store/11111111111111111111111111111111-example-service-deps.drv':",
+      '         specified: sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+      '            got:    sha256-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
       '(12 downstream build failures omitted)',
     ],
   }),
   makeJobError({
-    jobName: 'dev3-config-build',
+    jobName: 'linux-config-build',
     stepName: 'Build NixOS configuration',
     errors: [
-      "error: hash mismatch in fixed-output derivation '/nix/store/x9vqrn6ph60f40jc322sjab9i4s05bas-agent-exporter-pnpm-deps.drv':",
-      '         specified: sha256-MJXkpclNpd/v8URmWc9lDbzP8fAFuj+xzlyGnpciZfU=',
-      '            got:    sha256-G3BjWmdqH4K2UsHPeNQFUPA9meQL3xi66Hwi0jdEDR0=',
+      "error: hash mismatch in fixed-output derivation '/nix/store/22222222222222222222222222222222-example-exporter-deps.drv':",
+      '         specified: sha256-CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=',
+      '            got:    sha256-DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD=',
       '(8 downstream build failures omitted)',
     ],
   }),
   makeJobError({
-    jobName: 'mbp2025-config-build',
+    jobName: 'macos-config-build',
     stepName: 'Build nix-darwin configuration',
     errors: [
-      "error: hash mismatch in fixed-output derivation '/nix/store/qihzy4zw146vrkp33lr47xbamyk5x9g8-discord-agent-pnpm-deps.drv':",
-      '         specified: sha256-Z/P87R6hco6HZXWoQPHyw0Cl9CP5AgtH6y/oXLX2Wvg=',
-      '            got:    sha256-ClsQzg6Nr8EU5jlSrEsOSzqOYMpBMGPldba+jmjtL2o=',
+      "error: hash mismatch in fixed-output derivation '/nix/store/33333333333333333333333333333333-example-agent-deps.drv':",
+      '         specified: sha256-EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE=',
+      '            got:    sha256-FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF=',
       '(5 downstream build failures omitted)',
     ],
   }),
   makeJobError({
-    jobName: 'flake-build',
+    jobName: 'workspace-build',
     stepName: 'Build flake outputs',
     errors: [
-      "error: hash mismatch in fixed-output derivation '/nix/store/sc35mxna4l3i6grinhsf21bs1v91h4s9-op-proxy-pnpm-deps.drv':",
-      '         specified: sha256-GuH/VFisQ1udB9qE4PcLjMYVQcyyaUYIjMPNeYdXchA=',
-      '            got:    sha256-XlwsWSwwS48KO7RGCZWeoygtS3LAnHzgYvrAy+DDyuM=',
+      "error: hash mismatch in fixed-output derivation '/nix/store/44444444444444444444444444444444-example-service-deps.drv':",
+      '         specified: sha256-GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG=',
+      '            got:    sha256-HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH=',
     ],
   }),
 ]
 
 export const nixHashMismatchAnnotations: readonly AnnotationInfo[] = [
   makeAnnotation({
-    jobName: 'molty2-build',
+    jobName: 'service-build',
     path: 'flake.nix',
     line: 127,
     message: 'Process completed with exit code 1',
   }),
   makeAnnotation({
-    jobName: 'dev3-config-build',
-    path: 'nixpkgs/nixos/dev3/configuration.nix',
+    jobName: 'linux-config-build',
+    path: 'infrastructure/linux/runner-a/configuration.nix',
     line: 47,
     message: 'Process completed with exit code 1',
   }),
 ]
 
 export const lintFailureJobs: readonly WorkflowJobVM[] = [
-  makeJob({ name: 'external-flakes-build', durationSeconds: 28, runner: 'dev3' }),
-  makeJob({ name: 'molty2-build', durationSeconds: 244, runner: 'dev4' }),
-  makeJob({ name: 'dev3-config-build', durationSeconds: 149, runner: 'dev3' }),
-  makeJob({ name: 'mbp2025-config-build', durationSeconds: 204, runner: 'mbp2021' }),
-  makeJob({ name: 'flake-build', durationSeconds: 317, runner: 'dev3' }),
-  makeJob({ name: 'test-molty-proxy', durationSeconds: 695, runner: 'dev3' }),
-  makeJob({ name: 'test-op-proxy', durationSeconds: 708, runner: 'dev3' }),
-  makeJob({ name: 'test-oi', durationSeconds: 682, runner: 'dev3' }),
-  makeJob({ name: 'test-factory', durationSeconds: 732, runner: 'dev3' }),
-  makeJob({ name: 'test-gh-ci-exporter', durationSeconds: 719, runner: 'dev3' }),
+  makeJob({ name: 'dependencies-build', durationSeconds: 28, runner: 'linux-runner-a' }),
+  makeJob({ name: 'service-build', durationSeconds: 244, runner: 'linux-runner-b' }),
+  makeJob({ name: 'linux-config-build', durationSeconds: 149, runner: 'linux-runner-a' }),
+  makeJob({ name: 'macos-config-build', durationSeconds: 204, runner: 'macos-runner-a' }),
+  makeJob({ name: 'workspace-build', durationSeconds: 317, runner: 'linux-runner-a' }),
+  makeJob({ name: 'test-service', durationSeconds: 695, runner: 'linux-runner-a' }),
+  makeJob({ name: 'test-auth-helper', durationSeconds: 708, runner: 'linux-runner-a' }),
+  makeJob({ name: 'test-library', durationSeconds: 682, runner: 'linux-runner-a' }),
+  makeJob({ name: 'test-workflows', durationSeconds: 732, runner: 'linux-runner-a' }),
+  makeJob({ name: 'test-ci-exporter', durationSeconds: 719, runner: 'linux-runner-a' }),
   makeJob({
     name: 'lint',
     conclusion: 'failure',
     durationSeconds: 954,
-    runner: 'dev3',
+    runner: 'linux-runner-a',
     steps: [{ name: 'Format + lint', status: 'completed', conclusion: 'failure' }],
   }),
-  makeJob({ name: 'test-otel-cli', durationSeconds: 979, runner: 'dev3' }),
+  makeJob({ name: 'test-observability-cli', durationSeconds: 979, runner: 'linux-runner-a' }),
 ]
 
 export const lintFailureErrors: readonly JobError[] = [
@@ -278,76 +274,76 @@ export const lintFailureErrors: readonly JobError[] = [
     stepName: 'Format + lint',
     errors: [
       'Checking formatting...',
-      'flakes/gh-ci-utils/src/commands/show.ts (0ms)',
+      'packages/example-cli/src/commands/status.ts (0ms)',
       'Format issues found in above 15 files.',
     ],
   }),
 ]
 
 export const inProgressJobs: readonly WorkflowJobVM[] = [
-  makeJob({ name: 'external-flakes-build', durationSeconds: 28, runner: 'dev3' }),
-  makeJob({ name: 'molty2-build', durationSeconds: 244, runner: 'dev4' }),
-  makeJob({ name: 'dev3-config-build', durationSeconds: 149, runner: 'dev3' }),
-  makeJob({ name: 'mbp2025-config-build', durationSeconds: 204, runner: 'mbp2021' }),
+  makeJob({ name: 'dependencies-build', durationSeconds: 28, runner: 'linux-runner-a' }),
+  makeJob({ name: 'service-build', durationSeconds: 244, runner: 'linux-runner-b' }),
+  makeJob({ name: 'linux-config-build', durationSeconds: 149, runner: 'linux-runner-a' }),
+  makeJob({ name: 'macos-config-build', durationSeconds: 204, runner: 'macos-runner-a' }),
   makeJob({
-    name: 'flake-build',
+    name: 'workspace-build',
     status: 'in_progress',
     conclusion: null,
     durationSeconds: 210,
-    runner: 'dev3',
+    runner: 'linux-runner-a',
   }),
   makeJob({
-    name: 'test-molty-proxy',
+    name: 'test-service',
     status: 'in_progress',
     conclusion: null,
     durationSeconds: 340,
-    runner: 'dev3',
+    runner: 'linux-runner-a',
   }),
   makeJob({
-    name: 'test-op-proxy',
+    name: 'test-auth-helper',
     status: 'in_progress',
     conclusion: null,
     durationSeconds: 335,
-    runner: 'dev3',
+    runner: 'linux-runner-a',
   }),
   makeJob({
-    name: 'test-oi',
+    name: 'test-library',
     status: 'in_progress',
     conclusion: null,
     durationSeconds: 320,
-    runner: 'dev3',
+    runner: 'linux-runner-a',
   }),
   makeJob({
-    name: 'test-factory',
+    name: 'test-workflows',
     status: 'in_progress',
     conclusion: null,
     durationSeconds: 310,
-    runner: 'dev3',
+    runner: 'linux-runner-a',
   }),
   makeJob({
-    name: 'test-gh-ci-exporter',
+    name: 'test-ci-exporter',
     status: 'in_progress',
     conclusion: null,
     durationSeconds: 315,
-    runner: 'dev3',
+    runner: 'linux-runner-a',
   }),
   makeJob({
     name: 'lint',
     status: 'in_progress',
     conclusion: null,
     durationSeconds: 180,
-    runner: 'dev3',
+    runner: 'linux-runner-a',
   }),
   makeJob({
-    name: 'test-otel-cli',
+    name: 'test-observability-cli',
     status: 'in_progress',
     conclusion: null,
     durationSeconds: 120,
-    runner: 'dev3',
+    runner: 'linux-runner-a',
   }),
 ]
 
-export const allQueuedJobs: readonly WorkflowJobVM[] = DOTFILES_JOBS_ALL_PASS.map((j) =>
+export const allQueuedJobs: readonly WorkflowJobVM[] = EXAMPLE_JOBS_ALL_PASS.map((j) =>
   makeJob({
     ...j,
     status: 'queued',
@@ -358,52 +354,52 @@ export const allQueuedJobs: readonly WorkflowJobVM[] = DOTFILES_JOBS_ALL_PASS.ma
 )
 
 export const cancelledJobs: readonly WorkflowJobVM[] = [
-  makeJob({ name: 'external-flakes-build', durationSeconds: 28, runner: 'dev3' }),
-  makeJob({ name: 'molty2-build', durationSeconds: 102, runner: 'dev4' }),
+  makeJob({ name: 'dependencies-build', durationSeconds: 28, runner: 'linux-runner-a' }),
+  makeJob({ name: 'service-build', durationSeconds: 102, runner: 'linux-runner-b' }),
   makeJob({
-    name: 'dev3-config-build',
+    name: 'linux-config-build',
     conclusion: 'cancelled',
     durationSeconds: 85,
-    runner: 'dev3',
+    runner: 'linux-runner-a',
   }),
   makeJob({
-    name: 'mbp2025-config-build',
+    name: 'macos-config-build',
     conclusion: 'cancelled',
     durationSeconds: 72,
-    runner: 'mbp2021',
+    runner: 'macos-runner-a',
   }),
   makeJob({
-    name: 'flake-build',
+    name: 'workspace-build',
     conclusion: 'cancelled',
     durationSeconds: 95,
-    runner: 'dev3',
+    runner: 'linux-runner-a',
   }),
   makeJob({
-    name: 'test-molty-proxy',
+    name: 'test-service',
     conclusion: 'cancelled',
     durationSeconds: 0,
     runner: '—',
   }),
   makeJob({
-    name: 'test-op-proxy',
+    name: 'test-auth-helper',
     conclusion: 'cancelled',
     durationSeconds: 0,
     runner: '—',
   }),
   makeJob({
-    name: 'test-oi',
+    name: 'test-library',
     conclusion: 'cancelled',
     durationSeconds: 0,
     runner: '—',
   }),
   makeJob({
-    name: 'test-factory',
+    name: 'test-workflows',
     conclusion: 'cancelled',
     durationSeconds: 0,
     runner: '—',
   }),
   makeJob({
-    name: 'test-gh-ci-exporter',
+    name: 'test-ci-exporter',
     conclusion: 'cancelled',
     durationSeconds: 0,
     runner: '—',
@@ -415,7 +411,7 @@ export const cancelledJobs: readonly WorkflowJobVM[] = [
     runner: '—',
   }),
   makeJob({
-    name: 'test-otel-cli',
+    name: 'test-observability-cli',
     conclusion: 'cancelled',
     durationSeconds: 0,
     runner: '—',
@@ -427,16 +423,16 @@ export const cancelledJobs: readonly WorkflowJobVM[] = [
 // =============================================================================
 
 const DEFAULT_RUN = makeRun({
-  id: 23601797547,
-  runNumber: 1940,
-  headBranch: 'schickling/2026-03-22-better-ci-runner',
+  id: 20_000_000_001,
+  runNumber: 100,
+  headBranch: 'example/ci-update',
   event: 'pull_request',
 })
 
 const IN_PROGRESS_RUN = makeRun({
-  id: 23601797547,
-  runNumber: 1940,
-  headBranch: 'schickling/2026-03-22-better-ci-runner',
+  id: 20_000_000_001,
+  runNumber: 100,
+  headBranch: 'example/ci-update',
   event: 'pull_request',
   status: 'in_progress',
   conclusion: null,
@@ -444,9 +440,9 @@ const IN_PROGRESS_RUN = makeRun({
 })
 
 const CANCELLED_RUN = makeRun({
-  id: 23601797547,
-  runNumber: 1940,
-  headBranch: 'schickling/2026-03-22-better-ci-runner',
+  id: 20_000_000_001,
+  runNumber: 100,
+  headBranch: 'example/ci-update',
   event: 'pull_request',
   status: 'completed',
   conclusion: 'cancelled',
@@ -454,9 +450,9 @@ const CANCELLED_RUN = makeRun({
 })
 
 const FAILURE_RUN = makeRun({
-  id: 23601797547,
-  runNumber: 1940,
-  headBranch: 'schickling/2026-03-22-better-ci-runner',
+  id: 20_000_000_001,
+  runNumber: 100,
+  headBranch: 'example/ci-update',
   event: 'pull_request',
   status: 'completed',
   conclusion: 'failure',
@@ -727,10 +723,10 @@ const buildTimeline = (opts: {
 }
 
 // =============================================================================
-// Dotfiles job names (canonical order)
+// Synthetic job names (canonical order)
 // =============================================================================
 
-const DOTFILES_JOB_NAMES = DOTFILES_JOBS_ALL_PASS.map((j) => j.name!)
+const EXAMPLE_JOB_NAMES = EXAMPLE_JOBS_ALL_PASS.map((j) => j.name!)
 
 // =============================================================================
 // AllPassing timeline (~38 beats)
@@ -739,158 +735,268 @@ const DOTFILES_JOB_NAMES = DOTFILES_JOBS_ALL_PASS.map((j) => j.name!)
 export const createAllPassingTimeline = (): TimelineStep[] => {
   const events: JobEvent[] = [
     // t=0: all 12 queued
-    ...DOTFILES_JOB_NAMES.map((name): JobEvent => ({ realTimeSeconds: 0, name, event: 'queued' })),
+    ...EXAMPLE_JOB_NAMES.map((name): JobEvent => ({ realTimeSeconds: 0, name, event: 'queued' })),
 
     // t=2: first wave runners assigned + start
-    { realTimeSeconds: 2, name: 'external-flakes-build', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'external-flakes-build', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'molty2-build', event: 'runner_assigned', runner: 'dev4' },
-    { realTimeSeconds: 2, name: 'molty2-build', event: 'in_progress', runner: 'dev4' },
-    { realTimeSeconds: 2, name: 'dev3-config-build', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'dev3-config-build', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 2,
+      name: 'dependencies-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'dependencies-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'service-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-b',
+    },
+    { realTimeSeconds: 2, name: 'service-build', event: 'in_progress', runner: 'linux-runner-b' },
+    {
+      realTimeSeconds: 2,
+      name: 'linux-config-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'linux-config-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=3: second wave
     {
       realTimeSeconds: 8,
-      name: 'mbp2025-config-build',
+      name: 'macos-config-build',
       event: 'runner_assigned',
-      runner: 'mbp2021',
+      runner: 'macos-runner-a',
     },
-    { realTimeSeconds: 8, name: 'mbp2025-config-build', event: 'in_progress', runner: 'mbp2021' },
-    { realTimeSeconds: 8, name: 'test-molty-proxy', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-molty-proxy', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-op-proxy', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-op-proxy', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 8,
+      name: 'macos-config-build',
+      event: 'in_progress',
+      runner: 'macos-runner-a',
+    },
+    {
+      realTimeSeconds: 8,
+      name: 'test-service',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 8, name: 'test-service', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 8,
+      name: 'test-auth-helper',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 8,
+      name: 'test-auth-helper',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=14: third wave
-    { realTimeSeconds: 14, name: 'test-oi', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-oi', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-factory', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-factory', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-gh-ci-exporter', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-gh-ci-exporter', event: 'in_progress', runner: 'dev3' },
-
-    // t=28: external-flakes-build done
     {
-      realTimeSeconds: 28,
-      name: 'external-flakes-build',
-      event: 'completed',
-      conclusion: 'success',
-      runner: 'dev3',
+      realTimeSeconds: 14,
+      name: 'test-library',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 14, name: 'test-library', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 14,
+      name: 'test-workflows',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 14, name: 'test-workflows', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 14,
+      name: 'test-ci-exporter',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 14,
+      name: 'test-ci-exporter',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
     },
 
-    // t=45: flake-build picks up freed runner
-    { realTimeSeconds: 45, name: 'flake-build', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 45, name: 'flake-build', event: 'in_progress', runner: 'dev3' },
-
-    // t=102: molty2-build done
+    // t=28: dependencies-build done
     {
-      realTimeSeconds: 102,
-      name: 'molty2-build',
+      realTimeSeconds: 28,
+      name: 'dependencies-build',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev4',
+      runner: 'linux-runner-a',
+    },
+
+    // t=45: workspace-build picks up freed runner
+    {
+      realTimeSeconds: 45,
+      name: 'workspace-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 45,
+      name: 'workspace-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+
+    // t=102: service-build done
+    {
+      realTimeSeconds: 102,
+      name: 'service-build',
+      event: 'completed',
+      conclusion: 'success',
+      runner: 'linux-runner-b',
     },
 
     // t=120: lint starts on freed runner
-    { realTimeSeconds: 120, name: 'lint', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 120, name: 'lint', event: 'in_progress', runner: 'dev3' },
+    { realTimeSeconds: 120, name: 'lint', event: 'runner_assigned', runner: 'linux-runner-a' },
+    { realTimeSeconds: 120, name: 'lint', event: 'in_progress', runner: 'linux-runner-a' },
 
-    // t=149: dev3-config done
+    // t=149: linux-config-build done
     {
       realTimeSeconds: 149,
-      name: 'dev3-config-build',
+      name: 'linux-config-build',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=180: test-otel-cli starts
-    { realTimeSeconds: 180, name: 'test-otel-cli', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 180, name: 'test-otel-cli', event: 'in_progress', runner: 'dev3' },
+    // t=180: test-observability-cli starts
+    {
+      realTimeSeconds: 180,
+      name: 'test-observability-cli',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 180,
+      name: 'test-observability-cli',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
-    // t=204: mbp2025 done
+    // t=204: macos-config-build done
     {
       realTimeSeconds: 204,
-      name: 'mbp2025-config-build',
+      name: 'macos-config-build',
       event: 'completed',
       conclusion: 'success',
-      runner: 'mbp2021',
+      runner: 'macos-runner-a',
     },
 
-    // t=317: flake-build done
+    // t=317: workspace-build done
     {
       realTimeSeconds: 317,
-      name: 'flake-build',
+      name: 'workspace-build',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
     // t=450: poll tick (jobs still running, duration updates)
-    { realTimeSeconds: 450, name: 'test-oi', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 450, name: 'test-molty-proxy', event: 'in_progress', runner: 'dev3' },
+    { realTimeSeconds: 450, name: 'test-library', event: 'in_progress', runner: 'linux-runner-a' },
+    { realTimeSeconds: 450, name: 'test-service', event: 'in_progress', runner: 'linux-runner-a' },
 
     // t=550: poll tick
-    { realTimeSeconds: 550, name: 'test-op-proxy', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 550, name: 'lint', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 550,
+      name: 'test-auth-helper',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 550, name: 'lint', event: 'in_progress', runner: 'linux-runner-a' },
 
     // t=630: poll tick
-    { realTimeSeconds: 630, name: 'test-factory', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 630, name: 'test-gh-ci-exporter', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 630,
+      name: 'test-workflows',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 630,
+      name: 'test-ci-exporter',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
-    // t=682: test-oi done
+    // t=682: test-library done
     {
       realTimeSeconds: 682,
-      name: 'test-oi',
+      name: 'test-library',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=695: test-molty-proxy done
+    // t=695: test-service done
     {
       realTimeSeconds: 695,
-      name: 'test-molty-proxy',
+      name: 'test-service',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=708: test-op-proxy done
+    // t=708: test-auth-helper done
     {
       realTimeSeconds: 708,
-      name: 'test-op-proxy',
+      name: 'test-auth-helper',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=719: test-gh-ci-exporter done
+    // t=719: test-ci-exporter done
     {
       realTimeSeconds: 719,
-      name: 'test-gh-ci-exporter',
+      name: 'test-ci-exporter',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=732: test-factory done
+    // t=732: test-workflows done
     {
       realTimeSeconds: 732,
-      name: 'test-factory',
+      name: 'test-workflows',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
     // t=800: poll tick (lint + otel still going)
-    { realTimeSeconds: 800, name: 'lint', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 800, name: 'test-otel-cli', event: 'in_progress', runner: 'dev3' },
+    { realTimeSeconds: 800, name: 'lint', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 800,
+      name: 'test-observability-cli',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=900: poll tick
-    { realTimeSeconds: 900, name: 'lint', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 900, name: 'test-otel-cli', event: 'in_progress', runner: 'dev3' },
+    { realTimeSeconds: 900, name: 'lint', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 900,
+      name: 'test-observability-cli',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=954: lint done
     {
@@ -898,22 +1004,22 @@ export const createAllPassingTimeline = (): TimelineStep[] => {
       name: 'lint',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=979: test-otel-cli done -> RUN COMPLETE
+    // t=979: test-observability-cli done -> RUN COMPLETE
     {
       realTimeSeconds: 979,
-      name: 'test-otel-cli',
+      name: 'test-observability-cli',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
   ]
 
   return buildTimeline({
     events,
-    allJobNames: DOTFILES_JOB_NAMES,
+    allJobNames: EXAMPLE_JOB_NAMES,
     run: IN_PROGRESS_RUN,
     finalRun: DEFAULT_RUN,
   })
@@ -925,166 +1031,271 @@ export const createAllPassingTimeline = (): TimelineStep[] => {
 
 export const createNixHashMismatchTimeline = (): TimelineStep[] => {
   const errorsByJob = new Map<string, readonly JobError[]>([
-    ['molty2-build', [nixHashMismatchErrors[0]!]],
-    ['dev3-config-build', [nixHashMismatchErrors[1]!]],
-    ['mbp2025-config-build', [nixHashMismatchErrors[2]!]],
-    ['flake-build', [nixHashMismatchErrors[3]!]],
+    ['service-build', [nixHashMismatchErrors[0]!]],
+    ['linux-config-build', [nixHashMismatchErrors[1]!]],
+    ['macos-config-build', [nixHashMismatchErrors[2]!]],
+    ['workspace-build', [nixHashMismatchErrors[3]!]],
   ])
   const annotationsByJob = new Map<string, readonly AnnotationInfo[]>([
-    ['molty2-build', [nixHashMismatchAnnotations[0]!]],
-    ['dev3-config-build', [nixHashMismatchAnnotations[1]!]],
+    ['service-build', [nixHashMismatchAnnotations[0]!]],
+    ['linux-config-build', [nixHashMismatchAnnotations[1]!]],
   ])
 
   const events: JobEvent[] = [
     // t=0: all queued
-    ...DOTFILES_JOB_NAMES.map((name): JobEvent => ({ realTimeSeconds: 0, name, event: 'queued' })),
+    ...EXAMPLE_JOB_NAMES.map((name): JobEvent => ({ realTimeSeconds: 0, name, event: 'queued' })),
 
     // t=2: first wave starts
-    { realTimeSeconds: 2, name: 'external-flakes-build', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'external-flakes-build', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'molty2-build', event: 'runner_assigned', runner: 'dev4' },
-    { realTimeSeconds: 2, name: 'molty2-build', event: 'in_progress', runner: 'dev4' },
-    { realTimeSeconds: 2, name: 'dev3-config-build', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'dev3-config-build', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 2,
+      name: 'dependencies-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'dependencies-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'service-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-b',
+    },
+    { realTimeSeconds: 2, name: 'service-build', event: 'in_progress', runner: 'linux-runner-b' },
+    {
+      realTimeSeconds: 2,
+      name: 'linux-config-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'linux-config-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=8: second wave
     {
       realTimeSeconds: 8,
-      name: 'mbp2025-config-build',
+      name: 'macos-config-build',
       event: 'runner_assigned',
-      runner: 'mbp2021',
+      runner: 'macos-runner-a',
     },
-    { realTimeSeconds: 8, name: 'mbp2025-config-build', event: 'in_progress', runner: 'mbp2021' },
-    { realTimeSeconds: 8, name: 'test-molty-proxy', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-molty-proxy', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-op-proxy', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-op-proxy', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 8,
+      name: 'macos-config-build',
+      event: 'in_progress',
+      runner: 'macos-runner-a',
+    },
+    {
+      realTimeSeconds: 8,
+      name: 'test-service',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 8, name: 'test-service', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 8,
+      name: 'test-auth-helper',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 8,
+      name: 'test-auth-helper',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=14: third wave
-    { realTimeSeconds: 14, name: 'test-oi', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-oi', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-factory', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-factory', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-gh-ci-exporter', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-gh-ci-exporter', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 14,
+      name: 'test-library',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 14, name: 'test-library', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 14,
+      name: 'test-workflows',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 14, name: 'test-workflows', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 14,
+      name: 'test-ci-exporter',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 14,
+      name: 'test-ci-exporter',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
-    // t=28: external-flakes-build done
+    // t=28: dependencies-build done
     {
       realTimeSeconds: 28,
-      name: 'external-flakes-build',
+      name: 'dependencies-build',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=36: molty2-build FAILS (hash mismatch)
+    // t=36: service-build FAILS (hash mismatch)
     {
       realTimeSeconds: 36,
-      name: 'molty2-build',
+      name: 'service-build',
       event: 'completed',
       conclusion: 'failure',
-      runner: 'dev4',
+      runner: 'linux-runner-b',
       steps: [{ name: 'Build NixOS configuration', status: 'completed', conclusion: 'failure' }],
     },
 
-    // t=43: dev3-config-build FAILS (cascade)
+    // t=43: linux-config-build FAILS (cascade)
     {
       realTimeSeconds: 43,
-      name: 'dev3-config-build',
+      name: 'linux-config-build',
       event: 'completed',
       conclusion: 'failure',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
       steps: [{ name: 'Build NixOS configuration', status: 'completed', conclusion: 'failure' }],
     },
 
-    // t=46: mbp2025 FAILS (cascade)
+    // t=46: macos-config-build FAILS (cascade)
     {
       realTimeSeconds: 50,
-      name: 'mbp2025-config-build',
+      name: 'macos-config-build',
       event: 'completed',
       conclusion: 'failure',
-      runner: 'mbp2021',
+      runner: 'macos-runner-a',
       steps: [
         { name: 'Build nix-darwin configuration', status: 'completed', conclusion: 'failure' },
       ],
     },
 
-    // t=52: flake-build starts and immediately fails
-    { realTimeSeconds: 52, name: 'flake-build', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 52, name: 'flake-build', event: 'in_progress', runner: 'dev3' },
+    // t=52: workspace-build starts and immediately fails
+    {
+      realTimeSeconds: 52,
+      name: 'workspace-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 52,
+      name: 'workspace-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
     {
       realTimeSeconds: 58,
-      name: 'flake-build',
+      name: 'workspace-build',
       event: 'completed',
       conclusion: 'failure',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
       steps: [{ name: 'Build flake outputs', status: 'completed', conclusion: 'failure' }],
     },
 
     // t=70: lint starts on freed runner
-    { realTimeSeconds: 70, name: 'lint', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 70, name: 'lint', event: 'in_progress', runner: 'dev3' },
+    { realTimeSeconds: 70, name: 'lint', event: 'runner_assigned', runner: 'linux-runner-a' },
+    { realTimeSeconds: 70, name: 'lint', event: 'in_progress', runner: 'linux-runner-a' },
 
-    // t=80: test-otel-cli starts
-    { realTimeSeconds: 80, name: 'test-otel-cli', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 80, name: 'test-otel-cli', event: 'in_progress', runner: 'dev3' },
+    // t=80: test-observability-cli starts
+    {
+      realTimeSeconds: 80,
+      name: 'test-observability-cli',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 80,
+      name: 'test-observability-cli',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // Poll ticks while tests run
-    { realTimeSeconds: 200, name: 'test-oi', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 300, name: 'test-molty-proxy', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 400, name: 'test-op-proxy', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 500, name: 'test-factory', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 500, name: 'test-gh-ci-exporter', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 600, name: 'lint', event: 'in_progress', runner: 'dev3' },
+    { realTimeSeconds: 200, name: 'test-library', event: 'in_progress', runner: 'linux-runner-a' },
+    { realTimeSeconds: 300, name: 'test-service', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 400,
+      name: 'test-auth-helper',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 500,
+      name: 'test-workflows',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 500,
+      name: 'test-ci-exporter',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 600, name: 'lint', event: 'in_progress', runner: 'linux-runner-a' },
 
-    // t=682: test-oi done
+    // t=682: test-library done
     {
       realTimeSeconds: 682,
-      name: 'test-oi',
+      name: 'test-library',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=695: test-molty-proxy done
+    // t=695: test-service done
     {
       realTimeSeconds: 695,
-      name: 'test-molty-proxy',
+      name: 'test-service',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=708: test-op-proxy done
+    // t=708: test-auth-helper done
     {
       realTimeSeconds: 708,
-      name: 'test-op-proxy',
+      name: 'test-auth-helper',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=719: test-gh-ci-exporter done
+    // t=719: test-ci-exporter done
     {
       realTimeSeconds: 719,
-      name: 'test-gh-ci-exporter',
+      name: 'test-ci-exporter',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=732: test-factory done
+    // t=732: test-workflows done
     {
       realTimeSeconds: 732,
-      name: 'test-factory',
+      name: 'test-workflows',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
     // t=800: poll tick
-    { realTimeSeconds: 800, name: 'lint', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 800, name: 'test-otel-cli', event: 'in_progress', runner: 'dev3' },
+    { realTimeSeconds: 800, name: 'lint', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 800,
+      name: 'test-observability-cli',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=954: lint done
     {
@@ -1092,22 +1303,22 @@ export const createNixHashMismatchTimeline = (): TimelineStep[] => {
       name: 'lint',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=979: test-otel-cli done -> COMPLETE (with failures)
+    // t=979: test-observability-cli done -> COMPLETE (with failures)
     {
       realTimeSeconds: 979,
-      name: 'test-otel-cli',
+      name: 'test-observability-cli',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
   ]
 
   return buildTimeline({
     events,
-    allJobNames: DOTFILES_JOB_NAMES,
+    allJobNames: EXAMPLE_JOB_NAMES,
     run: IN_PROGRESS_RUN,
     finalRun: FAILURE_RUN,
     errorsByJob,
@@ -1124,154 +1335,264 @@ export const createLintFailureTimeline = (): TimelineStep[] => {
 
   const events: JobEvent[] = [
     // t=0: all queued
-    ...DOTFILES_JOB_NAMES.map((name): JobEvent => ({ realTimeSeconds: 0, name, event: 'queued' })),
+    ...EXAMPLE_JOB_NAMES.map((name): JobEvent => ({ realTimeSeconds: 0, name, event: 'queued' })),
 
     // t=2: first wave
-    { realTimeSeconds: 2, name: 'external-flakes-build', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'external-flakes-build', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'molty2-build', event: 'runner_assigned', runner: 'dev4' },
-    { realTimeSeconds: 2, name: 'molty2-build', event: 'in_progress', runner: 'dev4' },
-    { realTimeSeconds: 2, name: 'dev3-config-build', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'dev3-config-build', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 2,
+      name: 'dependencies-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'dependencies-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'service-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-b',
+    },
+    { realTimeSeconds: 2, name: 'service-build', event: 'in_progress', runner: 'linux-runner-b' },
+    {
+      realTimeSeconds: 2,
+      name: 'linux-config-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'linux-config-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=8: second wave
     {
       realTimeSeconds: 8,
-      name: 'mbp2025-config-build',
+      name: 'macos-config-build',
       event: 'runner_assigned',
-      runner: 'mbp2021',
+      runner: 'macos-runner-a',
     },
-    { realTimeSeconds: 8, name: 'mbp2025-config-build', event: 'in_progress', runner: 'mbp2021' },
-    { realTimeSeconds: 8, name: 'test-molty-proxy', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-molty-proxy', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-op-proxy', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-op-proxy', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 8,
+      name: 'macos-config-build',
+      event: 'in_progress',
+      runner: 'macos-runner-a',
+    },
+    {
+      realTimeSeconds: 8,
+      name: 'test-service',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 8, name: 'test-service', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 8,
+      name: 'test-auth-helper',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 8,
+      name: 'test-auth-helper',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=14: third wave
-    { realTimeSeconds: 14, name: 'test-oi', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-oi', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-factory', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-factory', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-gh-ci-exporter', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-gh-ci-exporter', event: 'in_progress', runner: 'dev3' },
-
-    // t=28: external-flakes-build done
     {
-      realTimeSeconds: 28,
-      name: 'external-flakes-build',
-      event: 'completed',
-      conclusion: 'success',
-      runner: 'dev3',
+      realTimeSeconds: 14,
+      name: 'test-library',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 14, name: 'test-library', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 14,
+      name: 'test-workflows',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 14, name: 'test-workflows', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 14,
+      name: 'test-ci-exporter',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 14,
+      name: 'test-ci-exporter',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
     },
 
-    // t=45: flake-build starts
-    { realTimeSeconds: 45, name: 'flake-build', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 45, name: 'flake-build', event: 'in_progress', runner: 'dev3' },
-
-    // t=102: molty2-build done
+    // t=28: dependencies-build done
     {
-      realTimeSeconds: 102,
-      name: 'molty2-build',
+      realTimeSeconds: 28,
+      name: 'dependencies-build',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev4',
+      runner: 'linux-runner-a',
+    },
+
+    // t=45: workspace-build starts
+    {
+      realTimeSeconds: 45,
+      name: 'workspace-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 45,
+      name: 'workspace-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+
+    // t=102: service-build done
+    {
+      realTimeSeconds: 102,
+      name: 'service-build',
+      event: 'completed',
+      conclusion: 'success',
+      runner: 'linux-runner-b',
     },
 
     // t=120: lint starts
-    { realTimeSeconds: 120, name: 'lint', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 120, name: 'lint', event: 'in_progress', runner: 'dev3' },
+    { realTimeSeconds: 120, name: 'lint', event: 'runner_assigned', runner: 'linux-runner-a' },
+    { realTimeSeconds: 120, name: 'lint', event: 'in_progress', runner: 'linux-runner-a' },
 
-    // t=149: dev3-config done
+    // t=149: linux-config-build done
     {
       realTimeSeconds: 149,
-      name: 'dev3-config-build',
+      name: 'linux-config-build',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=180: test-otel-cli starts
-    { realTimeSeconds: 180, name: 'test-otel-cli', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 180, name: 'test-otel-cli', event: 'in_progress', runner: 'dev3' },
+    // t=180: test-observability-cli starts
+    {
+      realTimeSeconds: 180,
+      name: 'test-observability-cli',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 180,
+      name: 'test-observability-cli',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
-    // t=204: mbp2025 done
+    // t=204: macos-config-build done
     {
       realTimeSeconds: 204,
-      name: 'mbp2025-config-build',
+      name: 'macos-config-build',
       event: 'completed',
       conclusion: 'success',
-      runner: 'mbp2021',
+      runner: 'macos-runner-a',
     },
 
-    // t=317: flake-build done
+    // t=317: workspace-build done
     {
       realTimeSeconds: 317,
-      name: 'flake-build',
+      name: 'workspace-build',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
     // Poll ticks
-    { realTimeSeconds: 450, name: 'test-oi', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 450, name: 'test-molty-proxy', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 550, name: 'test-op-proxy', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 550, name: 'lint', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 630, name: 'test-factory', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 630, name: 'test-gh-ci-exporter', event: 'in_progress', runner: 'dev3' },
+    { realTimeSeconds: 450, name: 'test-library', event: 'in_progress', runner: 'linux-runner-a' },
+    { realTimeSeconds: 450, name: 'test-service', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 550,
+      name: 'test-auth-helper',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 550, name: 'lint', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 630,
+      name: 'test-workflows',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 630,
+      name: 'test-ci-exporter',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
-    // t=682: test-oi done
+    // t=682: test-library done
     {
       realTimeSeconds: 682,
-      name: 'test-oi',
+      name: 'test-library',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=695: test-molty-proxy done
+    // t=695: test-service done
     {
       realTimeSeconds: 695,
-      name: 'test-molty-proxy',
+      name: 'test-service',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=708: test-op-proxy done
+    // t=708: test-auth-helper done
     {
       realTimeSeconds: 708,
-      name: 'test-op-proxy',
+      name: 'test-auth-helper',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=719: test-gh-ci-exporter done
+    // t=719: test-ci-exporter done
     {
       realTimeSeconds: 719,
-      name: 'test-gh-ci-exporter',
+      name: 'test-ci-exporter',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=732: test-factory done
+    // t=732: test-workflows done
     {
       realTimeSeconds: 732,
-      name: 'test-factory',
+      name: 'test-workflows',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
     // t=800: poll tick
-    { realTimeSeconds: 800, name: 'lint', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 800, name: 'test-otel-cli', event: 'in_progress', runner: 'dev3' },
+    { realTimeSeconds: 800, name: 'lint', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 800,
+      name: 'test-observability-cli',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=900: poll tick
-    { realTimeSeconds: 900, name: 'lint', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 900, name: 'test-otel-cli', event: 'in_progress', runner: 'dev3' },
+    { realTimeSeconds: 900, name: 'lint', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 900,
+      name: 'test-observability-cli',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=954: lint FAILS
     {
@@ -1279,23 +1600,23 @@ export const createLintFailureTimeline = (): TimelineStep[] => {
       name: 'lint',
       event: 'completed',
       conclusion: 'failure',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
       steps: [{ name: 'Format + lint', status: 'completed', conclusion: 'failure' }],
     },
 
-    // t=979: test-otel-cli done -> COMPLETE
+    // t=979: test-observability-cli done -> COMPLETE
     {
       realTimeSeconds: 979,
-      name: 'test-otel-cli',
+      name: 'test-observability-cli',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
   ]
 
   return buildTimeline({
     events,
-    allJobNames: DOTFILES_JOB_NAMES,
+    allJobNames: EXAMPLE_JOB_NAMES,
     run: IN_PROGRESS_RUN,
     finalRun: FAILURE_RUN,
     errorsByJob,
@@ -1309,101 +1630,211 @@ export const createLintFailureTimeline = (): TimelineStep[] => {
 export const createInProgressTimeline = (): TimelineStep[] => {
   const events: JobEvent[] = [
     // t=0: all queued
-    ...DOTFILES_JOB_NAMES.map((name): JobEvent => ({ realTimeSeconds: 0, name, event: 'queued' })),
+    ...EXAMPLE_JOB_NAMES.map((name): JobEvent => ({ realTimeSeconds: 0, name, event: 'queued' })),
 
     // t=2: first wave
-    { realTimeSeconds: 2, name: 'external-flakes-build', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'external-flakes-build', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'molty2-build', event: 'runner_assigned', runner: 'dev4' },
-    { realTimeSeconds: 2, name: 'molty2-build', event: 'in_progress', runner: 'dev4' },
-    { realTimeSeconds: 2, name: 'dev3-config-build', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'dev3-config-build', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 2,
+      name: 'dependencies-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'dependencies-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'service-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-b',
+    },
+    { realTimeSeconds: 2, name: 'service-build', event: 'in_progress', runner: 'linux-runner-b' },
+    {
+      realTimeSeconds: 2,
+      name: 'linux-config-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'linux-config-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=8: second wave
     {
       realTimeSeconds: 8,
-      name: 'mbp2025-config-build',
+      name: 'macos-config-build',
       event: 'runner_assigned',
-      runner: 'mbp2021',
+      runner: 'macos-runner-a',
     },
-    { realTimeSeconds: 8, name: 'mbp2025-config-build', event: 'in_progress', runner: 'mbp2021' },
-    { realTimeSeconds: 8, name: 'test-molty-proxy', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-molty-proxy', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-op-proxy', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-op-proxy', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 8,
+      name: 'macos-config-build',
+      event: 'in_progress',
+      runner: 'macos-runner-a',
+    },
+    {
+      realTimeSeconds: 8,
+      name: 'test-service',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 8, name: 'test-service', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 8,
+      name: 'test-auth-helper',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 8,
+      name: 'test-auth-helper',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=14: third wave
-    { realTimeSeconds: 14, name: 'test-oi', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-oi', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-factory', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-factory', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-gh-ci-exporter', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-gh-ci-exporter', event: 'in_progress', runner: 'dev3' },
-
-    // t=28: external-flakes-build done
     {
-      realTimeSeconds: 28,
-      name: 'external-flakes-build',
-      event: 'completed',
-      conclusion: 'success',
-      runner: 'dev3',
+      realTimeSeconds: 14,
+      name: 'test-library',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 14, name: 'test-library', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 14,
+      name: 'test-workflows',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 14, name: 'test-workflows', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 14,
+      name: 'test-ci-exporter',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 14,
+      name: 'test-ci-exporter',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
     },
 
-    // t=45: flake-build starts
-    { realTimeSeconds: 45, name: 'flake-build', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 45, name: 'flake-build', event: 'in_progress', runner: 'dev3' },
-
-    // t=102: molty2-build done
+    // t=28: dependencies-build done
     {
-      realTimeSeconds: 102,
-      name: 'molty2-build',
+      realTimeSeconds: 28,
+      name: 'dependencies-build',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev4',
+      runner: 'linux-runner-a',
+    },
+
+    // t=45: workspace-build starts
+    {
+      realTimeSeconds: 45,
+      name: 'workspace-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 45,
+      name: 'workspace-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+
+    // t=102: service-build done
+    {
+      realTimeSeconds: 102,
+      name: 'service-build',
+      event: 'completed',
+      conclusion: 'success',
+      runner: 'linux-runner-b',
     },
 
     // t=120: lint starts
-    { realTimeSeconds: 120, name: 'lint', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 120, name: 'lint', event: 'in_progress', runner: 'dev3' },
+    { realTimeSeconds: 120, name: 'lint', event: 'runner_assigned', runner: 'linux-runner-a' },
+    { realTimeSeconds: 120, name: 'lint', event: 'in_progress', runner: 'linux-runner-a' },
 
-    // t=149: dev3-config done
+    // t=149: linux-config-build done
     {
       realTimeSeconds: 149,
-      name: 'dev3-config-build',
+      name: 'linux-config-build',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
-    // t=180: test-otel-cli starts
-    { realTimeSeconds: 180, name: 'test-otel-cli', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 180, name: 'test-otel-cli', event: 'in_progress', runner: 'dev3' },
+    // t=180: test-observability-cli starts
+    {
+      realTimeSeconds: 180,
+      name: 'test-observability-cli',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 180,
+      name: 'test-observability-cli',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
-    // t=204: mbp2025 done
+    // t=204: macos-config-build done
     {
       realTimeSeconds: 204,
-      name: 'mbp2025-config-build',
+      name: 'macos-config-build',
       event: 'completed',
       conclusion: 'success',
-      runner: 'mbp2021',
+      runner: 'macos-runner-a',
     },
 
     // Poll ticks showing progress
-    { realTimeSeconds: 280, name: 'flake-build', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 280, name: 'test-molty-proxy', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 350, name: 'test-op-proxy', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 350, name: 'test-oi', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 280,
+      name: 'workspace-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 280, name: 'test-service', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 350,
+      name: 'test-auth-helper',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 350, name: 'test-library', event: 'in_progress', runner: 'linux-runner-a' },
 
     // t=380: snapshot freezes here (story stays at this state)
-    { realTimeSeconds: 380, name: 'test-factory', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 380, name: 'test-gh-ci-exporter', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 380, name: 'lint', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 380, name: 'test-otel-cli', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 380,
+      name: 'test-workflows',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 380,
+      name: 'test-ci-exporter',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 380, name: 'lint', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 380,
+      name: 'test-observability-cli',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
   ]
 
   return buildTimeline({
     events,
-    allJobNames: DOTFILES_JOB_NAMES,
+    allJobNames: EXAMPLE_JOB_NAMES,
     run: IN_PROGRESS_RUN,
   })
 }
@@ -1428,109 +1859,174 @@ export const createAllQueuedTimeline = (): TimelineStep[] => {
 export const createCancelledRunTimeline = (): TimelineStep[] => {
   const events: JobEvent[] = [
     // t=0: all queued
-    ...DOTFILES_JOB_NAMES.map((name): JobEvent => ({ realTimeSeconds: 0, name, event: 'queued' })),
+    ...EXAMPLE_JOB_NAMES.map((name): JobEvent => ({ realTimeSeconds: 0, name, event: 'queued' })),
 
     // t=2: first wave
-    { realTimeSeconds: 2, name: 'external-flakes-build', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'external-flakes-build', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'molty2-build', event: 'runner_assigned', runner: 'dev4' },
-    { realTimeSeconds: 2, name: 'molty2-build', event: 'in_progress', runner: 'dev4' },
-    { realTimeSeconds: 2, name: 'dev3-config-build', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 2, name: 'dev3-config-build', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 2,
+      name: 'dependencies-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'dependencies-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'service-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-b',
+    },
+    { realTimeSeconds: 2, name: 'service-build', event: 'in_progress', runner: 'linux-runner-b' },
+    {
+      realTimeSeconds: 2,
+      name: 'linux-config-build',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 2,
+      name: 'linux-config-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=8: second wave
     {
       realTimeSeconds: 8,
-      name: 'mbp2025-config-build',
+      name: 'macos-config-build',
       event: 'runner_assigned',
-      runner: 'mbp2021',
+      runner: 'macos-runner-a',
     },
-    { realTimeSeconds: 8, name: 'mbp2025-config-build', event: 'in_progress', runner: 'mbp2021' },
-    { realTimeSeconds: 8, name: 'test-molty-proxy', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-molty-proxy', event: 'in_progress', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-op-proxy', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 8, name: 'test-op-proxy', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 8,
+      name: 'macos-config-build',
+      event: 'in_progress',
+      runner: 'macos-runner-a',
+    },
+    {
+      realTimeSeconds: 8,
+      name: 'test-service',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 8, name: 'test-service', event: 'in_progress', runner: 'linux-runner-a' },
+    {
+      realTimeSeconds: 8,
+      name: 'test-auth-helper',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    {
+      realTimeSeconds: 8,
+      name: 'test-auth-helper',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=14: third wave (some start)
-    { realTimeSeconds: 14, name: 'test-oi', event: 'runner_assigned', runner: 'dev3' },
-    { realTimeSeconds: 14, name: 'test-oi', event: 'in_progress', runner: 'dev3' },
+    {
+      realTimeSeconds: 14,
+      name: 'test-library',
+      event: 'runner_assigned',
+      runner: 'linux-runner-a',
+    },
+    { realTimeSeconds: 14, name: 'test-library', event: 'in_progress', runner: 'linux-runner-a' },
 
-    // t=28: external-flakes-build done
+    // t=28: dependencies-build done
     {
       realTimeSeconds: 28,
-      name: 'external-flakes-build',
+      name: 'dependencies-build',
       event: 'completed',
       conclusion: 'success',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
     // t=50: poll tick
-    { realTimeSeconds: 50, name: 'molty2-build', event: 'in_progress', runner: 'dev4' },
-    { realTimeSeconds: 50, name: 'dev3-config-build', event: 'in_progress', runner: 'dev3' },
+    { realTimeSeconds: 50, name: 'service-build', event: 'in_progress', runner: 'linux-runner-b' },
+    {
+      realTimeSeconds: 50,
+      name: 'linux-config-build',
+      event: 'in_progress',
+      runner: 'linux-runner-a',
+    },
 
     // t=80: poll tick
-    { realTimeSeconds: 80, name: 'mbp2025-config-build', event: 'in_progress', runner: 'mbp2021' },
+    {
+      realTimeSeconds: 80,
+      name: 'macos-config-build',
+      event: 'in_progress',
+      runner: 'macos-runner-a',
+    },
 
     // t=95: user cancels -> running jobs transition to cancelled one by one
     {
       realTimeSeconds: 95,
-      name: 'molty2-build',
+      name: 'service-build',
       event: 'completed',
       conclusion: 'cancelled',
-      runner: 'dev4',
+      runner: 'linux-runner-b',
     },
     {
       realTimeSeconds: 95,
-      name: 'test-oi',
+      name: 'test-library',
       event: 'completed',
       conclusion: 'cancelled',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
     {
       realTimeSeconds: 97,
-      name: 'dev3-config-build',
+      name: 'linux-config-build',
       event: 'completed',
       conclusion: 'cancelled',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
     {
       realTimeSeconds: 97,
-      name: 'mbp2025-config-build',
+      name: 'macos-config-build',
       event: 'completed',
       conclusion: 'cancelled',
-      runner: 'mbp2021',
+      runner: 'macos-runner-a',
     },
     {
       realTimeSeconds: 97,
-      name: 'test-molty-proxy',
+      name: 'test-service',
       event: 'completed',
       conclusion: 'cancelled',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
 
     {
       realTimeSeconds: 100,
-      name: 'test-op-proxy',
+      name: 'test-auth-helper',
       event: 'completed',
       conclusion: 'cancelled',
-      runner: 'dev3',
+      runner: 'linux-runner-a',
     },
-    { realTimeSeconds: 100, name: 'flake-build', event: 'completed', conclusion: 'cancelled' },
-    { realTimeSeconds: 100, name: 'test-factory', event: 'completed', conclusion: 'cancelled' },
+    { realTimeSeconds: 100, name: 'workspace-build', event: 'completed', conclusion: 'cancelled' },
+    { realTimeSeconds: 100, name: 'test-workflows', event: 'completed', conclusion: 'cancelled' },
     {
       realTimeSeconds: 100,
-      name: 'test-gh-ci-exporter',
+      name: 'test-ci-exporter',
       event: 'completed',
       conclusion: 'cancelled',
     },
     { realTimeSeconds: 100, name: 'lint', event: 'completed', conclusion: 'cancelled' },
-    { realTimeSeconds: 100, name: 'test-otel-cli', event: 'completed', conclusion: 'cancelled' },
+    {
+      realTimeSeconds: 100,
+      name: 'test-observability-cli',
+      event: 'completed',
+      conclusion: 'cancelled',
+    },
   ]
 
   return buildTimeline({
     events,
-    allJobNames: DOTFILES_JOB_NAMES,
+    allJobNames: EXAMPLE_JOB_NAMES,
     run: IN_PROGRESS_RUN,
     finalRun: CANCELLED_RUN,
     compressionRatio: 1,

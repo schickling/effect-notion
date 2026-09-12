@@ -115,7 +115,11 @@ describe('resolveWorkflowDispatchTarget', () => {
   it('resolves an explicit cross-repo branch without a local repository', () => {
     expect(
       Effect.runSync(
-        resolveWorkflowDispatchTarget('example-org/example-repo@release/next', Option.none()),
+        resolveWorkflowDispatchTarget({
+          input: 'example-org/example-repo@release/next',
+          localRepo: Option.none(),
+          getDefaultBranch: () => Effect.die('default branch must not be requested'),
+        }),
       ),
     ).toEqual({
       repo: 'example-org/example-repo',
@@ -123,9 +127,33 @@ describe('resolveWorkflowDispatchTarget', () => {
     })
   })
 
+  it("resolves an explicit repository's default branch without a local repository", () => {
+    expect(
+      Effect.runSync(
+        resolveWorkflowDispatchTarget({
+          input: 'example-org/example-repo',
+          localRepo: Option.none(),
+          getDefaultBranch: (repo) => {
+            expect(repo).toBe('example-org/example-repo')
+            return Effect.succeed('trunk')
+          },
+        }),
+      ),
+    ).toEqual({
+      repo: 'example-org/example-repo',
+      branch: 'trunk',
+    })
+  })
+
   it('requires a local repository for a local branch target', () => {
     const error = Effect.runSync(
-      Effect.flip(resolveWorkflowDispatchTarget('@release/next', Option.none())),
+      Effect.flip(
+        resolveWorkflowDispatchTarget({
+          input: '@release/next',
+          localRepo: Option.none(),
+          getDefaultBranch: () => Effect.die('default branch must not be requested'),
+        }),
+      ),
     )
 
     expect(error).toMatchObject({

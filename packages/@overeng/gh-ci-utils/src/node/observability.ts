@@ -14,6 +14,7 @@ const GitHubSpanAttributes = Schema.Struct({
   jobId: OtelAttr.optional(OtelAttr.number({ key: 'jobId' })),
   restJobId: OtelAttr.optional(OtelAttr.number({ key: 'restJobId' })),
   internalJobId: OtelAttr.optional(OtelAttr.number({ key: 'internalJobId' })),
+  stepNumber: OtelAttr.optional(OtelAttr.number({ key: 'stepNumber' })),
   checkRunId: OtelAttr.optional(OtelAttr.number({ key: 'checkRunId' })),
   prNumber: OtelAttr.optional(OtelAttr.number({ key: 'prNumber' })),
 })

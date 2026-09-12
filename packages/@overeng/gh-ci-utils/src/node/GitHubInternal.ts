@@ -244,6 +244,105 @@ const makeGitHubInternal = Effect.gen(function* () {
       }),
     )
 
+  /** Fetch the redirected log payload for one completed workflow step. */
+  const getCompletedStepLog = ({
+    owner,
+    repo,
+    headSha,
+    restJobId,
+    stepNumber,
+    session,
+  }: {
+    owner: string
+    repo: string
+    headSha: string
+    restJobId: number
+    stepNumber: number
+    session: SessionData
+  }) =>
+    Effect.gen(function* () {
+      const path = `/${owner}/${repo}/commit/${headSha}/checks/${restJobId}/logs/${stepNumber}`
+      const requestUrl = `${GITHUB_BASE}${path}`
+      const response = yield* httpClient
+        .execute(
+          HttpClientRequest.get(requestUrl).pipe(
+            HttpClientRequest.setHeaders({
+              Accept: 'text/plain',
+              Cookie: buildCookieHeader(session),
+            }),
+          ),
+        )
+        .pipe(
+          Effect.mapError(
+            (cause) =>
+              new GitHubApiError({
+                message: `Completed step log request failed: GET ${path}`,
+                cause,
+              }),
+          ),
+          Effect.scoped,
+        )
+
+      if (response.status >= 400) {
+        return yield* new GitHubApiError({
+          message: `GitHub returned ${response.status} for completed step log: GET ${path}`,
+          cause: `HTTP ${response.status}`,
+        })
+      }
+
+      const logResponse =
+        response.status >= 300
+          ? yield* Effect.gen(function* () {
+              const location = response.headers['location']
+              if (location === undefined) {
+                return yield* new GitHubApiError({
+                  message: `GitHub returned ${response.status} without a location header: GET ${path}`,
+                  cause: `HTTP ${response.status}`,
+                })
+              }
+              const storageUrl = URL.parse(location, requestUrl)
+              if (storageUrl === null) {
+                return yield* new GitHubApiError({
+                  message: `GitHub returned an unusable location header '${location}': GET ${path}`,
+                  cause: 'invalid redirect',
+                })
+              }
+              return yield* httpClient.execute(HttpClientRequest.get(storageUrl.href)).pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new GitHubApiError({
+                      message: `Completed step log storage request failed: GET ${path}`,
+                      cause,
+                    }),
+                ),
+                Effect.scoped,
+              )
+            })
+          : response
+
+      if (logResponse.status >= 300) {
+        return yield* new GitHubApiError({
+          message: `Completed step log storage returned ${logResponse.status}: GET ${path}`,
+          cause: `HTTP ${logResponse.status}`,
+        })
+      }
+
+      return yield* logResponse.text.pipe(
+        Effect.mapError(
+          (cause) =>
+            new GitHubApiError({
+              message: `Failed to read completed step log: GET ${path}`,
+              cause,
+            }),
+        ),
+      )
+    }).pipe(
+      withGitHubSpan({
+        name: 'github-internal.getCompletedStepLog',
+        attributes: { owner, repo, restJobId, stepNumber },
+      }),
+    )
+
   /** Try to load session, returning None if unavailable or expired. */
   const getSession = loadSession.pipe(Effect.orElseSucceed(() => Option.none<SessionData>()))
 
@@ -262,6 +361,7 @@ const makeGitHubInternal = Effect.gen(function* () {
     resolveInternalJobId,
     getSteps,
     getBackscroll,
+    getCompletedStepLog,
     getSession,
     checkSession,
   } as const

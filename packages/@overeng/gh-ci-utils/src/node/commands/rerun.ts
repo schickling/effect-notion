@@ -1,4 +1,4 @@
-import { Effect, Option, Schema } from 'effect'
+import { Effect, Option, Schema, Stream } from 'effect'
 /**
  * gh-ci-utils rerun [target] [--failed] [-w] [--watch-mode first-failure|until-done] [--workflow]
  * gh-ci-utils run [target] [--workflow] [-w] [--watch-mode first-failure|until-done]
@@ -83,6 +83,9 @@ export const rerunCommand = Cli.Command.make('rerun', {
 
           const { runId, repo: resolvedRepo } = resolved
           const github = yield* GitHubClient
+          const previousRunAttempt = watch
+            ? (yield* github.getWorkflowRun({ repo: resolvedRepo, runId })).run_attempt
+            : undefined
 
           if (failed) {
             yield* github.rerunFailedJobs({ repo: resolvedRepo, runId })
@@ -112,6 +115,7 @@ export const rerunCommand = Cli.Command.make('rerun', {
               intervalSeconds: 5,
               timeoutSeconds: timeout,
               failFast: watchMode === 'first-failure',
+              ...(previousRunAttempt !== undefined ? { previousRunAttempt } : {}),
             })
           }
 
@@ -156,10 +160,15 @@ export const runCommand = Cli.Command.make('run', {
 
         const config = yield* resolveConfig({})
         const localRepo = Option.fromNullishOr(config.repos[0])
+        const github = yield* GitHubClient
 
         let target: { repo: string; branch: string }
         if (Option.isSome(targetInput)) {
-          target = yield* resolveWorkflowDispatchTarget(targetInput.value, localRepo)
+          target = yield* resolveWorkflowDispatchTarget({
+            input: targetInput.value,
+            localRepo,
+            getDefaultBranch: github.getDefaultBranch,
+          })
         } else {
           if (Option.isNone(localRepo)) {
             tui.dispatch({
@@ -178,18 +187,31 @@ export const runCommand = Cli.Command.make('run', {
         const { repo: targetRepo, branch } = target
 
         const dispatchedAt = new Date()
-        yield* ChildProcessSpawner.use((spawner) =>
-          spawner.string(
-            ChildProcess.make('gh', [
-              'workflow',
-              'run',
-              workflow,
-              '--repo',
-              targetRepo,
-              '--ref',
-              branch,
-            ]),
-          ),
+        const dispatch = yield* Effect.scoped(
+          Effect.gen(function* () {
+            const handle = yield* ChildProcessSpawner.use((spawner) =>
+              spawner.spawn(
+                ChildProcess.make('gh', [
+                  'workflow',
+                  'run',
+                  workflow,
+                  '--repo',
+                  targetRepo,
+                  '--ref',
+                  branch,
+                ]),
+              ),
+            )
+            const [, stderr, exitCode] = yield* Effect.all(
+              [
+                Stream.mkString(Stream.decodeText(handle.stdout)),
+                Stream.mkString(Stream.decodeText(handle.stderr)),
+                handle.exitCode,
+              ],
+              { concurrency: 3 },
+            )
+            return { exitCode, stderr: stderr.trim() }
+          }),
         ).pipe(
           Effect.mapError(
             (cause) =>
@@ -199,6 +221,12 @@ export const runCommand = Cli.Command.make('run', {
               }),
           ),
         )
+        yield* validateWorkflowDispatchExit({
+          ...dispatch,
+          workflow,
+          repo: targetRepo,
+          branch,
+        })
 
         const triggeredRun = yield* detectTriggeredRun({
           repo: targetRepo,
@@ -328,6 +356,38 @@ export const isRunCreatedForDispatch = ({
 }): boolean =>
   Math.floor(runCreatedAt.getTime() / 1000) >= Math.floor(dispatchedAt.getTime() / 1000)
 
+/** Fail a workflow dispatch immediately when the `gh` subprocess rejects it. */
+export const validateWorkflowDispatchExit = Effect.fn('validate-workflow-dispatch-exit')(
+  function* ({
+    exitCode,
+    stderr,
+    workflow,
+    repo,
+    branch,
+  }: {
+    exitCode: number
+    stderr: string
+    workflow: string
+    repo: string
+    branch: string
+  }) {
+    if (exitCode === 0) return
+    return yield* new ConfigError({
+      message: `Failed to trigger workflow '${workflow}' for ${repo} on ref '${branch}'`,
+      cause: stderr.length > 0 ? stderr : `gh exited with code ${exitCode}`,
+    })
+  },
+)
+
+/** Whether polling has reached the new attempt created by a rerun request. */
+export const isRunAttemptReady = ({
+  runAttempt,
+  previousRunAttempt,
+}: {
+  runAttempt: number
+  previousRunAttempt: number
+}): boolean => runAttempt > previousRunAttempt
+
 /** Detect a newly dispatched run without excluding GitHub's whole-second timestamps. */
 const detectTriggeredRun = ({
   repo,
@@ -367,6 +427,7 @@ const watchRun = ({
   intervalSeconds,
   timeoutSeconds,
   failFast,
+  previousRunAttempt,
 }: {
   tui: TuiHandle
   repo: string
@@ -374,6 +435,7 @@ const watchRun = ({
   intervalSeconds: number
   timeoutSeconds: number
   failFast: boolean
+  previousRunAttempt?: number
 }) =>
   Effect.gen(function* () {
     const github = yield* GitHubClient
@@ -382,47 +444,54 @@ const watchRun = ({
 
     while (true) {
       const run = yield* github.getWorkflowRun({ repo, runId })
-      const { jobs } = yield* github.listWorkflowJobs({ repo, runId })
-      const signature = encodeJson({
-        status: run.status,
-        conclusion: run.conclusion,
-        jobs: jobs.map((j) => ({ name: j.name, status: j.status, conclusion: j.conclusion })),
-      })
+      const attemptReady =
+        previousRunAttempt === undefined ||
+        isRunAttemptReady({ runAttempt: run.run_attempt, previousRunAttempt })
 
-      if (signature !== previousSignature) {
-        previousSignature = signature
-        tui.dispatch({
-          _tag: 'SetWatching',
-          runId,
-          repo,
+      if (attemptReady) {
+        const { jobs } = yield* github.listWorkflowJobs({ repo, runId })
+        const signature = encodeJson({
+          runAttempt: run.run_attempt,
           status: run.status,
           conclusion: run.conclusion,
-          jobs: jobs.map((j) => ({
-            name: j.name,
-            status: j.status,
-            conclusion: j.conclusion,
-            runner: j.runner_name ?? '',
-          })),
+          jobs: jobs.map((j) => ({ name: j.name, status: j.status, conclusion: j.conclusion })),
         })
-      }
 
-      const runFailed =
-        run.conclusion !== null && run.conclusion !== 'success' && run.conclusion !== 'skipped'
-      const hasFailed = jobs.some(
-        (j) => j.conclusion !== null && j.conclusion !== 'success' && j.conclusion !== 'skipped',
-      )
-
-      if (run.status === 'completed' || (failFast && hasFailed)) {
-        if (runFailed || hasFailed) {
+        if (signature !== previousSignature) {
+          previousSignature = signature
           tui.dispatch({
-            _tag: 'SetError',
-            error: 'Run failed',
-            message: `Workflow run ${runId} ${run.status === 'completed' ? 'completed' : 'has a failed job'} with conclusion '${run.conclusion}'`,
+            _tag: 'SetWatching',
+            runId,
+            repo,
+            status: run.status,
+            conclusion: run.conclusion,
+            jobs: jobs.map((j) => ({
+              name: j.name,
+              status: j.status,
+              conclusion: j.conclusion,
+              runner: j.runner_name ?? '',
+            })),
           })
-        } else {
-          tui.dispatch({ _tag: 'SetDone', message: `Run ${runId} completed successfully` })
         }
-        return
+
+        const runFailed =
+          run.conclusion !== null && run.conclusion !== 'success' && run.conclusion !== 'skipped'
+        const hasFailed = jobs.some(
+          (j) => j.conclusion !== null && j.conclusion !== 'success' && j.conclusion !== 'skipped',
+        )
+
+        if (run.status === 'completed' || (failFast && hasFailed)) {
+          if (runFailed || hasFailed) {
+            tui.dispatch({
+              _tag: 'SetError',
+              error: 'Run failed',
+              message: `Workflow run ${runId} ${run.status === 'completed' ? 'completed' : 'has a failed job'} with conclusion '${run.conclusion}'`,
+            })
+          } else {
+            tui.dispatch({ _tag: 'SetDone', message: `Run ${runId} completed successfully` })
+          }
+          return
+        }
       }
 
       const elapsed = (Date.now() - startTime) / 1000

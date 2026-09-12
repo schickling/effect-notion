@@ -47,6 +47,46 @@ export interface CollectedJobLog {
   readonly truncation: { totalLines: number; offset: number; pageSize: number } | null
 }
 
+const collectLogText = ({
+  logText,
+  jobName,
+  conclusion,
+  filters,
+}: {
+  logText: string
+  jobName: string
+  conclusion: string
+  filters: LogFilterOptions
+}): CollectedJobLog => {
+  const { lines, notice } = selectLogLines({
+    logText,
+    errorOnly: filters.errorOnly,
+    grep: Option.getOrUndefined(filters.grep),
+  })
+
+  const totalLines = lines.length
+  if (!filters.full && totalLines > filters.tail + filters.offset) {
+    const end = totalLines - filters.offset
+    const start = Math.max(0, end - filters.tail)
+    return {
+      jobName,
+      conclusion,
+      lines: lines.slice(start, end),
+      notice,
+      truncation: { totalLines, offset: filters.offset, pageSize: filters.tail },
+    }
+  }
+
+  return {
+    jobName,
+    conclusion,
+    lines:
+      filters.offset > 0 && !filters.full ? lines.slice(0, totalLines - filters.offset) : lines,
+    notice,
+    truncation: null,
+  }
+}
+
 const collectJobLog = ({
   github,
   repo,
@@ -84,40 +124,12 @@ const collectJobLog = ({
       }
     }
 
-    const logText = logResult.success
-
-    /** Apply filters: --error flag, --grep pattern, or raw lines */
-    const { lines, notice } = selectLogLines({
-      logText,
-      errorOnly: filters.errorOnly,
-      grep: Option.getOrUndefined(filters.grep),
-    })
-
-    /** Apply tail + offset pagination (skipped when --full) */
-    const totalLines = lines.length
-    if (!filters.full && totalLines > filters.tail + filters.offset) {
-      const end = totalLines - filters.offset
-      const start = Math.max(0, end - filters.tail)
-      const paginated = lines.slice(start, end)
-      return {
-        jobName: job.name,
-        conclusion: job.conclusion ?? job.status,
-        lines: paginated,
-        notice,
-        truncation: { totalLines, offset: filters.offset, pageSize: filters.tail },
-      }
-    }
-
-    /** No truncation needed (or --full) */
-    const finalLines =
-      filters.offset > 0 && !filters.full ? lines.slice(0, totalLines - filters.offset) : lines
-    return {
+    return collectLogText({
+      logText: logResult.success,
       jobName: job.name,
       conclusion: job.conclusion ?? job.status,
-      lines: finalLines,
-      notice,
-      truncation: null,
-    }
+      filters,
+    })
   })
 
 /** CLI subcommand to fetch and display workflow run logs */
@@ -281,20 +293,7 @@ export const logsCommand = Cli.Command.make('logs', {
                       }),
                     )
 
-                    if (internalId._tag === 'Failure') {
-                      if (j.status === 'completed') {
-                        const result = yield* collectJobLog({
-                          github,
-                          repo: resolvedRepo,
-                          job: j,
-                          filters: logFilters,
-                        })
-                        tui.dispatch({ _tag: 'SetLogs', ...result })
-                        displayedJobIds.add(j.id)
-                        anyStepMatched = true
-                      }
-                      continue
-                    }
+                    if (internalId._tag === 'Failure') continue
 
                     const steps = yield* internal.getSteps({
                       owner,
@@ -312,7 +311,7 @@ export const logsCommand = Cli.Command.make('logs', {
                     if (!matchingStep) continue
 
                     anyStepMatched = true
-                    if (matchingStep.status === 'in_progress') {
+                    if (matchingStep.status !== 'completed') {
                       const result = yield* internal.getBackscroll({
                         owner,
                         repo: repoName,
@@ -326,7 +325,7 @@ export const logsCommand = Cli.Command.make('logs', {
                       tui.dispatch({
                         _tag: 'SetLogs',
                         jobName: `${j.name} > ${matchingStep.name}`,
-                        conclusion: 'in_progress',
+                        conclusion: matchingStep.status,
                         lines: displayLines,
                         notice: null,
                         truncation:
@@ -335,20 +334,21 @@ export const logsCommand = Cli.Command.make('logs', {
                             : null,
                       })
                     } else {
-                      const logResult = yield* collectJobLog({
-                        github,
-                        repo: resolvedRepo,
-                        job: j,
-                        filters: logFilters,
+                      const logText = yield* internal.getCompletedStepLog({
+                        owner,
+                        repo: repoName,
+                        headSha: run.head_sha,
+                        restJobId: j.id,
+                        stepNumber: matchingStep.number,
+                        session,
                       })
-                      tui.dispatch({
-                        _tag: 'SetLogs',
+                      const result = collectLogText({
+                        logText,
                         jobName: `${j.name} > ${matchingStep.name}`,
                         conclusion: matchingStep.conclusion ?? matchingStep.status,
-                        lines: logResult.lines,
-                        notice: logResult.notice,
-                        truncation: logResult.truncation,
+                        filters: logFilters,
                       })
+                      tui.dispatch({ _tag: 'SetLogs', ...result })
                       displayedJobIds.add(j.id)
                     }
                   }

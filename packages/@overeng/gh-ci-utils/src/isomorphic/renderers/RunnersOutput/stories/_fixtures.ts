@@ -12,14 +12,14 @@ import type { ActiveJobInfo, HostResult, RunnersAction, RunnersState } from '../
 // =============================================================================
 
 const makeJob = (overrides: Partial<ActiveJobInfo> = {}): ActiveJobInfo => ({
-  runner: 'dev3-1be1cc5e',
-  scaleSet: 'mr-all',
+  runner: 'linux-host-a-1a2b3c4d',
+  scaleSet: 'example-workspace',
   durationSeconds: 120,
   ...overrides,
 })
 
 const makeHost = (overrides: Partial<HostResult> = {}): HostResult => ({
-  host: 'dev3',
+  host: 'linux-host-a',
   status: 'reachable',
   jobs: [],
   ...overrides,
@@ -50,23 +50,49 @@ export const allActiveState = (): RunnersState => ({
   _meta: defaultApiMeta,
   hosts: [
     makeHost({
-      host: 'dev3',
+      host: 'linux-host-a',
       jobs: [
-        makeJob({ runner: 'dev3-1be1cc5e', scaleSet: 'mr-all', durationSeconds: 245 }),
-        makeJob({ runner: 'dev3-a7f3e012', scaleSet: 'dotfiles', durationSeconds: 87 }),
-        makeJob({ runner: 'dev3-c4d92b8f', scaleSet: 'livestore', durationSeconds: 512 }),
+        makeJob({
+          runner: 'linux-host-a-1a2b3c4d',
+          scaleSet: 'example-workspace',
+          durationSeconds: 245,
+        }),
+        makeJob({
+          runner: 'linux-host-a-2b3c4d5e',
+          scaleSet: 'example-infra',
+          durationSeconds: 87,
+        }),
+        makeJob({
+          runner: 'linux-host-a-3c4d5e6f',
+          scaleSet: 'example-data',
+          durationSeconds: 512,
+        }),
       ],
     }),
     makeHost({
-      host: 'dev4',
+      host: 'linux-host-b',
       jobs: [
-        makeJob({ runner: 'dev4-0a339ba2', scaleSet: 'mr-all', durationSeconds: 178 }),
-        makeJob({ runner: 'dev4-e5b14d67', scaleSet: 'stiftung', durationSeconds: 63 }),
+        makeJob({
+          runner: 'linux-host-b-4d5e6f7a',
+          scaleSet: 'example-workspace',
+          durationSeconds: 178,
+        }),
+        makeJob({
+          runner: 'linux-host-b-5e6f7a8b',
+          scaleSet: 'example-service',
+          durationSeconds: 63,
+        }),
       ],
     }),
     makeHost({
-      host: 'mbp2021',
-      jobs: [makeJob({ runner: 'mbp2021-f8c21a3e', scaleSet: 'dotfiles', durationSeconds: 934 })],
+      host: 'macos-host-a',
+      jobs: [
+        makeJob({
+          runner: 'macos-host-a-6f7a8b9c',
+          scaleSet: 'example-infra',
+          durationSeconds: 934,
+        }),
+      ],
     }),
   ],
 })
@@ -77,20 +103,30 @@ export const mixedStatusState = (): RunnersState => ({
   _meta: defaultApiMeta,
   hosts: [
     makeHost({
-      host: 'dev3',
+      host: 'linux-host-a',
       jobs: [
-        makeJob({ runner: 'dev3-1be1cc5e', scaleSet: 'mr-all', durationSeconds: 312 }),
-        makeJob({ runner: 'dev3-a7f3e012', scaleSet: 'livestore', durationSeconds: 45 }),
+        makeJob({
+          runner: 'linux-host-a-1a2b3c4d',
+          scaleSet: 'example-workspace',
+          durationSeconds: 312,
+        }),
+        makeJob({ runner: 'linux-host-a-2b3c4d5e', scaleSet: 'example-data', durationSeconds: 45 }),
       ],
     }),
     makeHost({
-      host: 'dev4',
+      host: 'linux-host-b',
       status: 'unreachable',
       jobs: [],
     }),
     makeHost({
-      host: 'mbp2021',
-      jobs: [makeJob({ runner: 'mbp2021-f8c21a3e', scaleSet: 'dotfiles', durationSeconds: 1823 })],
+      host: 'macos-host-a',
+      jobs: [
+        makeJob({
+          runner: 'macos-host-a-6f7a8b9c',
+          scaleSet: 'example-infra',
+          durationSeconds: 1823,
+        }),
+      ],
     }),
   ],
 })
@@ -100,9 +136,9 @@ export const allIdleState = (): RunnersState => ({
   _tag: 'Loaded',
   _meta: defaultApiMeta,
   hosts: [
-    makeHost({ host: 'dev3', jobs: [] }),
-    makeHost({ host: 'dev4', jobs: [] }),
-    makeHost({ host: 'mbp2021', jobs: [] }),
+    makeHost({ host: 'linux-host-a', jobs: [] }),
+    makeHost({ host: 'linux-host-b', jobs: [] }),
+    makeHost({ host: 'macos-host-a', jobs: [] }),
   ],
 })
 
@@ -111,9 +147,9 @@ export const allUnreachableState = (): RunnersState => ({
   _tag: 'Loaded',
   _meta: defaultApiMeta,
   hosts: [
-    makeHost({ host: 'dev3', status: 'unreachable', jobs: [] }),
-    makeHost({ host: 'dev4', status: 'unreachable', jobs: [] }),
-    makeHost({ host: 'mbp2021', status: 'unreachable', jobs: [] }),
+    makeHost({ host: 'linux-host-a', status: 'unreachable', jobs: [] }),
+    makeHost({ host: 'linux-host-b', status: 'unreachable', jobs: [] }),
+    makeHost({ host: 'macos-host-a', status: 'unreachable', jobs: [] }),
   ],
 })
 
