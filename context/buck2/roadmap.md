@@ -239,6 +239,14 @@ RENAME_EXCHANGE advance.
   execution from the shared cache. The same admission deletes its source-mount
   CLI path, dependency writers, and live cross-workspace mutation paths; until
   then symlink compositions remain no-upload.
+- **Under proposal (2026-09-12):**
+  [.proposed/artifact-composition.md](./.decisions/.proposed/artifact-composition.md)
+  would rewrite this phase as "dotfiles consumes effect-utils dist artifacts
+  under its own Buck2 root" and pause composed-by-default worktrees below.
+  Buck2 git external cells were evaluated as a composition mechanism and
+  rejected ([decision 0030](./.decisions/0030-external-cells-are-not-a-composition-mechanism.md)).
+  Until the proposal is accepted or rejected, this phase and the commitment
+  below stand as written.
 
 ## Cross-phase commitments (ratified 2026-09-01)
 
