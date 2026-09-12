@@ -291,6 +291,6 @@ npm_package_product(
     archive_name = "overeng-utils.tgz",
     dist = ":dist",
     package_json = "package.json",
-    product_name = "@overeng/utils",
+    product_name = "overeng-utils",
     visibility = ["PUBLIC"],
 )
