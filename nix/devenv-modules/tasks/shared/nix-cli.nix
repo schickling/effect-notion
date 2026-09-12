@@ -5,9 +5,9 @@
 #     (inputs.effect-utils.devenvModules.tasks.nix-cli {
 #       cliPackages = [
 #         {
-#           name = "oxlint-npm";
-#           flakeRef = ".#oxlint-npm";
-#           hashSource = "nix/oxc-config-plugin.nix";
+#           name = "source-built-cli";
+#           flakeRef = ".#source-built-cli";
+#           hashSource = "nix/source-built-cli.nix";
 #           lockfile = "pnpm-lock.yaml";
 #         }
 #       ];

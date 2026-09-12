@@ -53,7 +53,7 @@ expect_failure() {
 }
 
 summary="$(eval_loader "$repo_root/nix/buck2-products")"
-expected_names='["ci-tools","genie","genie-bootstrap-closure-check","megarepo","notion-cli","notion-db-runtime","notion-md","npm-release","oxc-config","tui-stories"]'
+expected_names='["ci-tools","genie","genie-bootstrap-closure-check","megarepo","notion-cli","notion-db-runtime","notion-md","npm-release","oxc-config","oxc-config-stylex-upstream-plugin","tui-stories"]'
 
 jq -e --argjson expected "$expected_names" '
   .fullyPublished == true and
@@ -138,7 +138,7 @@ if ! jq -e --argjson expected "$expected_names" '
   .schema == "effect-utils/buck2-product-publication-plan/v1" and
   .repository == "overengineeringstudio/effect-utils" and
   [.products[].productName] == $expected and
-  (.products | length == 10) and
+  (.products | length == 11) and
   all(
     .products[];
     (.candidateTarget | test("^([A-Za-z0-9_]+)?//")) and

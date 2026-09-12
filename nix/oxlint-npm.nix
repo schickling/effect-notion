@@ -4,15 +4,18 @@
 # execute JS plugins. The npm version uses NAPI bindings to run Rust code from
 # a JS runtime (Bun), enabling jsPlugins support.
 #
-# When `src` is provided (the effect-utils source), the @overeng/oxc-config
-# plugin is bundled alongside (via nix/oxc-config-plugin.nix) and exposed as
-# passthru.pluginPath for consumer repos to inject into oxlint configs.
+# The two @overeng/oxc-config plugin entry points are imported from the tracked
+# immutable Buck product manifest and exposed as stable passthru paths. Nix
+# remains only the oxlint runtime packager; it does not rebuild plugin sources.
 #
 # Usage:
-#   oxlintNpm = import ./oxlint-npm.nix { inherit pkgs bun; src = self; };
-#   # => oxlintNpm provides the `oxlint` command on PATH
-#   # => oxlintNpm.pluginPath is the absolute path to the bundled plugin JS file (or null)
-#
+#   tracked = import ./buck2-products { inherit pkgs; };
+#   oxlintNpm = import ./oxlint-npm.nix {
+#     inherit pkgs bun;
+#     products = tracked.products;
+#   };
+#   # => oxlintNpm.pluginPath is the overeng plugin module
+#   # => oxlintNpm.stylexUpstreamPluginPath is the @stylexjs plugin module
 # =============================================================================
 # Updating to a new version
 # =============================================================================
@@ -49,7 +52,7 @@
 {
   pkgs,
   bun,
-  src ? null,
+  products,
 }:
 let
   lib = pkgs.lib;
@@ -99,16 +102,32 @@ let
     hash = platformPkg.hash;
   };
 
-  # Optional: build the @overeng/oxc-config plugin bundle when src is provided
-  hasPlugin = src != null;
-  pluginBundle =
-    if hasPlugin then
-      import (../. + "/packages/@overeng/oxc-config/nix/build.nix") { inherit pkgs bun src; }
-    else
-      null;
+  importProduct = import ./workspace-tools/lib/javascript-product-import.nix { inherit pkgs; };
+  importPlugin =
+    productName:
+    let
+      product = products.${productName};
+    in
+    importProduct {
+      inherit (product)
+        artifact
+        descriptor
+        descriptorContent
+        expectedDescriptorSha256
+        expectedModuleSha256
+        ;
+      expectedProductKind = "module";
+      expectedProductName = productName;
+      generateCompletions = false;
+    };
+  overengPlugin = importPlugin "oxc-config";
+  stylexUpstreamPlugin = importPlugin "oxc-config-stylex-upstream-plugin";
+  overengPluginModule = "${overengPlugin}/libexec/${overengPlugin.checkedDescriptor.modulePath}";
+  stylexUpstreamPluginModule =
+    "${stylexUpstreamPlugin}/libexec/${stylexUpstreamPlugin.checkedDescriptor.modulePath}";
 
 in
-pkgs.stdenv.mkDerivation {
+pkgs.stdenv.mkDerivation (finalAttrs: {
   pname = "oxlint-npm";
   inherit version;
 
@@ -130,10 +149,10 @@ pkgs.stdenv.mkDerivation {
     # Extract platform-specific binary package
     tar -xzf ${binaryPackage} -C $out/lib/node_modules/${platformPkg.name} --strip-components=1
 
-    ${lib.optionalString hasPlugin ''
-      # Symlink pre-bundled oxc-config plugin for discoverability
-      ln -s ${pluginBundle}/plugin.js $out/lib/oxc-config-plugin.js
-    ''}
+    # Keep both independently attested modules in the oxlint closure and expose
+    # stable package-local paths to wrapper consumers.
+    ln -s ${overengPluginModule} "$out/lib/oxc-config-plugin.js"
+    ln -s ${stylexUpstreamPluginModule} "$out/lib/stylex-upstream-plugin.js"
 
     runHook postBuild
   '';
@@ -149,10 +168,10 @@ pkgs.stdenv.mkDerivation {
     runHook postInstall
   '';
 
-  # Expose plugin path for consumers (e.g., lint-oxc.nix jsPlugins parameter).
   passthru = {
-    pluginBundle = if hasPlugin then pluginBundle else null;
-    pluginPath = if hasPlugin then "${pluginBundle}/plugin.js" else null;
+    pluginPath = "${finalAttrs.finalPackage}/lib/oxc-config-plugin.js";
+    stylexUpstreamPluginPath = "${finalAttrs.finalPackage}/lib/stylex-upstream-plugin.js";
+    inherit overengPlugin stylexUpstreamPlugin;
   };
 
   meta = with pkgs.lib; {
@@ -162,4 +181,4 @@ pkgs.stdenv.mkDerivation {
     mainProgram = "oxlint";
     platforms = builtins.attrNames platformPackages;
   };
-}
+})

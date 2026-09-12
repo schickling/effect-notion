@@ -9,7 +9,6 @@ import {
   prepareCiScriptsStep,
   prepareEffectUtilsCompositionStep,
   notifyAlignmentJob,
-  evictCachedPnpmDepsStep,
   pnpmBuilderContractStep,
   preparePinnedDevenvStep,
   installNixStep,
@@ -29,14 +28,12 @@ import {
   namespaceRunner,
   nixClosureMeasurementSteps,
   sourceShapeMeasurementStep,
-  validateColdPnpmDepsStep,
   nixDiagnosticsArtifactStep,
   workflowReportCommentBodyStep,
   workflowReportCollectorStep,
   workflowReportPublisherStep,
   deployPreviewWorkflowReportPathOutputName,
   netlifyDeployStep,
-  nixCacheSetupStep,
   validateNixStoreStep,
   withCiSourceRoot,
   defaultRefPolicyCheckJob,
@@ -65,10 +62,6 @@ const baseSteps = [
   prepareCiScriptsStep,
   preparePinnedDevenvStep,
   validateNixStoreStep,
-  evictCachedPnpmDepsStep({
-    flakeRef: '.#oxlint-npm',
-    name: 'Evict cached pnpm deps for oxlint-npm',
-  }),
   /**
    * Temporary debug switch for #272 to validate failure-path diagnostics without waiting for a real flake.
    * Remove once #201/#272 are root-caused and diagnostics instrumentation is removed.
@@ -374,41 +367,6 @@ const multiPlatformJob = (step: { name: string; run: string }) => ({
   ],
 })
 
-// Checkout exemption inventory: nix-fod-check is a strict flake/FOD lane. It
-// deliberately runs no devenv task, Buck command, or composition-dependent helper.
-const strictNixJobBaseSteps = [
-  checkoutStep(),
-  installNixStep(),
-  ciMeasurementBaselineCheckoutStep,
-  nixCacheSetupStep,
-  cachixCliBuildStep,
-  cachixStep({ name: 'overeng-effect-utils' }),
-  prepareCiScriptsStep,
-] as const
-
-const multiPlatformStrictNixJob = (step: ReturnType<typeof validateColdPnpmDepsStep>) => ({
-  if: normalCiIf,
-  strategy: {
-    'fail-fast': false,
-    matrix: {
-      runner: [...RUNNER_PROFILES],
-    },
-  },
-  'runs-on': namespaceRunner({
-    profile: '${{ matrix.runner }}' as RunnerProfile,
-    runId: '${{ github.run_id }}',
-  }),
-  'timeout-minutes': jobTimeoutMinutes,
-  defaults: bashShellDefaults,
-  env: standardCIEnv,
-  steps: [
-    ...strictNixJobBaseSteps,
-    step,
-    nixDiagnosticsSummaryStep,
-    nixDiagnosticsArtifactStep(),
-    failureReminderStep,
-  ],
-})
 
 /**
  * Audit the native npm dependency policy against the lockfile (issue #807).
@@ -475,25 +433,6 @@ const jobs: Record<CoreCIJobName, ReturnType<typeof job> | ReturnType<typeof mul
       run: runDevenvTasksBefore('test:megarepo-cold-gc'),
     },
   }),
-  // Verify the surviving pnpm FOD hash (pnpmDepsHash + localDeps) is up to date.
-  // After the Buck product cutover the nix-cli registry is no longer a fan-out over seven CLI
-  // FODs: the repository CLIs are wrapped from the immutable Buck product manifest and have no
-  // source builder or hash left to check. `.#oxlint-npm` (the pnpm-built oxlint plugin bundle)
-  // is the one entry that remains.
-  'nix-check': multiPlatformJob({
-    name: 'Nix hash check',
-    run: runDevenvTasksBefore('nix:check'),
-  }),
-  // Force a fresh local rebuild of the exported pnpm FOD to catch a stale hash that normal CI
-  // can otherwise mask via store/substituter reuse. `.#oxc-config-plugin-pnpm-deps` is the only
-  // such attribute left — every CLI `*-pnpm-deps` FOD went away with its source builder — so
-  // this is a single cold build, not a list that is expected to grow again.
-  'nix-fod-check': multiPlatformStrictNixJob(
-    validateColdPnpmDepsStep({
-      flakeRefs: ['.#oxc-config-plugin-pnpm-deps'],
-      substituters: ['https://cache.nixos.org'],
-    }),
-  ),
   'pnpm-builder-contract': job({
     step: pnpmBuilderContractStep({
       builderFile: 'nix/workspace-tools/lib/mk-pnpm-deps.nix',
@@ -503,9 +442,9 @@ const jobs: Record<CoreCIJobName, ReturnType<typeof job> | ReturnType<typeof mul
     // and the genie policy source, both present here without node_modules.
     extraSteps: [nativeDepPolicyAuditStep],
   }),
-  // After the cutover `mk-pnpm-cli` has no in-repo CLI consumer left: it is exercised only by
-  // its own contract suite here and, through `mk-pnpm-deps.nix`, by the oxc-config plugin FOD.
-  // That makes this lane the sole remaining guard on the shared pnpm deps helper.
+  // `mk-pnpm-cli` and `mk-pnpm-deps` remain reusable public helpers, so their
+  // own contract suite keeps this lane even though no repository JavaScript
+  // product consumes them.
   'pnpm-regression': job({
     step: {
       name: 'pnpm regression suite',
@@ -680,7 +619,8 @@ const extraJobs: Record<string, any> = {
             '"${DEVENV_BIN:?DEVENV_BIN not set}" shell -- bun test \\',
             '  genie/buck2/typescript-package-projection.unit.test.ts \\',
             '  genie/buck2/javascript-candidates.unit.test.ts \\',
-            '  packages/@overeng/buck2-tools/src/package-command-runner.unit.test.ts',
+            '  packages/@overeng/buck2-tools/src/package-command-runner.unit.test.ts \\',
+            '  packages/@overeng/buck2-tools/src/javascript-runner.unit.test.ts',
           ].join('\n'),
         ),
       },

@@ -79,6 +79,13 @@ const expectedPublications = [
     runtimeKind: 'node',
   },
   {
+    label: '//packages/@overeng/oxc-config:oxc-config-stylex-upstream-plugin-candidate',
+    module: 'oxc-config-stylex-upstream-plugin.js',
+    productKind: 'module',
+    productName: 'oxc-config-stylex-upstream-plugin',
+    runtimeKind: 'node',
+  },
+  {
     label: '//packages/@overeng/tui-stories:tui-stories-candidate',
     module: 'tui-stories.js',
     productKind: 'cli',
@@ -94,9 +101,9 @@ const expectUnique = (values: readonly string[]): void => {
 }
 
 describe('JavaScript product registry', () => {
-  it('declares the ten exact publication labels and product contracts', () => {
+  it('declares the eleven exact publication labels and product contracts', () => {
     expect(javaScriptProductPublications).toEqual(expectedPublications)
-    expect(javaScriptProductPublications).toHaveLength(10)
+    expect(javaScriptProductPublications).toHaveLength(11)
   })
 
   it('keeps every publication identity and package-local target unique', () => {
@@ -115,6 +122,19 @@ describe('JavaScript product registry', () => {
         javaScriptProductRegistry[packagePath as keyof typeof javaScriptProductRegistry],
       )
     }
+  })
+
+  it('declares the two oxc-config plugin entry points as separate products', () => {
+    expect(javaScriptProductsFor('packages/@overeng/oxc-config')).toEqual([
+      expect.objectContaining({
+        entrypoint: 'src/mod.ts',
+        productName: 'oxc-config',
+      }),
+      expect.objectContaining({
+        entrypoint: 'src/stylex-upstream-plugin.ts',
+        productName: 'oxc-config-stylex-upstream-plugin',
+      }),
+    ])
   })
 
   it('keeps product targets clear of TypeScript authority targets', () => {

@@ -245,3 +245,23 @@ javascript_product(
     product_name = "oxc-config",
     visibility = ["PUBLIC"],
 )
+
+package_bin_artifact(
+    name = "oxc-config-stylex-upstream-plugin-candidate-module",
+    entrypoint = "src/stylex-upstream-plugin.ts",
+    external = [],
+    external_capabilities = [],
+    kind = "module",
+    output = "oxc-config-stylex-upstream-plugin.js",
+    package_tree = ":package_tree",
+    target = "node",
+    visibility = ["PUBLIC"],
+)
+
+javascript_product(
+    name = "oxc-config-stylex-upstream-plugin-candidate",
+    module = ":oxc-config-stylex-upstream-plugin-candidate-module",
+    product_kind = "module",
+    product_name = "oxc-config-stylex-upstream-plugin",
+    visibility = ["PUBLIC"],
+)

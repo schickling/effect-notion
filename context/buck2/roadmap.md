@@ -264,10 +264,11 @@ RENAME_EXCHANGE advance.
   workspace contract, Cargo tests, Clippy, and rustfmt. Buck owns Rust
   compilation and shipped products; the operation ledger does not claim that
   the broader source-quality lane moved with them.
-- One repository pnpm-deps FOD remains: `oxc-config`, whose pnpm-built oxlint
-  plugin bundle is an npm-plugin artifact rather than a JavaScript product. The
-  ci-tools, Genie, mr, notion-cli, notion-md, npm-release, and tui-stories FODs
-  remain replaced by reviewed content-addressed Buck product imports.
+- Zero repository JavaScript pnpm-deps FOD producers remain. The last one,
+  `oxc-config`, now emits its first-party plugin and StyleX upstream namespace
+  shim as two explicit Buck module products; Nix imports their reviewed,
+  content-addressed artifacts without rebuilding package sources. The
+  repository CLI products remain on the same manifest-pinned import boundary.
 
 ## Phase 6 — composed consumers
 

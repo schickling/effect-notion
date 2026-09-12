@@ -1,30 +1,28 @@
-# Wrapper around oxlint-npm that points the @overeng/oxc-config JS plugin entry at
-# a resolvable implementation.
+# Wrapper around oxlint-npm that points the two @overeng/oxc-config JavaScript
+# plugin entries at independently tracked immutable Buck products.
 #
-# When the project's .oxlintrc.json (or an explicit -c config) contains overeng/*
-# rules, this wrapper rewrites that config's `jsPlugins` entry for our plugin to a
-# concrete path, via an injected config copy. Projects without overeng rules get
-# plain pass-through.
-#
-# The rewrite SUBSTITUTES our entry and leaves every other `jsPlugins` entry
-# alone, so third-party JS plugins (e.g. `@stylexjs/eslint-plugin`) declared next
-# to ours still resolve.
+# When the project's .oxlintrc.json (or an explicit -c config) contains
+# overeng/* or @stylexjs/* rules, this wrapper substitutes the corresponding
+# configured `jsPlugins` entries in an injected config copy. It leaves unrelated
+# entries alone and refuses to invent a missing entry: the config remains the
+# authority for which namespaces are enabled.
 #
 # Plugin source selection:
-#   default                        the Nix-built plugin snapshot (hermetic)
-#   OVERENG_OXC_CONFIG_PLUGIN=<p>  use <p> instead — point it at
-#                                  packages/@overeng/oxc-config/src/mod.ts to lint
-#                                  against live plugin source (rule development;
-#                                  no Nix rebuild between edits)
+#   default                               tracked Buck product modules
+#   OVERENG_OXC_CONFIG_PLUGIN=<p>         live src/mod.ts override
+#   OVERENG_STYLEX_UPSTREAM_PLUGIN=<p>    live src/stylex-upstream-plugin.ts
+#
+# The overrides are explicit rule-authoring escape hatches. Normal development,
+# CI and downstream wrappers all use the immutable products.
 #
 # Usage:
-#   oxlintWithPlugins = import ./oxlint-with-plugins.nix { inherit pkgs; oxlintNpm = ...; };
-#   # => provides `oxlint` on PATH with automatic plugin injection
+#   oxlintWithPlugins = import ./oxlint-with-plugins.nix { inherit pkgs oxlintNpm; };
+#   # => provides `oxlint` on PATH with automatic plugin substitution
 {
   pkgs,
   oxlintNpm,
 }:
-assert oxlintNpm.pluginPath != null;
+assert oxlintNpm.pluginPath != null && oxlintNpm.stylexUpstreamPluginPath != null;
 pkgs.writeShellApplication {
   name = "oxlint";
   runtimeInputs = [
@@ -33,12 +31,10 @@ pkgs.writeShellApplication {
     pkgs.tsgolint
   ];
   text = ''
-    # Rule development escape hatch: the default plugin is a Nix build-time
-    # snapshot, so edits to packages/@overeng/oxc-config/src/*.ts are invisible and
-    # a newly added rule reports "not found in plugin 'overeng'". Overriding this
-    # with the plugin's TypeScript entry point makes the wrapper lint against live
-    # source (the host runtime is Bun, which imports .ts directly).
-    pluginPath="''${OVERENG_OXC_CONFIG_PLUGIN:-${oxlintNpm.pluginPath}}"
+    # Rule-authoring escape hatches. Keep the two entries separate so changing
+    # one live source cannot silently replace the other namespace.
+    overengPluginPath="''${OVERENG_OXC_CONFIG_PLUGIN:-${oxlintNpm.pluginPath}}"
+    stylexUpstreamPluginPath="''${OVERENG_STYLEX_UPSTREAM_PLUGIN:-${oxlintNpm.stylexUpstreamPluginPath}}"
 
     # Find the config file: explicit -c/--config arg, or default .oxlintrc.json
     config_file=""
@@ -46,7 +42,11 @@ pkgs.writeShellApplication {
     for ((i=0; i<''${#args[@]}; i++)); do
       case "''${args[$i]}" in
         -c|--config)
-          config_file="''${args[$((i+1))]}"
+          if [ "$((i + 1))" -ge "''${#args[@]}" ]; then
+            echo "oxlint-with-plugins: ''${args[$i]} requires a config path" >&2
+            exit 2
+          fi
+          config_file="''${args[$((i + 1))]}"
           break
           ;;
       esac
@@ -55,55 +55,81 @@ pkgs.writeShellApplication {
       config_file=".oxlintrc.json"
     fi
 
-    # If config has overeng rules, inject the Nix-built plugin path (replaces any existing jsPlugins)
-    if [ -n "$config_file" ] && grep -q '"overeng/' "$config_file" 2>/dev/null; then
+    if [ -n "$config_file" ] && grep -Eq '"(overeng/|@stylexjs/)' "$config_file" 2>/dev/null; then
       # The injected copy is written into the SAME directory as the source config
       # (repo root for the default .oxlintrc.json). Under oxlint 1.39 this was
       # load-bearing for correctness: plugin rules only applied to files located
       # UNDER the injected config's directory, so a /tmp copy silently dropped
-      # every overeng/* rule for the deep file paths CI passes. oxlint 1.82 applies
-      # plugin rules to targets outside the config directory (verified against
-      # 1.82.0 with a config in one directory and the target in another), so the
+      # every configured plugin rule for the deep file paths CI passes. Oxlint
+      # 1.82 applies plugin rules to targets outside the config directory, so the
       # location is now only a cache decision: a repo-root copy stays stable across
       # runs and keeps the hash-crawler-safe atomic publish below. The published
       # copy DELIBERATELY outlives the process; see below.
       config_dir=$(dirname "$config_file")
 
       # Publish a persistent, git-ignored root cache atomically, and serialize
-      # concurrent wrappers by locking the source config itself (without
-      # creating another repository-local lock file). Keeping the complete file
-      # avoids a hash-crawler stat/open race with an EXIT-time deletion.
+      # concurrent wrappers by locking the source config itself. Keeping the
+      # complete file avoids a hash-crawler stat/open race with EXIT-time
+      # deletion.
       exec 9<"$config_file"
       flock --exclusive 9
       tmpconfig="$config_dir/.oxlint-with-plugins.json"
       staged_config=$(mktemp "''${TMPDIR:-/tmp}/oxlint-with-plugins.XXXXXX.json")
       trap 'rm -f "$staged_config"' EXIT
-      # Substitute OUR entry in place rather than replacing the whole list.
-      # Replacing it wholesale made every third-party plugin declared beside ours
-      # unresolvable ("Plugin 'x' not found"), which is why consumers grew local
-      # workarounds. Entries are either a path string or an ["alias", path] tuple;
-      # a tuple keeps its alias. When no entry of ours is present (consumer configs
-      # that rely purely on injection) ours is appended.
-      #
-      # The match is the plugin's ENTRY POINT, not merely the package directory:
-      # `@overeng/oxc-config` also ships sibling plugin entries (the `@stylexjs`
-      # namespace shim), and substituting one of those would silently replace a
-      # third-party plugin with ours -- the very failure this fix removes.
-      jq --arg p "$pluginPath" '
-        def is_ours:
-          if type == "string" then test("oxc-config/src/mod\\.ts$") or test("oxc-config-plugin[^/]*/plugin\\.js$")
-          elif type == "array" then (.[1] | type == "string" and (test("oxc-config/src/mod\\.ts$") or test("oxc-config-plugin[^/]*/plugin\\.js$")))
-          else false
-          end;
-        def substituted:
-          if type == "array" then [.[0], $p] else $p end;
-        .jsPlugins = (
-          (.jsPlugins // []) as $existing
-          | if any($existing[]; is_ours)
-            then $existing | map(if is_ours then substituted else . end)
-            else $existing + [$p]
-            end
-        )
+
+      # Every entry must be a path string or an [alias, path] pair. Each enabled
+      # owned namespace must have exactly one corresponding source entry; a
+      # missing or duplicate entry is configuration drift, not permission to
+      # append an implicit plugin. Tuple aliases are preserved.
+      jq --arg overeng "$overengPluginPath" --arg stylex "$stylexUpstreamPluginPath" '
+        def is_plugin_entry:
+          type == "string"
+          or (type == "array" and length == 2 and all(.[]; type == "string"));
+        def entry_path:
+          if type == "string" then . else .[1] end;
+        def is_overeng:
+          entry_path as $path
+          | $path == $overeng or ($path | test("oxc-config/src/mod\\.ts$"));
+        def is_stylex:
+          entry_path as $path
+          | $path == $stylex or ($path | test("oxc-config/src/stylex-upstream-plugin\\.ts$"));
+        def substituted($path):
+          if type == "array" then [.[0], $path] else $path end;
+        def rule_names:
+          ((.rules // {}) | keys[]),
+          ((.overrides // [])[]? | (.rules // {}) | keys[]);
+        def uses_rule_prefix($prefix):
+          any(rule_names; startswith($prefix));
+
+        . as $config
+        | ($config.jsPlugins // []) as $existing
+        | if ($config.jsPlugins != null and ($config.jsPlugins | type) != "array")
+          then error("jsPlugins must be an array")
+          elif any($existing[]; is_plugin_entry | not)
+          then error("jsPlugins entries must be path strings or [alias, path] string pairs")
+          else .
+          end
+        | ([$existing[] | select(is_overeng)] | length) as $overeng_count
+        | ([$existing[] | select(is_stylex)] | length) as $stylex_count
+        | if uses_rule_prefix("overeng/") and $overeng_count != 1
+          then error("expected exactly one configured overeng plugin entry")
+          elif uses_rule_prefix("@stylexjs/") and $stylex_count != 1
+          then error("expected exactly one configured StyleX upstream plugin entry")
+          elif $overeng_count > 1
+          then error("expected at most one configured overeng plugin entry")
+          elif $stylex_count > 1
+          then error("expected at most one configured StyleX upstream plugin entry")
+          else
+            .jsPlugins = (
+              $existing
+              | map(
+                  if is_overeng then substituted($overeng)
+                  elif is_stylex then substituted($stylex)
+                  else .
+                  end
+                )
+            )
+          end
       ' "$config_file" > "$staged_config"
       mv "$staged_config" "$tmpconfig"
 

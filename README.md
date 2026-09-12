@@ -112,20 +112,6 @@ Key features:
 - **Read-only protection** - Generated files are read-only by default
 - **CI integration** - `--check` mode verifies files are up to date
 
-### Rebuild and reload binaries
-
-```bash
-devenv tasks run nix:build:genie
-devenv tasks run nix:build
-devenv tasks run nix:check
-```
-
-After `pnpm-lock.yaml` changes:
-
-```bash
-refresh Nix FOD hashes for genie
-refresh all stale Nix FOD hashes with your repo workflow
-```
 
 ## Quick Start
 

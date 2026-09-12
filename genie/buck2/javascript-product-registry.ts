@@ -101,6 +101,13 @@ export const javaScriptProductRegistry = {
       productName: 'oxc-config',
       targetName: 'oxc-config-candidate',
     },
+    {
+      entrypoint: 'src/stylex-upstream-plugin.ts',
+      kind: 'module',
+      output: 'oxc-config-stylex-upstream-plugin.js',
+      productName: 'oxc-config-stylex-upstream-plugin',
+      targetName: 'oxc-config-stylex-upstream-plugin-candidate',
+    },
   ],
   'packages/@overeng/tui-stories': [
     {

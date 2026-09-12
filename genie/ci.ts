@@ -24,8 +24,6 @@ export const CORE_CI_JOB_NAMES = [
   'test-playwright-utils',
   'test-playwright-tui-react',
   'test-megarepo-cold-gc',
-  'nix-check',
-  'nix-fod-check',
   'pnpm-builder-contract',
   'pnpm-regression',
   'bundle-smoke',
@@ -99,7 +97,7 @@ export const REQUIRED_CI_JOB_NAMES = [
   ...EXTRA_CI_JOB_NAMES,
 ] as const satisfies readonly CIJobName[]
 
-const matrixCIJobNames = ['test', 'nix-check', 'nix-fod-check'] as const
+const matrixCIJobNames = ['test'] as const
 
 /** GitHub status-check context names emitted by a workflow job key. */
 export const ciJobCheckContexts = (jobName: CIJobName) => {

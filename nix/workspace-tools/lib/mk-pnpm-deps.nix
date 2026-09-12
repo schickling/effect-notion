@@ -18,7 +18,7 @@
 # Downstream repos should therefore follow `effect-utils/nixpkgs` when they
 # consume these prepared trees so the full builder graph stays canonical.
 #
-# Provides two functions used by both mk-pnpm-cli.nix and oxc-config-plugin.nix:
+# Provides two functions used by mk-pnpm-cli.nix:
 #
 # 1. mkDeps: Creates a fixed-output derivation (FOD) that installs a staged
 #    manifest-only workspace and stores the resulting prepared install tree as

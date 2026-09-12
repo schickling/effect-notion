@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 # Regression tests for nix/oxlint-with-plugins.nix.
 #
-# The wrapper rewrites a project's oxlint config so the `@overeng/oxc-config` JS
-# plugin resolves. Three defects it used to have, each reproduced here against the
-# REAL built wrapper and the real oxlint binary rather than a stub, because all
-# three were failures of plugin RESOLUTION — the one thing a stub cannot model:
+# The wrapper rewrites a project's oxlint config so both JavaScript plugin entry
+# points owned by @overeng/oxc-config resolve from immutable Buck products. The
+# tests use the real built wrapper and oxlint binary because plugin resolution is
+# the observable boundary:
 #
-#   1. it replaced `jsPlugins` wholesale, so no third-party JS plugin could load
-#      beside ours ("Plugin 'x' not found");
-#   2. `oxlint --config X ...` with the config flag FIRST exited 1 with no output
-#      at all, which in a pipeline is indistinguishable from a lint failure;
-#   3. the injected plugin is a build-time snapshot, so a newly added rule
-#      reported "not found in plugin 'overeng'" and could not be exercised.
+#   1. unrelated plugin entries remain untouched;
+#   2. the overeng and @stylexjs entries are substituted independently;
+#   3. explicit live-source overrides remain separate authoring escape hatches;
+#   4. a configured namespace with a missing or malformed entry fails closed;
+#   5. argument-order and persistent-cache behavior remain stable.
 set -euo pipefail
 
 TESTS_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -48,6 +47,14 @@ assert_equals() {
   echo "  ok: $label"
 }
 
+assert_nonzero() {
+  local actual="$1" label="$2"
+  if [ "$actual" -eq 0 ]; then
+    fail "$label" "expected a non-zero exit status"
+  fi
+  echo "  ok: $label"
+}
+
 echo "Running oxlint plugin injection tests..."
 echo ""
 
@@ -80,8 +87,8 @@ workspace="$tmpdir/workspace"
 mkdir -p "$workspace/oxc-config/src" "$workspace/live/oxc-config/src"
 cd "$workspace"
 
-# A third-party JS plugin, standing in for @stylexjs/eslint-plugin. Namespace
-# comes from `meta.name`, so the assertions can name it.
+# An unrelated third-party JS plugin. Namespace comes from `meta.name`, so the
+# assertions can name it.
 cat > probe-plugin.js <<'EOF'
 module.exports = {
   meta: { name: 'probe', version: '0.0.1' },
@@ -143,6 +150,27 @@ export default {
 }
 EOF
 
+# A separate live plugin under the `@stylexjs` namespace. It deliberately has a
+# rule absent from the immutable product, proving that its override changes only
+# the StyleX entry while the overeng entry keeps resolving from its own product.
+cat > live/oxc-config/src/stylex-upstream-plugin.ts <<'EOF'
+export default {
+  meta: { name: '@stylexjs', version: '0.0.1' },
+  rules: {
+    'live-source-only': {
+      meta: { messages: { hit: 'live StyleX plugin source fired' } },
+      create(context: { report: (d: unknown) => void }) {
+        return {
+          DebuggerStatement(node: unknown) {
+            context.report({ node, messageId: 'hit' })
+          },
+        }
+      },
+    },
+  },
+}
+EOF
+
 cat > fixture.ts <<'EOF'
 debugger
 export const now = Date.now()
@@ -184,8 +212,29 @@ out="$("$wrapper" fixture.ts --config .oxlintrc.json 2>&1 || true)"
 assert_contains "sibling(always-report)" "$out" "sibling plugin entry survives the rewrite"
 assert_contains "overeng(no-raw-nondeterminism)" "$out" "our entry point is the one substituted"
 
+
 echo ""
-echo "Test 3: the config flag may come first (bug 2)"
+echo "Test 3: the two owned plugin entries are substituted independently"
+write_config <<'EOF'
+{
+  "jsPlugins": [
+    "./oxc-config/src/mod.ts",
+    "./oxc-config/src/stylex-upstream-plugin.ts"
+  ],
+  "rules": {
+    "overeng/no-raw-nondeterminism": "error",
+    "@stylexjs/live-source-only": "error"
+  }
+}
+EOF
+status_stylex_live=0
+out="$(OVERENG_STYLEX_UPSTREAM_PLUGIN="$workspace/live/oxc-config/src/stylex-upstream-plugin.ts" \
+  "$wrapper" fixture.ts --config .oxlintrc.json 2>&1)" || status_stylex_live=$?
+assert_contains "@stylexjs(live-source-only)" "$out" "StyleX live-source entry is substituted"
+assert_contains "overeng(no-raw-nondeterminism)" "$out" "overeng entry keeps its own product"
+assert_equals "1" "$status_stylex_live" "violations from both plugin products fail the run"
+echo ""
+echo "Test 4: the config flag may come first (bug 2)"
 write_config <<'EOF'
 {
   "jsPlugins": ["./oxc-config/src/mod.ts"],
@@ -208,7 +257,7 @@ echo ""
 # a hash crawler mid-read. So the contract is not "nothing is left behind" —
 # it is "what is left behind has the one deterministic name the gitignore
 # covers", and the randomly-suffixed STAGED file never lands in the tree.
-echo "Test 4: the published cache is deterministic and gitignore-covered"
+echo "Test 5: the published cache is deterministic and gitignore-covered"
 published="$(find . -maxdepth 1 -name '.oxlint-with-plugins.*' -print | sort)"
 assert_equals "./.oxlint-with-plugins.json" "$published" \
   "exactly the one deterministic cache name is published"
@@ -216,7 +265,7 @@ staged_leak="$(find . -maxdepth 1 -name 'oxlint-with-plugins.*' -print)"
 assert_equals "" "$staged_leak" "no randomly-suffixed staged config leaks into the tree"
 
 echo ""
-echo "Test 5: OVERENG_OXC_CONFIG_PLUGIN lints live plugin source (bug 3)"
+echo "Test 6: OVERENG_OXC_CONFIG_PLUGIN lints live plugin source (bug 3)"
 write_config <<'EOF'
 {
   "jsPlugins": ["./oxc-config/src/mod.ts"],
@@ -233,6 +282,46 @@ out_live="$(OVERENG_OXC_CONFIG_PLUGIN="$workspace/live/oxc-config/src/mod.ts" \
   "$wrapper" fixture.ts --config .oxlintrc.json 2>&1)" || status_live=$?
 assert_contains "overeng(live-source-only)" "$out_live" "live plugin source is linted without a Nix rebuild"
 assert_equals "1" "$status_live" "a violation from live source still fails the run"
+
+echo ""
+echo "Test 7: a namespace with no matching configured entry fails closed"
+write_config <<'EOF'
+{
+  "jsPlugins": ["./probe-plugin.js"],
+  "rules": { "overeng/no-raw-nondeterminism": "error" }
+}
+EOF
+status_missing=0
+out="$("$wrapper" fixture.ts --config .oxlintrc.json 2>&1)" || status_missing=$?
+assert_nonzero "$status_missing" "missing overeng entry is rejected"
+assert_contains "expected exactly one configured overeng plugin entry" "$out" \
+  "missing overeng entry has a focused diagnostic"
+
+write_config <<'EOF'
+{
+  "jsPlugins": ["./oxc-config/src/mod.ts"],
+  "rules": { "@stylexjs/valid-styles": "error" }
+}
+EOF
+status_missing=0
+out="$("$wrapper" fixture.ts --config .oxlintrc.json 2>&1)" || status_missing=$?
+assert_nonzero "$status_missing" "missing StyleX entry is rejected"
+assert_contains "expected exactly one configured StyleX upstream plugin entry" "$out" \
+  "missing StyleX entry has a focused diagnostic"
+
+echo ""
+echo "Test 8: malformed jsPlugins entries fail closed before oxlint runs"
+write_config <<'EOF'
+{
+  "jsPlugins": [["overeng"]],
+  "rules": { "overeng/no-raw-nondeterminism": "error" }
+}
+EOF
+status_malformed=0
+out="$("$wrapper" fixture.ts --config .oxlintrc.json 2>&1)" || status_malformed=$?
+assert_nonzero "$status_malformed" "malformed plugin entry is rejected"
+assert_contains "jsPlugins entries must be path strings or [alias, path] string pairs" "$out" \
+  "malformed plugin entry has a focused diagnostic"
 
 echo ""
 echo "All oxlint plugin injection tests passed"

@@ -29,14 +29,6 @@
       "operation": "test-megarepo-cold-gc"
     },
     {
-      "disposition": "outside-by-policy:nix-evaluation",
-      "operation": "nix-check"
-    },
-    {
-      "disposition": "outside-by-policy:nix-realization",
-      "operation": "nix-fod-check"
-    },
-    {
       "disposition": "outside-by-policy:nix-builder-contract",
       "operation": "pnpm-builder-contract"
     },
@@ -137,18 +129,6 @@
     {
       "disposition": "outside-by-policy:authoring-mutation",
       "operation": "lint:fix"
-    },
-    {
-      "disposition": "outside-by-policy:nix-realization",
-      "operation": "nix:build"
-    },
-    {
-      "disposition": "outside-by-policy:nix-realization",
-      "operation": "nix:build:genie"
-    },
-    {
-      "disposition": "outside-by-policy:nix-evaluation",
-      "operation": "nix:check"
     },
     {
       "disposition": "outside-by-policy:aggregate-includes-policy-excluded-tests",
