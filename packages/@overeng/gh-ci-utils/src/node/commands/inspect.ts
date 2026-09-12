@@ -76,6 +76,9 @@ export const inspectCommand = Cli.Command.make('inspect', {
           ),
           Effect.option,
         )
+        const meta = yield* collectApiMeta
+        tui.dispatch({ _tag: 'SetMeta', _meta: meta })
+
         if (Option.isNone(jobResult)) return
         const githubFacts = toInspectGitHubFacts({ job: jobResult.value, repo })
 
@@ -91,9 +94,6 @@ export const inspectCommand = Cli.Command.make('inspect', {
           namespace,
           assessment: classifyInspection({ github: githubFacts, namespace }),
         })
-
-        const meta = yield* collectApiMeta
-        tui.dispatch({ _tag: 'SetMeta', _meta: meta })
       }),
     ).pipe(Effect.provide(outputModeLayer(output))),
   ),

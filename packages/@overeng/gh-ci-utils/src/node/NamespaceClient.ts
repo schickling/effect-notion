@@ -563,12 +563,11 @@ const unavailableFromFailure = (
 }
 
 /** stderr that specifically says "`nsc` does not know this job". */
-const isJobNotFoundStderr = ({ stderr, jobId }: { stderr: string; jobId: number }): boolean => {
-  if (stderr.includes(String(jobId)) === false) return false
-  return /\bjob\b[^\n]*(?:not found|does not exist)|(?:no such|unknown)\s+(?:github\s+)?job\b/i.test(
-    stderr,
-  )
-}
+const isJobNotFoundStderr = ({ stderr, jobId }: { stderr: string; jobId: number }): boolean =>
+  new RegExp(
+    `(?:\\bjob\\s+#?${jobId}\\s+(?:not found|does not exist)\\b|\\b(?:no such|unknown)\\s+(?:github\\s+)?job\\s+#?${jobId}\\b)`,
+    'i',
+  ).test(stderr)
 
 // =============================================================================
 // The observation

@@ -412,7 +412,7 @@ describe('observeNamespaceJob', () => {
         argv[0] === 'auth'
           ? output('ok')
           : output('', {
-              stderr: 'workspace configuration not found',
+              stderr: `failed to describe job ${JOB_ID}: workspace configuration not found`,
               exitCode: 1,
             }),
     })
