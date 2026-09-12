@@ -443,6 +443,28 @@ const expandStorePath = (path: string): AbsoluteDirPath => {
 }
 
 /**
+ * Resolve a symlinked store root to its real path. Git registers worktrees
+ * under real paths while downstream identity checks compare paths lexically,
+ * so a symlinked default store (e.g. `~/.megarepo -> /srv/bulk/megarepo`)
+ * would otherwise reject every branch member with GitIdentityConflict
+ * ("registered outside canonical P or P/repos/<owned>").
+ */
+const canonicalizeStorePath = (fs: FileSystem.FileSystem, path: AbsoluteDirPath) =>
+  fs.exists(path).pipe(
+    Effect.flatMap((exists) =>
+      exists
+        ? fs.realPath(path).pipe(
+            Effect.map((real) => {
+              const withTrailingSlash = real.endsWith('/') === true ? real : `${real}/`
+              return EffectPath.unsafe.absoluteDir(withTrailingSlash)
+            }),
+          )
+        : Effect.succeed(path),
+    ),
+    Effect.orElseSucceed(() => path),
+  )
+
+/**
  * Create a Store + StoreLock layer with explicit configuration.
  * StoreLock uses file-system backing at {basePath}.locks/.
  */
@@ -469,7 +491,7 @@ export const StoreLayer = Layer.effect(
     const storePathRaw = Option.fromUndefinedOr(process.env[ENV_VARS.STORE]).pipe(
       Option.getOrElse(() => DEFAULT_STORE_PATH),
     )
-    const basePath = expandStorePath(storePathRaw)
+    const basePath = yield* canonicalizeStorePath(fs, expandStorePath(storePathRaw))
     return make({ config: { basePath }, fs })
   }),
 ).pipe((storeOnly) => {
