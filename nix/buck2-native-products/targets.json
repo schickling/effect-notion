@@ -27,6 +27,10 @@
     {
       "name": "otelite",
       "target": "effect_utils//packages/@overeng/otelite:otelite-product"
+    },
+    {
+      "name": "typescript-api-server",
+      "target": "effect_utils//packages/@overeng/genie:typescript-api-server-product"
     }
   ],
   "schema": "effect-utils/buck2-native-release-targets/v1"
