@@ -7,7 +7,12 @@
 import { Schema } from 'effect'
 
 import { isBlockingConclusion } from '../../lib/summary.ts'
-import { RunnerKind, StepInfoSchema, SummaryOverallStatus } from '../../lib/viewModels.ts'
+import {
+  RunnerKind,
+  StepInfoSchema,
+  SummaryOverallStatus,
+  type WorkflowJobVM,
+} from '../../lib/viewModels.ts'
 import type { CiAction, CiState } from './schema.ts'
 
 /** Event emitted per job status change */
@@ -112,6 +117,24 @@ export const CiNdjsonEvent = Schema.Union([
 ])
 export type CiNdjsonEvent = typeof CiNdjsonEvent.Type
 
+const jobUpdateFactsChanged = ({
+  previous,
+  current,
+}: {
+  previous: WorkflowJobVM | undefined
+  current: WorkflowJobVM
+}): boolean =>
+  previous === undefined ||
+  previous.name !== current.name ||
+  previous.status !== current.status ||
+  previous.conclusion !== current.conclusion ||
+  previous.durationSeconds !== current.durationSeconds ||
+  previous.runner !== current.runner ||
+  previous.runnerName !== current.runnerName ||
+  previous.runnerKind !== current.runnerKind ||
+  previous.runnerInstance !== current.runnerInstance ||
+  JSON.stringify(previous.steps) !== JSON.stringify(current.steps)
+
 /** Map a dispatched action + previous state to NDJSON events. */
 export const fromCiAction = ({
   action,
@@ -159,7 +182,7 @@ export const fromCiAction = ({
 
   for (const job of action.jobs) {
     const prev = prevJobs.find((j) => j.id === job.id)
-    if (!prev || prev.status !== job.status || prev.conclusion !== job.conclusion) {
+    if (jobUpdateFactsChanged({ previous: prev, current: job })) {
       events.push({
         _tag: 'JobUpdate',
         jobId: job.id,

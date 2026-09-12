@@ -265,4 +265,49 @@ describe('ndjson watch liveness', () => {
     })
     expect(Schema.decodeUnknownSync(CiNdjsonEvent)(update)).toEqual(update)
   })
+
+  it('emits a JobUpdate when preserved runner or step facts change', () => {
+    const prev = loadedState('in_progress')
+    const lint = prev.jobs[0]!
+    const steps = [
+      {
+        name: 'Set up job',
+        status: 'in_progress',
+        conclusion: null,
+        number: 1,
+        startedAt: '2026-09-10T11:00:00.000Z',
+        completedAt: null,
+      },
+    ]
+    const events = fromCiAction({
+      action: {
+        _tag: 'SetLoaded',
+        run: prev.run,
+        jobs: [
+          {
+            ...lint,
+            runner: 'self:runner-1',
+            runnerName: 'runner-1',
+            runnerKind: 'self-hosted',
+            runnerInstance: 'runner-1',
+            steps,
+          },
+        ],
+        errors: [],
+        annotations: [],
+        runnerHostMap: [],
+        prHealth: null,
+        summary: prev.summary,
+      },
+      prevState: prev,
+    })
+
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({
+      _tag: 'JobUpdate',
+      runnerKind: 'self-hosted',
+      runnerInstance: 'runner-1',
+      steps,
+    })
+  })
 })
