@@ -92,10 +92,13 @@ export const toJobVM = ({
     name: job.name,
     status: job.status,
     conclusion: job.conclusion,
-    durationSeconds: computeDurationSeconds({
-      startedAt: job.started_at,
-      completedAt: job.completed_at,
-    }),
+    durationSeconds:
+      job.conclusion === 'skipped' && job.completed_at === null
+        ? 0
+        : computeDurationSeconds({
+            startedAt: job.started_at,
+            completedAt: job.completed_at,
+          }),
     startedAt: job.started_at?.toISOString() ?? null,
     completedAt: job.completed_at?.toISOString() ?? null,
     runner: formatRunnerIdentity(runnerIdentity),

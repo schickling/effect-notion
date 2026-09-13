@@ -182,6 +182,16 @@ describe('status --output json job contract (#927)', () => {
     expect(vm.jobUrl).toBe(`${RUN.htmlUrl}/job/${rawJob.id}`)
   })
 
+  it('uses a deterministic zero duration for logless skipped jobs', () => {
+    const vm = toJobVM({
+      job: { ...rawJob, conclusion: 'skipped', completed_at: null },
+      runHtmlUrl: RUN.htmlUrl,
+      includeSteps: false,
+    })
+
+    expect(vm.durationSeconds).toBe(0)
+  })
+
   it('still decodes job payloads written before completion finality was tracked', () => {
     const legacyJob = job()
 
