@@ -13,9 +13,9 @@ import {
 } from '../src/isomorphic/renderers/LogsOutput/schema.ts'
 import { MutationApp } from '../src/isomorphic/renderers/MutationOutput/app.ts'
 import {
-  liveStepWatchConclusion,
   logsVerdictConclusion,
   missingStepSessionAuthError,
+  selectedStepLogsUnavailableAction,
   shouldFinalizeWatchWithNoLogs,
   unmatchedWorkflowLogAction,
   terminalStepLogErrorAction,
@@ -126,33 +126,34 @@ describe('MutationApp exitCode', () => {
 })
 
 describe('LogsApp exitCode', () => {
-  it('preserves a failed watch verdict when a later tick displays successful logs', () => {
-    const failed = logsReducer({
-      state: createInitialLogsState(),
-      action: {
-        _tag: 'SetLogs',
-        jobName: 'build',
-        conclusion: 'failure',
-        lines: ['build failed'],
-        notice: null,
-        truncation: null,
-      },
-    })
-    const afterLaterSuccess = logsReducer({
-      state: failed,
-      action: {
-        _tag: 'SetLogs',
-        jobName: 'lint',
-        conclusion: 'success',
-        lines: ['lint passed'],
-        notice: null,
-        truncation: null,
-      },
-    })
+  it.each(['failure', 'cancelled'])(
+    'uses the %s run verdict while retaining a successful log section conclusion',
+    (runConclusion) => {
+      const verdictConclusion = logsVerdictConclusion({
+        runConclusion,
+        jobConclusions: ['success'],
+      })
+      const state = logsReducer({
+        state: createInitialLogsState(),
+        action: {
+          _tag: 'SetLogs',
+          jobName: 'build',
+          sectionConclusion: 'success',
+          verdictConclusion,
+          lines: ['build passed'],
+          notice: null,
+          truncation: null,
+        },
+      })
 
-    expect(afterLaterSuccess).toMatchObject({ _tag: 'Loaded', conclusion: 'failure' })
-    expect(LogsApp.config.exitCode?.(afterLaterSuccess)).toBe(1)
-  })
+      expect(state).toMatchObject({
+        _tag: 'Loaded',
+        conclusion: 'failure',
+        sections: [{ jobName: 'build', conclusion: 'success' }],
+      })
+      expect(LogsApp.config.exitCode?.(state)).toBe(1)
+    },
+  )
 
   it('retains successful sections across ticks and replaces repeated sections in place', () => {
     const build = logsReducer({
@@ -161,7 +162,8 @@ describe('LogsApp exitCode', () => {
         _tag: 'SetLogs',
         sectionId: 'job-1',
         jobName: 'build',
-        conclusion: 'success',
+        sectionConclusion: 'success',
+        verdictConclusion: 'success',
         lines: ['build passed'],
         notice: null,
         truncation: null,
@@ -173,7 +175,8 @@ describe('LogsApp exitCode', () => {
         _tag: 'SetLogs',
         sectionId: 'job-2',
         jobName: 'lint',
-        conclusion: 'success',
+        sectionConclusion: 'success',
+        verdictConclusion: 'success',
         lines: ['lint started'],
         notice: null,
         truncation: null,
@@ -185,7 +188,8 @@ describe('LogsApp exitCode', () => {
         _tag: 'SetLogs',
         sectionId: 'job-2',
         jobName: 'lint',
-        conclusion: 'success',
+        sectionConclusion: 'success',
+        verdictConclusion: 'success',
         lines: ['lint passed'],
         notice: null,
         truncation: null,
@@ -217,7 +221,8 @@ describe('LogsApp exitCode', () => {
       action: {
         _tag: 'SetLogs',
         jobName: 'build > compile',
-        conclusion: 'in_progress',
+        sectionConclusion: 'in_progress',
+        verdictConclusion: 'success',
         lines: ['still compiling'],
         notice: null,
         truncation: null,
@@ -320,6 +325,20 @@ describe('LogsApp exitCode', () => {
     },
   )
 
+  it('returns a terminal nonzero state for one-shot selected-step publication lag', () => {
+    const state = logsReducer({
+      state: createInitialLogsState(),
+      action: selectedStepLogsUnavailableAction(['build']),
+    })
+
+    expect(state).toMatchObject({
+      _tag: 'Error',
+      error: 'Logs unavailable',
+      message: "Selected step logs are not available yet for job 'build'.",
+    })
+    expect(LogsApp.config.exitCode?.(state)).toBe(1)
+  })
+
   it('keeps rendered live step logs and the blocking first-failure verdict', () => {
     const renderedLiveStepOutput = true
     let finalState = logsReducer({
@@ -327,10 +346,8 @@ describe('LogsApp exitCode', () => {
       action: {
         _tag: 'SetLogs',
         jobName: 'build > compile',
-        conclusion: liveStepWatchConclusion({
-          stepStatus: 'in_progress',
-          hasUnsuccessfulConclusion: true,
-        }),
+        sectionConclusion: 'in_progress',
+        verdictConclusion: 'failure',
         lines: ['still compiling'],
         notice: null,
         truncation: null,
@@ -357,6 +374,7 @@ describe('LogsApp exitCode', () => {
     expect(finalState).toMatchObject({
       _tag: 'Loaded',
       conclusion: 'failure',
+      sections: [{ jobName: 'build > compile', conclusion: 'in_progress' }],
       lines: ['still compiling'],
     })
     expect(LogsApp.config.exitCode?.(finalState)).toBe(1)

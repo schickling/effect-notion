@@ -443,25 +443,22 @@ describe('completed log retrieval', () => {
 })
 
 describe('selected-step watch retry', () => {
-  it.each(['failed internal job-id resolution', 'step not visible yet'])(
-    'keeps watching after %s',
-    () => {
-      expect(
-        shouldRetryStepLogLookup({
-          watch: true,
-          candidateJobCount: 1,
-          displayedJobCount: 0,
-        }),
-      ).toBe(true)
-    },
-  )
-
-  it('stops retrying after a completed selected step was displayed', () => {
+  it('keeps watching when one candidate was retrieved but another is still retryable', () => {
     expect(
       shouldRetryStepLogLookup({
         watch: true,
-        candidateJobCount: 1,
-        displayedJobCount: 1,
+        candidateJobIds: [80000000001, 80000000002],
+        finalizedJobIds: new Set([80000000001]),
+      }),
+    ).toBe(true)
+  })
+
+  it('stops retrying only after every candidate job was finalized', () => {
+    expect(
+      shouldRetryStepLogLookup({
+        watch: true,
+        candidateJobIds: [80000000001, 80000000002],
+        finalizedJobIds: new Set([80000000001, 80000000002]),
       }),
     ).toBe(false)
   })

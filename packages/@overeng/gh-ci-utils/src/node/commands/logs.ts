@@ -57,15 +57,6 @@ export type CollectedJobLogResult = CollectedJobLog & {
   readonly availability: LogAvailability
 }
 
-/** A watch must retain an unsuccessful verdict while rendering a live step. */
-export const liveStepWatchConclusion = ({
-  stepStatus,
-  hasUnsuccessfulConclusion,
-}: {
-  stepStatus: string
-  hasUnsuccessfulConclusion: boolean
-}): string => (hasUnsuccessfulConclusion ? 'failure' : stepStatus)
-
 /** Derive the logs command's process verdict from the run and every job, as status does. */
 export const logsVerdictConclusion = ({
   runConclusion,
@@ -105,16 +96,16 @@ export const isLogsWatchComplete = ({
     (job) => job.status === 'completed' && job.completed_at !== null && displayedJobIds.has(job.id),
   )
 
-/** Keep a selected-step watch alive while candidate jobs have not produced a completed step log. */
+/** Keep a selected-step watch alive until every candidate job reaches a terminal lookup result. */
 export const shouldRetryStepLogLookup = ({
   watch,
-  candidateJobCount,
-  displayedJobCount,
+  candidateJobIds,
+  finalizedJobIds,
 }: {
   watch: boolean
-  candidateJobCount: number
-  displayedJobCount: number
-}): boolean => watch && candidateJobCount > 0 && displayedJobCount === 0
+  candidateJobIds: readonly number[]
+  finalizedJobIds: ReadonlySet<number>
+}): boolean => watch && candidateJobIds.some((jobId) => !finalizedJobIds.has(jobId))
 
 interface StepLookupFailure {
   readonly _tag: string
@@ -154,6 +145,16 @@ export const terminalStepLogErrorAction = (failure: StepLookupFailure): LogsActi
   _tag: 'SetError',
   error: failure._tag,
   message: failure.message,
+})
+
+/** Return a terminal, nonzero result when one-shot selected-step logs are not published yet. */
+export const selectedStepLogsUnavailableAction = (jobNames: readonly string[]): LogsAction => ({
+  _tag: 'SetError',
+  error: 'Logs unavailable',
+  message:
+    jobNames.length === 1
+      ? `Selected step logs are not available yet for job '${jobNames[0]}'.`
+      : `Selected step logs are not available yet for jobs: ${jobNames.join(', ')}.`,
 })
 
 /** Structured nonzero result when `--step` cannot access GitHub's internal log API. */
@@ -367,6 +368,8 @@ export const logsCommand = Cli.Command.make('logs', {
           const failFast = watchMode === 'first-failure'
           /** Tracks which completed jobs we already displayed logs for in watch mode. */
           const displayedJobIds = new Set<number>()
+          /** Selected-step candidates that no longer need lookup on a later watch tick. */
+          const finalizedStepJobIds = new Set<number>()
           /** Live backscroll is rendered repeatedly and therefore is not a completed displayed job. */
           let renderedLiveStepOutput = false
           /** A required capability failure must survive watch/no-logs finalization. */
@@ -416,9 +419,10 @@ export const logsCommand = Cli.Command.make('logs', {
 
                 if (Option.isSome(sessionResult)) {
                   const session = sessionResult.value
+                  const unavailableStepJobNames = new Set<string>()
                   let anyStepMatched = false
                   for (const j of filteredJobs) {
-                    if (displayedJobIds.has(j.id)) continue
+                    if (finalizedStepJobIds.has(j.id)) continue
 
                     const internalId = yield* Effect.result(
                       internal.resolveInternalJobId({
@@ -436,8 +440,10 @@ export const logsCommand = Cli.Command.make('logs', {
                           operation: 'resolve-job',
                           failure: internalId.failure,
                         }) === 'retryable'
-                      )
+                      ) {
+                        unavailableStepJobNames.add(j.name)
                         continue
+                      }
                       terminalError = true
                       tui.dispatch(terminalStepLogErrorAction(internalId.failure))
                       break
@@ -459,8 +465,10 @@ export const logsCommand = Cli.Command.make('logs', {
                           operation: 'resolve-job',
                           failure: stepsResult.failure,
                         }) === 'retryable'
-                      )
+                      ) {
+                        unavailableStepJobNames.add(j.name)
                         continue
+                      }
                       terminalError = true
                       tui.dispatch(terminalStepLogErrorAction(stepsResult.failure))
                       break
@@ -471,7 +479,11 @@ export const logsCommand = Cli.Command.make('logs', {
                       s.name.toLowerCase().includes(stepFilter.value.toLowerCase()),
                     )
 
-                    if (!matchingStep) continue
+                    if (!matchingStep) {
+                      if (j.status === 'completed') finalizedStepJobIds.add(j.id)
+                      else unavailableStepJobNames.add(j.name)
+                      continue
+                    }
 
                     anyStepMatched = true
                     if (matchingStep.status !== 'completed') {
@@ -486,16 +498,18 @@ export const logsCommand = Cli.Command.make('logs', {
                       const result = collectLogText({
                         logText: backscroll.lines.map((line) => line.line).join('\n'),
                         jobName: `${j.name} > ${matchingStep.name}`,
-                        conclusion: liveStepWatchConclusion({
-                          stepStatus: matchingStep.status,
-                          hasUnsuccessfulConclusion,
-                        }),
+                        conclusion: matchingStep.conclusion ?? matchingStep.status,
                         filters: logFilters,
                       })
                       tui.dispatch({
                         _tag: 'SetLogs',
                         sectionId: `${j.id}:${matchingStep.number}`,
-                        ...result,
+                        jobName: result.jobName,
+                        sectionConclusion: result.conclusion,
+                        verdictConclusion,
+                        lines: result.lines,
+                        notice: result.notice,
+                        truncation: result.truncation,
                       })
                       renderedLiveStepOutput = true
                     } else {
@@ -515,31 +529,52 @@ export const logsCommand = Cli.Command.make('logs', {
                             operation: 'completed-log',
                             failure: logResult.failure,
                           }) === 'retryable'
-                        )
+                        ) {
+                          unavailableStepJobNames.add(j.name)
                           continue
+                        }
                         terminalError = true
                         tui.dispatch(terminalStepLogErrorAction(logResult.failure))
                         break
                       }
-                      if (classifyCompletedStepLogText(logResult.success) === 'retryable') continue
+                      if (classifyCompletedStepLogText(logResult.success) === 'retryable') {
+                        unavailableStepJobNames.add(j.name)
+                        continue
+                      }
 
                       const result = collectLogText({
                         logText: logResult.success,
                         jobName: `${j.name} > ${matchingStep.name}`,
-                        conclusion: hasUnsuccessfulConclusion
-                          ? 'failure'
-                          : (matchingStep.conclusion ?? matchingStep.status),
+                        conclusion: matchingStep.conclusion ?? matchingStep.status,
                         filters: logFilters,
                       })
                       tui.dispatch({
                         _tag: 'SetLogs',
                         sectionId: `${j.id}:${matchingStep.number}`,
-                        ...result,
+                        jobName: result.jobName,
+                        sectionConclusion: result.conclusion,
+                        verdictConclusion,
+                        lines: result.lines,
+                        notice: result.notice,
+                        truncation: result.truncation,
                       })
                       displayedJobIds.add(j.id)
+                      finalizedStepJobIds.add(j.id)
                     }
                   }
                   if (terminalError) {
+                    return {
+                      completed: false,
+                      hasUnsuccessfulConclusion,
+                      retryableLogsPending: false,
+                      verdictConclusion,
+                    }
+                  }
+                  if (!watch && unavailableStepJobNames.size > 0) {
+                    terminalError = true
+                    tui.dispatch(
+                      selectedStepLogsUnavailableAction([...unavailableStepJobNames].toSorted()),
+                    )
                     return {
                       completed: false,
                       hasUnsuccessfulConclusion,
@@ -556,8 +591,8 @@ export const logsCommand = Cli.Command.make('logs', {
                   }
                   const retryableLogsPending = shouldRetryStepLogLookup({
                     watch,
-                    candidateJobCount: filteredJobs.length,
-                    displayedJobCount: displayedJobIds.size,
+                    candidateJobIds: filteredJobs.map((job) => job.id),
+                    finalizedJobIds: finalizedStepJobIds,
                   })
                   return {
                     completed: runCompleted && !retryableLogsPending,
@@ -635,7 +670,8 @@ export const logsCommand = Cli.Command.make('logs', {
                   _tag: 'SetLogs',
                   sectionId: String(j.id),
                   jobName: r.jobName,
-                  conclusion: r.conclusion,
+                  sectionConclusion: r.conclusion,
+                  verdictConclusion,
                   lines: r.lines,
                   notice: r.notice,
                   truncation: r.truncation,

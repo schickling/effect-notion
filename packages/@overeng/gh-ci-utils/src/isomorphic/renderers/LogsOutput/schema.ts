@@ -60,7 +60,10 @@ export const LogsActionSchema = Schema.Union([
     jobName: Schema.String,
     /** Stable job/step identity. Falls back to `jobName` for existing callers. */
     sectionId: Schema.optional(Schema.String),
-    conclusion: Schema.String,
+    /** Actual conclusion for the rendered job or step section. */
+    sectionConclusion: Schema.String,
+    /** Overall workflow run verdict used only for command exit status. */
+    verdictConclusion: Schema.String,
     lines: Schema.Array(Schema.String),
     notice: Schema.NullOr(Schema.String),
     truncation: Schema.NullOr(TruncationSchema),
@@ -84,7 +87,7 @@ export const logsReducer = ({
       const section: LogSection = {
         id: action.sectionId ?? action.jobName,
         jobName: action.jobName,
-        conclusion: action.conclusion,
+        conclusion: action.sectionConclusion,
         lines: action.lines,
         notice: action.notice,
         truncation: action.truncation,
@@ -115,8 +118,7 @@ export const logsReducer = ({
       return {
         _tag: 'Loaded',
         jobName: onlySection?.jobName ?? `${sections.length} jobs`,
-        conclusion:
-          state._tag === 'Loaded' && state.conclusion === 'failure' ? 'failure' : action.conclusion,
+        conclusion: action.verdictConclusion,
         lines:
           onlySection?.lines ??
           sections.flatMap(({ jobName, conclusion, lines }) => [

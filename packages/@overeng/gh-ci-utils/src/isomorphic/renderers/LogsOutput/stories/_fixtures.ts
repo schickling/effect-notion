@@ -274,7 +274,8 @@ const createStreamingTimeline = (opts: {
     action: {
       _tag: 'SetLogs' as const,
       jobName: opts.jobName,
-      conclusion: opts.conclusion,
+      sectionConclusion: opts.conclusion,
+      verdictConclusion: opts.conclusion,
       lines: fraction >= 1 ? [...opts.lines] : sliceLines({ lines: opts.lines, fraction }),
       notice: null,
       truncation: null,
@@ -333,7 +334,8 @@ export const createErrorFilteredTimeline = (): TimelineStep[] => [
     action: {
       _tag: 'SetLogs',
       jobName: 'flake-build',
-      conclusion: 'failure',
+      sectionConclusion: 'failure',
+      verdictConclusion: 'failure',
       lines: [...ERROR_FILTERED_LINES],
       notice: null,
       truncation: null,
@@ -348,7 +350,8 @@ export const createErrorTailFallbackTimeline = (): TimelineStep[] => [
     action: {
       _tag: 'SetLogs',
       jobName: 'flake-build',
-      conclusion: 'failure',
+      sectionConclusion: 'failure',
+      verdictConclusion: 'failure',
       lines: [...GREP_NIX_LINES],
       notice: 'No structured error lines found — showing the tail of the log.',
       truncation: null,
@@ -363,7 +366,8 @@ export const createGrepFilteredTimeline = (): TimelineStep[] => [
     action: {
       _tag: 'SetLogs',
       jobName: 'flake-build',
-      conclusion: 'failure',
+      sectionConclusion: 'failure',
+      verdictConclusion: 'failure',
       lines: [...GREP_NIX_LINES],
       notice: null,
       truncation: null,

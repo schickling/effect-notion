@@ -212,8 +212,8 @@ export default oxlintConfig({
         'typescript/no-useless-default-assignment': 'off',
       },
     },
-    // Preserve the dotfiles-owned CLI's behavior during migration; align the
-    // imported source with effect-utils policy separately in #1254.
+    // Temporary migration waiver for the imported CLI source; align it with
+    // effect-utils policy separately in #1254.
     {
       files: ['**/gh-ci-utils/**'],
       rules: {
