@@ -601,6 +601,57 @@ describe('observeNamespaceJob', () => {
     expect(facts._tag === 'reported' && facts.job.runnerName).toBe(`nsc-runner-${INSTANCE}`)
   })
 
+  it('scopes fallback metadata to the selected attempt and uses the GitHub job name for usage', async () => {
+    const describe = JSON.stringify({
+      attempts: [
+        {
+          job: { job_name: 'previous build', workflow_name: 'Previous CI' },
+          repository: 'previous-org/previous-repo',
+          runner: {
+            instance_id: 'previous-instance',
+            instance_status: 'DESTROYED',
+            runner_name: 'nsc-runner-previous-instance',
+            container_name: 'previous-container',
+          },
+        },
+        {
+          job: { workflow_name: 'Current CI' },
+          repository: 'example-org/example-repo',
+          runner: {
+            instance_id: INSTANCE,
+            instance_status: 'RUNNING',
+            runner_name: `nsc-runner-${INSTANCE}`,
+          },
+        },
+      ],
+    })
+    const { facts, recorded } = await observe({
+      github: githubFacts(),
+      withUsage: true,
+      respond: (argv) =>
+        argv[0] === 'auth'
+          ? output('ok')
+          : argv[0] === 'github'
+            ? output(describe)
+            : argv[argv.indexOf('--jobname') + 1] === 'build'
+              ? output(REPORT_CSV)
+              : output('instance_id\n'),
+    })
+
+    expect(facts._tag).toBe('reported')
+    if (facts._tag !== 'reported') return
+    expect(facts.job).toMatchObject({
+      instanceId: INSTANCE,
+      runnerName: `nsc-runner-${INSTANCE}`,
+      containerName: null,
+      repository: 'example-org/example-repo',
+      workflow: 'Current CI',
+      jobName: null,
+    })
+    expect(facts.usage._tag).toBe('sampled')
+    expect(recorded.at(-1)?.slice(-2)).toEqual(['--jobname', 'build'])
+  })
+
   it('does not run the report at all without --with-usage', async () => {
     const { facts, recorded } = await observe({
       github: githubFacts(),

@@ -67,7 +67,6 @@ export const CiWatchTerminated = Schema.TaggedStruct('WatchTerminated', {
   reason: Schema.Literal('FirstFailure'),
   message: Schema.String,
 }).annotate({ identifier: 'CiNdjson.WatchTerminated' })
-
 /** Event emitted when PR health data is available or changes */
 export const CiPrHealth = Schema.TaggedStruct('PrHealth', {
   prNumber: Schema.Finite,
@@ -188,7 +187,6 @@ export const fromCiAction = ({
   if (action._tag === 'WatchTerminated') {
     return [{ _tag: 'WatchTerminated', reason: action.reason, message: action.message }] as const
   }
-
   if (action._tag !== 'SetLoaded') return [] as const
 
   const events: CiNdjsonEvent[] = []

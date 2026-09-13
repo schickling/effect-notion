@@ -24,9 +24,9 @@
  * # Decoding
  *
  * `nsc github job describe -o json` has no stable published schema, so the
- * decoder here is deliberately tolerant: it looks for known field names
- * anywhere in the returned object graph and degrades anything it does not
- * recognise to `null`/`unknown` rather than asserting a shape.
+ * decoder here is deliberately tolerant: it locates the requested instance
+ * anywhere in the returned object graph, then limits fallback metadata to that
+ * instance's enclosing job/attempt context.
  */
 import { Duration, Effect, Option, Stream } from 'effect'
 import type { PlatformError } from 'effect/PlatformError'
@@ -227,7 +227,19 @@ const findOwnedString = ({
   return null
 }
 
-/** Find the object that directly owns a matching identity field. */
+/** A selected instance record and the array-delimited job/attempt context that encloses it. */
+interface RecordSelection {
+  readonly record: object
+  readonly context: object
+}
+
+/**
+ * Find the object that directly owns a matching identity field.
+ *
+ * Each array item starts a separate context. This keeps metadata fallback
+ * inside the selected attempt when a description contains attempt history,
+ * while a description with one top-level job still uses that whole job object.
+ */
 const findRecord = ({
   root,
   keys,
@@ -236,33 +248,43 @@ const findRecord = ({
   root: unknown
   keys: ReadonlyArray<string>
   value: string
-}): object | null => {
-  const visit = ({ node, depth }: { node: unknown; depth: number }): object | null => {
+}): RecordSelection | null => {
+  const visit = ({
+    node,
+    depth,
+    context,
+  }: {
+    node: unknown
+    depth: number
+    context: object | null
+  }): RecordSelection | null => {
     if (depth > MAX_LOOKUP_DEPTH || typeof node !== 'object' || node === null) return null
     if (Array.isArray(node)) {
       for (const item of node) {
-        const found = visit({ node: item, depth: depth + 1 })
+        const itemContext = typeof item === 'object' && item !== null ? item : context
+        const found = visit({ node: item, depth: depth + 1, context: itemContext })
         if (found !== null) return found
       }
       return null
     }
 
+    const enclosingContext = context ?? node
     if (
       keys.some((key) => {
         const candidate = Reflect.get(node, key)
         return candidate === value || (typeof candidate === 'number' && String(candidate) === value)
       })
     ) {
-      return node
+      return { record: node, context: enclosingContext }
     }
 
     for (const nested of Object.values(node)) {
-      const found = visit({ node: nested, depth: depth + 1 })
+      const found = visit({ node: nested, depth: depth + 1, context: enclosingContext })
       if (found !== null) return found
     }
     return null
   }
-  return visit({ node: root, depth: 0 })
+  return visit({ node: root, depth: 0, context: null })
 }
 
 /** Status strings that positively establish a live instance. */
@@ -311,20 +333,21 @@ export const parseJobDescribe = ({
     }
   }
 
-  const instanceRecord = findRecord({
+  const selection = findRecord({
     root: parsed,
     keys: ['instance_id', 'instanceId'],
     value: expectedInstanceId,
   })
-  if (instanceRecord === null) {
+  if (selection === null) {
     return {
       _tag: 'unrecognized',
       detail: `no record for expected instance ${expectedInstanceId} in job description`,
     }
   }
 
+  const { context: instanceContext, record: instanceRecord } = selection
   const findInstanceString = (keys: ReadonlyArray<string>): string | null =>
-    findOwnedString({ record: instanceRecord, keys }) ?? findString({ root: parsed, keys })
+    findOwnedString({ record: instanceRecord, keys }) ?? findString({ root: instanceContext, keys })
   const destroyedAt = findOwnedString({
     record: instanceRecord,
     keys: ['destroyed_at', 'destroyedAt'],
