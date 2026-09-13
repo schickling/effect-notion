@@ -11,6 +11,8 @@ import {
 } from '../src/isomorphic/lib/logFilter.ts'
 import {
   collectJobLog,
+  classifyCompletedStepLogText,
+  classifyStepLookupFailure,
   collectLogText,
   isLogsWatchComplete,
   shouldRetryStepLogLookup,
@@ -462,6 +464,49 @@ describe('selected-step watch retry', () => {
         displayedJobCount: 1,
       }),
     ).toBe(false)
+  })
+})
+
+describe('selected-step publication classification', () => {
+  it.each([
+    [
+      'job page without an internal id',
+      'resolve-job' as const,
+      'Could not extract internal job ID from HTML for job 80000000002',
+    ],
+    ['job page 404', 'resolve-job' as const, 'GitHub returned 404 while resolving internal job'],
+    ['completed step 404', 'completed-log' as const, 'GitHub returned 404 for completed step log'],
+  ])('retries %s publication lag', (_label, operation, message) => {
+    expect(
+      classifyStepLookupFailure({
+        operation,
+        failure: new GitHubApiError({ message, cause: 'HTTP response' }),
+      }),
+    ).toBe('retryable')
+  })
+
+  it.each([
+    ['revoked session', 'GitHub session was rejected while resolving job; sign in again'],
+    ['forbidden response', 'GitHub returned 403 while resolving internal job'],
+    ['transport failure', 'Internal HTML request failed'],
+  ])('treats %s as terminal', (_label, message) => {
+    expect(
+      classifyStepLookupFailure({
+        operation: 'resolve-job',
+        failure: new GitHubApiError({ message, cause: 'request failure' }),
+      }),
+    ).toBe('terminal')
+  })
+
+  it.each([
+    ['empty response', ''],
+    ['Azure publication response', '<?xml version="1.0"?><Error><Code>BlobNotFound</Code></Error>'],
+  ])('retries a completed step %s', (_label, logText) => {
+    expect(classifyCompletedStepLogText(logText)).toBe('retryable')
+  })
+
+  it('accepts a published completed step log', () => {
+    expect(classifyCompletedStepLogText('compile completed\n')).toBe('retrieved')
   })
 })
 

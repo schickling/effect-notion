@@ -17,7 +17,7 @@ import { selectLogLines, shouldIncludeFailedLog } from '../../isomorphic/lib/log
 import { isUnsuccessfulConclusion, isWrongWorkflowSelection } from '../../isomorphic/lib/summary.ts'
 import { LogsApp, LogsView, type LogsAction } from '../../isomorphic/renderers/LogsOutput/mod.ts'
 import { resolveConfig } from '../Config.ts'
-import { GitHubClient, type GitHubClientShape } from '../GitHubClient.ts'
+import { GitHubClient, type GitHubClientShape, isAzureBlobError } from '../GitHubClient.ts'
 import { GitHubInternal } from '../GitHubInternal.ts'
 import { collectApiMeta } from '../lib/apiMeta.ts'
 import {
@@ -49,9 +49,12 @@ export interface CollectedJobLog {
   readonly truncation: { totalLines: number; offset: number; pageSize: number } | null
 }
 
+/** Whether a log lookup succeeded, may become available, or must stop immediately. */
+export type LogAvailability = 'retrieved' | 'retryable' | 'terminal'
+
 /** A collected job log plus whether a watch may retry its retrieval. */
 export type CollectedJobLogResult = CollectedJobLog & {
-  readonly availability: 'retrieved' | 'retryable' | 'terminal'
+  readonly availability: LogAvailability
 }
 
 /** A watch must retain an unsuccessful verdict while rendering a live step. */
@@ -112,6 +115,46 @@ export const shouldRetryStepLogLookup = ({
   candidateJobCount: number
   displayedJobCount: number
 }): boolean => watch && candidateJobCount > 0 && displayedJobCount === 0
+
+interface StepLookupFailure {
+  readonly _tag: string
+  readonly message: string
+  readonly cause?: unknown
+}
+
+/**
+ * Only explicit publication-lag responses are retryable. Authentication,
+ * transport, parsing, and other API failures are terminal.
+ */
+export const classifyStepLookupFailure = ({
+  operation,
+  failure,
+}: {
+  operation: 'resolve-job' | 'completed-log'
+  failure: StepLookupFailure
+}): Exclude<LogAvailability, 'retrieved'> => {
+  if (failure._tag === 'LogsUnavailableError') return 'retryable'
+  if (failure._tag !== 'GitHubApiError') return 'terminal'
+  if (failure.cause === 'HTTP 404' || /(?:returned|response)\s+404\b/.test(failure.message))
+    return 'retryable'
+  if (
+    operation === 'resolve-job' &&
+    failure.message.startsWith('Could not extract internal job ID from HTML')
+  )
+    return 'retryable'
+  return 'terminal'
+}
+
+/** Empty and Azure error payloads are successful HTTP responses whose logs are not published yet. */
+export const classifyCompletedStepLogText = (logText: string): LogAvailability =>
+  logText.trim() === '' || isAzureBlobError(logText) ? 'retryable' : 'retrieved'
+
+/** Preserve the actual internal API failure in structured/TUI output. */
+export const terminalStepLogErrorAction = (failure: StepLookupFailure): LogsAction => ({
+  _tag: 'SetError',
+  error: failure._tag,
+  message: failure.message,
+})
 
 /** Structured nonzero result when `--step` cannot access GitHub's internal log API. */
 export const missingStepSessionAuthError = {
@@ -387,16 +430,42 @@ export const logsCommand = Cli.Command.make('logs', {
                       }),
                     )
 
-                    if (internalId._tag === 'Failure') continue
+                    if (internalId._tag === 'Failure') {
+                      if (
+                        classifyStepLookupFailure({
+                          operation: 'resolve-job',
+                          failure: internalId.failure,
+                        }) === 'retryable'
+                      )
+                        continue
+                      terminalError = true
+                      tui.dispatch(terminalStepLogErrorAction(internalId.failure))
+                      break
+                    }
 
-                    const steps = yield* internal.getSteps({
-                      owner,
-                      repo: repoName,
-                      runId,
-                      internalJobId: internalId.success,
-                      session,
-                      changeId: 0,
-                    })
+                    const stepsResult = yield* Effect.result(
+                      internal.getSteps({
+                        owner,
+                        repo: repoName,
+                        runId,
+                        internalJobId: internalId.success,
+                        session,
+                        changeId: 0,
+                      }),
+                    )
+                    if (stepsResult._tag === 'Failure') {
+                      if (
+                        classifyStepLookupFailure({
+                          operation: 'resolve-job',
+                          failure: stepsResult.failure,
+                        }) === 'retryable'
+                      )
+                        continue
+                      terminalError = true
+                      tui.dispatch(terminalStepLogErrorAction(stepsResult.failure))
+                      break
+                    }
+                    const steps = stepsResult.success
 
                     const matchingStep = steps.find((s) =>
                       s.name.toLowerCase().includes(stepFilter.value.toLowerCase()),
@@ -423,27 +492,59 @@ export const logsCommand = Cli.Command.make('logs', {
                         }),
                         filters: logFilters,
                       })
-                      tui.dispatch({ _tag: 'SetLogs', ...result })
+                      tui.dispatch({
+                        _tag: 'SetLogs',
+                        sectionId: `${j.id}:${matchingStep.number}`,
+                        ...result,
+                      })
                       renderedLiveStepOutput = true
                     } else {
-                      const logText = yield* internal.getCompletedStepLog({
-                        owner,
-                        repo: repoName,
-                        headSha: run.head_sha,
-                        restJobId: j.id,
-                        stepNumber: matchingStep.number,
-                        session,
-                      })
+                      const logResult = yield* Effect.result(
+                        internal.getCompletedStepLog({
+                          owner,
+                          repo: repoName,
+                          headSha: run.head_sha,
+                          restJobId: j.id,
+                          stepNumber: matchingStep.number,
+                          session,
+                        }),
+                      )
+                      if (logResult._tag === 'Failure') {
+                        if (
+                          classifyStepLookupFailure({
+                            operation: 'completed-log',
+                            failure: logResult.failure,
+                          }) === 'retryable'
+                        )
+                          continue
+                        terminalError = true
+                        tui.dispatch(terminalStepLogErrorAction(logResult.failure))
+                        break
+                      }
+                      if (classifyCompletedStepLogText(logResult.success) === 'retryable') continue
+
                       const result = collectLogText({
-                        logText,
+                        logText: logResult.success,
                         jobName: `${j.name} > ${matchingStep.name}`,
                         conclusion: hasUnsuccessfulConclusion
                           ? 'failure'
                           : (matchingStep.conclusion ?? matchingStep.status),
                         filters: logFilters,
                       })
-                      tui.dispatch({ _tag: 'SetLogs', ...result })
+                      tui.dispatch({
+                        _tag: 'SetLogs',
+                        sectionId: `${j.id}:${matchingStep.number}`,
+                        ...result,
+                      })
                       displayedJobIds.add(j.id)
+                    }
+                  }
+                  if (terminalError) {
+                    return {
+                      completed: false,
+                      hasUnsuccessfulConclusion,
+                      retryableLogsPending: false,
+                      verdictConclusion,
                     }
                   }
                   if (!anyStepMatched && !watch) {
@@ -508,10 +609,8 @@ export const logsCommand = Cli.Command.make('logs', {
                 }
               }
 
-              /** Collect all job logs, then dispatch once to avoid per-job state overwrites */
-              const allLines: string[] = []
-              /** Distinct per-job notices; identical fallbacks collapse into one line. */
-              const notices = new Set<string>()
+              let retrievedThisTick = false
+              let retryableMessage: string | undefined
               for (const j of newJobs) {
                 const r = yield* collectJobLog({
                   github,
@@ -528,9 +627,21 @@ export const logsCommand = Cli.Command.make('logs', {
                   })
                   break
                 }
-                allLines.push(`── ${r.jobName} (${r.conclusion}) ──`, ...r.lines, '')
-                if (r.notice !== null) notices.add(r.notice)
-                if (r.availability === 'retrieved') displayedJobIds.add(j.id)
+                if (r.availability === 'retryable') {
+                  retryableMessage ??= r.lines.join('\n')
+                  continue
+                }
+                tui.dispatch({
+                  _tag: 'SetLogs',
+                  sectionId: String(j.id),
+                  jobName: r.jobName,
+                  conclusion: r.conclusion,
+                  lines: r.lines,
+                  notice: r.notice,
+                  truncation: r.truncation,
+                })
+                displayedJobIds.add(j.id)
+                retrievedThisTick = true
               }
 
               if (terminalError) {
@@ -542,14 +653,11 @@ export const logsCommand = Cli.Command.make('logs', {
                 }
               }
 
-              if (allLines.length > 0) {
+              if (!watch && !retrievedThisTick && retryableMessage !== undefined) {
                 tui.dispatch({
-                  _tag: 'SetLogs',
-                  jobName: newJobs.length === 1 ? newJobs[0]!.name : `${newJobs.length} jobs`,
+                  _tag: 'SetNoLogs',
+                  message: retryableMessage,
                   conclusion: verdictConclusion,
-                  lines: allLines,
-                  notice: notices.size === 0 ? null : [...notices].join(' · '),
-                  truncation: null,
                 })
               }
 

@@ -24,6 +24,9 @@ import { withGitHubSpan } from './observability.ts'
 
 const GITHUB_BASE = 'https://github.com'
 
+const isLoginPageHtml = (html: string): boolean =>
+  html.includes('action="/session"') || html.includes('Sign in to GitHub')
+
 /** Schema for an individual workflow step from the internal API */
 export const InternalStep = Schema.Struct({
   id: Schema.String,
@@ -74,6 +77,12 @@ const makeGitHubInternal = Effect.gen(function* () {
               }),
           ),
         )
+      if (response.status >= 300) {
+        return yield* new GitHubApiError({
+          message: `GitHub returned ${response.status} from internal API: GET ${path}`,
+          cause: `HTTP ${response.status}`,
+        })
+      }
       return yield* response.json.pipe(
         Effect.mapError(
           (cause) =>
@@ -103,6 +112,16 @@ const makeGitHubInternal = Effect.gen(function* () {
               }),
           ),
         )
+      if (response.status >= 300) {
+        const location = response.headers.location
+        const redirectedToLogin = location?.includes('/login') === true
+        return yield* new GitHubApiError({
+          message: redirectedToLogin
+            ? `GitHub session was rejected while resolving job ${path}; sign in again`
+            : `GitHub returned ${response.status} while resolving internal job: GET ${path}`,
+          cause: `HTTP ${response.status}`,
+        })
+      }
       return yield* response.text.pipe(
         Effect.mapError(
           (cause) => new GitHubApiError({ message: 'Failed to read job page HTML', cause }),
@@ -132,6 +151,13 @@ const makeGitHubInternal = Effect.gen(function* () {
         path: `/${owner}/${repo}/actions/runs/${runId}/job/${restJobId}`,
         session,
       })
+
+      if (isLoginPageHtml(html)) {
+        return yield* new GitHubApiError({
+          message: `GitHub session was rejected while resolving job ${restJobId}; sign in again`,
+          cause: 'GitHub login page',
+        })
+      }
 
       const match = /\/jobs\/(\d+)\/steps/.exec(html)
       if (!match?.[1]) {
@@ -311,6 +337,16 @@ const makeGitHubInternal = Effect.gen(function* () {
                   cause: 'invalid redirect',
                 })
               }
+              if (
+                storageUrl.origin === GITHUB_BASE &&
+                (storageUrl.pathname.startsWith('/login') ||
+                  storageUrl.pathname.startsWith('/session'))
+              ) {
+                return yield* new GitHubApiError({
+                  message: `GitHub session was rejected while fetching completed step log for job ${restJobId}; sign in again`,
+                  cause: 'GitHub login redirect',
+                })
+              }
               return yield* httpClient.execute(HttpClientRequest.get(storageUrl.href)).pipe(
                 Effect.mapError(
                   (cause) =>
@@ -330,7 +366,7 @@ const makeGitHubInternal = Effect.gen(function* () {
         })
       }
 
-      return yield* logResponse.text.pipe(
+      const logText = yield* logResponse.text.pipe(
         Effect.mapError(
           (cause) =>
             new GitHubApiError({
@@ -339,6 +375,13 @@ const makeGitHubInternal = Effect.gen(function* () {
             }),
         ),
       )
+      if (isLoginPageHtml(logText)) {
+        return yield* new GitHubApiError({
+          message: `GitHub session was rejected while fetching completed step log for job ${restJobId}; sign in again`,
+          cause: 'GitHub login page',
+        })
+      }
+      return logText
     }).pipe(
       Effect.scoped,
       withGitHubSpan({

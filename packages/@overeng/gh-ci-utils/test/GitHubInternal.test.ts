@@ -81,6 +81,48 @@ describe('GitHubInternal.getCompletedStepLog', () => {
       { url: storageUrl, cookie: undefined },
     ])
   })
+
+  it('reports a completed-step login redirect as a terminal session failure', async () => {
+    const httpLayer = Layer.succeed(
+      HttpClient.HttpClient,
+      HttpClient.make((request) =>
+        Effect.succeed(
+          HttpClientResponse.fromWeb(
+            request,
+            new Response(null, {
+              status: 302,
+              headers: { location: 'https://github.com/login?return_to=%2Fcompleted-step' },
+            }),
+          ),
+        ),
+      ),
+    )
+
+    const result = await Effect.gen(function* () {
+      const internal = yield* GitHubInternal
+      return yield* Effect.result(
+        internal.getCompletedStepLog({
+          owner: 'example-org',
+          repo: 'example-repo',
+          headSha: 'abcdef123456',
+          restJobId: 987,
+          stepNumber: 4,
+          session,
+        }),
+      )
+    }).pipe(
+      Effect.provide(GitHubInternal.Default.pipe(Layer.provide(httpLayer))),
+      Effect.runPromise,
+    )
+
+    expect(result._tag).toBe('Failure')
+    if (result._tag === 'Failure') {
+      expect(result.failure.message).toContain(
+        'GitHub session was rejected while fetching completed step log',
+      )
+    }
+  })
+
   it('consumes internal HTML and JSON bodies inside their acquisition scopes', async () => {
     const httpLayer = Layer.succeed(
       HttpClient.HttpClient,
@@ -130,5 +172,45 @@ describe('GitHubInternal.getCompletedStepLog', () => {
 
     expect(result.internalJobId).toBe(456)
     expect(result.steps).toMatchObject([{ id: 'step-1', name: 'Build' }])
+  })
+})
+
+describe('GitHubInternal.resolveInternalJobId authentication', () => {
+  it.each([
+    ['forbidden response', 403, 'forbidden', 'GitHub returned 403 while resolving internal job'],
+    [
+      'login page',
+      200,
+      '<form action="/session"><h1>Sign in to GitHub</h1></form>',
+      'GitHub session was rejected while resolving job 987; sign in again',
+    ],
+  ])('reports a %s as a terminal API failure', async (_label, status, body, expectedMessage) => {
+    const httpLayer = Layer.succeed(
+      HttpClient.HttpClient,
+      HttpClient.make((request, _url, signal) =>
+        status === 200
+          ? scopedResponse(request, body, signal)
+          : Effect.succeed(HttpClientResponse.fromWeb(request, new Response(body, { status }))),
+      ),
+    )
+
+    const result = await Effect.gen(function* () {
+      const internal = yield* GitHubInternal
+      return yield* Effect.result(
+        internal.resolveInternalJobId({
+          owner: 'example-org',
+          repo: 'example-repo',
+          runId: 123,
+          restJobId: 987,
+          session,
+        }),
+      )
+    }).pipe(
+      Effect.provide(GitHubInternal.Default.pipe(Layer.provide(httpLayer))),
+      Effect.runPromise,
+    )
+
+    expect(result._tag).toBe('Failure')
+    if (result._tag === 'Failure') expect(result.failure.message).toContain(expectedMessage)
   })
 })

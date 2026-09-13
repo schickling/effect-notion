@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { GitHubApiError } from '../src/isomorphic/Errors.ts'
 import { defaultApiMeta } from '../src/isomorphic/lib/apiMeta.ts'
 import { computeSummary, directRunSelection } from '../src/isomorphic/lib/summary.ts'
 import type { WorkflowJobVM } from '../src/isomorphic/lib/viewModels.ts'
@@ -17,6 +18,7 @@ import {
   missingStepSessionAuthError,
   shouldFinalizeWatchWithNoLogs,
   unmatchedWorkflowLogAction,
+  terminalStepLogErrorAction,
 } from '../src/node/commands/logs.ts'
 
 const testRun = {
@@ -152,6 +154,63 @@ describe('LogsApp exitCode', () => {
     expect(LogsApp.config.exitCode?.(afterLaterSuccess)).toBe(1)
   })
 
+  it('retains successful sections across ticks and replaces repeated sections in place', () => {
+    const build = logsReducer({
+      state: createInitialLogsState(),
+      action: {
+        _tag: 'SetLogs',
+        sectionId: 'job-1',
+        jobName: 'build',
+        conclusion: 'success',
+        lines: ['build passed'],
+        notice: null,
+        truncation: null,
+      },
+    })
+    const withLint = logsReducer({
+      state: build,
+      action: {
+        _tag: 'SetLogs',
+        sectionId: 'job-2',
+        jobName: 'lint',
+        conclusion: 'success',
+        lines: ['lint started'],
+        notice: null,
+        truncation: null,
+      },
+    })
+    const finalState = logsReducer({
+      state: withLint,
+      action: {
+        _tag: 'SetLogs',
+        sectionId: 'job-2',
+        jobName: 'lint',
+        conclusion: 'success',
+        lines: ['lint passed'],
+        notice: null,
+        truncation: null,
+      },
+    })
+
+    expect(finalState).toMatchObject({
+      _tag: 'Loaded',
+      jobName: '2 jobs',
+      sections: [
+        { id: 'job-1', jobName: 'build', lines: ['build passed'] },
+        { id: 'job-2', jobName: 'lint', lines: ['lint passed'] },
+      ],
+      lines: [
+        '── build (success) ──',
+        'build passed',
+        '',
+        '── lint (success) ──',
+        'lint passed',
+        '',
+      ],
+    })
+    expect(finalState._tag === 'Loaded' ? finalState.lines : []).not.toContain('lint started')
+  })
+
   it('does not fail while a selected live step is still in progress', () => {
     const state = logsReducer({
       state: createInitialLogsState(),
@@ -239,6 +298,27 @@ describe('LogsApp exitCode', () => {
     })
     expect(LogsApp.config.exitCode?.(state)).toBe(1)
   })
+
+  it.each(['one-shot', 'watch'])(
+    'preserves a revoked-session error for %s selected-step output',
+    () => {
+      const failure = new GitHubApiError({
+        message: 'GitHub session was rejected while resolving job 80000000002; sign in again',
+        cause: 'HTTP 403',
+      })
+      const state = logsReducer({
+        state: createInitialLogsState(),
+        action: terminalStepLogErrorAction(failure),
+      })
+
+      expect(state).toMatchObject({
+        _tag: 'Error',
+        error: 'GitHubApiError',
+        message: failure.message,
+      })
+      expect(LogsApp.config.exitCode?.(state)).toBe(1)
+    },
+  )
 
   it('keeps rendered live step logs and the blocking first-failure verdict', () => {
     const renderedLiveStepOutput = true
