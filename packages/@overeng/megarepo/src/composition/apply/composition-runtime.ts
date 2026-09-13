@@ -6,6 +6,8 @@ import * as NodePath from 'node:path'
 import {
   checkCompositionCapabilityProjection,
   compositionCapabilityRuntimeFromEnv,
+  retainCompositionCapabilityProjection,
+  pruneCompositionCapabilityProjectionRoots,
 } from '../capabilities/composition-capability-resolver.ts'
 import {
   installOwnedCapabilityProjection,
@@ -148,7 +150,7 @@ export const compositionApplyRuntimeFromEnv = ({
   readonly env?: Readonly<Record<string, string | undefined>>
 }): CompositionApplyRuntime => {
   const workspaceRoot = normalizedAbsolute({ value: rawWorkspaceRoot, name: 'workspaceRoot' })
-  const capabilityRuntime = { ...compositionCapabilityRuntimeFromEnv(env), env }
+  const capabilityRuntime = { ...compositionCapabilityRuntimeFromEnv(env), env, nonce }
   const cpPath = normalizedAbsolute({
     value: required({ env, name: compositionRuntimeEnvironmentNames.cpPath }),
     name: compositionRuntimeEnvironmentNames.cpPath,
@@ -181,17 +183,34 @@ export const compositionApplyRuntimeFromEnv = ({
   return {
     ownedCapabilityProjection: {
       plan: planOwnedCapabilityProjection,
-      install: (input) =>
+      install: ({ retainPublishedCapabilities, ...input }) =>
         installOwnedCapabilityProjection({
           ...input,
-          runtime: { cpPath, mvPath, nonce },
+          runtime: {
+            cpPath,
+            mvPath,
+            nonce,
+            retainPublishedCapabilities: () => retainPublishedCapabilities(),
+          },
         }),
     },
+    retainCapabilityRoots: ({ memberRoot, resolution }) =>
+      retainCompositionCapabilityProjection({
+        memberRoot,
+        resolution,
+        runtime: capabilityRuntime,
+      }),
+    pruneCapabilityRoots: ({ memberRoot, resolution }) =>
+      pruneCompositionCapabilityProjectionRoots({
+        memberRoot,
+        resolution,
+        runtime: capabilityRuntime,
+      }),
     system,
     platform,
     buck2Path,
     buck2Protocol,
-    capabilityRuntime: { ...capabilityRuntime, nonce },
+    capabilityRuntime,
     mountRuntime: {
       cpPath,
       mvPath,

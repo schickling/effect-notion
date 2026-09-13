@@ -26,6 +26,7 @@ import {
   type ResolveCompositionCapabilitiesResult,
 } from '../capabilities/composition-capability-resolver.ts'
 import {
+  CpAMemberMountError,
   cpAMemberMountTransactionPath,
   type CpAMemberMountRecoveryRequest,
   type CpAMemberMountRequest,
@@ -205,8 +206,21 @@ export interface CompositionApplyRuntime {
       readonly ownedMemberPath: string
       readonly projectionPath: string
       readonly projectionDigest: string
+      readonly retainPublishedCapabilities: () => Promise<void>
     }) => Promise<CompositionOwnedCapabilityProjectionResult>
   }
+  /** Retain one published projection's Nix outputs before its resolver scratch is released. */
+  readonly retainCapabilityRoots: (input: {
+    readonly memberKey: string
+    readonly memberRoot: string
+    readonly resolution: CompositionCapabilityResolutionHandle
+  }) => Promise<void>
+  /** Verify the retained generation and prune stale roots only after publication commits. */
+  readonly pruneCapabilityRoots: (input: {
+    readonly memberKey: string
+    readonly memberRoot: string
+    readonly resolution: CompositionCapabilityResolutionHandle
+  }) => Promise<void>
   readonly system: CompositionCapabilitySystem
   readonly platform: RuntimePlatform
   readonly buck2Path: string
@@ -1146,6 +1160,25 @@ const applyComposition = async ({
         recoveryPaths: [],
       })
     }
+    const retainOwnedCapabilityRoots = async (): Promise<void> => {
+      try {
+        await runtime.retainCapabilityRoots({
+          memberKey: request.ownedMemberKey,
+          memberRoot: request.ownedMemberPath,
+          resolution: ownedHandle,
+        })
+      } catch (cause) {
+        throw normalizeFailure({
+          cause,
+          reason: 'CapabilityFailure',
+          phase: 'Capability',
+          memberKey: request.ownedMemberKey,
+          path: request.ownedMemberPath,
+          message: `Could not retain owned capability roots for '${request.ownedMemberKey}'`,
+          recoveryPaths: [],
+        })
+      }
+    }
     let ownedProjection: CompositionOwnedCapabilityProjectionResult
     try {
       ownedProjection = await runtime.ownedCapabilityProjection.install({
@@ -1153,6 +1186,7 @@ const applyComposition = async ({
         ownedMemberPath: request.ownedMemberPath,
         projectionPath: ownedHandle.projectionPath,
         projectionDigest: ownedHandle.projectionDigest,
+        retainPublishedCapabilities: retainOwnedCapabilityRoots,
       })
     } catch (cause) {
       throw normalizeFailure({
@@ -1161,7 +1195,24 @@ const applyComposition = async ({
         phase: 'Capability',
         memberKey: request.ownedMemberKey,
         path: request.ownedMemberPath,
-        message: `Could not install owned capability projection for '${request.ownedMemberKey}'`,
+        message: `Could not install and retain owned capability projection for '${request.ownedMemberKey}'`,
+        recoveryPaths: [],
+      })
+    }
+    try {
+      await runtime.pruneCapabilityRoots({
+        memberKey: request.ownedMemberKey,
+        memberRoot: request.ownedMemberPath,
+        resolution: ownedHandle,
+      })
+    } catch (cause) {
+      throw normalizeFailure({
+        cause,
+        reason: 'CapabilityFailure',
+        phase: 'Capability',
+        memberKey: request.ownedMemberKey,
+        path: request.ownedMemberPath,
+        message: `Could not prune stale owned capability roots for '${request.ownedMemberKey}'`,
         recoveryPaths: [],
       })
     }
@@ -1180,6 +1231,46 @@ const applyComposition = async ({
         })
       }
       let mount: CpAMemberMountResult
+      let retainedDuringPublish = false
+      const mountedRoot = NodePath.join(request.workspaceRoot, 'repos', member.key)
+      const retainMountedCapabilityRoots = async (): Promise<void> => {
+        try {
+          await runtime.retainCapabilityRoots({
+            memberKey: member.key,
+            memberRoot: mountedRoot,
+            resolution: capability,
+          })
+        } catch (cause) {
+          throw normalizeFailure({
+            cause,
+            reason: 'CapabilityFailure',
+            phase: 'Capability',
+            memberKey: member.key,
+            path: mountedRoot,
+            message: `Could not retain capability roots for '${member.key}'`,
+            recoveryPaths: [],
+          })
+        }
+      }
+      const pruneMountedCapabilityRoots = async (): Promise<void> => {
+        try {
+          await runtime.pruneCapabilityRoots({
+            memberKey: member.key,
+            memberRoot: mountedRoot,
+            resolution: capability,
+          })
+        } catch (cause) {
+          throw normalizeFailure({
+            cause,
+            reason: 'CapabilityFailure',
+            phase: 'Capability',
+            memberKey: member.key,
+            path: mountedRoot,
+            message: `Could not prune stale capability roots for '${member.key}'`,
+            recoveryPaths: [],
+          })
+        }
+      }
       try {
         await primitives.assertLockedSourceClean({
           sourcePath: member.root,
@@ -1196,11 +1287,22 @@ const applyComposition = async ({
             dryRun: false,
             allowVerifiedDarwinAdvance: request.allowVerifiedDarwinAdvance,
           },
-          runtime: runtime.mountRuntime,
+          runtime: {
+            ...runtime.mountRuntime,
+            retainPublishedCapabilities: async ({ destinationPath }) => {
+              if (destinationPath !== mountedRoot) {
+                throw new TypeError('Mount retention path is outside the published member root')
+              }
+              await retainMountedCapabilityRoots()
+              retainedDuringPublish = true
+            },
+          },
         })
         if (mount._tag !== 'Published' && mount._tag !== 'AlreadyCurrent') {
           throw new TypeError(`Unexpected mount result '${mount._tag}'`)
         }
+        if (retainedDuringPublish === false) await retainMountedCapabilityRoots()
+        await pruneMountedCapabilityRoots()
         mountResults.set(member.key, mount)
         mountInspections.set(
           member.key,
@@ -1210,19 +1312,27 @@ const applyComposition = async ({
           }),
         )
       } catch (cause) {
+        const retentionFailure =
+          cause instanceof CpAMemberMountError && cause.reason === 'CapabilityRetentionFailed'
         throw normalizeFailure({
           cause,
-          reason: 'MountFailure',
-          phase: 'Mount',
+          reason: retentionFailure === true ? 'CapabilityFailure' : 'MountFailure',
+          phase: retentionFailure === true ? 'Capability' : 'Mount',
           memberKey: member.key,
-          path: member.root,
-          message: `Could not materialize member mount '${member.key}'`,
-          recoveryPaths: [
-            cpAMemberMountTransactionPath({
-              workspaceRoot: request.workspaceRoot,
-              member: member.key,
-            }),
-          ],
+          path: retentionFailure === true ? mountedRoot : member.root,
+          message:
+            retentionFailure === true
+              ? `Could not retain capability roots for '${member.key}'`
+              : `Could not materialize member mount '${member.key}'`,
+          recoveryPaths:
+            retentionFailure === true
+              ? []
+              : [
+                  cpAMemberMountTransactionPath({
+                    workspaceRoot: request.workspaceRoot,
+                    member: member.key,
+                  }),
+                ],
         })
       }
     }

@@ -2,11 +2,13 @@ import { execFileSync } from 'node:child_process'
 import { realpathSync } from 'node:fs'
 import {
   chmod,
+  cp,
   lstat,
   mkdtemp,
   mkdir,
   readFile,
   readdir,
+  readlink,
   rm,
   symlink,
   writeFile,
@@ -26,8 +28,10 @@ import {
 import {
   checkCompositionCapabilityProjection,
   makeCapabilityProjectionManifest,
+  pruneCompositionCapabilityProjectionRoots,
   resolveCompositionCapabilities,
   resolvedCompositionCapabilityByToolId,
+  retainCompositionCapabilityProjection,
   type CompositionCapabilityRuntime,
 } from './composition-capability-resolver.ts'
 
@@ -47,6 +51,8 @@ const bashExecutable = realpathSync(commandPath('bash'))
 const bashOutput = NodePath.dirname(NodePath.dirname(bashExecutable))
 const alternateExecutable = realpathSync(commandPath('grep'))
 const alternateOutput = NodePath.dirname(NodePath.dirname(alternateExecutable))
+const lnExecutable = commandPath('ln')
+const rmExecutable = commandPath('rm')
 const escapingStoreOutput = [rawShell, commandPath('nix'), commandPath('grep')]
   .filter((path) => /^\/nix\/store\/[^/]+\/bin\/[^/]+$/u.test(path))
   .map((path) => ({ output: NodePath.dirname(NodePath.dirname(path)), target: realpathSync(path) }))
@@ -108,7 +114,7 @@ const makeFixture = async ({
   ])
   await writeFile(
     nixPath,
-    `#!${shell}\nset -eu\nprintf '%s\\n' "$*" >>"${nixLog}"\nIFS= read -r mode <"${nixModePath}"\nIFS= read -r output <"${nixOutputPath}"\ncase " $* " in\n  *" path-info "*)\n    case "$mode" in\n      closure-missing) exit 0 ;;\n      closure-nonstore) printf '/tmp/not-a-store-output\\n'; exit 0 ;;\n      closure-omits-output) printf '%s\\n' "${alternateOutput}"; exit 0 ;;\n    esac\n    ;;\nesac\ncase "$mode" in\n  missing) exit 0 ;;\n  duplicate) printf '%s\\n%s\\n' "$output" "$output" ;;\n  nonstore) printf '/tmp/not-a-store-output\\n' ;;\n  lock-write-attempt)\n    case " $* " in\n      *" --no-write-lock-file --no-update-lock-file "*) exit 73 ;;\n      *) printf 'mutated\\n' >"${memberRoot}/flake.lock"; exit 74 ;;\n    esac ;;\n  fail) exit 37 ;;\n  *) printf '%s\\n' "$output" ;;\nesac\n`,
+    `#!${shell}\nset -eu\nprintf '%s\\n' "$*" >>"${nixLog}"\nIFS= read -r mode <"${nixModePath}"\nIFS= read -r output <"${nixOutputPath}"\ncase " $* " in\n  *" path-info "*)\n    case "$mode" in\n      closure-missing) exit 0 ;;\n      closure-nonstore) printf '/tmp/not-a-store-output\\n'; exit 0 ;;\n      closure-omits-output) printf '%s\\n' "${alternateOutput}"; exit 0 ;;\n    esac\n    ;;\nesac\ncase "$mode" in\n  missing) exit 0 ;;\n  duplicate) printf '%s\\n%s\\n' "$output" "$output" ;;\n  nonstore) printf '/tmp/not-a-store-output\\n' ;;\n  lock-write-attempt)\n    case " $* " in\n      *" --no-write-lock-file --no-update-lock-file "*) exit 73 ;;\n      *) printf 'mutated\\n' >"${memberRoot}/flake.lock"; exit 74 ;;\n    esac ;;\n  fail) exit 37 ;;\n  *)\n    previous=\n    for arg in "$@"; do\n      if [ "$previous" = '--out-link' ]; then\n        "${rmExecutable}" -f "$arg"\n        "${lnExecutable}" -s "$output" "$arg"\n        break\n      fi\n      previous="$arg"\n    done\n    printf '%s\\n' "$output"\n    ;;\nesac\n`,
     { mode: 0o755 },
   )
   await writeFile(
@@ -289,6 +295,250 @@ describe('composition capability resolver', () => {
       expect((await lstat(result.candidateRoot)).mode & 0o777).toBe(0o700)
       await result.release()
       expect(await readdir(fixture.scratchRoot)).toEqual([])
+    } finally {
+      await clean(fixture)
+    }
+  })
+
+  it('retains durable generation roots idempotently and prunes stale generation directories', async () => {
+    const fixture = await makeFixture()
+    try {
+      const result = await resolve(fixture, {
+        manifest: manifest({
+          capabilities: [
+            {
+              toolId: 'z-tool',
+              protocol: 'test/z/v1',
+              flakePackage: 'z-package',
+              executable: 'bin/bash',
+            },
+            {
+              toolId: 'a-tool',
+              protocol: 'test/a/v1',
+              flakePackage: 'a-package',
+              executable: 'bin/bash',
+            },
+          ],
+        }),
+      })
+      if (result._tag !== 'Resolved') throw new Error('unreachable')
+      const publishedRoot = NodePath.join(fixture.root, 'published')
+      const buck2Path = NodePath.join(publishedRoot, '.buck2')
+      await mkdir(buck2Path, { recursive: true })
+      await cp(result.projectionPath, NodePath.join(buck2Path, 'capabilities'), {
+        recursive: true,
+      })
+      await chmod(buck2Path, 0o555)
+      const rootsPath = NodePath.join(buck2Path, 'capability-roots')
+      const generationRoot = NodePath.join(rootsPath, result.projectionDigest)
+      const fsyncEvents: string[] = []
+      const durableRuntime: CompositionCapabilityRuntime = {
+        ...fixture.runtime,
+        directoryFsync: async ({ path, reason, sync }) => {
+          await sync()
+          fsyncEvents.push(`${reason}:${path}`)
+        },
+      }
+
+      await retainCompositionCapabilityProjection({
+        memberRoot: publishedRoot,
+        resolution: result,
+        runtime: durableRuntime,
+      })
+      expect((await lstat(buck2Path)).mode & 0o777).toBe(0o555)
+      const staleGeneration = NodePath.join(rootsPath, 'a'.repeat(64))
+      const recoveryRoot = NodePath.join(rootsPath, 'operator-recovery')
+      await mkdir(staleGeneration, { recursive: true })
+      await writeFile(NodePath.join(staleGeneration, 'sentinel'), 'stale\n')
+      await mkdir(recoveryRoot)
+      await Promise.all(
+        [generationRoot, staleGeneration, recoveryRoot, rootsPath].map((path) =>
+          chmod(path, 0o555),
+        ),
+      )
+      await retainCompositionCapabilityProjection({
+        memberRoot: publishedRoot,
+        resolution: result,
+        runtime: durableRuntime,
+      })
+      expect(fsyncEvents).toEqual([
+        `CapabilityLinks:${generationRoot}`,
+        `GenerationLink:${rootsPath}`,
+        `RootsLink:${buck2Path}`,
+        `CapabilityLinks:${generationRoot}`,
+        `GenerationLink:${rootsPath}`,
+        `RootsLink:${buck2Path}`,
+      ])
+      expect(await readdir(rootsPath)).toContain('a'.repeat(64))
+      await pruneCompositionCapabilityProjectionRoots({
+        memberRoot: publishedRoot,
+        resolution: result,
+        runtime: fixture.runtime,
+      })
+
+      const aRoot = NodePath.join(rootsPath, result.projectionDigest, 'a-tool')
+      const zRoot = NodePath.join(rootsPath, result.projectionDigest, 'z-tool')
+      for (const rootPath of [aRoot, zRoot]) {
+        expect((await lstat(rootPath)).isSymbolicLink()).toBe(true)
+        expect(await readlink(rootPath)).toBe(bashOutput)
+      }
+      expect((await lstat(generationRoot)).mode & 0o777).toBe(0o555)
+      expect((await lstat(rootsPath)).mode & 0o777).toBe(0o555)
+      expect((await readdir(rootsPath)).toSorted()).toEqual([
+        result.projectionDigest,
+        'operator-recovery',
+      ])
+      expect(await readFile(fixture.nixLog, 'utf8')).toContain(
+        `build --out-link ${aRoot} ${bashOutput}\n` +
+          `build --out-link ${zRoot} ${bashOutput}\n` +
+          `build --out-link ${aRoot} ${bashOutput}\n` +
+          `build --out-link ${zRoot} ${bashOutput}\n`,
+      )
+      await Promise.all(
+        [generationRoot, recoveryRoot, rootsPath, buck2Path].map((path) => chmod(path, 0o755)),
+      )
+      await result.release()
+    } finally {
+      await clean(fixture)
+    }
+  })
+
+  it('fsyncs pre-existing parent links on retry after a post-mkdir retention failure', async () => {
+    const fixture = await makeFixture()
+    try {
+      const result = await resolve(fixture)
+      if (result._tag !== 'Resolved') throw new Error('unreachable')
+      const publishedRoot = NodePath.join(fixture.root, 'published')
+      const buck2Path = NodePath.join(publishedRoot, '.buck2')
+      await mkdir(buck2Path, { recursive: true })
+      await cp(result.projectionPath, NodePath.join(buck2Path, 'capabilities'), {
+        recursive: true,
+      })
+      const lostRoot = NodePath.join(
+        buck2Path,
+        'capability-roots',
+        result.projectionDigest,
+        'buck2',
+      )
+
+      const retentionError = await failure(
+        retainCompositionCapabilityProjection({
+          memberRoot: publishedRoot,
+          resolution: result,
+          runtime: {
+            ...fixture.runtime,
+            directoryFsync: async ({ path, reason }) => {
+              if (reason !== 'CapabilityLinks') return
+              await rm(lostRoot, { force: true })
+              throw new Error(`simulated loss before syncing '${path}'`)
+            },
+          },
+        }),
+      )
+      expect(retentionError.reason).toBe('ProjectionFailure')
+      await expect(lstat(lostRoot)).rejects.toMatchObject({ code: 'ENOENT' })
+      const syncedParents = new Set<string>()
+      await retainCompositionCapabilityProjection({
+        memberRoot: publishedRoot,
+        resolution: result,
+        runtime: {
+          ...fixture.runtime,
+          directoryFsync: async ({ path, reason, sync }) => {
+            await sync()
+            if (reason !== 'CapabilityLinks') syncedParents.add(path)
+          },
+        },
+      })
+      const rootsPath = NodePath.join(buck2Path, 'capability-roots')
+      const generationRoot = NodePath.join(rootsPath, result.projectionDigest)
+      if (syncedParents.has(rootsPath) === false) {
+        await rm(generationRoot, { recursive: true, force: true })
+      }
+      if (syncedParents.has(buck2Path) === false) {
+        await rm(rootsPath, { recursive: true, force: true })
+      }
+      expect(syncedParents).toEqual(new Set([rootsPath, buck2Path]))
+      expect((await lstat(lostRoot)).isSymbolicLink()).toBe(true)
+      await result.release()
+    } finally {
+      await clean(fixture)
+    }
+  })
+
+  it('restores a protected Buck parent mode when root verification fails', async () => {
+    const fixture = await makeFixture()
+    try {
+      const result = await resolve(fixture)
+      if (result._tag !== 'Resolved') throw new Error('unreachable')
+      const publishedRoot = NodePath.join(fixture.root, 'published')
+      const buck2Path = NodePath.join(publishedRoot, '.buck2')
+      await mkdir(buck2Path, { recursive: true })
+      await cp(result.projectionPath, NodePath.join(buck2Path, 'capabilities'), {
+        recursive: true,
+      })
+      await chmod(buck2Path, 0o555)
+      await writeFile(fixture.nixOutputPath, `${alternateOutput}\n`)
+
+      const error = await failure(
+        retainCompositionCapabilityProjection({
+          memberRoot: publishedRoot,
+          resolution: result,
+          runtime: fixture.runtime,
+        }),
+      )
+      expect(error.reason).toBe('ProjectionFailure')
+      expect((await lstat(buck2Path)).mode & 0o777).toBe(0o555)
+      await chmod(buck2Path, 0o755)
+      await result.release()
+    } finally {
+      await clean(fixture)
+    }
+  })
+
+  it('rejects a published generation mismatch without deleting prior roots', async () => {
+    const fixture = await makeFixture()
+    try {
+      const expected = await resolve(fixture)
+      const published = await resolve(fixture, {
+        manifest: manifest({
+          capabilities: [
+            {
+              toolId: 'buck2',
+              protocol: 'test/different-generation/v1',
+              flakePackage: 'buck2',
+              executable: 'bin/bash',
+            },
+          ],
+        }),
+      })
+      if (expected._tag !== 'Resolved' || published._tag !== 'Resolved') {
+        throw new Error('unreachable')
+      }
+      const publishedRoot = NodePath.join(fixture.root, 'published')
+      await mkdir(NodePath.join(publishedRoot, '.buck2'), { recursive: true })
+      await cp(published.projectionPath, NodePath.join(publishedRoot, '.buck2', 'capabilities'), {
+        recursive: true,
+      })
+      const priorRoot = NodePath.join(
+        publishedRoot,
+        '.buck2',
+        'capability-roots',
+        expected.projectionDigest,
+      )
+      await mkdir(priorRoot, { recursive: true })
+      await writeFile(NodePath.join(priorRoot, 'sentinel'), 'keep\n')
+
+      const error = await failure(
+        retainCompositionCapabilityProjection({
+          memberRoot: publishedRoot,
+          resolution: expected,
+          runtime: fixture.runtime,
+        }),
+      )
+      expect(error.reason).toBe('ProjectionFailure')
+      expect(await readFile(NodePath.join(priorRoot, 'sentinel'), 'utf8')).toBe('keep\n')
+      await expected.release()
+      await published.release()
     } finally {
       await clean(fixture)
     }

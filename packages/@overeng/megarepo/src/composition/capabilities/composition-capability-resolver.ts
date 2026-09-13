@@ -10,6 +10,7 @@ import {
   open,
   readFile,
   readdir,
+  readlink,
   realpath,
   rename,
   rm,
@@ -54,6 +55,12 @@ export interface CompositionCapabilityRuntime {
     readonly projectionPath: string
   }) => Promise<void>
   readonly createPrivateScratch?: () => Promise<CompositionCapabilityPrivateScratch>
+  /** Durability seam for published capability-root directory entries. */
+  readonly directoryFsync?: (input: {
+    readonly path: string
+    readonly reason: 'CapabilityLinks' | 'GenerationLink' | 'RootsLink'
+    readonly sync: () => Promise<void>
+  }) => Promise<void>
 }
 
 /** Resolver-owned private scratch capability. Callers may inject creation, never a mutable path. */
@@ -73,6 +80,12 @@ export interface ResolveCompositionCapabilitiesInput {
   readonly system: CompositionCapabilitySystem
   readonly manifest: BuckMemberManifest | unknown
   readonly dryRun: boolean
+  readonly runtime: CompositionCapabilityRuntime
+}
+/** Stable publication target plus the exact resolution whose Nix outputs must survive GC. */
+export interface RetainCompositionCapabilityProjectionInput {
+  readonly memberRoot: string
+  readonly resolution: CompositionCapabilityResolutionHandle
   readonly runtime: CompositionCapabilityRuntime
 }
 
@@ -102,6 +115,15 @@ export const checkCompositionCapabilityProjection = (input: { readonly memberRoo
 /** Resolve declared capabilities using trusted mr-owned projection code. */
 export const resolveCompositionCapabilities = (input: ResolveCompositionCapabilitiesInput) =>
   resolveCompositionCapabilitiesInternal(input)
+
+/** Retain every published capability output as a durable generation-scoped Nix GC root. */
+export const retainCompositionCapabilityProjection = (
+  input: RetainCompositionCapabilityProjectionInput,
+): Promise<void> => retainCompositionCapabilityProjectionInternal(input)
+/** Verify the retained generation, then remove stale generation roots after publication commits. */
+export const pruneCompositionCapabilityProjectionRoots = (
+  input: RetainCompositionCapabilityProjectionInput,
+): Promise<void> => pruneCompositionCapabilityProjectionRootsInternal(input)
 
 /** Fail-closed resolved capability lookup used by Buck/tool consumers. */
 export const resolvedCompositionCapabilityByToolId = (input: {
@@ -840,18 +862,33 @@ const assertProjectedClosure = async ({
     }),
   )
 }
+const readPublishedProjectionGeneration = async ({
+  memberRoot,
+}: {
+  readonly memberRoot: string
+}): Promise<{
+  readonly defs: string
+  readonly generation: string
+  readonly projectionPath: string
+}> => {
+  const projectionPath = NodePath.join(memberRoot, '.buck2', 'capabilities')
+  const defs = await readFile(NodePath.join(projectionPath, 'defs.bzl'), 'utf8')
+  const match = /^GENERATION = "([0-9a-f]{64})"$/mu.exec(defs)
+  if (match === null) {
+    throw invalidInput({ message: 'Capability defs generation is invalid', path: projectionPath })
+  }
+  return { defs, generation: match[1]!, projectionPath }
+}
+
 /** Validate a capability projection without executing member-controlled code. */
 const checkCompositionCapabilityProjectionInternal = async ({
   memberRoot,
 }: {
   readonly memberRoot: string
 }): Promise<void> => {
-  const projectionPath = NodePath.join(memberRoot, '.buck2', 'capabilities')
-  const defs = await readFile(NodePath.join(projectionPath, 'defs.bzl'), 'utf8')
-  const match = /^GENERATION = "([0-9a-f]{64})"$/mu.exec(defs)
-  if (match === null)
-    throw invalidInput({ message: 'Capability defs generation is invalid', path: projectionPath })
-  const generation = match[1]!
+  const { defs, generation, projectionPath } = await readPublishedProjectionGeneration({
+    memberRoot,
+  })
   if ((await readFile(NodePath.join(projectionPath, 'BUCK'), 'utf8')) !== rootBuckBytes) {
     throw invalidInput({ message: 'Capability root BUCK is invalid', path: projectionPath })
   }
@@ -906,6 +943,264 @@ const checkCompositionCapabilityProjectionInternal = async ({
     throw invalidInput({
       message: 'Capability projection generation or defs mismatch',
       path: projectionPath,
+    })
+  }
+}
+
+const withOwnerWritableDirectory = async <A>({
+  path,
+  use,
+}: {
+  readonly path: string
+  readonly use: () => Promise<A>
+}): Promise<A> => {
+  const handle = await open(path, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW)
+  const before = await handle.stat()
+  if (before.isDirectory() === false) {
+    await handle.close()
+    throw new Error(`Capability root parent is not a directory: '${path}'`)
+  }
+  const originalMode = before.mode & 0o777
+  const needsOwnerWrite = (originalMode & 0o200) === 0
+  let outcome:
+    | { readonly _tag: 'Success'; readonly value: A }
+    | { readonly _tag: 'Failure'; readonly cause: unknown }
+    | undefined
+  try {
+    if (needsOwnerWrite === true) await handle.chmod(originalMode | 0o200)
+    try {
+      outcome = { _tag: 'Success', value: await use() }
+    } catch (cause) {
+      outcome = { _tag: 'Failure', cause }
+    }
+  } finally {
+    try {
+      if (needsOwnerWrite === true) await handle.chmod(originalMode)
+    } finally {
+      await handle.close()
+    }
+  }
+  const after = await lstat(path)
+  if (
+    after.isDirectory() === false ||
+    after.isSymbolicLink() === true ||
+    after.dev !== before.dev ||
+    after.ino !== before.ino ||
+    (after.mode & 0o777) !== originalMode
+  ) {
+    throw new Error(`Capability root parent identity or mode changed: '${path}'`)
+  }
+  if (outcome === undefined) {
+    throw new Error(`Capability root parent write did not complete: '${path}'`)
+  }
+  if (outcome._tag === 'Failure') throw outcome.cause
+  return outcome.value
+}
+
+const syncCapabilityRootDirectory = async ({
+  path,
+  reason,
+  runtime,
+}: {
+  readonly path: string
+  readonly reason: 'CapabilityLinks' | 'GenerationLink' | 'RootsLink'
+  readonly runtime: CompositionCapabilityRuntime
+}): Promise<void> => {
+  const sync = async (): Promise<void> => {
+    const handle = await open(path, 'r')
+    try {
+      await handle.sync()
+    } finally {
+      await handle.close()
+    }
+  }
+  await (runtime.directoryFsync?.({ path, reason, sync }) ?? sync())
+}
+
+const ensureCapabilityRootDirectory = async ({
+  parentPath,
+  path,
+}: {
+  readonly parentPath: string
+  readonly path: string
+}): Promise<void> => {
+  try {
+    const info = await lstat(path)
+    if (info.isDirectory() === false || info.isSymbolicLink() === true) {
+      throw new Error(`Capability root path is not a directory: '${path}'`)
+    }
+    return
+  } catch (cause) {
+    if (
+      typeof cause !== 'object' ||
+      cause === null ||
+      'code' in cause === false ||
+      cause.code !== 'ENOENT'
+    ) {
+      throw cause
+    }
+  }
+  await withOwnerWritableDirectory({
+    path: parentPath,
+    use: () => mkdir(path, { recursive: false }),
+  })
+}
+
+const assertPublishedCapabilityGeneration = async ({
+  memberRoot,
+  resolution,
+}: {
+  readonly memberRoot: string
+  readonly resolution: CompositionCapabilityResolutionHandle
+}): Promise<void> => {
+  await checkCompositionCapabilityProjection({ memberRoot })
+  const { generation, projectionPath } = await readPublishedProjectionGeneration({ memberRoot })
+  if (generation !== resolution.projectionDigest) {
+    throw new CompositionCapabilityResolutionError({
+      reason: 'ProjectionFailure',
+      message: 'Published capability generation does not match its resolved projection',
+      path: projectionPath,
+    })
+  }
+}
+
+const retainCompositionCapabilityProjectionInternal = async ({
+  memberRoot,
+  resolution,
+  runtime,
+}: RetainCompositionCapabilityProjectionInput): Promise<void> => {
+  assertAbsoluteNormalized({ value: memberRoot, name: 'memberRoot' })
+  await validateRuntime(runtime)
+
+  const assertPublishedGeneration = (): Promise<void> =>
+    assertPublishedCapabilityGeneration({ memberRoot, resolution })
+
+  await assertPublishedGeneration()
+  const buck2Path = NodePath.join(memberRoot, '.buck2')
+  const rootsPath = NodePath.join(buck2Path, 'capability-roots')
+  const generationRoot = NodePath.join(rootsPath, resolution.projectionDigest)
+  try {
+    await ensureCapabilityRootDirectory({
+      parentPath: buck2Path,
+      path: rootsPath,
+    })
+    await ensureCapabilityRootDirectory({
+      parentPath: rootsPath,
+      path: generationRoot,
+    })
+
+    const env = safeNixEnvironment({
+      runtime,
+      privateRoot: NodePath.dirname(resolution.candidateRoot),
+    })
+    const capabilities = resolution.capabilities.toSorted((left, right) =>
+      left.capability.toolId < right.capability.toolId
+        ? -1
+        : left.capability.toolId > right.capability.toolId
+          ? 1
+          : 0,
+    )
+    await withOwnerWritableDirectory({
+      path: generationRoot,
+      use: async () => {
+        for (const resolved of capabilities) {
+          const rootPath = NodePath.join(generationRoot, resolved.capability.toolId)
+          const retainCommand = command({
+            executable: runtime.nixPath,
+            args: ['build', '--out-link', rootPath, resolved.nixOutputPath],
+          })
+          await run({ value: retainCommand, env })
+          const rootInfo = await lstat(rootPath)
+          if (
+            rootInfo.isSymbolicLink() === false ||
+            (await readlink(rootPath)) !== resolved.nixOutputPath
+          ) {
+            throw new CompositionCapabilityResolutionError({
+              reason: 'ProjectionFailure',
+              message: `Capability GC root '${resolved.capability.toolId}' has the wrong identity`,
+              path: rootPath,
+            })
+          }
+        }
+      },
+    })
+    await syncCapabilityRootDirectory({
+      path: generationRoot,
+      reason: 'CapabilityLinks',
+      runtime,
+    })
+    await syncCapabilityRootDirectory({
+      path: rootsPath,
+      reason: 'GenerationLink',
+      runtime,
+    })
+    await syncCapabilityRootDirectory({
+      path: buck2Path,
+      reason: 'RootsLink',
+      runtime,
+    })
+  } catch (cause) {
+    if (cause instanceof CompositionCapabilityResolutionError) throw cause
+    throw new CompositionCapabilityResolutionError({
+      reason: 'ProjectionFailure',
+      message: 'Could not retain the published capability generation',
+      path: generationRoot,
+      cause,
+    })
+  }
+}
+
+const pruneCompositionCapabilityProjectionRootsInternal = async ({
+  memberRoot,
+  resolution,
+  runtime,
+}: RetainCompositionCapabilityProjectionInput): Promise<void> => {
+  assertAbsoluteNormalized({ value: memberRoot, name: 'memberRoot' })
+  await validateRuntime(runtime)
+
+  const rootsPath = NodePath.join(memberRoot, '.buck2', 'capability-roots')
+  const generationRoot = NodePath.join(rootsPath, resolution.projectionDigest)
+  try {
+    await assertPublishedCapabilityGeneration({ memberRoot, resolution })
+    const generationInfo = await lstat(generationRoot)
+    if (generationInfo.isDirectory() === false || generationInfo.isSymbolicLink() === true) {
+      throw new Error(`Capability generation root is not a directory: '${generationRoot}'`)
+    }
+    for (const resolved of resolution.capabilities) {
+      const rootPath = NodePath.join(generationRoot, resolved.capability.toolId)
+      const rootInfo = await lstat(rootPath)
+      if (
+        rootInfo.isSymbolicLink() === false ||
+        (await readlink(rootPath)) !== resolved.nixOutputPath
+      ) {
+        throw new Error(`Capability GC root has the wrong identity: '${rootPath}'`)
+      }
+    }
+    await assertPublishedCapabilityGeneration({ memberRoot, resolution })
+    await withOwnerWritableDirectory({
+      path: rootsPath,
+      use: async () => {
+        const entries = await readdir(rootsPath, { withFileTypes: true })
+        for (const entry of entries) {
+          if (
+            entry.name !== resolution.projectionDigest &&
+            /^[0-9a-f]{64}$/u.test(entry.name) === true &&
+            entry.isDirectory() === true
+          ) {
+            const staleRoot = NodePath.join(rootsPath, entry.name)
+            await makeDirectoriesOwnerWritable(staleRoot)
+            await rm(staleRoot, { recursive: true })
+          }
+        }
+      },
+    })
+  } catch (cause) {
+    if (cause instanceof CompositionCapabilityResolutionError) throw cause
+    throw new CompositionCapabilityResolutionError({
+      reason: 'ProjectionFailure',
+      message: 'Could not prune stale capability generations',
+      path: rootsPath,
+      cause,
     })
   }
 }

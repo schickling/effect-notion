@@ -81,6 +81,7 @@ interface FixtureOptions {
   readonly alreadyCurrent?: boolean
   readonly currentOverlayCount?: number
   readonly releaseFailures?: ReadonlyArray<string>
+  readonly retainFailure?: string
 }
 
 const fixture = async (options: FixtureOptions = {}) => {
@@ -236,23 +237,29 @@ const fixture = async (options: FixtureOptions = {}) => {
         'MaterializeCpAMemberMount',
       ],
     }),
-    materializeMount: async ({ request: mount }) => {
+    materializeMount: async ({ request: mount, runtime }) => {
       calls.push(`mount:${mount.member}:${mount.allowVerifiedDarwinAdvance}`)
       if (options.mountFailure === mount.member) throw new Error('mount failed')
       const manifest = manifests.get(mount.sourcePath)!
       const current = inspections.get(mount.member)!
-      return options.alreadyCurrent === true || options.currentOverlayCount !== undefined
-        ? {
-            _tag: 'AlreadyCurrent',
-            destinationPath: NodePath.join(workspaceRoot, 'repos', mount.member),
-            metadata: current.metadata,
-          }
-        : {
-            _tag: 'Published',
-            operation: 'FirstPublish',
-            destinationPath: NodePath.join(workspaceRoot, 'repos', mount.member),
-            metadata: mountMetadata({ workspaceRoot, key: mount.member, manifest }),
-          }
+      if (options.alreadyCurrent === true || options.currentOverlayCount !== undefined) {
+        return {
+          _tag: 'AlreadyCurrent',
+          destinationPath: NodePath.join(workspaceRoot, 'repos', mount.member),
+          metadata: current.metadata,
+        }
+      }
+      const published = {
+        _tag: 'Published' as const,
+        operation: 'FirstPublish' as const,
+        destinationPath: NodePath.join(workspaceRoot, 'repos', mount.member),
+        metadata: mountMetadata({ workspaceRoot, key: mount.member, manifest }),
+      }
+      await runtime.retainPublishedCapabilities?.({
+        destinationPath: published.destinationPath,
+      })
+      calls.push(`mount-committed:${mount.member}`)
+      return published
     },
     listPublishedMemberKeys: async () => [],
     teardownMount: async () => {
@@ -346,10 +353,16 @@ const fixture = async (options: FixtureOptions = {}) => {
       plan: async (input) => ({
         ...input,
         operation: 'InstallOwnedCapabilityProjection',
-        steps: ['ValidateOwnedMember', 'InstallProjectionAtomically', 'CheckProjection'],
+        steps: [
+          'ValidateOwnedMember',
+          'InstallProjectionAtomically',
+          'CheckProjection',
+          'RetainProjectionRoots',
+        ],
       }),
       install: async (input) => {
         calls.push(`owned:${input.memberKey}:install`)
+        await input.retainPublishedCapabilities()
         return {
           memberKey: input.memberKey,
           projectionPath: input.projectionPath,
@@ -357,6 +370,13 @@ const fixture = async (options: FixtureOptions = {}) => {
           changed: true,
         }
       },
+    },
+    retainCapabilityRoots: async ({ memberKey }) => {
+      calls.push(`retain:${memberKey}`)
+      if (options.retainFailure === memberKey) throw new Error('capability retention failed')
+    },
+    pruneCapabilityRoots: async ({ memberKey }) => {
+      calls.push(`prune:${memberKey}`)
     },
     system: options.allowDarwin === true ? 'aarch64-darwin' : 'x86_64-linux',
     platform: options.allowDarwin === true ? 'darwin' : 'linux',
@@ -475,6 +495,22 @@ describe('composition apply integration', () => {
           expect(rootIndex).toBeGreaterThan(overlayIndex)
         }
         expect(value.calls.indexOf('cap:owned:release')).toBeGreaterThan(overlayIndex)
+        expect(value.calls.indexOf('retain:owned')).toBeGreaterThan(
+          value.calls.indexOf('owned:owned:install'),
+        )
+        expect(value.calls.indexOf('retain:owned')).toBeLessThan(
+          value.calls.indexOf('mount:dep:false'),
+        )
+        expect(value.calls.indexOf('retain:dep')).toBeGreaterThan(
+          value.calls.indexOf('mount:dep:false'),
+        )
+        expect(value.calls.indexOf('prune:dep')).toBeGreaterThan(
+          value.calls.indexOf('mount-committed:dep'),
+        )
+        expect(value.calls.indexOf('prune:dep')).toBeGreaterThan(value.calls.indexOf('retain:dep'))
+        expect(value.calls.indexOf('cap:owned:release')).toBeGreaterThan(
+          value.calls.indexOf('prune:dep'),
+        )
         if (rootMode !== 'first') {
           expect(rootIndex).toBeGreaterThan(value.calls.indexOf('cap:owned:release'))
         }
@@ -530,6 +566,16 @@ describe('composition apply integration', () => {
         expect(command).toContain('|--out|')
       }
       expect(value.calls.at(-1)).toBe('lock:release')
+      expect(value.calls.filter((call) => call.startsWith('retain:'))).toEqual([
+        'retain:owned',
+        'retain:beta',
+        'retain:alpha',
+      ])
+      expect(value.calls.filter((call) => call.startsWith('prune:'))).toEqual([
+        'prune:owned',
+        'prune:beta',
+        'prune:alpha',
+      ])
     } finally {
       await value.cleanup()
     }
@@ -599,6 +645,54 @@ describe('composition apply integration', () => {
       expect(value.calls.some((call) => call.startsWith('mount:'))).toBe(false)
       expect(value.calls.some((call) => call.startsWith('root:'))).toBe(false)
       expect(value.calls).toContain('cap:alpha:release')
+      expect(value.calls.at(-1)).toBe('lock:release')
+    } finally {
+      await value.cleanup()
+    }
+  })
+
+  it('propagates owned root retention failure before mounts and releases resolver scratch', async () => {
+    const value = await fixture({ retainFailure: 'owned' })
+    try {
+      const result = await Effect.runPromise(
+        compositionApply({ request: value.request, runtime: value.runtime }).pipe(Effect.result),
+      )
+      expect(result._tag).toBe('Failure')
+      if (result._tag !== 'Failure') return
+      expect(result.failure).toMatchObject({
+        reason: 'CapabilityFailure',
+        phase: 'Capability',
+        memberKey: 'owned',
+      })
+      expect(value.calls).toContain('owned:owned:install')
+      expect(value.calls).toContain('retain:owned')
+      expect(value.calls.some((call) => call.startsWith('mount:'))).toBe(false)
+      expect(value.calls).toContain('cap:owned:release')
+      expect(value.calls.at(-1)).toBe('lock:release')
+    } finally {
+      await value.cleanup()
+    }
+  })
+
+  it('propagates mounted root retention failure after mount publication', async () => {
+    const value = await fixture({ retainFailure: 'dep' })
+    try {
+      const result = await Effect.runPromise(
+        compositionApply({ request: value.request, runtime: value.runtime }).pipe(Effect.result),
+      )
+      expect(result._tag).toBe('Failure')
+      if (result._tag !== 'Failure') return
+      expect(result.failure).toMatchObject({
+        reason: 'CapabilityFailure',
+        phase: 'Capability',
+        memberKey: 'dep',
+      })
+      expect(value.calls.indexOf('retain:dep')).toBeGreaterThan(
+        value.calls.indexOf('mount:dep:false'),
+      )
+      expect(value.calls.some((call) => call.startsWith('root:'))).toBe(false)
+      expect(value.calls).toContain('cap:dep:release')
+      expect(value.calls).toContain('cap:owned:release')
       expect(value.calls.at(-1)).toBe('lock:release')
     } finally {
       await value.cleanup()

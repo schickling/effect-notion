@@ -189,12 +189,23 @@ const fake = ({
         return {
           ...input,
           operation: 'InstallOwnedCapabilityProjection',
-          steps: ['ValidateOwnedMember', 'InstallProjectionAtomically', 'CheckProjection'],
+          steps: [
+            'ValidateOwnedMember',
+            'InstallProjectionAtomically',
+            'CheckProjection',
+            'RetainProjectionRoots',
+          ],
         }
       },
       install: async () => {
         throw new Error('dry-run installed owned projection')
       },
+    },
+    retainCapabilityRoots: async () => {
+      throw new Error('dry-run retained capability roots')
+    },
+    pruneCapabilityRoots: async () => {
+      throw new Error('dry-run pruned capability roots')
     },
     system: 'x86_64-linux',
     platform: 'linux',

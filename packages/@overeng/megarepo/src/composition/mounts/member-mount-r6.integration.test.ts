@@ -33,9 +33,11 @@ const withNode = <A, E>(
 const makeTree = ({
   root,
   capabilities = true,
+  capabilityRoots = false,
 }: {
   root: string
   capabilities?: boolean
+  capabilityRoots?: boolean
 }): Effect.Effect<void, PlatformError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
@@ -57,6 +59,15 @@ const makeTree = ({
       yield* fs.makeDirectory(NodePath.join(root, '.buck2', 'capabilities', 'empty'), {
         recursive: true,
       })
+    }
+    if (capabilityRoots === true) {
+      yield* fs.makeDirectory(NodePath.join(root, '.buck2', 'capability-roots', 'a'.repeat(64)), {
+        recursive: true,
+      })
+      yield* fs.writeFileString(
+        NodePath.join(root, '.buck2', 'capability-roots', 'a'.repeat(64), 'sentinel'),
+        'ignored by repository identity\n',
+      )
     }
   })
 
@@ -108,7 +119,7 @@ const setTreeWritable = (root: string): Effect.Effect<void> =>
 
 const makeFixture = (
   policy: 'artifact' | 'source' | 'protected',
-  options?: { capabilities?: boolean },
+  options?: { capabilities?: boolean; capabilityRoots?: boolean },
 ): Effect.Effect<string, PlatformError, FileSystem.FileSystem | Scope.Scope> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
@@ -119,6 +130,9 @@ const makeFixture = (
     yield* makeTree({
       root,
       ...(options?.capabilities === undefined ? {} : { capabilities: options.capabilities }),
+      ...(options?.capabilityRoots === undefined
+        ? {}
+        : { capabilityRoots: options.capabilityRoots }),
     })
     yield* setTreeModes({ root, policy })
     return root
@@ -238,6 +252,24 @@ describe('R6 source and protected scans', () => {
 
       expect(sourceScan.repository).toEqual(mountScan.repository)
       expect(sourceScan.capabilities).toEqual(mountScan.capabilities)
+    }, withNode),
+  )
+
+  it.effect(
+    'excludes durable capability roots from protected repository identity',
+    Effect.fnUntraced(function* () {
+      const unrooted = yield* makeFixture('protected')
+      const rooted = yield* makeFixture('protected', { capabilityRoots: true })
+      const unrootedScan = yield* scanR6ProtectedMount({ root: unrooted })
+      const rootedScan = yield* scanR6ProtectedMount({ root: rooted })
+
+      expect(rootedScan.repository).toEqual(unrootedScan.repository)
+      expect(rootedScan.capabilities).toEqual(unrootedScan.capabilities)
+      expect(
+        rootedScan.repository.manifest.entries.some((entry) =>
+          entry.path.startsWith('.buck2/capability-roots'),
+        ),
+      ).toBe(false)
     }, withNode),
   )
 

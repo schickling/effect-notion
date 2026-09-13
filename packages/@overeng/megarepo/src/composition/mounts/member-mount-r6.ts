@@ -46,6 +46,8 @@ import { inspectMemberMount } from './member-mount.ts'
 export const R6_MANIFEST_VERSION = 1 as const
 /** Owned cp-a mount metadata wire version. */
 export const OWNED_CP_A_MOUNT_METADATA_VERSION = 2 as const
+/** Runtime-managed Nix roots must not alter immutable repository identity. */
+const R6_CAPABILITY_ROOTS_DESTINATION = '.buck2/capability-roots'
 
 const Sha256 = Schema.String.check(Schema.isPattern(/^sha256:[0-9a-f]{64}$/u))
 const CanonicalRelativePath = Schema.String.check(
@@ -611,7 +613,11 @@ const scanTreePromise = async ({
         entries.push({ path: manifestChild, kind: 'symlink', mode: null, payload: target })
       } else if (info.isDirectory() === true) {
         validateMode({ policy, kind: 'directory', mode: info.mode, path: childPath })
-        if (manifestChild !== '.buck2' || excludedSubtrees.has('.buck2/capabilities') === false) {
+        if (
+          manifestChild !== '.buck2' ||
+          (excludedSubtrees.has(R6_CAPABILITIES_DESTINATION) === false &&
+            excludedSubtrees.has(R6_CAPABILITY_ROOTS_DESTINATION) === false)
+        ) {
           entries.push({ path: manifestChild, kind: 'directory', mode: 0o555, payload: null })
         }
         await visit({ actualRelative: actualChild, manifestRelative: manifestChild })
@@ -750,6 +756,7 @@ const scanMount = ({
       }
       const excludedSubtrees = new Set<string>([
         R6_CAPABILITIES_DESTINATION,
+        R6_CAPABILITY_ROOTS_DESTINATION,
         ...canonicalOverlays.map((overlay) => overlay.destination),
       ])
       const repositoryResult = await scanTreePromise({

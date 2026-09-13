@@ -91,12 +91,13 @@ export const CpAMemberMountOperation = Schema.Literals([
 ])
 export type CpAMemberMountOperation = typeof CpAMemberMountOperation.Type
 
-/** Diagnostic phase hint; recovery never trusts this field. */
+/** Durable phase state; `CapabilitiesRetained` is the publication commit marker. */
 export const CpAMemberMountPhaseHint = Schema.Literals([
   'Intent',
   'CandidateCreated',
   'Staged',
   'Exchanged',
+  'CapabilitiesRetained',
   'MetadataPublished',
   'Cleanup',
 ])
@@ -194,6 +195,7 @@ export class CpAMemberMountError extends Schema.TaggedError<CpAMemberMountError>
       'PlatformAdvanceRefused',
       'CommandFailure',
       'CapabilityCheckFailed',
+      'CapabilityRetentionFailed',
       'SourceChanged',
       'StageInvalid',
       'ExchangeValidationFailed',
