@@ -155,6 +155,41 @@ describe('LogsApp exitCode', () => {
     },
   )
 
+  it.each(['failure', 'cancelled'])(
+    'refreshes the retained log verdict when the run later becomes %s',
+    (runConclusion) => {
+      const loaded = logsReducer({
+        state: createInitialLogsState(),
+        action: {
+          _tag: 'SetLogs',
+          jobName: 'build',
+          sectionConclusion: 'success',
+          verdictConclusion: 'success',
+          lines: ['build passed'],
+          notice: null,
+          truncation: null,
+        },
+      })
+      const finalState = logsReducer({
+        state: loaded,
+        action: {
+          _tag: 'SetVerdict',
+          conclusion: logsVerdictConclusion({
+            runConclusion,
+            jobConclusions: ['success'],
+          }),
+        },
+      })
+
+      expect(finalState).toMatchObject({
+        _tag: 'Loaded',
+        conclusion: 'failure',
+        sections: [{ jobName: 'build', conclusion: 'success', lines: ['build passed'] }],
+      })
+      expect(LogsApp.config.exitCode?.(finalState)).toBe(1)
+    },
+  )
+
   it('retains successful sections across ticks and replaces repeated sections in place', () => {
     const build = logsReducer({
       state: createInitialLogsState(),

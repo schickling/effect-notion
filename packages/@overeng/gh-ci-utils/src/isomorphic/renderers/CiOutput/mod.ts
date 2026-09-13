@@ -4,6 +4,7 @@ export {
   ciReducer,
   createInitialCiState,
   lookupRunnerHost,
+  makeRunnerHostMap,
   type CiAction,
   type CiState,
   type PrHealth,

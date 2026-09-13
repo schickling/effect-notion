@@ -6,6 +6,7 @@
 import { Schema } from 'effect'
 
 import { ApiMetaSchema, defaultApiMeta, type ApiMeta } from '../../lib/apiMeta.ts'
+import { abbreviateRunner } from '../../lib/format.ts'
 import {
   AnnotationInfoSchema,
   JobErrorSchema,
@@ -29,7 +30,12 @@ const RunnerHostMapSchema = Schema.Array(RunnerHostEntrySchema)
 
 export type RunnerHostMap = typeof RunnerHostMapSchema.Type
 
-/** Look up a runner host from the entries array */
+/** Build runner-host entries using the same identity shown for workflow jobs. */
+export const makeRunnerHostMap = (
+  jobs: readonly { readonly runner: string; readonly host: string }[],
+): RunnerHostMap => jobs.map(({ runner, host }) => [abbreviateRunner(runner), host])
+
+/** Look up a runner host using the same normalized identity on both sides. */
 export const lookupRunnerHost = ({
   entries,
   runnerName,
@@ -37,7 +43,8 @@ export const lookupRunnerHost = ({
   entries: RunnerHostMap
   runnerName: string
 }): string | undefined => {
-  const entry = entries.find(([key]) => key === runnerName)
+  const normalizedRunnerName = abbreviateRunner(runnerName)
+  const entry = entries.find(([key]) => abbreviateRunner(key) === normalizedRunnerName)
   return entry?.[1]
 }
 

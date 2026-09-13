@@ -37,7 +37,7 @@ export const abbreviateRunner = (name: string | null): string => {
   if (!name) return '—'
   const nscMatch = /^nsc-runner-(.{6})/.exec(name)
   if (nscMatch) return `nsc:${nscMatch[1]}`
-  const selfHostedMatch = /^(\w+)-[a-f0-9]{8}$/.exec(name)
+  const selfHostedMatch = /^(.+)-[a-f0-9]{8}$/.exec(name)
   if (selfHostedMatch) return selfHostedMatch[1]!
   return name
 }

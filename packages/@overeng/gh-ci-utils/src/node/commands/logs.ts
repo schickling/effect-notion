@@ -49,8 +49,8 @@ export interface CollectedJobLog {
   readonly truncation: { totalLines: number; offset: number; pageSize: number } | null
 }
 
-/** Whether a log lookup succeeded, may become available, or must stop immediately. */
-export type LogAvailability = 'retrieved' | 'retryable' | 'terminal'
+/** Whether a log lookup succeeded, is definitively absent, may become available, or must stop. */
+export type LogAvailability = 'retrieved' | 'absent' | 'retryable' | 'terminal'
 
 /** A collected job log plus whether a watch may retry its retrieval. */
 export type CollectedJobLogResult = CollectedJobLog & {
@@ -81,19 +81,24 @@ export const shouldFinalizeWatchWithNoLogs = ({
   renderedLiveStepOutput: boolean
 }): boolean => watch && displayedJobCount === 0 && !renderedLiveStepOutput
 
-/** A terminal run still needs every selected job timestamp-finalized and successfully retrieved. */
+/** A completed job that never ran has no log publication to wait for. */
+export const isLoglessTerminalJob = (job: WorkflowJob): boolean =>
+  job.status === 'completed' && (job.conclusion === 'skipped' || job.started_at === null)
+
+/** A terminal run is complete once every selected job has a terminal log lookup result. */
 export const isLogsWatchComplete = ({
   runCompleted,
   jobs,
-  displayedJobIds,
+  finalizedJobIds,
 }: {
   runCompleted: boolean
   jobs: readonly WorkflowJob[]
-  displayedJobIds: ReadonlySet<number>
+  finalizedJobIds: ReadonlySet<number>
 }): boolean =>
   runCompleted &&
   jobs.every(
-    (job) => job.status === 'completed' && job.completed_at !== null && displayedJobIds.has(job.id),
+    (job) =>
+      job.status === 'completed' && (isLoglessTerminalJob(job) || finalizedJobIds.has(job.id)),
   )
 
 /** Keep a selected-step watch alive until every candidate job reaches a terminal lookup result. */
@@ -123,7 +128,7 @@ export const classifyStepLookupFailure = ({
 }: {
   operation: 'resolve-job' | 'completed-log'
   failure: StepLookupFailure
-}): Exclude<LogAvailability, 'retrieved'> => {
+}): 'retryable' | 'terminal' => {
   if (failure._tag === 'LogsUnavailableError') return 'retryable'
   if (failure._tag !== 'GitHubApiError') return 'terminal'
   if (failure.cause === 'HTTP 404' || /(?:returned|response)\s+404\b/.test(failure.message))
@@ -225,6 +230,17 @@ export const collectJobLog = ({
   filters: LogFilterOptions
 }): Effect.Effect<CollectedJobLogResult, never, never> =>
   Effect.gen(function* () {
+    if (isLoglessTerminalJob(job)) {
+      return {
+        jobName: job.name,
+        conclusion: job.conclusion ?? job.status,
+        lines: [],
+        notice: null,
+        truncation: null,
+        availability: 'absent',
+      }
+    }
+
     if (job.status !== 'completed' || job.completed_at === null) {
       return {
         jobName: job.name,
@@ -368,6 +384,8 @@ export const logsCommand = Cli.Command.make('logs', {
           const failFast = watchMode === 'first-failure'
           /** Tracks which completed jobs we already displayed logs for in watch mode. */
           const displayedJobIds = new Set<number>()
+          /** Jobs whose logs were retrieved or are known never to have run. */
+          const finalizedJobIds = new Set<number>()
           /** Selected-step candidates that no longer need lookup on a later watch tick. */
           const finalizedStepJobIds = new Set<number>()
           /** Live backscroll is rendered repeatedly and therefore is not a completed displayed job. */
@@ -385,6 +403,7 @@ export const logsCommand = Cli.Command.make('logs', {
                 jobConclusions: jobs.map((job) => job.conclusion),
               })
               const hasUnsuccessfulConclusion = verdictConclusion === 'failure'
+              tui.dispatch({ _tag: 'SetVerdict', conclusion: verdictConclusion })
 
               let filteredJobs: WorkflowJob[] = jobs
               if (failed) {
@@ -423,6 +442,10 @@ export const logsCommand = Cli.Command.make('logs', {
                   let anyStepMatched = false
                   for (const j of filteredJobs) {
                     if (finalizedStepJobIds.has(j.id)) continue
+                    if (isLoglessTerminalJob(j)) {
+                      finalizedStepJobIds.add(j.id)
+                      continue
+                    }
 
                     const internalId = yield* Effect.result(
                       internal.resolveInternalJobId({
@@ -620,14 +643,12 @@ export const logsCommand = Cli.Command.make('logs', {
               }
 
               /** Tier 1: REST API full job logs */
-              /** Only collect logs for completed jobs (in-progress have no logs yet) */
-              const completedJobs = filteredJobs.filter(
-                (job) => job.status === 'completed' && job.completed_at !== null,
-              )
+              /** Finalize completed jobs, retrieving logs only for jobs that ran. */
+              const completedJobs = filteredJobs.filter((job) => job.status === 'completed')
 
               /** In watch mode, only show newly completed jobs */
               const newJobs = watch
-                ? completedJobs.filter((j) => !displayedJobIds.has(j.id))
+                ? completedJobs.filter((j) => !finalizedJobIds.has(j.id))
                 : completedJobs
 
               if (newJobs.length === 0 && !watch) {
@@ -666,6 +687,10 @@ export const logsCommand = Cli.Command.make('logs', {
                   retryableMessage ??= r.lines.join('\n')
                   continue
                 }
+                if (r.availability === 'absent') {
+                  finalizedJobIds.add(j.id)
+                  continue
+                }
                 tui.dispatch({
                   _tag: 'SetLogs',
                   sectionId: String(j.id),
@@ -677,6 +702,7 @@ export const logsCommand = Cli.Command.make('logs', {
                   truncation: r.truncation,
                 })
                 displayedJobIds.add(j.id)
+                finalizedJobIds.add(j.id)
                 retrievedThisTick = true
               }
 
@@ -689,24 +715,24 @@ export const logsCommand = Cli.Command.make('logs', {
                 }
               }
 
-              if (!watch && !retrievedThisTick && retryableMessage !== undefined) {
+              if (!watch && !retrievedThisTick) {
                 tui.dispatch({
                   _tag: 'SetNoLogs',
-                  message: retryableMessage,
+                  message: retryableMessage ?? 'No completed jobs produced logs.',
                   conclusion: verdictConclusion,
                 })
               }
 
               const retryableLogsPending = filteredJobs.some(
                 (job) =>
-                  !displayedJobIds.has(job.id) && (runCompleted || job.status === 'completed'),
+                  !finalizedJobIds.has(job.id) && (runCompleted || job.status === 'completed'),
               )
               return {
                 completed: watch
                   ? isLogsWatchComplete({
                       runCompleted,
                       jobs: filteredJobs,
-                      displayedJobIds,
+                      finalizedJobIds,
                     })
                   : runCompleted,
                 hasUnsuccessfulConclusion,

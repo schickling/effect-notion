@@ -30,9 +30,9 @@ import {
 import {
   CiApp,
   CiView,
+  makeRunnerHostMap,
   type AnnotationInfo,
   type JobError,
-  type RunnerHostMap,
 } from '../../isomorphic/renderers/CiOutput/mod.ts'
 import { resolveConfig } from '../Config.ts'
 import { GitHubClient } from '../GitHubClient.ts'
@@ -260,7 +260,7 @@ const fetchSingleRunData = ({
       { concurrency: 'unbounded' },
     )
 
-    const runnerHostMap: RunnerHostMap = activeJobs.map((j) => [j.runner, j.host] as const)
+    const runnerHostMap = makeRunnerHostMap(activeJobs)
 
     /** Job order drives the rendered order, so rebuild both lists from `jobs`. */
     const renderedErrors = jobs.flatMap((job) => {

@@ -365,10 +365,45 @@ describe('completed log retrieval', () => {
       isLogsWatchComplete({
         runCompleted: true,
         jobs: [job],
-        displayedJobIds: new Set(),
+        finalizedJobIds: new Set(),
       }),
     ).toBe(false)
   })
+
+  it.each(['skipped', 'startup_failure'] as const)(
+    'finalizes a completed %s job that never ran without requesting logs',
+    async (conclusion) => {
+      let requests = 0
+      const job = {
+        ...completedJob,
+        conclusion,
+        started_at: null,
+        completed_at: null,
+      }
+      const result = await collectJobLog({
+        github: {
+          getJobLogs: () =>
+            Effect.sync(() => {
+              requests++
+              return 'unexpected logs'
+            }),
+        },
+        repo: 'example-org/example-repo',
+        job,
+        filters,
+      }).pipe(Effect.runPromise)
+
+      expect(result).toMatchObject({ availability: 'absent', lines: [] })
+      expect(requests).toBe(0)
+      expect(
+        isLogsWatchComplete({
+          runCompleted: true,
+          jobs: [job],
+          finalizedJobIds: new Set(),
+        }),
+      ).toBe(true)
+    },
+  )
 
   it('retries unavailable completed logs and only completes after real retrieval', async () => {
     let requests = 0
@@ -386,7 +421,7 @@ describe('completed log retrieval', () => {
             : Effect.succeed('real logs')
         }),
     }
-    const displayedJobIds = new Set<number>()
+    const finalizedJobIds = new Set<number>()
 
     const unavailable = await collectJobLog({
       github,
@@ -394,13 +429,13 @@ describe('completed log retrieval', () => {
       job: completedJob,
       filters,
     }).pipe(Effect.runPromise)
-    if (unavailable.availability === 'retrieved') displayedJobIds.add(completedJob.id)
+    if (unavailable.availability === 'retrieved') finalizedJobIds.add(completedJob.id)
 
     expect(unavailable).toMatchObject({
       availability: 'retryable',
       lines: ['Logs not available: GitHub returned an empty log body for this job'],
     })
-    expect(isLogsWatchComplete({ runCompleted: true, jobs: [completedJob], displayedJobIds })).toBe(
+    expect(isLogsWatchComplete({ runCompleted: true, jobs: [completedJob], finalizedJobIds })).toBe(
       false,
     )
 
@@ -410,10 +445,10 @@ describe('completed log retrieval', () => {
       job: completedJob,
       filters,
     }).pipe(Effect.runPromise)
-    if (retrieved.availability === 'retrieved') displayedJobIds.add(completedJob.id)
+    if (retrieved.availability === 'retrieved') finalizedJobIds.add(completedJob.id)
 
     expect(retrieved).toMatchObject({ availability: 'retrieved', lines: ['real logs'] })
-    expect(isLogsWatchComplete({ runCompleted: true, jobs: [completedJob], displayedJobIds })).toBe(
+    expect(isLogsWatchComplete({ runCompleted: true, jobs: [completedJob], finalizedJobIds })).toBe(
       true,
     )
     expect(requests).toBe(2)

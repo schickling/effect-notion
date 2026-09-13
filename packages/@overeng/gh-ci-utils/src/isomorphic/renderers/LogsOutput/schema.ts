@@ -68,6 +68,7 @@ export const LogsActionSchema = Schema.Union([
     notice: Schema.NullOr(Schema.String),
     truncation: Schema.NullOr(TruncationSchema),
   }),
+  Schema.TaggedStruct('SetVerdict', { conclusion: Schema.String }),
   Schema.TaggedStruct('SetError', { error: Schema.String, message: Schema.String }),
   Schema.TaggedStruct('SetNoLogs', { message: Schema.String, conclusion: Schema.String }),
   Schema.TaggedStruct('SetMeta', { _meta: ApiMetaSchema }),
@@ -132,6 +133,8 @@ export const logsReducer = ({
         _meta: state._meta,
       }
     }
+    case 'SetVerdict':
+      return state._tag === 'Loaded' ? { ...state, conclusion: action.conclusion } : state
     case 'SetError':
       return { _tag: 'Error', error: action.error, message: action.message, _meta: state._meta }
     case 'SetNoLogs':
