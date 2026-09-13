@@ -188,7 +188,11 @@ const resolvePrRun = Effect.fn('resolve-pr-run')(
           cause: 'no head branch',
         })
       }
-      const headShaRuns = yield* github.listRunsForHeadSha({ repo, headSha: pr.head_sha })
+      const headShaRuns = yield* github.listRunsForHeadSha({
+        repo,
+        headSha: pr.head_sha,
+        ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),
+      })
       const headShaPick = selectRunForVerdict({
         runs: headShaRuns,
         ...(preferWorkflow !== undefined ? { preferWorkflow } : {}),

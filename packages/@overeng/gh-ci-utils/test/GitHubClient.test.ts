@@ -12,6 +12,7 @@ import {
   GitHubClient,
   type GitHubClientShape,
   selectAppAuthSource,
+  selectRunForVerdict,
 } from '../src/node/GitHubClient.ts'
 
 describe('selectAppAuthSource', () => {
@@ -225,6 +226,36 @@ describe('GitHubClient paginated workflow selection', () => {
     expect(requests.slice(1).map((request) => request.url)).toEqual([
       'https://api.github.com/repos/example-org/example-repo/actions/runs?branch=feature%2Fsynthetic-dispatch&per_page=100&page=1',
       'https://api.github.com/repos/example-org/example-repo/actions/runs?branch=feature%2Fsynthetic-dispatch&per_page=100&page=2',
+    ])
+  })
+
+  it('finds an exact explicit workflow match beyond the first PR-head run page', async () => {
+    const pageOne = Array.from({ length: 100 }, (_, index) =>
+      syntheticRun({
+        id: index + 1,
+        path: index === 0 ? '.github/workflows/foo-ci.yml' : `.github/workflows/job-${index}.yml`,
+      }),
+    )
+    const expected = syntheticRun({ id: 142, path: '.github/workflows/ci.yml' })
+    const { requests, result } = await runWithSyntheticAppClient({
+      responseFor: (url) => {
+        const workflow_runs = url.searchParams.get('page') === '1' ? pageOne : [expected]
+        return new Response(JSON.stringify({ total_count: 101, workflow_runs }), { status: 200 })
+      },
+      program: (client) =>
+        client
+          .listRunsForHeadSha({
+            repo: 'example-org/example-repo',
+            headSha: 'pr-head-sha',
+            preferWorkflow: 'ci.yml',
+          })
+          .pipe(Effect.map((runs) => selectRunForVerdict({ runs, preferWorkflow: 'ci.yml' }).run)),
+    })
+
+    expect(result?.id).toBe(expected.id)
+    expect(requests.slice(1).map((request) => request.url)).toEqual([
+      'https://api.github.com/repos/example-org/example-repo/actions/runs?head_sha=pr-head-sha&per_page=100&page=1',
+      'https://api.github.com/repos/example-org/example-repo/actions/runs?head_sha=pr-head-sha&per_page=100&page=2',
     ])
   })
 })

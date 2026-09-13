@@ -44,6 +44,16 @@ export const CiRunComplete = Schema.TaggedStruct('RunComplete', {
   passed: Schema.Finite,
 }).annotate({ identifier: 'CiNdjson.RunComplete' })
 
+/**
+ * Terminal event emitted when first-failure mode intentionally stops watching
+ * an active run. Its presence distinguishes a complete fail-fast stream from
+ * transport truncation without claiming the workflow itself completed.
+ */
+export const CiWatchTerminated = Schema.TaggedStruct('WatchTerminated', {
+  reason: Schema.Literal('FirstFailure'),
+  message: Schema.String,
+}).annotate({ identifier: 'CiNdjson.WatchTerminated' })
+
 /** Event emitted when PR health data is available or changes */
 export const CiPrHealth = Schema.TaggedStruct('PrHealth', {
   prNumber: Schema.Finite,
@@ -89,6 +99,7 @@ export const CiNdjsonEvent = Schema.Union([
   CiJobUpdate,
   CiErrorFound,
   CiRunComplete,
+  CiWatchTerminated,
   CiPrHealth,
   CiTick,
   CiAborted,
@@ -129,6 +140,10 @@ export const fromCiAction = ({
     return [
       { _tag: 'Aborted', reason: 'Interrupted', message: 'Watch cancelled by user (Ctrl+C)' },
     ] as const
+  }
+
+  if (action._tag === 'WatchTerminated') {
+    return [{ _tag: 'WatchTerminated', reason: action.reason, message: action.message }] as const
   }
 
   if (action._tag !== 'SetLoaded') return [] as const

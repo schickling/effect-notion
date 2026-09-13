@@ -986,19 +986,55 @@ const makeGitHubClient = Effect.gen(function* () {
     )
 
   /**
-   * List every workflow run for one commit, regardless of trigger event.
+   * List enough runs for one commit to preserve exact `--workflow` matching.
    *
-   * This is the only run set that can answer "did the required check run for
-   * *this* commit?" — the `branch` + `event=pull_request` listing silently
-   * excludes push/dispatch-triggered CI and includes runs for older commits.
+   * Without an explicit workflow, the first page is enough for the default
+   * preference. An explicit workflow scans later pages until its newest run is
+   * found, while retaining the newest run as the existing unmatched fallback.
    */
-  const listRunsForHeadSha = ({ repo, headSha }: { repo: string; headSha: string }) =>
-    apiGet({
-      repo,
-      path: `/repos/${repo}/actions/runs?head_sha=${encodeURIComponent(headSha)}&per_page=100`,
-      schema: GH.WorkflowRunsResponse,
+  const listRunsForHeadSha = ({
+    repo,
+    headSha,
+    preferWorkflow,
+  }: {
+    repo: string
+    headSha: string
+    preferWorkflow?: string
+  }) =>
+    Effect.gen(function* () {
+      if (preferWorkflow === undefined) {
+        const response = yield* apiGet({
+          repo,
+          path: `/repos/${repo}/actions/runs?head_sha=${encodeURIComponent(headSha)}&per_page=100`,
+          schema: GH.WorkflowRunsResponse,
+        })
+        return response.workflow_runs
+      }
+
+      let page = 1
+      let fallbackRun: GH.WorkflowRun | undefined
+      while (true) {
+        const response = yield* apiGet({
+          repo,
+          path: `/repos/${repo}/actions/runs?head_sha=${encodeURIComponent(headSha)}&per_page=100&page=${page}`,
+          schema: GH.WorkflowRunsResponse,
+        })
+        fallbackRun ??= response.workflow_runs[0]
+
+        const match = response.workflow_runs.find((run) =>
+          workflowPathMatches({ candidatePath: run.path, workflow: preferWorkflow }),
+        )
+        if (match !== undefined) {
+          return fallbackRun === undefined || fallbackRun.id === match.id
+            ? [match]
+            : [fallbackRun, match]
+        }
+        if (page * 100 >= response.total_count || response.workflow_runs.length === 0) {
+          return fallbackRun === undefined ? [] : [fallbackRun]
+        }
+        page++
+      }
     }).pipe(
-      Effect.map((resp) => resp.workflow_runs),
       withGitHubSpan({ name: 'github-client.listRunsForHeadSha', attributes: { repo, headSha } }),
     )
 

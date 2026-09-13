@@ -83,6 +83,14 @@ export const CiActionSchema = Schema.Union([
   Schema.TaggedStruct('Interrupted', {}).annotate({
     identifier: 'CiOutput.Interrupted',
   }),
+  /**
+   * Intentional watch termination while the workflow itself remains active.
+   * This does not change the loaded verdict state or its process exit code.
+   */
+  Schema.TaggedStruct('WatchTerminated', {
+    reason: Schema.Literal('FirstFailure'),
+    message: Schema.String,
+  }).annotate({ identifier: 'CiOutput.WatchTerminated' }),
   Schema.TaggedStruct('SetMeta', { _meta: ApiMetaSchema }).annotate({
     identifier: 'CiOutput.SetMeta',
   }),
@@ -128,6 +136,8 @@ export const ciReducer = (_input: { state: CiState; action: CiAction }): CiState
         message: 'Watch cancelled by user (Ctrl+C)',
         _meta: state._meta,
       }
+    case 'WatchTerminated':
+      return state
     case 'SetMeta':
       return { ...state, _meta: action._meta }
     case 'Tick':

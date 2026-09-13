@@ -432,8 +432,17 @@ export const statusCommand = Cli.Command.make('status', {
             const data = tickResult.value
             cache = data.nextCache
 
-            if (data.completed || (failFast && data.hasFailed)) {
+            if (data.completed) {
               yield* dispatchMeta()
+              return
+            }
+            if (failFast && data.hasFailed) {
+              yield* dispatchMeta()
+              tui.dispatch({
+                _tag: 'WatchTerminated',
+                reason: 'FirstFailure',
+                message: `Watch stopped after the first job failure. Workflow run ${runId} is still ${data.run.status}.`,
+              })
               return
             }
 

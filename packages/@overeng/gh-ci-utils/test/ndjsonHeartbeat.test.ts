@@ -1,8 +1,13 @@
 import { Schema } from 'effect'
 import { describe, expect, it } from 'vitest'
 
+import { ciExitCode } from '../src/isomorphic/renderers/CiOutput/app.ts'
 import { CiNdjsonEvent, fromCiAction } from '../src/isomorphic/renderers/CiOutput/ndjson.ts'
-import { type CiState, createInitialCiState } from '../src/isomorphic/renderers/CiOutput/schema.ts'
+import {
+  type CiState,
+  ciReducer,
+  createInitialCiState,
+} from '../src/isomorphic/renderers/CiOutput/schema.ts'
 
 const meta = {
   apiRequests: 79,
@@ -105,6 +110,42 @@ describe('ndjson watch liveness', () => {
     ).toEqual([
       { _tag: 'Aborted', reason: 'Interrupted', message: 'Watch cancelled by user (Ctrl+C)' },
     ])
+  })
+
+  it('ends an intentional first-failure watch with a terminal record', () => {
+    const previous = loadedState('in_progress')
+    const state = {
+      ...previous,
+      jobs: [
+        {
+          ...previous.jobs[0]!,
+          status: 'completed',
+          conclusion: 'failure',
+        },
+      ],
+      summary: { overallStatus: 'failing' as const, critical: [], warnings: [] },
+    }
+    const action = {
+      _tag: 'WatchTerminated' as const,
+      reason: 'FirstFailure' as const,
+      message:
+        'Watch stopped after the first job failure. Workflow run 70000000005 is still in_progress.',
+    }
+
+    const events = fromCiAction({ action, prevState: state })
+
+    expect(events).toEqual([
+      {
+        _tag: 'WatchTerminated',
+        reason: 'FirstFailure',
+        message: action.message,
+      },
+    ])
+    expect(Schema.decodeUnknownSync(CiNdjsonEvent)(events[0])).toEqual(events[0])
+
+    const nextState = ciReducer({ state, action })
+    expect(nextState).toBe(state)
+    expect(ciExitCode(nextState)).toBe(1)
   })
 
   it('does not claim a watch happened when a one-shot command fails', () => {
