@@ -188,43 +188,65 @@ describe('ndjson watch liveness', () => {
     expect(events).toEqual([])
   })
 
-  it('ignores elapsed duration drift but still reports preserved job fact changes', () => {
+  it('suppresses duration-only drift while a job is still running', () => {
     const prev = loadedState('in_progress')
     const lint = prev.jobs[0]!
-    const action = {
-      _tag: 'SetLoaded' as const,
-      run: prev.run,
-      errors: [],
-      annotations: [],
-      runnerHostMap: [],
-      prHealth: null,
-      summary: prev.summary,
+
+    const events = fromCiAction({
+      action: {
+        _tag: 'SetLoaded',
+        run: prev.run,
+        jobs: [{ ...lint, durationSeconds: lint.durationSeconds + 1 }],
+        errors: [],
+        annotations: [],
+        runnerHostMap: [],
+        prHealth: null,
+        summary: prev.summary,
+      },
+      prevState: prev,
+    })
+
+    expect(events).toEqual([])
+  })
+
+  it('emits the final duration after a provisional completed snapshot', () => {
+    const base = loadedState('completed')
+    const lint = {
+      ...base.jobs[0]!,
+      status: 'completed',
+      conclusion: 'success',
+      durationSeconds: 101,
     }
+    const prev = { ...base, jobs: [lint] }
 
-    expect(
-      fromCiAction({
-        action: { ...action, jobs: [{ ...lint, durationSeconds: lint.durationSeconds + 1 }] },
-        prevState: prev,
-      }),
-    ).toEqual([])
+    const events = fromCiAction({
+      action: {
+        _tag: 'SetLoaded',
+        run: prev.run,
+        jobs: [{ ...lint, durationSeconds: 100 }],
+        errors: [],
+        annotations: [],
+        runnerHostMap: [],
+        prHealth: null,
+        summary: prev.summary,
+      },
+      prevState: prev,
+    })
 
-    expect(
-      fromCiAction({
-        action: {
-          ...action,
-          jobs: [{ ...lint, status: 'completed', conclusion: 'success', durationSeconds: 101 }],
-        },
-        prevState: prev,
-      }),
-    ).toContainEqual(
-      expect.objectContaining({
+    expect(events).toEqual([
+      {
         _tag: 'JobUpdate',
-        jobId: lint.id,
+        jobId: 1,
+        name: 'lint',
         status: 'completed',
         conclusion: 'success',
-        durationSeconds: 101,
-      }),
-    )
+        durationSeconds: 100,
+        runner: 'nsc:x',
+        runnerName: 'nsc-runner-x1y2z3w4v5',
+        runnerKind: 'namespace',
+        runnerInstance: 'x1y2z3w4v5',
+      },
+    ])
   })
 
   it('reports the verdict and every blocking failure when the run completes', () => {
