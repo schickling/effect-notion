@@ -232,19 +232,20 @@ const findOwnedString = ({
   return null
 }
 
-/** A selected instance record and the attempt-boundary context that encloses it. */
+/** A selected instance record and its metadata scopes, ordered most-specific first. */
 interface RecordSelection {
   readonly record: object
-  readonly context: object
+  readonly metadataContexts: ReadonlyArray<object>
 }
 
 /**
  * Find the object that directly owns a matching identity field.
  *
- * Each array item, singular history field, and entry in an object-valued
- * attempt collection starts a separate context. This keeps metadata fallback
- * inside the selected attempt when a description contains attempt history,
- * while a description with one top-level job still uses that whole job object.
+ * Each array item and singular history field starts a separate context. An
+ * entry in an object-valued attempt collection additionally inherits the
+ * enclosing job record, whose history fields are excluded by `findString`.
+ * Keeping those scopes separate lets selected-attempt metadata win without
+ * allowing metadata from a sibling attempt to leak into the result.
  */
 const findRecord = ({
   root,
@@ -258,30 +259,34 @@ const findRecord = ({
   const visit = ({
     node,
     depth,
-    context,
+    metadataContexts,
   }: {
     node: unknown
     depth: number
-    context: object | null
+    metadataContexts: ReadonlyArray<object>
   }): RecordSelection | null => {
     if (depth > MAX_LOOKUP_DEPTH || typeof node !== 'object' || node === null) return null
     if (Array.isArray(node)) {
       for (const item of node) {
-        const itemContext = typeof item === 'object' && item !== null ? item : context
-        const found = visit({ node: item, depth: depth + 1, context: itemContext })
+        const itemContexts = typeof item === 'object' && item !== null ? [item] : metadataContexts
+        const found = visit({
+          node: item,
+          depth: depth + 1,
+          metadataContexts: itemContexts,
+        })
         if (found !== null) return found
       }
       return null
     }
 
-    const enclosingContext = context ?? node
+    const enclosingContexts = metadataContexts.length === 0 ? [node] : metadataContexts
     if (
       keys.some((key) => {
         const candidate = Reflect.get(node, key)
         return candidate === value || (typeof candidate === 'number' && String(candidate) === value)
       })
     ) {
-      return { record: node, context: enclosingContext }
+      return { record: node, metadataContexts: enclosingContexts }
     }
 
     for (const [key, nested] of Object.entries(node)) {
@@ -293,22 +298,30 @@ const findRecord = ({
       ) {
         for (const attempt of Object.values(nested)) {
           if (typeof attempt !== 'object' || attempt === null) continue
-          const found = visit({ node: attempt, depth: depth + 2, context: attempt })
+          const found = visit({
+            node: attempt,
+            depth: depth + 2,
+            metadataContexts: [attempt, ...enclosingContexts],
+          })
           if (found !== null) return found
         }
         continue
       }
 
-      const nestedContext =
+      const nestedContexts =
         isAttemptHistoryKey(key) && typeof nested === 'object' && nested !== null
-          ? nested
-          : enclosingContext
-      const found = visit({ node: nested, depth: depth + 1, context: nestedContext })
+          ? [nested]
+          : enclosingContexts
+      const found = visit({
+        node: nested,
+        depth: depth + 1,
+        metadataContexts: nestedContexts,
+      })
       if (found !== null) return found
     }
     return null
   }
-  return visit({ node: root, depth: 0, context: null })
+  return visit({ node: root, depth: 0, metadataContexts: [] })
 }
 
 /** Status strings that positively establish a live instance. */
@@ -369,9 +382,16 @@ export const parseJobDescribe = ({
     }
   }
 
-  const { context: instanceContext, record: instanceRecord } = selection
-  const findInstanceString = (keys: ReadonlyArray<string>): string | null =>
-    findOwnedString({ record: instanceRecord, keys }) ?? findString({ root: instanceContext, keys })
+  const { metadataContexts, record: instanceRecord } = selection
+  const findInstanceString = (keys: ReadonlyArray<string>): string | null => {
+    const owned = findOwnedString({ record: instanceRecord, keys })
+    if (owned !== null) return owned
+    for (const context of metadataContexts) {
+      const found = findString({ root: context, keys })
+      if (found !== null) return found
+    }
+    return null
+  }
   const destroyedAt = findOwnedString({
     record: instanceRecord,
     keys: ['destroyed_at', 'destroyedAt'],
@@ -760,7 +780,7 @@ const observeUsage = ({
 
     const argv = instanceReportArgv({
       window,
-      repository: github.repo,
+      repository: job.repository ?? github.repo,
       /** Namespace records the GitHub job name, which is this job's own name. */
       jobName: job.jobName ?? github.name,
     })
