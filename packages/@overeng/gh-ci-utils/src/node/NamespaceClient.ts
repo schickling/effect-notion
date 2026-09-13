@@ -171,12 +171,14 @@ export type JobDescribeParse =
 const MAX_LOOKUP_DEPTH = 6
 
 /**
- * Find the first non-empty string stored under any of `keys`, at any depth.
+ * Find the first non-empty string stored under any of `keys` within one
+ * logical job/attempt record.
  *
  * `nsc` nests the runner/instance block differently across output versions, so
  * a fixed path would break on a rename that a search survives. Keys at the
- * current level are preferred over nested ones, so a top-level `status` is
- * never shadowed by a deeper one.
+ * current level are preferred over nested ones. Arrays delimit sibling
+ * attempts and are never crossed, so historical metadata cannot describe the
+ * selected runner.
  */
 const findString = ({
   root,
@@ -188,13 +190,7 @@ const findString = ({
   const visit = ({ node, depth }: { node: unknown; depth: number }): string | null => {
     if (depth > MAX_LOOKUP_DEPTH || typeof node !== 'object' || node === null) return null
 
-    if (Array.isArray(node)) {
-      for (const item of node) {
-        const found = visit({ node: item, depth: depth + 1 })
-        if (found !== null) return found
-      }
-      return null
-    }
+    if (Array.isArray(node)) return null
 
     const entries = Object.entries(node)
     for (const [key, value] of entries) {
