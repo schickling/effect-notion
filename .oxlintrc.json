@@ -62,6 +62,7 @@
           "_tag",
           "_page_id",
           "_nds_outbox",
+          "_meta",
           "_idleTimeout",
           "_getActiveHandles",
           "_getActiveRequests",
@@ -420,6 +421,13 @@
         "overeng/exports-first": "off",
         "overeng/jsdoc-require-exports": "off",
         "typescript/no-useless-default-assignment": "off"
+      }
+    },
+    {
+      "files": ["**/gh-ci-utils/**"],
+      "rules": {
+        "overeng/explicit-boolean-compare": "off",
+        "overeng/no-raw-otel-primitives": "off"
       }
     },
     {

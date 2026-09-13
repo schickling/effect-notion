@@ -20,6 +20,7 @@ export const internalPackages = [
   'effect-schema-form',
   'effect-schema-form-aria',
   'genie',
+  'gh-ci-utils',
   'kdl',
   'kdl-effect',
   'megarepo',

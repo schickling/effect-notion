@@ -15,6 +15,7 @@ import effectRpcTanstackPkg from './packages/@overeng/effect-rpc-tanstack/packag
 import effectSchemaFormAriaPkg from './packages/@overeng/effect-schema-form-aria/package.json.genie.ts'
 import effectSchemaFormPkg from './packages/@overeng/effect-schema-form/package.json.genie.ts'
 import geniePkg from './packages/@overeng/genie/package.json.genie.ts'
+import ghCiUtilsPkg from './packages/@overeng/gh-ci-utils/package.json.genie.ts'
 import kdlEffectPkg from './packages/@overeng/kdl-effect/package.json.genie.ts'
 import kdlPkg from './packages/@overeng/kdl/package.json.genie.ts'
 import megarepoPkg from './packages/@overeng/megarepo/package.json.genie.ts'
@@ -54,6 +55,7 @@ export const rootWorkspacePackages = [
   effectSchemaFormAriaPkg,
   effectSchemaFormPkg,
   geniePkg,
+  ghCiUtilsPkg,
   kdlPkg,
   kdlEffectPkg,
   megarepoPkg,

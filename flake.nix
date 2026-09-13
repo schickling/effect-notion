@@ -105,6 +105,15 @@
               ;
             src = self;
           };
+          gh-ci-utils = import (rootPath + "/packages/@overeng/gh-ci-utils/nix/build.nix") {
+            inherit
+              pkgs
+              gitRev
+              commitTs
+              dirty
+              ;
+            src = self;
+          };
           megarepo = import (rootPath + "/packages/@overeng/megarepo/nix/build.nix") {
             inherit
               pkgs
@@ -159,6 +168,11 @@
             typeProofCompilerBin = "${tsgo.packages.${system}.tsgo}/bin/tsgo";
           };
           ci-tools = import (rootPath + "/packages/@overeng/ci-tools/nix/build.nix") {
+            inherit pkgs gitRev commitTs;
+            src = self;
+            dirty = true;
+          };
+          gh-ci-utils = import (rootPath + "/packages/@overeng/gh-ci-utils/nix/build.nix") {
             inherit pkgs gitRev commitTs;
             src = self;
             dirty = true;
@@ -245,6 +259,9 @@
             # rebuilding the full CLI package graph.
             "genie-pnpm-deps" = cliPackages.genie.passthru.depsBuildsByInstallRoot.root;
             "ci-tools-pnpm-deps" = cliPackages.ci-tools.passthru.depsBuildsByInstallRoot.root;
+            gh-ci-utils = cliPackages.gh-ci-utils;
+            gh-ci-utils-dirty = cliPackagesDirty.gh-ci-utils;
+            "gh-ci-utils-pnpm-deps" = cliPackages.gh-ci-utils.passthru.depsBuildsByInstallRoot.root;
             megarepo-dirty = cliPackagesDirty.megarepo;
             "megarepo-pnpm-deps" = cliPackages.megarepo.passthru.depsBuildsByInstallRoot.root;
             tui-stories-dirty = cliPackagesDirty.tui-stories;
@@ -274,6 +291,7 @@
         cliOutPaths = {
           genie = cliPackages.genie.outPath;
           ci-tools = cliPackages.ci-tools.outPath;
+          gh-ci-utils = cliPackages.gh-ci-utils.outPath;
           megarepo = cliPackages.megarepo.outPath;
           tui-stories = cliPackages.tui-stories.outPath;
           notion-cli = cliPackages.notion-cli.outPath;
@@ -282,6 +300,7 @@
         cliOutPathsDirty = {
           genie = cliPackagesDirty.genie.outPath;
           ci-tools = cliPackagesDirty.ci-tools.outPath;
+          gh-ci-utils = cliPackagesDirty.gh-ci-utils.outPath;
           megarepo = cliPackagesDirty.megarepo.outPath;
           tui-stories = cliPackagesDirty.tui-stories.outPath;
           notion-cli = cliPackagesDirty.notion-cli.outPath;

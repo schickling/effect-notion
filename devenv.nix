@@ -118,6 +118,10 @@ let
     name = "ci-tools";
     entry = "packages/@overeng/ci-tools/bin/ci-tools.ts";
   };
+  ghCiUtilsSourceCli = mkSourceCli {
+    name = "gh-ci-utils";
+    entry = "packages/@overeng/gh-ci-utils/bin/gh-ci-utils.ts";
+  };
   buck2Machine = import ./nix/buck2.nix { pkgs = flakePkgs; };
   buck2Stage0Definition = import ./nix/buck2-stage0-tools.nix { inherit pkgs; };
   # CLI packages built with Nix (for hash management)
@@ -142,6 +146,13 @@ let
       hashSource = "packages/@overeng/tui-stories/nix/build.nix";
       lockfile = "pnpm-lock.yaml";
       packageJson = "packages/@overeng/tui-stories/package.json";
+    }
+    {
+      name = "gh-ci-utils";
+      flakeRef = ".#gh-ci-utils";
+      hashSource = "packages/@overeng/gh-ci-utils/nix/build.nix";
+      lockfile = "pnpm-lock.yaml";
+      packageJson = "packages/@overeng/gh-ci-utils/package.json";
     }
     {
       name = "oxlint-npm";
@@ -184,6 +195,7 @@ let
     "packages/@overeng/effect-schema-form"
     "packages/@overeng/effect-schema-form-aria"
     "packages/@overeng/genie"
+    "packages/@overeng/gh-ci-utils"
     "packages/@overeng/kdl"
     "packages/@overeng/kdl-effect"
     "packages/@overeng/megarepo"
@@ -337,6 +349,11 @@ let
       path = "packages/@overeng/notion-md";
       name = "notion-md";
       port = 6015;
+    }
+    {
+      path = "packages/@overeng/gh-ci-utils";
+      name = "gh-ci-utils";
+      port = 6016;
     }
   ];
   packagesWithNetlifyPreview = lib.filter (pkg: pkg.name != "tui-stories") packagesWithStorybook;
@@ -667,6 +684,7 @@ in
     buck2Stage0Definition.product
     cliBuildStamp.package
     ciToolsSourceCli
+    ghCiUtilsSourceCli
     (mkSourceCli {
       name = "tui-stories";
       entry = "packages/@overeng/tui-stories/bin/tui-stories.tsx";

@@ -49,6 +49,9 @@
       "path": "./packages/@overeng/genie"
     },
     {
+      "path": "./packages/@overeng/gh-ci-utils"
+    },
+    {
       "path": "./packages/@overeng/kdl"
     },
     {

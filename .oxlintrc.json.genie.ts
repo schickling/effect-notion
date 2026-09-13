@@ -212,6 +212,15 @@ export default oxlintConfig({
         'typescript/no-useless-default-assignment': 'off',
       },
     },
+    // Temporary migration waiver for the imported CLI source; align it with
+    // effect-utils policy separately in #1254.
+    {
+      files: ['**/gh-ci-utils/**'],
+      rules: {
+        'overeng/explicit-boolean-compare': 'off',
+        'overeng/no-raw-otel-primitives': 'off',
+      },
+    },
     // notion-react: incubation lint waiver (tracked in #599; remove before GA)
     {
       files: ['**/notion-react/**'],
