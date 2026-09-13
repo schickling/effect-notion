@@ -43,6 +43,7 @@ describe('owned capability projection', () => {
           let value = 0
           return () => `fixture-${value++}`
         })(),
+        retainPublishedCapabilities: async () => undefined,
       }
 
       const published = await installOwnedCapabilityProjection({
@@ -78,6 +79,88 @@ describe('owned capability projection', () => {
     }
   })
 
+  it('rolls an owned projection swap back when stable-root retention fails', async () => {
+    const fixture = await mkdtemp(NodePath.join(tmpdir(), 'owned-capability-retention-'))
+    try {
+      const owned = NodePath.join(fixture, 'owned')
+      const first = NodePath.join(fixture, 'first')
+      const second = NodePath.join(fixture, 'second')
+      const firstGeneration = 'a'.repeat(64)
+      const secondGeneration = 'b'.repeat(64)
+      await mkdir(owned)
+      await writeFile(NodePath.join(owned, '.git'), 'gitdir: fixture\n')
+      await writeProjection({ root: first, generation: firstGeneration })
+      await writeProjection({ root: second, generation: secondGeneration })
+      const coreutils = await resolvePinnedCoreutils()
+      await installOwnedCapabilityProjection({
+        memberKey: 'owned',
+        ownedMemberPath: owned,
+        projectionPath: first,
+        projectionDigest: firstGeneration,
+        runtime: {
+          ...coreutils,
+          nonce: () => 'first',
+          retainPublishedCapabilities: async () => undefined,
+        },
+      })
+      const oldRoot = NodePath.join(
+        owned,
+        '.buck2',
+        'capability-roots',
+        firstGeneration,
+        'buck2',
+      )
+      const newRoot = NodePath.join(
+        owned,
+        '.buck2',
+        'capability-roots',
+        secondGeneration,
+        'buck2',
+      )
+      await mkdir(NodePath.dirname(oldRoot), { recursive: true })
+      await writeFile(oldRoot, 'old root\n')
+
+      await expect(
+        installOwnedCapabilityProjection({
+          memberKey: 'owned',
+          ownedMemberPath: owned,
+          projectionPath: second,
+          projectionDigest: secondGeneration,
+          runtime: {
+            ...coreutils,
+            nonce: () => 'advance',
+            retainPublishedCapabilities: async ({ destinationPath }) => {
+              expect(await readFile(NodePath.join(destinationPath, 'defs.bzl'), 'utf8')).toBe(
+                `GENERATION = "${secondGeneration}"
+`,
+              )
+              expect(await readFile(oldRoot, 'utf8')).toBe('old root\n')
+              await mkdir(NodePath.dirname(newRoot), { recursive: true })
+              await writeFile(newRoot, 'partial new root\n')
+              throw new Error('stable-root retention failed')
+            },
+          },
+        }),
+      ).rejects.toMatchObject({
+        _tag: 'OwnedCapabilityProjectionError',
+        reason: 'RetentionFailed',
+      })
+      expect(await readFile(NodePath.join(owned, '.buck2/capabilities/defs.bzl'), 'utf8')).toBe(
+        `GENERATION = "${firstGeneration}"
+`,
+      )
+      expect(await readFile(oldRoot, 'utf8')).toBe('old root\n')
+      expect(await readFile(newRoot, 'utf8')).toBe('partial new root\n')
+      expect(
+        (await readdir(NodePath.join(owned, '.buck2'))).some((name) =>
+          name.startsWith('.capabilities.stage-'),
+        ),
+      ).toBe(false)
+    } finally {
+      await rm(fixture, { recursive: true, force: true })
+    }
+  })
+
   it.each(['symlink', 'file'] as const)(
     'rejects a %s .buck2 parent without writing outside',
     async (kind) => {
@@ -103,6 +186,7 @@ describe('owned capability projection', () => {
             runtime: {
               ...coreutils,
               nonce: () => 'parent-kind',
+              retainPublishedCapabilities: async () => undefined,
             },
           }),
         ).rejects.toMatchObject({
@@ -143,6 +227,7 @@ describe('owned capability projection', () => {
             runtime: {
               ...coreutils,
               nonce: () => `race-${phase}`,
+              retainPublishedCapabilities: async () => undefined,
               ...(phase === 'copy'
                 ? { beforeCopy: replaceParent }
                 : { beforePublish: replaceParent }),
