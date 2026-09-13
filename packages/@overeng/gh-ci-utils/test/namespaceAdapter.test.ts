@@ -652,6 +652,62 @@ describe('observeNamespaceJob', () => {
     expect(recorded.at(-1)?.slice(-2)).toEqual(['--jobname', 'build'])
   })
 
+  it('isolates object-mapped attempts and falls back to the GitHub identity', async () => {
+    const previous = {
+      job: { job_name: 'previous build', workflow_name: 'Previous CI' },
+      repository: 'previous-org/previous-repo',
+      runner: {
+        instance_id: 'previous-instance',
+        instance_status: 'DESTROYED',
+        runner_name: 'nsc-runner-previous-instance',
+        container_name: 'previous-container',
+      },
+    }
+    const current = {
+      runner: {
+        instance_id: INSTANCE,
+        instance_status: 'RUNNING',
+        runner_name: `nsc-runner-${INSTANCE}`,
+      },
+    }
+
+    for (const attempts of [
+      { previous, current },
+      { current, previous },
+    ]) {
+      const { facts, recorded } = await observe({
+        github: githubFacts(),
+        withUsage: true,
+        respond: (argv) =>
+          argv[0] === 'auth'
+            ? output('ok')
+            : argv[0] === 'github'
+              ? output(JSON.stringify({ attempts }))
+              : argv[argv.indexOf('--jobname') + 1] === 'build'
+                ? output(REPORT_CSV)
+                : output('instance_id\n'),
+      })
+
+      expect(facts._tag).toBe('reported')
+      if (facts._tag !== 'reported') return
+      expect(facts.job).toMatchObject({
+        instanceId: INSTANCE,
+        runnerName: `nsc-runner-${INSTANCE}`,
+        containerName: null,
+        repository: null,
+        workflow: null,
+        jobName: null,
+      })
+      expect(facts.usage._tag).toBe('sampled')
+      expect(recorded.at(-1)?.slice(-4)).toEqual([
+        '--repository',
+        'example-org/example-repo',
+        '--jobname',
+        'build',
+      ])
+    }
+  })
+
   it('excludes sibling attempt metadata for a root runner and uses the GitHub job name', async () => {
     const describe = JSON.stringify({
       job: { workflow_name: 'Current CI' },

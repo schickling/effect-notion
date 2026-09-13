@@ -174,6 +174,10 @@ const MAX_LOOKUP_DEPTH = 6
 const isAttemptHistoryKey = (key: string): boolean =>
   /^(?:attempts|previous[_-]?attempts?|attempt[_-]?history)$/i.test(key)
 
+/** Attempt-boundary fields whose object values are maps of sibling attempts. */
+const isAttemptCollectionKey = (key: string): boolean =>
+  /^(?:attempts|previous[_-]?attempts|attempt[_-]?history)$/i.test(key)
+
 /**
  * Find the first non-empty string stored under any of `keys` within one
  * logical job/attempt record.
@@ -237,10 +241,10 @@ interface RecordSelection {
 /**
  * Find the object that directly owns a matching identity field.
  *
- * Each array item and history-shaped object field starts a separate context.
- * This keeps metadata fallback inside the selected attempt when a description
- * contains attempt history, while a description with one top-level job still
- * uses that whole job object.
+ * Each array item, singular history field, and entry in an object-valued
+ * attempt collection starts a separate context. This keeps metadata fallback
+ * inside the selected attempt when a description contains attempt history,
+ * while a description with one top-level job still uses that whole job object.
  */
 const findRecord = ({
   root,
@@ -281,6 +285,20 @@ const findRecord = ({
     }
 
     for (const [key, nested] of Object.entries(node)) {
+      if (
+        isAttemptCollectionKey(key) &&
+        typeof nested === 'object' &&
+        nested !== null &&
+        Array.isArray(nested) === false
+      ) {
+        for (const attempt of Object.values(nested)) {
+          if (typeof attempt !== 'object' || attempt === null) continue
+          const found = visit({ node: attempt, depth: depth + 2, context: attempt })
+          if (found !== null) return found
+        }
+        continue
+      }
+
       const nestedContext =
         isAttemptHistoryKey(key) && typeof nested === 'object' && nested !== null
           ? nested
