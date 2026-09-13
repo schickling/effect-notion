@@ -34,6 +34,14 @@ Proof used the synthesized composition at `/tmp/effect-utils-unit-proof-fresh`, 
 - Declaration publication remains a deliberate filesystem projection outside the Buck action. Buck is the only producer; the wrapper only validates and atomically swaps Buck output into package `dist` paths consumed by source tools and editors.
 - Full local Nix builds were not run because the host root filesystem was at its safety threshold. The proof instead used direct generator execution, unit suites, the synthesized Buck runtime, explicit negative causality, and end-to-end declaration publication.
 
+### Complexity reconciliation
+
+The final stack was measured against `11e463` with documentation, tests, and lockfiles excluded. The remaining implementation diff is +18,479/-5,809 lines, net +12,670. Source-authored machinery accounts for +9,997/-4,178, net +5,819. Committed projections account for +8,482/-1,631, net +6,851. The projection class includes generated `BUCK`, package, TypeScript, CI, editor, authority, release-target, and product-manifest files. These files stay committed because they are the reviewable and reproducible interface consumed before Genie or Buck can run.
+
+The source cost is shared across 39 TypeScript projects, 35 declaration publishers, 11 JavaScript products, and three native products published for three platforms. The generated majority is therefore not a second implementation. It is the checked-in expansion of those shared registries and rules.
+
+At implementation head `219352091` (immediately before this evidence-only update), an isolated local-only build of all 11 JavaScript product descriptors, with remote action caching disabled, executed 919 local actions in 12.4 seconds after `buck2 clean` and transferred 57 MiB of package inputs. An immediate repeat executed no actions, transferred no data, and completed in 0.6 seconds. The native TypeScript API server was also built on x86_64 Linux, aarch64 Linux, and aarch64 Darwin; the Darwin build completed 599 local actions in approximately 59 seconds.
+
 ## Conclusion
 
 The repository has one TypeScript producer. Buck checks all 39 projects and emits all 35 declaration products; strict-consumer and bootstrap-critical projects are first-class targets rather than exceptions. Root compiler execution, residual project membership, source-mode declaration fallback, and duplicate check/emit task edges are absent.
