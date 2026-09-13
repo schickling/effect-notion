@@ -176,7 +176,14 @@ describe('status --output json job contract (#927)', () => {
 
     expect(vm.runner).toBe('linuxbuildera')
     expect(vm.durationSeconds).toBe(300)
+    expect(vm.completedAt).toBe('2026-07-27T10:05:00.000Z')
     expect(vm.jobUrl).toBe(`${RUN.htmlUrl}/job/${rawJob.id}`)
+  })
+
+  it('still decodes job payloads written before completion finality was tracked', () => {
+    const legacyJob = job()
+
+    expect(Schema.decodeUnknownSync(WorkflowJobViewModel)(legacyJob)).toEqual(legacyJob)
   })
 
   it('exposes a top-level summary in the status state', () => {

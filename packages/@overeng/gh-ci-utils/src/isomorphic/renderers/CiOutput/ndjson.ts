@@ -123,17 +123,27 @@ const jobUpdateFactsChanged = ({
 }: {
   previous: WorkflowJobVM | undefined
   current: WorkflowJobVM
-}): boolean =>
-  previous === undefined ||
-  previous.name !== current.name ||
-  previous.status !== current.status ||
-  previous.conclusion !== current.conclusion ||
-  (current.status === 'completed' && previous.durationSeconds !== current.durationSeconds) ||
-  previous.runner !== current.runner ||
-  previous.runnerName !== current.runnerName ||
-  previous.runnerKind !== current.runnerKind ||
-  previous.runnerInstance !== current.runnerInstance ||
-  JSON.stringify(previous.steps) !== JSON.stringify(current.steps)
+}): boolean => {
+  // A completed job without completedAt still uses wall-clock "now", so its duration is provisional.
+  const completedDurationChanged =
+    current.status === 'completed' &&
+    current.completedAt != null &&
+    (previous?.completedAt !== current.completedAt ||
+      previous?.durationSeconds !== current.durationSeconds)
+
+  return (
+    previous === undefined ||
+    previous.name !== current.name ||
+    previous.status !== current.status ||
+    previous.conclusion !== current.conclusion ||
+    completedDurationChanged ||
+    previous.runner !== current.runner ||
+    previous.runnerName !== current.runnerName ||
+    previous.runnerKind !== current.runnerKind ||
+    previous.runnerInstance !== current.runnerInstance ||
+    JSON.stringify(previous.steps) !== JSON.stringify(current.steps)
+  )
+}
 
 /** Map a dispatched action + previous state to NDJSON events. */
 export const fromCiAction = ({

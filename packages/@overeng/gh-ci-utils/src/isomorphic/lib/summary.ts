@@ -96,6 +96,7 @@ export const toJobVM = ({
       startedAt: job.started_at,
       completedAt: job.completed_at,
     }),
+    completedAt: job.completed_at?.toISOString() ?? null,
     runner: formatRunnerIdentity(runnerIdentity),
     runnerName: job.runner_name,
     runnerKind: runnerIdentity._tag,

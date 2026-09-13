@@ -209,21 +209,23 @@ describe('ndjson watch liveness', () => {
     expect(events).toEqual([])
   })
 
-  it('emits the final duration after a provisional completed snapshot', () => {
+  it('suppresses repeated duration drift while a completed job lacks completed_at', () => {
     const base = loadedState('completed')
     const lint = {
       ...base.jobs[0]!,
       status: 'completed',
       conclusion: 'success',
       durationSeconds: 101,
+      completedAt: null,
     }
     const prev = { ...base, jobs: [lint] }
+    const nextLint = { ...lint, durationSeconds: 100 }
 
-    const events = fromCiAction({
+    const firstEvents = fromCiAction({
       action: {
         _tag: 'SetLoaded',
         run: prev.run,
-        jobs: [{ ...lint, durationSeconds: 100 }],
+        jobs: [nextLint],
         errors: [],
         annotations: [],
         runnerHostMap: [],
@@ -232,8 +234,55 @@ describe('ndjson watch liveness', () => {
       },
       prevState: prev,
     })
+    const secondEvents = fromCiAction({
+      action: {
+        _tag: 'SetLoaded',
+        run: prev.run,
+        jobs: [{ ...nextLint, durationSeconds: 99 }],
+        errors: [],
+        annotations: [],
+        runnerHostMap: [],
+        prHealth: null,
+        summary: prev.summary,
+      },
+      prevState: { ...prev, jobs: [nextLint] },
+    })
 
-    expect(events).toEqual([
+    expect(firstEvents).toEqual([])
+    expect(secondEvents).toEqual([])
+  })
+
+  it('emits exactly one corrected duration when completed_at becomes available', () => {
+    const base = loadedState('completed')
+    const lint = {
+      ...base.jobs[0]!,
+      status: 'completed',
+      conclusion: 'success',
+      durationSeconds: 101,
+      completedAt: null,
+    }
+    const prev = { ...base, jobs: [lint] }
+    const finalizedLint = {
+      ...lint,
+      durationSeconds: 100,
+      completedAt: '2026-01-15T11:01:40.000Z',
+    }
+    const finalizationAction = {
+      _tag: 'SetLoaded' as const,
+      run: prev.run,
+      jobs: [finalizedLint],
+      errors: [],
+      annotations: [],
+      runnerHostMap: [],
+      prHealth: null,
+      summary: prev.summary,
+    }
+
+    const finalizationEvents = fromCiAction({ action: finalizationAction, prevState: prev })
+    const finalizedState = ciReducer({ state: prev, action: finalizationAction })
+    const repeatedEvents = fromCiAction({ action: finalizationAction, prevState: finalizedState })
+
+    expect(finalizationEvents).toEqual([
       {
         _tag: 'JobUpdate',
         jobId: 1,
@@ -247,6 +296,45 @@ describe('ndjson watch liveness', () => {
         runnerInstance: 'x1y2z3w4v5',
       },
     ])
+    expect(repeatedEvents).toEqual([])
+  })
+
+  it('emits a corrected duration when completed_at changes', () => {
+    const base = loadedState('completed')
+    const lint = {
+      ...base.jobs[0]!,
+      status: 'completed',
+      conclusion: 'success',
+      durationSeconds: 100,
+      completedAt: '2026-01-15T11:01:40.000Z',
+    }
+    const prev = { ...base, jobs: [lint] }
+
+    const events = fromCiAction({
+      action: {
+        _tag: 'SetLoaded',
+        run: prev.run,
+        jobs: [
+          {
+            ...lint,
+            durationSeconds: 100,
+            completedAt: '2026-01-15T11:01:41.000Z',
+          },
+        ],
+        errors: [],
+        annotations: [],
+        runnerHostMap: [],
+        prHealth: null,
+        summary: prev.summary,
+      },
+      prevState: prev,
+    })
+
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({
+      _tag: 'JobUpdate',
+      durationSeconds: 100,
+    })
   })
 
   it('reports the verdict and every blocking failure when the run completes', () => {

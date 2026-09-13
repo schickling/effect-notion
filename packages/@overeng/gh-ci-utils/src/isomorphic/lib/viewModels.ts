@@ -74,6 +74,8 @@ export const WorkflowJobViewModel = Schema.Struct({
   status: Schema.String,
   conclusion: Schema.NullOr(Schema.String),
   durationSeconds: Schema.Finite,
+  /** ISO completion timestamp; absent in older snapshots and null until GitHub finalizes it. */
+  completedAt: Schema.optional(Schema.NullOr(Schema.String)),
   /** Abbreviated runner label for compact display. */
   runner: Schema.String,
   /** Raw `runner_name` as GitHub reported it — `null` when no runner was assigned. */
