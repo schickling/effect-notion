@@ -305,6 +305,22 @@ const addLegacyGeneratedStubs = async (fixture: Fixture): Promise<void> => {
   await writeFile(manifestPath, `${JSON.stringify(manifest, undefined, 2)}\n`)
 }
 
+const removeGenerationManifestRecord = async ({
+  fixture,
+  path,
+}: {
+  readonly fixture: Fixture
+  readonly path: string
+}): Promise<void> => {
+  const manifestPath = NodePath.join(fixture.root, COMPOSITION_GENERATION_MANIFEST_PATH)
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as {
+    schemaVersion: 1
+    files: Array<{ path: string; mode: number; sha256: string }>
+  }
+  manifest.files = manifest.files.filter((file) => file.path !== path)
+  await writeFile(manifestPath, `${JSON.stringify(manifest, undefined, 2)}\n`)
+}
+
 describe('composition root publisher', () => {
   it.effect('plans first-create bytes without mutating the filesystem', () =>
     Effect.scoped(
@@ -367,6 +383,61 @@ describe('composition root publisher', () => {
           expect(file.old?.sha256).not.toBe(file.new?.sha256)
           expect([0o644, 0o755]).toContain(file.new?.mode)
         }
+      }),
+    ),
+  )
+
+  it.effect('upgrades an old valid manifest when its newly required path is absent', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fixture = yield* makeFixture()
+        yield* publishCompositionRoot(
+          optionsFor({ fixture, lockToken: 'missing-required-seed-token' }),
+        )
+        yield* Effect.promise(async () => {
+          await removeGenerationManifestRecord({ fixture, path: '.watchmanconfig' })
+          await rm(NodePath.join(fixture.root, '.watchmanconfig'))
+        })
+
+        const result = yield* publishCompositionRoot(
+          optionsFor({ fixture, lockToken: 'missing-required-upgrade-token' }),
+        )
+
+        expect(result.changedPaths).toContain('.watchmanconfig')
+        expect((yield* readGenerated(fixture, '.watchmanconfig')).toString()).toBe('{}\n')
+        const upgradedManifest = JSON.parse(
+          (yield* readGenerated(fixture, COMPOSITION_GENERATION_MANIFEST_PATH)).toString(),
+        ) as { files: Array<{ path: string }> }
+        expect(upgradedManifest.files.map((file) => file.path)).toContain('.watchmanconfig')
+      }),
+    ),
+  )
+
+  it.effect('refuses an unowned path omitted from an old valid manifest', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fixture = yield* makeFixture()
+        yield* publishCompositionRoot(
+          optionsFor({ fixture, lockToken: 'unowned-required-seed-token' }),
+        )
+        yield* Effect.promise(() =>
+          removeGenerationManifestRecord({ fixture, path: '.watchmanconfig' }),
+        )
+        const manifestBefore = yield* readGenerated(fixture, COMPOSITION_GENERATION_MANIFEST_PATH)
+        const watchmanBefore = yield* readGenerated(fixture, '.watchmanconfig')
+
+        const error = yield* failureReason(
+          publishCompositionRoot(
+            optionsFor({ fixture, lockToken: 'unowned-required-conflict-token' }),
+          ),
+        )
+
+        expect(error.reason).toBe('ForeignPath')
+        expect(error.path).toBe(NodePath.join(fixture.root, '.watchmanconfig'))
+        expect(yield* readGenerated(fixture, COMPOSITION_GENERATION_MANIFEST_PATH)).toEqual(
+          manifestBefore,
+        )
+        expect(yield* readGenerated(fixture, '.watchmanconfig')).toEqual(watchmanBefore)
       }),
     ),
   )

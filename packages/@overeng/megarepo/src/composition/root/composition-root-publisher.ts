@@ -1473,16 +1473,6 @@ const validatePublicationState = async ({
       })
     }
     manifest = decodeGenerationManifest({ snapshot: manifestSnapshot, path: manifestPath })
-    const manifestPaths = new Set(manifest.files.map((file) => file.path))
-    for (const expectedPath of expectedGeneratedPaths(files)) {
-      if (manifestPaths.has(expectedPath) === false) {
-        throw failure({
-          reason: 'InvalidGenerationManifest',
-          path: manifestPath,
-          message: `Generation manifest does not own required path ${expectedPath}: ${manifestPath}`,
-        })
-      }
-    }
   }
   const configPath = finalPathFor(workspaceRoot, '.buckconfig')
   if (manifest === undefined && (await snapshotMaybe(configPath)) !== undefined) {
@@ -1494,6 +1484,7 @@ const validatePublicationState = async ({
   }
 
   const desiredPaths = new Set(expectedGeneratedPaths(files))
+  const manifestPaths = new Set(manifest?.files.map((file) => file.path))
   const obsoleteFiles: ObsoleteGeneratedFile[] = []
   if (manifest !== undefined) {
     for (const record of manifest.files) {
@@ -1532,6 +1523,18 @@ const validatePublicationState = async ({
         ? manifestSnapshot
         : await snapshotMaybe(path)
     snapshots.set(file.path, snapshot)
+    if (
+      manifest !== undefined &&
+      file.path !== COMPOSITION_GENERATION_MANIFEST_PATH &&
+      manifestPaths.has(file.path) === false &&
+      snapshot !== undefined
+    ) {
+      throw failure({
+        reason: 'ForeignPath',
+        path,
+        message: `Refusing unowned path missing from generation manifest: ${path}`,
+      })
+    }
     if (
       manifest === undefined &&
       snapshot !== undefined &&
