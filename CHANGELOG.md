@@ -5,8 +5,9 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- **@overeng/gh-ci-utils**: Move the CI inspection CLI from dotfiles into
-  effect-utils so its source, tests, and Nix package have one reusable owner.
+
+- **@overeng/gh-ci-utils**: Migrate the CI inspection CLI into effect-utils so
+  its source, tests, and Nix package have one reusable owner.
 
 - **Buck2 (context)**: decision 0030 — git external cells are not a
   member-mount mechanism (the physical `buck-out/.../git/<sha>` path enters
@@ -269,7 +270,7 @@ All notable changes to this project will be documented in this file.
   and `pnpm-install-contract.json`), the lock-mutator evaluation allowlist, and
   the pnpm fixture manifests. Verified on the built package: `pnpm --version`
   reports 12.4.1, the store layout stays `v11`, and `pnpm install
-  --frozen-lockfile --ignore-scripts` over all 39 workspace projects succeeds
+--frozen-lockfile --ignore-scripts` over all 39 workspace projects succeeds
   with the lockfile unchanged.
 
 - **pnpm**: move the ecosystem pin from pnpm 11.8.0 to 12.3.4 and retire the

@@ -14,13 +14,14 @@ import type { WorkflowJob } from '../../isomorphic/GitHubSchemas.ts'
 import { DEFAULT_LOG_TAIL, LOG_POLL_INTERVAL } from '../../isomorphic/lib/constants.ts'
 import { splitOwnerRepo } from '../../isomorphic/lib/format.ts'
 import { selectLogLines, shouldIncludeFailedLog } from '../../isomorphic/lib/logFilter.ts'
-import { isUnsuccessfulConclusion } from '../../isomorphic/lib/summary.ts'
+import { isUnsuccessfulConclusion, isWrongWorkflowSelection } from '../../isomorphic/lib/summary.ts'
 import { LogsApp, LogsView, type LogsAction } from '../../isomorphic/renderers/LogsOutput/mod.ts'
 import { resolveConfig } from '../Config.ts'
 import { GitHubClient, type GitHubClientShape } from '../GitHubClient.ts'
 import { GitHubInternal } from '../GitHubInternal.ts'
 import { collectApiMeta } from '../lib/apiMeta.ts'
 import {
+  type ResolvedTarget,
   resolveTarget,
   resolveTargetOrCurrentBranch,
   targetArg,
@@ -87,6 +88,16 @@ export const missingStepSessionAuthError = {
   error: 'Session auth required',
   message: `Step filtering requires session auth (run 'gh-ci-utils auth login')`,
 } as const satisfies LogsAction
+
+/** Reject an explicit workflow miss without exposing logs from the resolver's fallback run. */
+export const unmatchedWorkflowLogAction = (resolved: ResolvedTarget): LogsAction | null => {
+  if (!isWrongWorkflowSelection(resolved.selection)) return null
+  return {
+    _tag: 'SetNoLogs',
+    message: `No run matching workflow '${resolved.selection.expectedWorkflow}' was found in ${resolved.repo}; logs from fallback run ${resolved.runId} were not shown.`,
+    conclusion: 'no_checks',
+  }
+}
 
 /** Apply the shared grep/error selection and tail pagination policy to log text. */
 export const collectLogText = ({
@@ -240,7 +251,7 @@ export const logsCommand = Cli.Command.make('logs', {
           const preferWorkflow = Option.isSome(workflowOpt) ? workflowOpt.value : undefined
           const localRepo = config.repos[0]
 
-          let resolved: { runId: number; repo: string }
+          let resolved: ResolvedTarget
           if (Option.isSome(targetInput)) {
             resolved = yield* resolveTarget(
               targetInput.value as string,
@@ -257,6 +268,14 @@ export const logsCommand = Cli.Command.make('logs', {
               return
             }
             resolved = yield* resolveTargetOrCurrentBranch(targetInput, localRepo, preferWorkflow)
+          }
+
+          const workflowMiss = unmatchedWorkflowLogAction(resolved)
+          if (workflowMiss !== null) {
+            tui.dispatch(workflowMiss)
+            const meta = yield* collectApiMeta
+            tui.dispatch({ _tag: 'SetMeta', _meta: meta })
+            return
           }
 
           const { runId, repo: resolvedRepo } = resolved

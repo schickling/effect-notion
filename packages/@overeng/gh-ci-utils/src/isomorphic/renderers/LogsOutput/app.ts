@@ -17,6 +17,8 @@ export const LogsApp = createTuiApp({
   reducer: logsReducer,
   exitCode: (state: LogsState) => {
     if (state._tag === 'Error') return state.error === 'Timeout' ? 2 : 1
+    if ((state._tag === 'Loaded' || state._tag === 'NoLogs') && state.conclusion === 'no_checks')
+      return 3
     if (
       (state._tag === 'Loaded' || state._tag === 'NoLogs') &&
       state.conclusion !== 'queued' &&

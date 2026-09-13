@@ -16,6 +16,7 @@ import {
   logsVerdictConclusion,
   missingStepSessionAuthError,
   shouldFinalizeWatchWithNoLogs,
+  unmatchedWorkflowLogAction,
 } from '../src/node/commands/logs.ts'
 
 const testRun = {
@@ -176,6 +177,32 @@ describe('LogsApp exitCode', () => {
         _meta: defaultApiMeta,
       }),
     ).toBe(2)
+  })
+
+  it('rejects an unmatched explicit workflow as inconclusive without fallback logs', () => {
+    const action = unmatchedWorkflowLogAction({
+      runId: 70000000123,
+      repo: 'example-org/example-repo',
+      selection: {
+        prNumber: null,
+        expectedHeadSha: null,
+        expectedWorkflow: 'release.yml',
+        matchedExpectedWorkflow: false,
+        runHeadSha: 'fallback-sha',
+      },
+    })
+
+    expect(action).toEqual({
+      _tag: 'SetNoLogs',
+      message:
+        "No run matching workflow 'release.yml' was found in example-org/example-repo; logs from fallback run 70000000123 were not shown.",
+      conclusion: 'no_checks',
+    })
+    if (action === null) return
+
+    const state = logsReducer({ state: createInitialLogsState(), action })
+    expect(state).toMatchObject({ _tag: 'NoLogs', conclusion: 'no_checks' })
+    expect(LogsApp.config.exitCode?.(state)).toBe(3)
   })
 
   it.each(['startup_failure', 'action_required', 'cancelled'])(

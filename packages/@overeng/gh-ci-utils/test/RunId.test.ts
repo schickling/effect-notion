@@ -163,4 +163,34 @@ describe('resolveWorkflowDispatchTarget', () => {
       message: 'No local repo available. Use owner/repo as target to specify.',
     })
   })
+
+  it.each([
+    { input: '70001234', kind: 'an existing run' },
+    {
+      input: 'https://github.com/example-org/example-repo/actions/runs/70001234',
+      kind: 'an existing run',
+    },
+    { input: '#506', kind: 'a pull request' },
+    { input: 'example-org/example-repo#506', kind: 'a pull request' },
+    {
+      input: 'https://github.com/example-org/example-repo/pull/506',
+      kind: 'a pull request',
+    },
+  ])('rejects unsupported dispatch target $input', ({ input, kind }) => {
+    const error = Effect.runSync(
+      Effect.flip(
+        resolveWorkflowDispatchTarget({
+          input,
+          localRepo: Option.none(),
+          getDefaultBranch: () => Effect.die('default branch must not be requested'),
+        }),
+      ),
+    )
+
+    expect(error).toMatchObject({
+      _tag: 'ConfigError',
+      message: expect.stringContaining(`target '${input}' identifies ${kind}`),
+      cause: 'unsupported workflow dispatch target',
+    })
+  })
 })

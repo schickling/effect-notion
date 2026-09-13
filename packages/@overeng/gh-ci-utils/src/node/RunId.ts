@@ -397,7 +397,7 @@ const requireLocalRepo = (localRepo: Option.Option<string>) =>
     onSome: Effect.succeed,
   })
 
-/** Resolve the repository and ref accepted by `gh workflow run`. */
+/** Resolve a supported branch or repository-default workflow dispatch target. */
 export const resolveWorkflowDispatchTarget = Effect.fn('resolve-workflow-dispatch-target')(
   <TError>({
     input,
@@ -411,24 +411,37 @@ export const resolveWorkflowDispatchTarget = Effect.fn('resolve-workflow-dispatc
     Effect.gen(function* () {
       const parsed = parseTarget(input)
 
-      if (parsed._tag === 'RepoBranch') {
-        return {
-          repo: `${parsed.owner}/${parsed.repo}`,
-          branch: parsed.branch,
+      switch (parsed._tag) {
+        case 'RepoBranch':
+          return {
+            repo: `${parsed.owner}/${parsed.repo}`,
+            branch: parsed.branch,
+          }
+        case 'RepoDefault': {
+          const repo = `${parsed.owner}/${parsed.repo}`
+          return {
+            repo,
+            branch: yield* getDefaultBranch(repo),
+          }
         }
-      }
-
-      if (parsed._tag === 'RepoDefault') {
-        const repo = `${parsed.owner}/${parsed.repo}`
-        return {
-          repo,
-          branch: yield* getDefaultBranch(repo),
-        }
-      }
-
-      return {
-        repo: yield* requireLocalRepo(localRepo),
-        branch: parsed._tag === 'LocalBranch' ? parsed.branch : input,
+        case 'LocalBranch':
+          return {
+            repo: yield* requireLocalRepo(localRepo),
+            branch: parsed.branch,
+          }
+        case 'Numeric':
+        case 'Url':
+          return yield* new ConfigError({
+            message: `Workflow dispatch target '${input}' identifies an existing run. Use a branch target instead.`,
+            cause: 'unsupported workflow dispatch target',
+          })
+        case 'PrUrl':
+        case 'LocalPr':
+        case 'RepoPr':
+          return yield* new ConfigError({
+            message: `Workflow dispatch target '${input}' identifies a pull request. Use the pull request's head branch instead.`,
+            cause: 'unsupported workflow dispatch target',
+          })
       }
     }),
 )
