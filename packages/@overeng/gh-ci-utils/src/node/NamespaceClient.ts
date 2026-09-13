@@ -170,15 +170,19 @@ export type JobDescribeParse =
 /** Maximum object-graph depth searched for a known field name. */
 const MAX_LOOKUP_DEPTH = 6
 
+/** Object field names whose contents describe attempts other than the enclosing one. */
+const isAttemptHistoryKey = (key: string): boolean =>
+  /^(?:attempts|previous[_-]?attempts?|attempt[_-]?history)$/i.test(key)
+
 /**
  * Find the first non-empty string stored under any of `keys` within one
  * logical job/attempt record.
  *
  * `nsc` nests the runner/instance block differently across output versions, so
  * a fixed path would break on a rename that a search survives. Keys at the
- * current level are preferred over nested ones. Arrays delimit sibling
- * attempts and are never crossed, so historical metadata cannot describe the
- * selected runner.
+ * current level are preferred over nested ones. Arrays and history-shaped
+ * object fields delimit sibling attempts and are never crossed, so historical
+ * metadata cannot describe the selected runner.
  */
 const findString = ({
   root,
@@ -198,7 +202,8 @@ const findString = ({
       if (typeof value === 'string' && value.length > 0) return value
       if (typeof value === 'number' && Number.isFinite(value)) return String(value)
     }
-    for (const [, value] of entries) {
+    for (const [key, value] of entries) {
+      if (isAttemptHistoryKey(key) && typeof value === 'object' && value !== null) continue
       const found = visit({ node: value, depth: depth + 1 })
       if (found !== null) return found
     }
@@ -223,7 +228,7 @@ const findOwnedString = ({
   return null
 }
 
-/** A selected instance record and the array-delimited job/attempt context that encloses it. */
+/** A selected instance record and the attempt-boundary context that encloses it. */
 interface RecordSelection {
   readonly record: object
   readonly context: object
@@ -232,9 +237,10 @@ interface RecordSelection {
 /**
  * Find the object that directly owns a matching identity field.
  *
- * Each array item starts a separate context. This keeps metadata fallback
- * inside the selected attempt when a description contains attempt history,
- * while a description with one top-level job still uses that whole job object.
+ * Each array item and history-shaped object field starts a separate context.
+ * This keeps metadata fallback inside the selected attempt when a description
+ * contains attempt history, while a description with one top-level job still
+ * uses that whole job object.
  */
 const findRecord = ({
   root,
@@ -274,8 +280,12 @@ const findRecord = ({
       return { record: node, context: enclosingContext }
     }
 
-    for (const nested of Object.values(node)) {
-      const found = visit({ node: nested, depth: depth + 1, context: enclosingContext })
+    for (const [key, nested] of Object.entries(node)) {
+      const nestedContext =
+        isAttemptHistoryKey(key) && typeof nested === 'object' && nested !== null
+          ? nested
+          : enclosingContext
+      const found = visit({ node: nested, depth: depth + 1, context: nestedContext })
       if (found !== null) return found
     }
     return null
