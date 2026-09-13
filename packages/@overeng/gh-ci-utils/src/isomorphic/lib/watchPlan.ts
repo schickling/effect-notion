@@ -62,22 +62,28 @@ export const diffJobs = ({
  * to finalize its job snapshot, or safe to finish the watch.
  *
  * GitHub can report the run as completed one poll before every job reaches a
- * terminal status, and can report a completed job before it fills
- * `completed_at`. Until both settle, the job set or a `durationSeconds` value
- * can still change.
+ * terminal status, and can report a completed, started job before it fills
+ * `completed_at`. Jobs that never started can permanently retain null
+ * timestamps, however, and skipped jobs are logless even if GitHub reports an
+ * odd start timestamp.
  */
 export type StatusPollState = 'active' | 'awaiting-job-finalization' | 'complete'
 
-/** Classify whether a status watch has a timestamp-finalized job snapshot. */
+/** Classify whether a status watch has a finalized job snapshot. */
 export const statusPollState = ({
   runStatus,
   jobs,
 }: {
   runStatus: string
-  jobs: ReadonlyArray<Pick<WorkflowJobVM, 'status' | 'completedAt'>>
+  jobs: ReadonlyArray<Pick<WorkflowJobVM, 'status' | 'conclusion' | 'startedAt' | 'completedAt'>>
 }): StatusPollState => {
   if (runStatus !== 'completed') return 'active'
-  return jobs.some((job) => job.status !== 'completed' || job.completedAt == null)
+  return jobs.some(
+    (job) =>
+      job.status !== 'completed' ||
+      (job.completedAt == null &&
+        (job.conclusion == null || (job.conclusion !== 'skipped' && job.startedAt != null))),
+  )
     ? 'awaiting-job-finalization'
     : 'complete'
 }

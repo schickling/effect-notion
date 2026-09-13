@@ -171,11 +171,13 @@ describe('status --output json job contract (#927)', () => {
     expect(vm.failedStepName).toBe('Build flake outputs')
   })
 
-  it('maps runner name, duration and job url', () => {
+  it('maps runner name, job timestamps, duration and job url', () => {
     const vm = toJobVM({ job: rawJob, runHtmlUrl: RUN.htmlUrl, includeSteps: false })
 
     expect(vm.runner).toBe('linuxbuildera')
     expect(vm.durationSeconds).toBe(300)
+    expect(vm.startedAt).toBe('2026-07-27T10:00:00.000Z')
+    expect(encodeJson(WorkflowJobViewModel, vm)).toContain('"startedAt":"2026-07-27T10:00:00.000Z"')
     expect(vm.completedAt).toBe('2026-07-27T10:05:00.000Z')
     expect(vm.jobUrl).toBe(`${RUN.htmlUrl}/job/${rawJob.id}`)
   })

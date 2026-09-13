@@ -23,6 +23,8 @@ export const CiJobUpdate = Schema.TaggedStruct('JobUpdate', {
   status: Schema.String,
   conclusion: Schema.NullOr(Schema.String),
   durationSeconds: Schema.Finite,
+  /** ISO start timestamp; null when the job never started. */
+  startedAt: Schema.optional(Schema.NullOr(Schema.String)),
   /** Abbreviated runner label, as shown in the TUI. */
   runner: Schema.String,
   /** Raw `runner_name` from GitHub — `null` when no runner was assigned. */
@@ -137,6 +139,7 @@ const jobUpdateFactsChanged = ({
     previous.name !== current.name ||
     previous.status !== current.status ||
     previous.conclusion !== current.conclusion ||
+    previous.startedAt !== current.startedAt ||
     completedDurationChanged ||
     previous.runner !== current.runner ||
     previous.runnerName !== current.runnerName ||
@@ -201,6 +204,7 @@ export const fromCiAction = ({
         status: job.status,
         conclusion: job.conclusion,
         durationSeconds: job.durationSeconds,
+        ...(job.startedAt === undefined ? {} : { startedAt: job.startedAt }),
         runner: job.runner,
         runnerName: job.runnerName,
         runnerKind: job.runnerKind,

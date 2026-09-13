@@ -45,18 +45,49 @@ describe('diffJobs', () => {
 })
 
 describe('statusPollState', () => {
-  it('waits for completed job timestamps before finalizing a completed run', () => {
-    const jobs = [{ status: 'completed', completedAt: null }]
+  it('waits for a started terminal job timestamp before finalizing a completed run', () => {
+    const jobs = [
+      {
+        status: 'completed',
+        conclusion: 'success',
+        startedAt: '2026-09-13T10:00:00.000Z',
+        completedAt: null,
+      },
+    ]
 
     expect(statusPollState({ runStatus: 'in_progress', jobs })).toBe('active')
     expect(statusPollState({ runStatus: 'completed', jobs })).toBe('awaiting-job-finalization')
     expect(
       statusPollState({
         runStatus: 'completed',
-        jobs: [{ status: 'completed', completedAt: '2026-09-13T10:00:05.000Z' }],
+        jobs: [
+          {
+            status: 'completed',
+            conclusion: null,
+            startedAt: '2026-09-13T10:00:00.000Z',
+            completedAt: '2026-09-13T10:00:05.000Z',
+          },
+        ],
       }),
     ).toBe('complete')
   })
+
+  it.each([
+    { conclusion: 'skipped', startedAt: '2026-09-13T10:00:00.000Z' },
+    { conclusion: 'startup_failure', startedAt: null },
+    { conclusion: 'failure', startedAt: null },
+    { conclusion: 'failure', startedAt: undefined },
+  ])(
+    'finalizes a terminal $conclusion job that cannot gain a completion timestamp',
+    ({ conclusion, startedAt }) => {
+      expect(
+        statusPollState({
+          runStatus: 'completed',
+          jobs: [{ status: 'completed', conclusion, startedAt, completedAt: null }],
+        }),
+      ).toBe('complete')
+    },
+  )
 
   it.each(['queued', 'in_progress'])(
     'waits when a completed run still has a stale %s job',
@@ -64,7 +95,7 @@ describe('statusPollState', () => {
       expect(
         statusPollState({
           runStatus: 'completed',
-          jobs: [{ status, completedAt: null }],
+          jobs: [{ status, conclusion: null, startedAt: null, completedAt: null }],
         }),
       ).toBe('awaiting-job-finalization')
     },

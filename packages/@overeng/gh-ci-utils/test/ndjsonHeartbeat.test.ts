@@ -259,6 +259,7 @@ describe('ndjson watch liveness', () => {
       status: 'completed',
       conclusion: 'success',
       durationSeconds: 101,
+      startedAt: '2026-01-15T11:00:00.000Z',
       completedAt: null,
     }
     const provisionalAction = {
@@ -297,6 +298,7 @@ describe('ndjson watch liveness', () => {
         status: 'completed',
         conclusion: 'success',
         durationSeconds: 101,
+        startedAt: '2026-01-15T11:00:00.000Z',
         runner: 'nsc:x',
         runnerName: 'nsc-runner-x1y2z3w4v5',
         runnerKind: 'namespace',
@@ -311,6 +313,7 @@ describe('ndjson watch liveness', () => {
         status: 'completed',
         conclusion: 'success',
         durationSeconds: 100,
+        startedAt: '2026-01-15T11:00:00.000Z',
         runner: 'nsc:x',
         runnerName: 'nsc-runner-x1y2z3w4v5',
         runnerKind: 'namespace',
@@ -348,6 +351,41 @@ describe('ndjson watch liveness', () => {
         runnerHostMap: [],
         prHealth: null,
         summary: { overallStatus: 'passing', critical: [], warnings: [] },
+      },
+      prevState: prev,
+    })
+
+    expect(events.map((event) => event._tag)).toEqual(['JobUpdate', 'RunComplete'])
+  })
+
+  it.each([
+    { conclusion: 'skipped', startedAt: '2026-01-15T11:00:00.000Z' },
+    { conclusion: 'startup_failure', startedAt: null },
+  ])('emits RunComplete for a terminal logless $conclusion job', ({ conclusion, startedAt }) => {
+    const prev = loadedState('in_progress')
+    const events = fromCiAction({
+      action: {
+        _tag: 'SetLoaded',
+        watch: true,
+        run: { ...prev.run, status: 'completed', conclusion },
+        jobs: [
+          {
+            ...prev.jobs[0]!,
+            status: 'completed',
+            conclusion,
+            startedAt,
+            completedAt: null,
+          },
+        ],
+        errors: [],
+        annotations: [],
+        runnerHostMap: [],
+        prHealth: null,
+        summary: {
+          overallStatus: conclusion === 'skipped' ? 'skipped' : 'failing',
+          critical: [],
+          warnings: [],
+        },
       },
       prevState: prev,
     })
@@ -456,7 +494,15 @@ describe('ndjson watch liveness', () => {
       action: {
         _tag: 'SetLoaded',
         run: prev.run,
-        jobs: [{ ...lint, status: 'completed', conclusion: 'success', steps }],
+        jobs: [
+          {
+            ...lint,
+            status: 'completed',
+            conclusion: 'success',
+            startedAt: '2026-01-15T10:58:20.000Z',
+            steps,
+          },
+        ],
         errors: [],
         annotations: [],
         runnerHostMap: [],
@@ -474,6 +520,7 @@ describe('ndjson watch liveness', () => {
       status: 'completed',
       conclusion: 'success',
       durationSeconds: 100,
+      startedAt: '2026-01-15T10:58:20.000Z',
       runner: 'nsc:x',
       runnerName: 'nsc-runner-x1y2z3w4v5',
       runnerKind: 'namespace',
