@@ -11,6 +11,11 @@ export interface LogsViewProps {
   readonly stateAtom: Atom.Atom<LogsState>
 }
 
+/** Display a sole retained job/step verdict without replacing the workflow verdict used for exit. */
+export const logsHeaderConclusion = (
+  state: Extract<LogsState, { readonly _tag: 'Loaded' }>,
+): string => (state.sections?.length === 1 ? state.sections[0]!.conclusion : state.conclusion)
+
 /** TUI view rendering paginated log output */
 export const LogsView = ({ stateAtom }: LogsViewProps) => {
   const state = useTuiAtomValue(stateAtom) as LogsState
@@ -53,8 +58,9 @@ export const LogsView = ({ stateAtom }: LogsViewProps) => {
     )
   }
 
+  const headerConclusion = logsHeaderConclusion(state)
   const conclusionColor =
-    state.conclusion === 'failure' ? 'red' : state.conclusion === 'success' ? 'green' : 'gray'
+    headerConclusion === 'failure' ? 'red' : headerConclusion === 'success' ? 'green' : 'gray'
 
   const baseOffset = state.truncation?.offset ?? 0
   const keyedLines = state.lines.map((content, ord) => ({
@@ -66,7 +72,7 @@ export const LogsView = ({ stateAtom }: LogsViewProps) => {
     <Box flexDirection="column">
       <Box flexDirection="row">
         <Text bold>{state.jobName}</Text>
-        <Text color={conclusionColor}> ({state.conclusion})</Text>
+        <Text color={conclusionColor}> ({headerConclusion})</Text>
       </Box>
       <Text> </Text>
       {state.notice === null ? null : <Text color="gray">{state.notice}</Text>}

@@ -1,4 +1,4 @@
-import { Effect, Option } from 'effect'
+import { Clock, Duration, Effect, Option } from 'effect'
 /**
  * gh-ci-utils logs [target] [--job <name>] [--step <name>] [--failed] [--tail <n>]
  *
@@ -111,6 +111,43 @@ export const shouldRetryStepLogLookup = ({
   candidateJobIds: readonly number[]
   finalizedJobIds: ReadonlySet<number>
 }): boolean => watch && candidateJobIds.some((jobId) => !finalizedJobIds.has(jobId))
+
+/**
+ * Poll logs within one watch deadline. The deadline covers both every request and
+ * the sleep before the next request, and wins over a result that arrives at it.
+ */
+export const watchLogPolls = <TResult, TError, TRequirements>({
+  poll,
+  shouldStop,
+  timeoutSeconds,
+  pollInterval = LOG_POLL_INTERVAL,
+}: {
+  readonly poll: Effect.Effect<TResult, TError, TRequirements>
+  readonly shouldStop: (result: TResult) => boolean
+  readonly timeoutSeconds: number
+  readonly pollInterval?: Duration.Input
+}): Effect.Effect<Option.Option<TResult>, TError, TRequirements> =>
+  Effect.gen(function* () {
+    const startedAt = yield* Clock.currentTimeMillis
+    const timeoutMillis = Duration.toMillis(Duration.seconds(timeoutSeconds))
+    const pollIntervalMillis = Duration.toMillis(pollInterval)
+
+    while (true) {
+      const pollBudgetMillis = timeoutMillis - ((yield* Clock.currentTimeMillis) - startedAt)
+      if (pollBudgetMillis <= 0) return Option.none()
+
+      const result = yield* poll.pipe(Effect.timeoutOption(Duration.millis(pollBudgetMillis)))
+      if (Option.isNone(result)) return Option.none()
+
+      const completedAt = yield* Clock.currentTimeMillis
+      if (completedAt - startedAt >= timeoutMillis) return Option.none()
+      if (shouldStop(result.value)) return result
+
+      const sleepBudgetMillis = timeoutMillis - (completedAt - startedAt)
+      if (sleepBudgetMillis <= 0) return Option.none()
+      yield* Effect.sleep(Duration.millis(Math.min(pollIntervalMillis, sleepBudgetMillis)))
+    }
+  })
 
 interface StepLookupFailure {
   readonly _tag: string
@@ -741,41 +778,25 @@ export const logsCommand = Cli.Command.make('logs', {
               }
             })
 
-          let finalResult = yield* fetchAndDisplayLogs()
-
-          if (
-            watch &&
-            !terminalError &&
-            !finalResult.completed &&
-            !(
-              failFast &&
-              finalResult.hasUnsuccessfulConclusion &&
-              !finalResult.retryableLogsPending
-            )
-          ) {
-            const startTime = Date.now()
-            while (true) {
-              yield* Effect.sleep(LOG_POLL_INTERVAL)
-              finalResult = yield* fetchAndDisplayLogs()
-              if (
-                terminalError ||
-                finalResult.completed ||
-                (failFast &&
-                  finalResult.hasUnsuccessfulConclusion &&
-                  !finalResult.retryableLogsPending)
-              )
-                break
-              const elapsed = (Date.now() - startTime) / 1000
-              if (elapsed >= timeout) {
-                tui.dispatch({
-                  _tag: 'SetError',
-                  error: 'Timeout',
-                  message: `Watch timed out after ${Math.round(elapsed)}s. Run is still in progress.`,
-                })
-                return
-              }
-            }
+          const finalResultOption = watch
+            ? yield* watchLogPolls({
+                poll: fetchAndDisplayLogs(),
+                timeoutSeconds: timeout,
+                shouldStop: (result) =>
+                  terminalError ||
+                  result.completed ||
+                  (failFast && result.hasUnsuccessfulConclusion && !result.retryableLogsPending),
+              })
+            : Option.some(yield* fetchAndDisplayLogs())
+          if (Option.isNone(finalResultOption)) {
+            tui.dispatch({
+              _tag: 'SetError',
+              error: 'Timeout',
+              message: `Watch timed out after ${Math.round(timeout)}s. Run is still in progress.`,
+            })
+            return
           }
+          const finalResult = finalResultOption.value
 
           /** If watch completed but no logs were ever rendered, emit a final state. */
           if (

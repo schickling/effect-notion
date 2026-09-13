@@ -1,5 +1,7 @@
-import { Effect, Option } from 'effect'
-import { describe, expect, it } from 'vitest'
+import { it } from '@effect/vitest'
+import { Effect, Fiber, Option } from 'effect'
+import { TestClock } from 'effect/testing'
+import { describe, expect } from 'vitest'
 
 import { GitHubApiError, LogsUnavailableError } from '../src/isomorphic/Errors.ts'
 import type { WorkflowJob } from '../src/isomorphic/GitHubSchemas.ts'
@@ -16,6 +18,7 @@ import {
   collectLogText,
   isLogsWatchComplete,
   shouldRetryStepLogLookup,
+  watchLogPolls,
 } from '../src/node/commands/logs.ts'
 
 describe('extractErrorLines', () => {
@@ -320,6 +323,28 @@ describe('live and completed step log pagination', () => {
       truncation: null,
     })
   })
+})
+
+describe('logs watch deadline', () => {
+  it.effect('times out a short deadline without starting a poll that could report completion', () =>
+    Effect.gen(function* () {
+      let polls = 0
+      const watchFiber = yield* Effect.forkChild(
+        watchLogPolls({
+          timeoutSeconds: 1,
+          pollInterval: '10 seconds',
+          poll: Effect.sync(() => ({ completed: ++polls === 2 })),
+          shouldStop: ({ completed }) => completed,
+        }),
+      )
+
+      yield* TestClock.adjust('1 second')
+
+      const result = yield* Fiber.join(watchFiber)
+      expect(Option.isNone(result)).toBe(true)
+      expect(polls).toBe(1)
+    }),
+  )
 })
 
 describe('completed log retrieval', () => {

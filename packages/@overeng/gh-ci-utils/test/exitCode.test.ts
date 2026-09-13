@@ -11,6 +11,7 @@ import {
   createInitialLogsState,
   logsReducer,
 } from '../src/isomorphic/renderers/LogsOutput/schema.ts'
+import { logsHeaderConclusion } from '../src/isomorphic/renderers/LogsOutput/view.tsx'
 import { MutationApp } from '../src/isomorphic/renderers/MutationOutput/app.ts'
 import {
   logsVerdictConclusion,
@@ -127,7 +128,7 @@ describe('MutationApp exitCode', () => {
 
 describe('LogsApp exitCode', () => {
   it.each(['failure', 'cancelled'])(
-    'uses the %s run verdict while retaining a successful log section conclusion',
+    'renders a successful sole section while retaining the %s workflow verdict for exit status',
     (runConclusion) => {
       const verdictConclusion = logsVerdictConclusion({
         runConclusion,
@@ -151,6 +152,8 @@ describe('LogsApp exitCode', () => {
         conclusion: 'failure',
         sections: [{ jobName: 'build', conclusion: 'success' }],
       })
+      if (state._tag !== 'Loaded') throw new Error('Expected loaded logs state')
+      expect(logsHeaderConclusion(state)).toBe('success')
       expect(LogsApp.config.exitCode?.(state)).toBe(1)
     },
   )
