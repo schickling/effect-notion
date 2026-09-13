@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect'
-import { HttpClient, HttpClientResponse } from 'effect/unstable/http'
+import { HttpClient, type HttpClientRequest, HttpClientResponse } from 'effect/unstable/http'
 import { describe, expect, it } from 'vitest'
 
 import { GitHubInternal } from '../src/node/GitHubInternal.ts'
@@ -12,6 +12,33 @@ const session: SessionData = {
   user: 'example-user',
 }
 
+const scopedResponse = (
+  request: HttpClientRequest.HttpClientRequest,
+  body: string,
+  signal: AbortSignal,
+) =>
+  Effect.sync(() => {
+    const bytes = new TextEncoder().encode(body)
+    return HttpClientResponse.fromWeb(
+      request,
+      new Response(
+        new ReadableStream<Uint8Array>(
+          {
+            pull: (controller) => {
+              if (signal.aborted) {
+                controller.error(new Error('response body consumed after request scope closed'))
+                return
+              }
+              controller.enqueue(bytes)
+              controller.close()
+            },
+          },
+          { highWaterMark: 0 },
+        ),
+      ),
+    )
+  })
+
 describe('GitHubInternal.getCompletedStepLog', () => {
   it('fetches only the requested completed step and does not forward cookies to storage', async () => {
     const seen: { url: string; cookie: string | undefined }[] = []
@@ -20,16 +47,16 @@ describe('GitHubInternal.getCompletedStepLog', () => {
     const storageUrl = 'https://logs.example.invalid/completed-step.txt'
     const httpLayer = Layer.succeed(
       HttpClient.HttpClient,
-      HttpClient.make((request, url) => {
+      HttpClient.make((request, url, signal) => {
         seen.push({ url: url.toString(), cookie: request.headers['cookie'] })
-        return Effect.succeed(
-          HttpClientResponse.fromWeb(
-            request,
-            url.toString() === endpoint
-              ? new Response(null, { status: 302, headers: { location: storageUrl } })
-              : new Response('requested step only\n'),
-          ),
-        )
+        return url.toString() === endpoint
+          ? Effect.succeed(
+              HttpClientResponse.fromWeb(
+                request,
+                new Response(null, { status: 302, headers: { location: storageUrl } }),
+              ),
+            )
+          : scopedResponse(request, 'requested step only\n', signal)
       }),
     )
 
@@ -53,5 +80,55 @@ describe('GitHubInternal.getCompletedStepLog', () => {
       { url: endpoint, cookie: 'user_session=test-session' },
       { url: storageUrl, cookie: undefined },
     ])
+  })
+  it('consumes internal HTML and JSON bodies inside their acquisition scopes', async () => {
+    const httpLayer = Layer.succeed(
+      HttpClient.HttpClient,
+      HttpClient.make((request, url, signal) =>
+        scopedResponse(
+          request,
+          url.pathname.endsWith('/job/987')
+            ? '<div data-job-steps-url="/jobs/456/steps"></div>'
+            : JSON.stringify([
+                {
+                  id: 'step-1',
+                  name: 'Build',
+                  status: 'completed',
+                  conclusion: 'success',
+                  number: 1,
+                  started_at: '2026-09-13T10:00:00Z',
+                  completed_at: '2026-09-13T10:01:00Z',
+                  change_id: 1,
+                },
+              ]),
+          signal,
+        ),
+      ),
+    )
+
+    const result = await Effect.gen(function* () {
+      const internal = yield* GitHubInternal
+      const internalJobId = yield* internal.resolveInternalJobId({
+        owner: 'example-org',
+        repo: 'example-repo',
+        runId: 123,
+        restJobId: 987,
+        session,
+      })
+      const steps = yield* internal.getSteps({
+        owner: 'example-org',
+        repo: 'example-repo',
+        runId: 123,
+        internalJobId,
+        session,
+      })
+      return { internalJobId, steps }
+    }).pipe(
+      Effect.provide(GitHubInternal.Default.pipe(Layer.provide(httpLayer))),
+      Effect.runPromise,
+    )
+
+    expect(result.internalJobId).toBe(456)
+    expect(result.steps).toMatchObject([{ id: 'step-1', name: 'Build' }])
   })
 })

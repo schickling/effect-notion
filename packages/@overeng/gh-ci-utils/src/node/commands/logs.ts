@@ -49,6 +49,11 @@ export interface CollectedJobLog {
   readonly truncation: { totalLines: number; offset: number; pageSize: number } | null
 }
 
+/** A collected job log plus whether a watch may retry its retrieval. */
+export type CollectedJobLogResult = CollectedJobLog & {
+  readonly availability: 'retrieved' | 'retryable' | 'terminal'
+}
+
 /** A watch must retain an unsuccessful verdict while rendering a live step. */
 export const liveStepWatchConclusion = ({
   stepStatus,
@@ -81,6 +86,32 @@ export const shouldFinalizeWatchWithNoLogs = ({
   displayedJobCount: number
   renderedLiveStepOutput: boolean
 }): boolean => watch && displayedJobCount === 0 && !renderedLiveStepOutput
+
+/** A terminal run still needs every selected job timestamp-finalized and successfully retrieved. */
+export const isLogsWatchComplete = ({
+  runCompleted,
+  jobs,
+  displayedJobIds,
+}: {
+  runCompleted: boolean
+  jobs: readonly WorkflowJob[]
+  displayedJobIds: ReadonlySet<number>
+}): boolean =>
+  runCompleted &&
+  jobs.every(
+    (job) => job.status === 'completed' && job.completed_at !== null && displayedJobIds.has(job.id),
+  )
+
+/** Keep a selected-step watch alive while candidate jobs have not produced a completed step log. */
+export const shouldRetryStepLogLookup = ({
+  watch,
+  candidateJobCount,
+  displayedJobCount,
+}: {
+  watch: boolean
+  candidateJobCount: number
+  displayedJobCount: number
+}): boolean => watch && candidateJobCount > 0 && displayedJobCount === 0
 
 /** Structured nonzero result when `--step` cannot access GitHub's internal log API. */
 export const missingStepSessionAuthError = {
@@ -137,25 +168,27 @@ export const collectLogText = ({
   }
 }
 
-const collectJobLog = ({
+/** Collect one job log while distinguishing publication lag from terminal failures. */
+export const collectJobLog = ({
   github,
   repo,
   job,
   filters,
 }: {
-  github: GitHubClientShape
+  github: Pick<GitHubClientShape, 'getJobLogs'>
   repo: string
   job: WorkflowJob
   filters: LogFilterOptions
-}): Effect.Effect<CollectedJobLog, never, never> =>
+}): Effect.Effect<CollectedJobLogResult, never, never> =>
   Effect.gen(function* () {
-    if (job.status !== 'completed') {
+    if (job.status !== 'completed' || job.completed_at === null) {
       return {
         jobName: job.name,
         conclusion: job.status,
         lines: ['Logs not yet available.'],
         notice: null,
         truncation: null,
+        availability: 'retryable',
       }
     }
 
@@ -171,15 +204,19 @@ const collectJobLog = ({
         ],
         notice: null,
         truncation: null,
+        availability: logResult.failure._tag === 'LogsUnavailableError' ? 'retryable' : 'terminal',
       }
     }
 
-    return collectLogText({
-      logText: logResult.success,
-      jobName: job.name,
-      conclusion: job.conclusion ?? job.status,
-      filters,
-    })
+    return {
+      ...collectLogText({
+        logText: logResult.success,
+        jobName: job.name,
+        conclusion: job.conclusion ?? job.status,
+        filters,
+      }),
+      availability: 'retrieved',
+    }
   })
 
 /** CLI subcommand to fetch and display workflow run logs */
@@ -296,7 +333,7 @@ export const logsCommand = Cli.Command.make('logs', {
             Effect.gen(function* () {
               const run = yield* github.getWorkflowRun({ repo: resolvedRepo, runId })
               const { jobs } = yield* github.listWorkflowJobs({ repo: resolvedRepo, runId })
-              const completed = run.status === 'completed'
+              const runCompleted = run.status === 'completed'
               const verdictConclusion = logsVerdictConclusion({
                 runConclusion: run.conclusion,
                 jobConclusions: jobs.map((job) => job.conclusion),
@@ -326,7 +363,12 @@ export const logsCommand = Cli.Command.make('logs', {
                 if (Option.isNone(sessionResult)) {
                   terminalError = true
                   tui.dispatch(missingStepSessionAuthError)
-                  return { completed, hasUnsuccessfulConclusion, verdictConclusion }
+                  return {
+                    completed: runCompleted,
+                    hasUnsuccessfulConclusion,
+                    retryableLogsPending: false,
+                    verdictConclusion,
+                  }
                 }
 
                 if (Option.isSome(sessionResult)) {
@@ -411,7 +453,17 @@ export const logsCommand = Cli.Command.make('logs', {
                       conclusion: verdictConclusion,
                     })
                   }
-                  return { completed, hasUnsuccessfulConclusion, verdictConclusion }
+                  const retryableLogsPending = shouldRetryStepLogLookup({
+                    watch,
+                    candidateJobCount: filteredJobs.length,
+                    displayedJobCount: displayedJobIds.size,
+                  })
+                  return {
+                    completed: runCompleted && !retryableLogsPending,
+                    hasUnsuccessfulConclusion,
+                    retryableLogsPending,
+                    verdictConclusion,
+                  }
                 }
               }
 
@@ -423,12 +475,19 @@ export const logsCommand = Cli.Command.make('logs', {
                     : `No jobs matching filter in run ${runId}.`,
                   conclusion: verdictConclusion,
                 })
-                return { completed, hasUnsuccessfulConclusion, verdictConclusion }
+                return {
+                  completed: runCompleted,
+                  hasUnsuccessfulConclusion,
+                  retryableLogsPending: false,
+                  verdictConclusion,
+                }
               }
 
               /** Tier 1: REST API full job logs */
               /** Only collect logs for completed jobs (in-progress have no logs yet) */
-              const completedJobs = filteredJobs.filter((j) => j.status === 'completed')
+              const completedJobs = filteredJobs.filter(
+                (job) => job.status === 'completed' && job.completed_at !== null,
+              )
 
               /** In watch mode, only show newly completed jobs */
               const newJobs = watch
@@ -441,7 +500,12 @@ export const logsCommand = Cli.Command.make('logs', {
                   message: 'No completed jobs with logs yet.',
                   conclusion: verdictConclusion,
                 })
-                return { completed, hasUnsuccessfulConclusion, verdictConclusion }
+                return {
+                  completed: runCompleted,
+                  hasUnsuccessfulConclusion,
+                  retryableLogsPending: false,
+                  verdictConclusion,
+                }
               }
 
               /** Collect all job logs, then dispatch once to avoid per-job state overwrites */
@@ -455,9 +519,27 @@ export const logsCommand = Cli.Command.make('logs', {
                   job: j,
                   filters: logFilters,
                 })
+                if (r.availability === 'terminal') {
+                  terminalError = true
+                  tui.dispatch({
+                    _tag: 'SetError',
+                    error: 'Log retrieval failed',
+                    message: r.lines.join('\n'),
+                  })
+                  break
+                }
                 allLines.push(`── ${r.jobName} (${r.conclusion}) ──`, ...r.lines, '')
                 if (r.notice !== null) notices.add(r.notice)
-                displayedJobIds.add(j.id)
+                if (r.availability === 'retrieved') displayedJobIds.add(j.id)
+              }
+
+              if (terminalError) {
+                return {
+                  completed: false,
+                  hasUnsuccessfulConclusion,
+                  retryableLogsPending: false,
+                  verdictConclusion,
+                }
               }
 
               if (allLines.length > 0) {
@@ -471,7 +553,22 @@ export const logsCommand = Cli.Command.make('logs', {
                 })
               }
 
-              return { completed, hasUnsuccessfulConclusion, verdictConclusion }
+              const retryableLogsPending = filteredJobs.some(
+                (job) =>
+                  !displayedJobIds.has(job.id) && (runCompleted || job.status === 'completed'),
+              )
+              return {
+                completed: watch
+                  ? isLogsWatchComplete({
+                      runCompleted,
+                      jobs: filteredJobs,
+                      displayedJobIds,
+                    })
+                  : runCompleted,
+                hasUnsuccessfulConclusion,
+                retryableLogsPending,
+                verdictConclusion,
+              }
             })
 
           let finalResult = yield* fetchAndDisplayLogs()
@@ -480,7 +577,11 @@ export const logsCommand = Cli.Command.make('logs', {
             watch &&
             !terminalError &&
             !finalResult.completed &&
-            !(failFast && finalResult.hasUnsuccessfulConclusion)
+            !(
+              failFast &&
+              finalResult.hasUnsuccessfulConclusion &&
+              !finalResult.retryableLogsPending
+            )
           ) {
             const startTime = Date.now()
             while (true) {
@@ -489,7 +590,9 @@ export const logsCommand = Cli.Command.make('logs', {
               if (
                 terminalError ||
                 finalResult.completed ||
-                (failFast && finalResult.hasUnsuccessfulConclusion)
+                (failFast &&
+                  finalResult.hasUnsuccessfulConclusion &&
+                  !finalResult.retryableLogsPending)
               )
                 break
               const elapsed = (Date.now() - startTime) / 1000

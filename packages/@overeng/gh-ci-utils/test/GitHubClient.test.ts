@@ -2,12 +2,13 @@ import { generateKeyPairSync } from 'node:crypto'
 import path from 'node:path'
 
 import { NodeServices } from '@effect/platform-node'
-import { Effect, FileSystem, Layer, Stream } from 'effect'
+import { Effect, FileSystem, Layer, Sink, Stream } from 'effect'
 import { HttpClient, HttpClientResponse } from 'effect/unstable/http'
 import { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
+import * as ProcessSpawner from 'effect/unstable/process/ChildProcessSpawner'
 import { describe, expect, it } from 'vitest'
 
-import { GitHubAuthConfigTag, resolveConfig } from '../src/node/Config.ts'
+import { GitHubAuthConfigTag, detectCurrentBranch, resolveConfig } from '../src/node/Config.ts'
 import {
   GitHubClient,
   type GitHubClientShape,
@@ -48,9 +49,11 @@ interface RecordedRequest {
 const runWithSyntheticAppClient = async <TValue, TError>({
   responseFor,
   program,
+  scopeResponseBodies = false,
 }: {
   responseFor: (url: URL) => Response
   program: (client: GitHubClientShape) => Effect.Effect<TValue, TError>
+  scopeResponseBodies?: boolean
 }) => {
   const requests: RecordedRequest[] = []
   const forbiddenProcess = Effect.die('App-auth request must not spawn a child process')
@@ -64,8 +67,8 @@ const runWithSyntheticAppClient = async <TValue, TError>({
   })
   const httpLayer = Layer.succeed(
     HttpClient.HttpClient,
-    HttpClient.make((request, url) =>
-      Effect.sync(() => {
+    HttpClient.make((request, url, signal) =>
+      Effect.gen(function* () {
         requests.push({
           method: request.method,
           url: url.toString(),
@@ -80,7 +83,28 @@ const runWithSyntheticAppClient = async <TValue, TError>({
                 { status: 201 },
               )
             : responseFor(url)
-        return HttpClientResponse.fromWeb(request, response)
+        if (!scopeResponseBodies || response.body === null) {
+          return HttpClientResponse.fromWeb(request, response)
+        }
+
+        const body = new Uint8Array(yield* Effect.promise(() => response.arrayBuffer()))
+        const scopedBody = new ReadableStream<Uint8Array>(
+          {
+            pull: (controller) => {
+              if (signal.aborted) {
+                controller.error(new Error('response body consumed after request scope closed'))
+                return
+              }
+              controller.enqueue(body)
+              controller.close()
+            },
+          },
+          { highWaterMark: 0 },
+        )
+        return HttpClientResponse.fromWeb(
+          request,
+          new Response(scopedBody, { status: response.status, headers: response.headers }),
+        )
       }),
     ),
   )
@@ -201,6 +225,94 @@ describe('GitHubClient paginated workflow selection', () => {
     })
   })
 
+  it('consumes GET and POST JSON bodies before their HTTP request scopes close', async () => {
+    const workflow = { id: 42, name: 'CI', path: '.github/workflows/ci.yml' }
+    const { result } = await runWithSyntheticAppClient({
+      scopeResponseBodies: true,
+      responseFor: (url) => {
+        if (url.pathname === '/repos/example-org/example-repo/actions/workflows') {
+          return new Response(JSON.stringify({ total_count: 1, workflows: [workflow] }))
+        }
+        if (url.pathname === '/graphql') {
+          return new Response(
+            JSON.stringify({
+              data: {
+                repository: {
+                  pullRequest: {
+                    mergeable: 'MERGEABLE',
+                    baseRefName: 'main',
+                    baseRef: { compare: { behindBy: 0 } },
+                  },
+                },
+              },
+            }),
+          )
+        }
+        return new Response(
+          JSON.stringify({
+            workflow_run_id: 70000000042,
+            run_url:
+              'https://api.github.com/repos/example-org/example-repo/actions/runs/70000000042',
+            html_url: 'https://github.com/example-org/example-repo/actions/runs/70000000042',
+          }),
+        )
+      },
+      program: (client) =>
+        Effect.gen(function* () {
+          const dispatch = yield* client.dispatchWorkflow({
+            repo: 'example-org/example-repo',
+            workflow: 'ci.yml',
+            ref: 'feature/scoped-response',
+          })
+          const health = yield* client.getPrHealth({
+            repo: 'example-org/example-repo',
+            prNumber: 42,
+            headRef: 'feature/scoped-response',
+          })
+          return { dispatch, health }
+        }),
+    })
+
+    expect(result.dispatch.workflow_run_id).toBe(70000000042)
+    expect(result.health).toEqual({
+      prNumber: 42,
+      mergeable: 'MERGEABLE',
+      baseRefName: 'main',
+      behindBy: 0,
+    })
+  })
+
+  it('finds an older active branch run beyond a page of completed runs', async () => {
+    const completedPage = Array.from({ length: 100 }, (_, index) =>
+      syntheticRun({ id: index + 1, path: '.github/workflows/ci.yml' }),
+    )
+    const activeRun = {
+      ...syntheticRun({ id: 101, path: '.github/workflows/ci.yml' }),
+      status: 'in_progress',
+      conclusion: null,
+    }
+    const { requests, result } = await runWithSyntheticAppClient({
+      responseFor: (url) =>
+        new Response(
+          JSON.stringify({
+            total_count: 101,
+            workflow_runs: url.searchParams.get('page') === '1' ? completedPage : [activeRun],
+          }),
+        ),
+      program: (client) =>
+        client.getLatestActiveRunForBranch({
+          repo: 'example-org/example-repo',
+          branch: 'feature/synthetic-dispatch',
+        }),
+    })
+
+    expect(result?.id).toBe(activeRun.id)
+    expect(requests.slice(1).map((request) => request.url)).toEqual([
+      'https://api.github.com/repos/example-org/example-repo/actions/runs?branch=feature%2Fsynthetic-dispatch&per_page=100&page=1',
+      'https://api.github.com/repos/example-org/example-repo/actions/runs?branch=feature%2Fsynthetic-dispatch&per_page=100&page=2',
+    ])
+  })
+
   it('finds an exact explicit workflow match beyond the first branch-run page', async () => {
     const pageOne = Array.from({ length: 100 }, (_, index) =>
       syntheticRun({
@@ -310,6 +422,75 @@ describe('GitHubClient mutations and annotations', () => {
       'https://api.github.com/repos/example-org/example-repo/check-runs/80000000123/annotations?per_page=100&page=1',
       'https://api.github.com/repos/example-org/example-repo/check-runs/80000000123/annotations?per_page=100&page=2',
     ])
+  })
+})
+
+const branchSpawnerLayer = ({
+  stdout,
+  stderr,
+  exitCode,
+}: {
+  stdout: string
+  stderr: string
+  exitCode: number
+}) =>
+  Layer.succeed(
+    ChildProcessSpawner,
+    ProcessSpawner.make(() =>
+      Effect.succeed(
+        ProcessSpawner.makeHandle({
+          pid: ProcessSpawner.ProcessId(123),
+          exitCode: Effect.succeed(ProcessSpawner.ExitCode(exitCode)),
+          isRunning: Effect.succeed(false),
+          kill: () => Effect.void,
+          stdin: Sink.drain,
+          stdout: Stream.make(new TextEncoder().encode(stdout)),
+          stderr: Stream.make(new TextEncoder().encode(stderr)),
+          all: Stream.empty,
+          getInputFd: () => Sink.drain,
+          getOutputFd: () => Stream.empty,
+          unref: Effect.succeed(Effect.void),
+        }),
+      ),
+    ),
+  )
+
+describe('detectCurrentBranch', () => {
+  it('rejects stdout from a failed git process', async () => {
+    const result = await detectCurrentBranch.pipe(
+      Effect.provide(
+        branchSpawnerLayer({
+          stdout: 'main\n',
+          stderr: 'fatal: not a git repository\n',
+          exitCode: 128,
+        }),
+      ),
+      Effect.result,
+      Effect.runPromise,
+    )
+
+    expect(result._tag).toBe('Failure')
+    if (result._tag !== 'Failure') return
+    expect(result.failure).toMatchObject({
+      _tag: 'ConfigError',
+      message: 'Failed to detect current git branch',
+    })
+  })
+
+  it('rejects empty branch output from a successful git process', async () => {
+    const result = await detectCurrentBranch.pipe(
+      Effect.provide(branchSpawnerLayer({ stdout: '\n', stderr: '', exitCode: 0 })),
+      Effect.result,
+      Effect.runPromise,
+    )
+
+    expect(result._tag).toBe('Failure')
+    if (result._tag !== 'Failure') return
+    expect(result.failure).toMatchObject({
+      _tag: 'ConfigError',
+      message: 'Failed to detect current git branch',
+      cause: 'git returned empty branch output',
+    })
   })
 })
 

@@ -189,7 +189,7 @@ export const createGitHubAppJwt = ({
 
 /** Service wrapping the GitHub REST API with rate-limit tracking */
 const makeGitHubClient = Effect.gen(function* () {
-  const httpClient = yield* HttpClient.HttpClient
+  const httpClient = (yield* HttpClient.HttpClient).pipe(HttpClient.withScope)
   const spawner = yield* ChildProcessSpawner
   const auth = yield* GitHubAuthConfigTag
   const installationTokenRef = yield* Ref.make<Map<string, InstallationTokenInfo>>(new Map())
@@ -309,7 +309,6 @@ const makeGitHubClient = Effect.gen(function* () {
                 cause,
               }),
           ),
-          Effect.scoped,
         )
 
       if (response.status < 200 || response.status >= 300) {
@@ -352,7 +351,7 @@ const makeGitHubClient = Effect.gen(function* () {
       })
 
       return token.token
-    })
+    }).pipe(Effect.scoped)
 
   /**
    * Resolve the credential every read and write goes through.
@@ -497,7 +496,6 @@ const makeGitHubClient = Effect.gen(function* () {
                 cause,
               }),
           ),
-          Effect.scoped,
         )
 
       yield* Ref.update(requestCountRef, (n) => n + 1)
@@ -550,10 +548,20 @@ const makeGitHubClient = Effect.gen(function* () {
             }),
         ),
       )
-    })
+    }).pipe(Effect.scoped)
 
-  /** Execute an authenticated POST request and retain the response for optional decoding. */
-  const apiPostResponse = ({ repo, path, body }: { repo: string; path: string; body?: unknown }) =>
+  /** Execute an authenticated POST and consume any response body before its scope closes. */
+  const apiPostResponse = ({
+    repo,
+    path,
+    body,
+    readJson,
+  }: {
+    repo: string
+    path: string
+    body?: unknown
+    readJson: boolean
+  }) =>
     Effect.gen(function* () {
       yield* awaitBudget('rest')
       const token = yield* getTokenForRepo(repo)
@@ -575,7 +583,6 @@ const makeGitHubClient = Effect.gen(function* () {
               cause,
             }),
         ),
-        Effect.scoped,
       )
 
       yield* Ref.update(requestCountRef, (n) => n + 1)
@@ -588,12 +595,22 @@ const makeGitHubClient = Effect.gen(function* () {
           cause: `HTTP ${response.status}`,
         })
       }
-      return response
-    })
+
+      if (!readJson) return undefined
+      return yield* response.json.pipe(
+        Effect.mapError(
+          (cause) =>
+            new GitHubApiError({
+              message: `Failed to parse JSON from: POST ${path}`,
+              cause,
+            }),
+        ),
+      )
+    }).pipe(Effect.scoped)
 
   /** Make an authenticated POST request for a GitHub mutation with no response payload. */
   const apiPost = (options: { repo: string; path: string; body?: unknown }) =>
-    apiPostResponse(options).pipe(Effect.asVoid)
+    apiPostResponse({ ...options, readJson: false }).pipe(Effect.asVoid)
 
   /** Make an authenticated POST request and decode its JSON response. */
   const apiPostJson = <TValue, TEncoded>({
@@ -608,16 +625,7 @@ const makeGitHubClient = Effect.gen(function* () {
     schema: Schema.Codec<TValue, TEncoded>
   }) =>
     Effect.gen(function* () {
-      const response = yield* apiPostResponse({ repo, path, body })
-      const json = yield* response.json.pipe(
-        Effect.mapError(
-          (cause) =>
-            new GitHubApiError({
-              message: `Failed to parse JSON from: POST ${path}`,
-              cause,
-            }),
-        ),
-      )
+      const json = yield* apiPostResponse({ repo, path, body, readJson: true })
       return yield* Schema.decodeUnknownEffect(schema)(json).pipe(
         Effect.mapError(
           (cause) =>
@@ -662,34 +670,40 @@ const makeGitHubClient = Effect.gen(function* () {
                 cause,
               }),
           ),
-          Effect.scoped,
         )
 
       yield* Ref.update(requestCountRef, (n) => n + 1)
       yield* trackRateLimit({ headers: response.headers, bucket: 'rest' })
 
-      if (response.status >= 400) {
+      if (response.status === 404) {
         return yield* new LogsUnavailableError({
-          message: `GitHub API returned ${response.status}: GET ${path}`,
+          message: `GitHub API returned 404: GET ${path}`,
           jobId: 0,
+        })
+      }
+      if (response.status >= 400) {
+        const responseBody = yield* response.text.pipe(Effect.orElseSucceed(() => ''))
+        return yield* new GitHubApiError({
+          message: `GitHub API returned ${response.status}: GET ${path}${responseBody ? ` — ${responseBody}` : ''}`,
+          cause: `HTTP ${response.status}`,
         })
       }
 
       if (response.status >= 300) {
         const location = response.headers['location']
         if (location === undefined) {
-          return yield* new LogsUnavailableError({
+          return yield* new GitHubApiError({
             message: `GitHub API returned ${response.status} without a location header: GET ${path}`,
-            jobId: 0,
+            cause: `HTTP ${response.status}`,
           })
         }
 
         /** The header may be relative, so resolve it against the request it answered. */
         const storageUrl = URL.parse(location, requestUrl)
         if (storageUrl === null) {
-          return yield* new LogsUnavailableError({
+          return yield* new GitHubApiError({
             message: `GitHub API returned ${response.status} with an unusable location header '${location}': GET ${path}`,
-            jobId: 0,
+            cause: 'invalid redirect',
           })
         }
 
@@ -701,7 +715,6 @@ const makeGitHubClient = Effect.gen(function* () {
                 cause,
               }),
           ),
-          Effect.scoped,
         )
 
         /**
@@ -709,16 +722,22 @@ const makeGitHubClient = Effect.gen(function* () {
          * first `Location` are never replayed to a third host we did not vet.
          */
         if (stored.status >= 300 && stored.status < 400) {
-          return yield* new LogsUnavailableError({
+          return yield* new GitHubApiError({
             message: `Log storage chained another redirect (${stored.status} -> ${stored.headers['location'] ?? 'no location header'}): GET ${path}`,
-            jobId: 0,
+            cause: `HTTP ${stored.status}`,
           })
         }
 
-        if (stored.status >= 400) {
+        if (stored.status === 404) {
           return yield* new LogsUnavailableError({
-            message: `Log storage returned ${stored.status}: GET ${path}`,
+            message: `Log storage returned 404: GET ${path}`,
             jobId: 0,
+          })
+        }
+        if (stored.status >= 400) {
+          return yield* new GitHubApiError({
+            message: `Log storage returned ${stored.status}: GET ${path}`,
+            cause: `HTTP ${stored.status}`,
           })
         }
 
@@ -742,7 +761,7 @@ const makeGitHubClient = Effect.gen(function* () {
             }),
         ),
       )
-    })
+    }).pipe(Effect.scoped)
 
   /** List active (queued + in_progress) workflow runs for a repo. */
   const listActiveRuns = (repo: string) =>
@@ -873,9 +892,9 @@ const makeGitHubClient = Effect.gen(function* () {
   /**
    * List enough branch runs to preserve exact `--workflow` matching.
    *
-   * The unqualified path keeps the small first page used for the default preference.
-   * An explicit workflow scans later pages until its newest eligible run is found,
-   * while retaining the newest eligible run as the existing unmatched fallback.
+   * Ordinary selection keeps the small first page used for the default preference.
+   * Active selection and explicit workflow selection scan later pages until the
+   * newest eligible run is found, while retaining the newest eligible fallback.
    */
   const listRunsForBranchSelection = ({
     repo,
@@ -892,7 +911,7 @@ const makeGitHubClient = Effect.gen(function* () {
   }) =>
     Effect.gen(function* () {
       const eventQuery = event === undefined ? '' : `&event=${event}`
-      if (preferWorkflow === undefined) {
+      if (preferWorkflow === undefined && !activeOnly) {
         const response = yield* apiGet({
           repo,
           path: `/repos/${repo}/actions/runs?branch=${encodeURIComponent(branch)}${eventQuery}&per_page=25`,
@@ -914,9 +933,12 @@ const makeGitHubClient = Effect.gen(function* () {
           : response.workflow_runs
         fallbackRun ??= eligibleRuns[0]
 
-        const match = eligibleRuns.find((run) =>
-          workflowPathMatches({ candidatePath: run.path, workflow: preferWorkflow }),
-        )
+        const match =
+          preferWorkflow === undefined
+            ? eligibleRuns[0]
+            : eligibleRuns.find((run) =>
+                workflowPathMatches({ candidatePath: run.path, workflow: preferWorkflow }),
+              )
         if (match !== undefined) {
           return fallbackRun === undefined || fallbackRun.id === match.id
             ? [match]
@@ -1127,7 +1149,6 @@ const makeGitHubClient = Effect.gen(function* () {
           Effect.mapError(
             (cause) => new GitHubApiError({ message: 'GitHub GraphQL request failed', cause }),
           ),
-          Effect.scoped,
         )
 
       yield* Ref.update(requestCountRef, (n) => n + 1)
@@ -1155,7 +1176,7 @@ const makeGitHubClient = Effect.gen(function* () {
             new GitHubApiError({ message: 'GraphQL response schema decode failed', cause }),
         ),
       )
-    })
+    }).pipe(Effect.scoped)
 
   const PR_HEALTH_QUERY = `
       query($owner: String!, $repo: String!, $number: Int!, $headRef: String!) {

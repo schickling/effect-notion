@@ -50,52 +50,65 @@ export const BackscrollResponse = Schema.Struct({
 })
 
 const makeGitHubInternal = Effect.gen(function* () {
-  const httpClient = yield* HttpClient.HttpClient
+  const httpClient = (yield* HttpClient.HttpClient).pipe(HttpClient.withScope)
 
-  /** Make an authenticated request to github.com with session cookies. */
-  const internalGet = ({ path, session }: { path: string; session: SessionData }) =>
-    httpClient
-      .execute(
-        HttpClientRequest.get(`${GITHUB_BASE}${path}`).pipe(
-          HttpClientRequest.setHeaders({
-            Accept: 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            Cookie: buildCookieHeader(session),
-          }),
-        ),
-      )
-      .pipe(
+  /** Execute and decode an authenticated JSON request before its response scope closes. */
+  const internalGetJson = ({ path, session }: { path: string; session: SessionData }) =>
+    Effect.gen(function* () {
+      const response = yield* httpClient
+        .execute(
+          HttpClientRequest.get(`${GITHUB_BASE}${path}`).pipe(
+            HttpClientRequest.setHeaders({
+              Accept: 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+              Cookie: buildCookieHeader(session),
+            }),
+          ),
+        )
+        .pipe(
+          Effect.mapError(
+            (cause) =>
+              new GitHubApiError({
+                message: `Internal API request failed: GET ${path}`,
+                cause,
+              }),
+          ),
+        )
+      return yield* response.json.pipe(
         Effect.mapError(
           (cause) =>
-            new GitHubApiError({
-              message: `Internal API request failed: GET ${path}`,
-              cause,
-            }),
+            new GitHubApiError({ message: 'Failed to parse internal API response', cause }),
         ),
-        Effect.scoped,
       )
+    }).pipe(Effect.scoped)
 
-  /** Make an HTML request to github.com with session cookies. */
+  /** Execute and consume an authenticated HTML request before its response scope closes. */
   const internalGetHtml = ({ path, session }: { path: string; session: SessionData }) =>
-    httpClient
-      .execute(
-        HttpClientRequest.get(`${GITHUB_BASE}${path}`).pipe(
-          HttpClientRequest.setHeaders({
-            Accept: 'text/html',
-            Cookie: buildCookieHeader(session),
-          }),
-        ),
-      )
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new GitHubApiError({
-              message: `Internal HTML request failed: GET ${path}`,
-              cause,
+    Effect.gen(function* () {
+      const response = yield* httpClient
+        .execute(
+          HttpClientRequest.get(`${GITHUB_BASE}${path}`).pipe(
+            HttpClientRequest.setHeaders({
+              Accept: 'text/html',
+              Cookie: buildCookieHeader(session),
             }),
+          ),
+        )
+        .pipe(
+          Effect.mapError(
+            (cause) =>
+              new GitHubApiError({
+                message: `Internal HTML request failed: GET ${path}`,
+                cause,
+              }),
+          ),
+        )
+      return yield* response.text.pipe(
+        Effect.mapError(
+          (cause) => new GitHubApiError({ message: 'Failed to read job page HTML', cause }),
         ),
-        Effect.scoped,
       )
+    }).pipe(Effect.scoped)
 
   /**
    * Extract the internal job ID from the job page HTML.
@@ -115,15 +128,10 @@ const makeGitHubInternal = Effect.gen(function* () {
     session: SessionData
   }) =>
     Effect.gen(function* () {
-      const response = yield* internalGetHtml({
+      const html = yield* internalGetHtml({
         path: `/${owner}/${repo}/actions/runs/${runId}/job/${restJobId}`,
         session,
       })
-      const html = yield* response.text.pipe(
-        Effect.mapError(
-          (cause) => new GitHubApiError({ message: 'Failed to read job page HTML', cause }),
-        ),
-      )
 
       const match = /\/jobs\/(\d+)\/steps/.exec(html)
       if (!match?.[1]) {
@@ -158,15 +166,10 @@ const makeGitHubInternal = Effect.gen(function* () {
     changeId?: number
   }) =>
     Effect.gen(function* () {
-      const response = yield* internalGet({
+      const json = yield* internalGetJson({
         path: `/${owner}/${repo}/actions/runs/${runId}/jobs/${internalJobId}/steps?change_id=${changeId}`,
         session,
       })
-      const json = yield* response.json.pipe(
-        Effect.mapError(
-          (cause) => new GitHubApiError({ message: 'Failed to parse steps response', cause }),
-        ),
-      )
       return yield* Schema.decodeUnknownEffect(Schema.Array(InternalStep))(json).pipe(
         Effect.mapError(
           (cause) => new GitHubApiError({ message: 'Failed to decode steps', cause }),
@@ -212,12 +215,13 @@ const makeGitHubInternal = Effect.gen(function* () {
         }),
       )
 
-      const response = yield* httpClient.execute(request).pipe(
-        Effect.mapError(
-          (cause) => new GitHubApiError({ message: 'Backscroll request failed', cause }),
-        ),
-        Effect.scoped,
-      )
+      const response = yield* httpClient
+        .execute(request)
+        .pipe(
+          Effect.mapError(
+            (cause) => new GitHubApiError({ message: 'Backscroll request failed', cause }),
+          ),
+        )
 
       if (response.status === 304) {
         return { lines: [], etag, unchanged: true } as const
@@ -238,6 +242,7 @@ const makeGitHubInternal = Effect.gen(function* () {
 
       return { lines: data.lines ?? [], etag: newEtag, unchanged: false } as const
     }).pipe(
+      Effect.scoped,
       withGitHubSpan({
         name: 'github-internal.getBackscroll',
         attributes: { owner, repo, runId, internalJobId, stepUuid },
@@ -280,7 +285,6 @@ const makeGitHubInternal = Effect.gen(function* () {
                 cause,
               }),
           ),
-          Effect.scoped,
         )
 
       if (response.status >= 400) {
@@ -315,7 +319,6 @@ const makeGitHubInternal = Effect.gen(function* () {
                       cause,
                     }),
                 ),
-                Effect.scoped,
               )
             })
           : response
@@ -337,6 +340,7 @@ const makeGitHubInternal = Effect.gen(function* () {
         ),
       )
     }).pipe(
+      Effect.scoped,
       withGitHubSpan({
         name: 'github-internal.getCompletedStepLog',
         attributes: { owner, repo, restJobId, stepNumber },

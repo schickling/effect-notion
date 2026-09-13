@@ -35,11 +35,11 @@ export const fetchRunnerHostJobs = (
   host: string,
 ): Effect.Effect<RunnerHostJobsResult, never, HttpClient.HttpClient> =>
   Effect.gen(function* () {
-    const httpClient = yield* HttpClient.HttpClient
+    const httpClient = (yield* HttpClient.HttpClient).pipe(HttpClient.withScope)
 
-    const response = yield* httpClient
-      .execute(HttpClientRequest.get(`http://${host}:${RUNNER_SCALER_PORT}/jobs`))
-      .pipe(Effect.scoped)
+    const response = yield* httpClient.execute(
+      HttpClientRequest.get(`http://${host}:${RUNNER_SCALER_PORT}/jobs`),
+    )
 
     const json = yield* response.json
     const jobs = yield* decodeActiveJobsResponse(json)
@@ -50,6 +50,7 @@ export const fetchRunnerHostJobs = (
       jobs,
     }
   }).pipe(
+    Effect.scoped,
     Effect.timeout(Duration.seconds(3)),
     Effect.orElseSucceed(() => ({ host, status: 'unreachable' as const, jobs: [] })),
   )

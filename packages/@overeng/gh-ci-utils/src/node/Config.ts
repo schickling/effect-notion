@@ -1,7 +1,7 @@
 import os from 'node:os'
 import path from 'node:path'
 
-import { Context, Effect, FileSystem, Schema } from 'effect'
+import { Context, Effect, FileSystem, Schema, Stream } from 'effect'
 /**
  * Configuration service — auto-detects the repo and reads optional runner hosts from config.
  */
@@ -12,7 +12,26 @@ import { ConfigError } from '../isomorphic/Errors.ts'
 
 const commandString = ({ command, args }: { command: string; args: ReadonlyArray<string> }) =>
   // oxlint-disable-next-line react-hooks/rules-of-hooks -- Effect service accessor, not a React hook.
-  ChildProcessSpawner.use((spawner) => spawner.string(ChildProcess.make(command, args)))
+  ChildProcessSpawner.use((spawner) =>
+    Effect.gen(function* () {
+      const handle = yield* spawner.spawn(ChildProcess.make(command, args))
+      const [stdout, stderr, exitCode] = yield* Effect.all(
+        [
+          Stream.mkString(Stream.decodeText(handle.stdout)),
+          Stream.mkString(Stream.decodeText(handle.stderr)),
+          handle.exitCode,
+        ],
+        { concurrency: 3 },
+      )
+      if (exitCode !== 0) {
+        return yield* new ConfigError({
+          message: `${command} exited with code ${exitCode}`,
+          cause: stderr.trim().length > 0 ? stderr.trim() : `exit code ${exitCode}`,
+        })
+      }
+      return stdout
+    }).pipe(Effect.scoped),
+  )
 
 const GitHubCliAuthConfig = Schema.TaggedStruct('gh-cli', {})
 export type GitHubCliAuthConfig = typeof GitHubCliAuthConfig.Type
@@ -130,6 +149,13 @@ export const detectCurrentBranch = Effect.gen(function* () {
     return yield* new ConfigError({
       message: 'Detached HEAD — specify a target explicitly',
       cause: 'detached HEAD',
+    })
+  }
+
+  if (branch.length === 0) {
+    return yield* new ConfigError({
+      message: 'Failed to detect current git branch',
+      cause: 'git returned empty branch output',
     })
   }
 

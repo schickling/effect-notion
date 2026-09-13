@@ -1,13 +1,20 @@
-import { Option } from 'effect'
+import { Effect, Option } from 'effect'
 import { describe, expect, it } from 'vitest'
 
+import { GitHubApiError, LogsUnavailableError } from '../src/isomorphic/Errors.ts'
+import type { WorkflowJob } from '../src/isomorphic/GitHubSchemas.ts'
 import {
   extractErrorLines,
   grepLines,
   selectLogLines,
   shouldIncludeFailedLog,
 } from '../src/isomorphic/lib/logFilter.ts'
-import { collectLogText } from '../src/node/commands/logs.ts'
+import {
+  collectJobLog,
+  collectLogText,
+  isLogsWatchComplete,
+  shouldRetryStepLogLookup,
+} from '../src/node/commands/logs.ts'
 
 describe('extractErrorLines', () => {
   it('extracts ##[error] lines', () => {
@@ -310,6 +317,151 @@ describe('live and completed step log pagination', () => {
       notice: null,
       truncation: null,
     })
+  })
+})
+
+describe('completed log retrieval', () => {
+  const completedJob = {
+    id: 80000000002,
+    run_id: 70000000001,
+    name: 'build',
+    status: 'completed',
+    conclusion: 'success',
+    started_at: new Date('2026-09-13T10:00:00Z'),
+    completed_at: new Date('2026-09-13T10:05:00Z'),
+    runner_name: 'runner-a',
+    labels: ['self-hosted'],
+    steps: [],
+  } satisfies WorkflowJob
+  const filters = {
+    tail: 100,
+    offset: 0,
+    errorOnly: false,
+    grep: Option.none<string>(),
+    full: false,
+  }
+
+  it('waits for the completed timestamp before requesting logs', async () => {
+    let requests = 0
+    const job = { ...completedJob, completed_at: null }
+    const result = await collectJobLog({
+      github: {
+        getJobLogs: () =>
+          Effect.sync(() => {
+            requests++
+            return 'real logs'
+          }),
+      },
+      repo: 'example-org/example-repo',
+      job,
+      filters,
+    }).pipe(Effect.runPromise)
+
+    expect(result.availability).toBe('retryable')
+    expect(requests).toBe(0)
+    expect(
+      isLogsWatchComplete({
+        runCompleted: true,
+        jobs: [job],
+        displayedJobIds: new Set(),
+      }),
+    ).toBe(false)
+  })
+
+  it('retries unavailable completed logs and only completes after real retrieval', async () => {
+    let requests = 0
+    const github = {
+      getJobLogs: () =>
+        Effect.suspend(() => {
+          requests++
+          return requests === 1
+            ? Effect.fail(
+                new LogsUnavailableError({
+                  message: 'GitHub returned an empty log body for this job',
+                  jobId: completedJob.id,
+                }),
+              )
+            : Effect.succeed('real logs')
+        }),
+    }
+    const displayedJobIds = new Set<number>()
+
+    const unavailable = await collectJobLog({
+      github,
+      repo: 'example-org/example-repo',
+      job: completedJob,
+      filters,
+    }).pipe(Effect.runPromise)
+    if (unavailable.availability === 'retrieved') displayedJobIds.add(completedJob.id)
+
+    expect(unavailable).toMatchObject({
+      availability: 'retryable',
+      lines: ['Logs not available: GitHub returned an empty log body for this job'],
+    })
+    expect(isLogsWatchComplete({ runCompleted: true, jobs: [completedJob], displayedJobIds })).toBe(
+      false,
+    )
+
+    const retrieved = await collectJobLog({
+      github,
+      repo: 'example-org/example-repo',
+      job: completedJob,
+      filters,
+    }).pipe(Effect.runPromise)
+    if (retrieved.availability === 'retrieved') displayedJobIds.add(completedJob.id)
+
+    expect(retrieved).toMatchObject({ availability: 'retrieved', lines: ['real logs'] })
+    expect(isLogsWatchComplete({ runCompleted: true, jobs: [completedJob], displayedJobIds })).toBe(
+      true,
+    )
+    expect(requests).toBe(2)
+  })
+
+  it('classifies authorization failures as terminal instead of retryable', async () => {
+    const result = await collectJobLog({
+      github: {
+        getJobLogs: () =>
+          Effect.fail(
+            new GitHubApiError({
+              message: 'GitHub API returned 403: GET job logs — forbidden',
+              cause: 'HTTP 403',
+            }),
+          ),
+      },
+      repo: 'example-org/example-repo',
+      job: completedJob,
+      filters,
+    }).pipe(Effect.runPromise)
+
+    expect(result).toMatchObject({
+      availability: 'terminal',
+      lines: ['Failed to fetch logs: GitHub API returned 403: GET job logs — forbidden'],
+    })
+  })
+})
+
+describe('selected-step watch retry', () => {
+  it.each(['failed internal job-id resolution', 'step not visible yet'])(
+    'keeps watching after %s',
+    () => {
+      expect(
+        shouldRetryStepLogLookup({
+          watch: true,
+          candidateJobCount: 1,
+          displayedJobCount: 0,
+        }),
+      ).toBe(true)
+    },
+  )
+
+  it('stops retrying after a completed selected step was displayed', () => {
+    expect(
+      shouldRetryStepLogLookup({
+        watch: true,
+        candidateJobCount: 1,
+        displayedJobCount: 1,
+      }),
+    ).toBe(false)
   })
 })
 
