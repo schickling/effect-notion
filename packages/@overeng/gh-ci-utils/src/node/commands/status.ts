@@ -26,6 +26,7 @@ import {
   RateLimitWaitPolicy,
   diffJobs,
   nextPollSeconds,
+  statusPollState,
 } from '../../isomorphic/lib/watchPlan.ts'
 import {
   CiApp,
@@ -276,7 +277,7 @@ const fetchSingleRunData = ({
       annotations,
       runnerHostMap,
       prHealth,
-      completed: run.status === 'completed',
+      pollState: statusPollState({ runStatus: run.status, jobs: jobVMs }),
       hasFailed: failedJobs.length > 0,
       pending: jobs.filter((j) => j.status !== 'completed').length,
       /** Job movement, not fetch work: a cold tick observes everything but moved nothing. */
@@ -373,6 +374,7 @@ export const statusCommand = Cli.Command.make('status', {
               })
               tui.dispatch({
                 _tag: 'SetLoaded',
+                watch,
                 run: data.run,
                 jobs: data.jobs,
                 errors: data.errors,
@@ -432,11 +434,11 @@ export const statusCommand = Cli.Command.make('status', {
             const data = tickResult.value
             cache = data.nextCache
 
-            if (data.completed) {
+            if (data.pollState === 'complete') {
               yield* dispatchMeta()
               return
             }
-            if (failFast && data.hasFailed) {
+            if (failFast && data.hasFailed && data.pollState === 'active') {
               yield* dispatchMeta()
               tui.dispatch({
                 _tag: 'WatchTerminated',

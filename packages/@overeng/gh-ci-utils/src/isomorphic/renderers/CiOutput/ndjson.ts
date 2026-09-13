@@ -13,6 +13,7 @@ import {
   SummaryOverallStatus,
   type WorkflowJobVM,
 } from '../../lib/viewModels.ts'
+import { statusPollState } from '../../lib/watchPlan.ts'
 import type { CiAction, CiState } from './schema.ts'
 
 /** Event emitted per job status change */
@@ -238,18 +239,23 @@ export const fromCiAction = ({
     }
   }
 
-  if (action.run.status === 'completed') {
-    const wasCompleted = prevState._tag === 'Loaded' && prevState.run.status === 'completed'
-    if (!wasCompleted) {
-      events.push({
-        _tag: 'RunComplete',
-        conclusion: action.run.conclusion,
-        overallStatus: action.summary.overallStatus,
-        totalJobs: action.jobs.length,
-        failed: action.jobs.filter((j) => isBlockingConclusion(j.conclusion)).length,
-        passed: action.jobs.filter((j) => j.conclusion === 'success').length,
-      })
-    }
+  const shouldEmitRunComplete =
+    action.run.status === 'completed' &&
+    (action.watch === true
+      ? statusPollState({ runStatus: action.run.status, jobs: action.jobs }) === 'complete' &&
+        (prevState._tag !== 'Loaded' ||
+          statusPollState({ runStatus: prevState.run.status, jobs: prevState.jobs }) !== 'complete')
+      : !(prevState._tag === 'Loaded' && prevState.run.status === 'completed'))
+
+  if (shouldEmitRunComplete) {
+    events.push({
+      _tag: 'RunComplete',
+      conclusion: action.run.conclusion,
+      overallStatus: action.summary.overallStatus,
+      totalJobs: action.jobs.length,
+      failed: action.jobs.filter((j) => isBlockingConclusion(j.conclusion)).length,
+      passed: action.jobs.filter((j) => j.conclusion === 'success').length,
+    })
   }
 
   return events

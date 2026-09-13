@@ -93,6 +93,8 @@ export type CiState = typeof CiStateSchema.Type
 /** Actions dispatched to update the CI state */
 export const CiActionSchema = Schema.Union([
   Schema.TaggedStruct('SetLoaded', {
+    /** True when this update belongs to a watch that can poll through finalization. */
+    watch: Schema.optional(Schema.Boolean),
     run: RunInfoSchema,
     jobs: Schema.Array(WorkflowJobViewModel),
     errors: Schema.Array(JobErrorSchema),

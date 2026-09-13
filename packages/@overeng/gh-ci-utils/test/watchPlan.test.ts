@@ -6,6 +6,7 @@ import {
   budgetOutcome,
   diffJobs,
   nextPollSeconds,
+  statusPollState,
 } from '../src/isomorphic/lib/watchPlan.ts'
 
 const job = (id: number, status: string, conclusion: string | null = null): JobFingerprint => ({
@@ -41,6 +42,33 @@ describe('diffJobs', () => {
     expect([...movedIds]).toEqual([1, 2, 4])
     expect(changedCount).toBe(2)
   })
+})
+
+describe('statusPollState', () => {
+  it('waits for completed job timestamps before finalizing a completed run', () => {
+    const jobs = [{ status: 'completed', completedAt: null }]
+
+    expect(statusPollState({ runStatus: 'in_progress', jobs })).toBe('active')
+    expect(statusPollState({ runStatus: 'completed', jobs })).toBe('awaiting-job-finalization')
+    expect(
+      statusPollState({
+        runStatus: 'completed',
+        jobs: [{ status: 'completed', completedAt: '2026-09-13T10:00:05.000Z' }],
+      }),
+    ).toBe('complete')
+  })
+
+  it.each(['queued', 'in_progress'])(
+    'waits when a completed run still has a stale %s job',
+    (status) => {
+      expect(
+        statusPollState({
+          runStatus: 'completed',
+          jobs: [{ status, completedAt: null }],
+        }),
+      ).toBe('awaiting-job-finalization')
+    },
+  )
 })
 
 describe('nextPollSeconds', () => {

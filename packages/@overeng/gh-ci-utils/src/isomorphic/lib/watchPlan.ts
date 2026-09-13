@@ -13,6 +13,8 @@
 
 import { Context } from 'effect'
 
+import type { WorkflowJobVM } from './viewModels.ts'
+
 /** Minimal per-job identity that determines whether derived data is still valid. */
 export interface JobFingerprint {
   readonly id: number
@@ -54,6 +56,30 @@ export const diffJobs = ({
     }
   }
   return { movedIds, changedCount }
+}
+/**
+ * Whether a status poll is still observing an active run, waiting for GitHub
+ * to finalize its job snapshot, or safe to finish the watch.
+ *
+ * GitHub can report the run as completed one poll before every job reaches a
+ * terminal status, and can report a completed job before it fills
+ * `completed_at`. Until both settle, the job set or a `durationSeconds` value
+ * can still change.
+ */
+export type StatusPollState = 'active' | 'awaiting-job-finalization' | 'complete'
+
+/** Classify whether a status watch has a timestamp-finalized job snapshot. */
+export const statusPollState = ({
+  runStatus,
+  jobs,
+}: {
+  runStatus: string
+  jobs: ReadonlyArray<Pick<WorkflowJobVM, 'status' | 'completedAt'>>
+}): StatusPollState => {
+  if (runStatus !== 'completed') return 'active'
+  return jobs.some((job) => job.status !== 'completed' || job.completedAt == null)
+    ? 'awaiting-job-finalization'
+    : 'complete'
 }
 
 /**
