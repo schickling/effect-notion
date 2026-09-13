@@ -225,6 +225,56 @@ describe('parseJobDescribe', () => {
     }
   })
 
+  it('inherits enclosing metadata for an array attempt without sibling leakage', () => {
+    const previous = {
+      job_name: 'previous build',
+      workflow_name: 'Previous CI',
+      repository: 'previous-org/previous-repo',
+      runner: {
+        instance_id: 'previous-instance',
+        instance_status: 'DESTROYED',
+        runner_name: 'nsc-runner-previous-instance',
+      },
+    }
+    const current = {
+      job: { workflow_name: 'Current CI' },
+      runner: {
+        instance_id: INSTANCE,
+        instance_status: 'RUNNING',
+        runner_name: `nsc-runner-${INSTANCE}`,
+      },
+    }
+
+    for (const attempts of [
+      [previous, current],
+      [current, previous],
+    ]) {
+      expect(
+        parseDescribe(
+          JSON.stringify({
+            job_name: 'parent build',
+            workflow_name: 'Parent CI',
+            repository: 'parent-org/parent-repo',
+            attempts,
+          }),
+        ),
+      ).toEqual({
+        _tag: 'parsed',
+        job: {
+          instanceId: INSTANCE,
+          instanceStatus: 'running',
+          instanceStatusRaw: 'RUNNING',
+          runnerName: `nsc-runner-${INSTANCE}`,
+          containerName: null,
+          repository: 'parent-org/parent-repo',
+          workflow: 'Current CI',
+          jobName: 'parent build',
+          destroyedAt: null,
+        },
+      })
+    }
+  })
+
   it('reads generic status only from the record that owns the instance id', () => {
     const parsed = parseDescribe(
       JSON.stringify({

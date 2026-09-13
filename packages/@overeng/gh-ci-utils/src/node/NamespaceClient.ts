@@ -242,10 +242,10 @@ interface RecordSelection {
  * Find the object that directly owns a matching identity field.
  *
  * Each array item and singular history field starts a separate context. An
- * entry in an object-valued attempt collection additionally inherits the
- * enclosing job record, whose history fields are excluded by `findString`.
- * Keeping those scopes separate lets selected-attempt metadata win without
- * allowing metadata from a sibling attempt to leak into the result.
+ * entry in an attempt collection additionally inherits the enclosing job
+ * record, whose history fields are excluded by `findString`. Keeping those
+ * scopes separate lets selected-attempt metadata win without allowing metadata
+ * from a sibling attempt to leak into the result.
  */
 const findRecord = ({
   root,
@@ -290,12 +290,7 @@ const findRecord = ({
     }
 
     for (const [key, nested] of Object.entries(node)) {
-      if (
-        isAttemptCollectionKey(key) &&
-        typeof nested === 'object' &&
-        nested !== null &&
-        Array.isArray(nested) === false
-      ) {
+      if (isAttemptCollectionKey(key) && typeof nested === 'object' && nested !== null) {
         for (const attempt of Object.values(nested)) {
           if (typeof attempt !== 'object' || attempt === null) continue
           const found = visit({
