@@ -70,16 +70,6 @@ export const parseRunnerIdentity = ({
   return { _tag: 'other', instance: name }
 }
 
-/** Abbreviate a runner hostname for compact display. */
-export const abbreviateRunner = (name: string | null): string => {
-  if (!name) return '—'
-  const nscMatch = /^nsc-runner-(.{6})/.exec(name)
-  if (nscMatch) return `nsc:${nscMatch[1]}`
-  const selfHostedMatch = /^(.+)-[a-f0-9]{8}$/.exec(name)
-  if (selfHostedMatch) return selfHostedMatch[1]!
-  return name
-}
-
 /** Compact display string for a parsed runner identity. */
 export const formatRunnerIdentity = (identity: RunnerIdentity): string => {
   switch (identity._tag) {

@@ -144,8 +144,10 @@ describe('runner host join', () => {
     )
   })
 
-  it('does not join on the abbreviated label', () => {
-    expect(resolveRunnerDisplay({ job, entries: [['runnera', 'wrong.example']] })).toBe('runnera')
+  it('joins on a normalized runner name', () => {
+    expect(resolveRunnerDisplay({ job, entries: [['runnera', 'runner-a.example']] })).toBe(
+      'runner-a.example',
+    )
   })
 
   it('falls back to the display label when the runner is unknown', () => {
